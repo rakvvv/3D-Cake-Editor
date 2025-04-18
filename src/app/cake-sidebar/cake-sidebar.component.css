@@ -1,0 +1,19 @@
+.sidebar {
+    width: 200px;
+    background: #eee;
+    padding: 10px;
+    box-sizing: border-box;
+    height: 100vh;
+  }
+  
+  .option-group {
+    margin-bottom: 10px;
+  }
+  
+  button {
+    width: 100%;
+    margin: 5px 0;
+    padding: 8px;
+    font-size: 14px;
+  }
+  

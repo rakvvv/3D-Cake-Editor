@@ -1,1 +1,29 @@
-<p>cake-sidebar works!</p>
+<div class="sidebar">
+    <h3>Opcje dekoracji</h3>
+    <button (click)="onAddDecoration('Numer_1')">Dodaj model Numer 1</button>
+    <button (click)="onAddDecoration('custom')">Dodaj niestandardowy</button>
+    <hr>
+    <button (click)="onSaveScene()">Zapisz scenę</button>
+    <button (click)="onAttachSelectedToCake()">Przyklej do tortu</button>
+    <hr>
+    <h3>Opcje tortu</h3>
+    <div class="option-group">
+      <label>Rozmiar tortu: {{ cakeSize }}</label>
+      <input type="range" min="1" max="2" step="0.1" [(ngModel)]="cakeSize" (change)="updateCakeOptions()">
+    </div>
+    <div class="option-group">
+      <label>Kolor tortu:</label>
+      <input type="color" [(ngModel)]="cakeColor" (change)="updateCakeOptions()">
+    </div>
+    <div class="option-group">
+      <label>
+        <input type="checkbox" [(ngModel)]="cakeText" (change)="updateCakeOptions()">
+        Włącz napis
+      </label>
+    </div>
+    <div class="option-group">
+      <label>Tekst napisu:</label>
+      <input type="text" [(ngModel)]="cakeTextValue" (change)="updateCakeOptions()" [disabled]="!cakeText">
+    </div>
+  </div>
+  

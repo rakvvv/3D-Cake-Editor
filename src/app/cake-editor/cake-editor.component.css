@@ -1,0 +1,10 @@
+.editor-container {
+    display: flex;
+    height: 100vh;
+  }
+  
+  .canvas-container {
+    flex-grow: 1;
+    background: #fff;
+  }
+  

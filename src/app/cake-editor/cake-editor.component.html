@@ -1,1 +1,8 @@
-<div #canvasContainer style="width: 100%; height: 100vh;"></div>
+<div class="editor-container">
+    <app-cake-sidebar
+      (addDecorationEvent)="onAddDecoration($event)"
+      (cakeOptionsChange)="updateCakeOptions($event)"
+     (attachSelectedToCake)="onAttachSelectedToCake()">
+    </app-cake-sidebar>
+    <div #canvasContainer class="canvas-container"></div>
+  </div>
