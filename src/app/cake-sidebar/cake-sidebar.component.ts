@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter } from '@angular/core';
+import {Component, Output, EventEmitter, output} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {CakeOptions} from '../models/cake.options';
@@ -11,10 +11,10 @@ import {CakeOptions} from '../models/cake.options';
   styleUrls: ['./cake-sidebar.component.css']
 })
 export class CakeSidebarComponent {
-  @Output() addDecorationEvent = new EventEmitter<string>();
-  @Output() saveSceneEvent = new EventEmitter<void>();
-  @Output() attachSelectedToCake = new EventEmitter<void>();
-  @Output() cakeOptionsChange = new EventEmitter<CakeOptions>();
+  addDecorationEvent = output<string>();
+  saveSceneEvent = output<void>(); // Nadal istnieje, choć nieużywane w edytorze?
+  attachSelectedToCake = output<void>();
+  cakeOptionsChange = output<CakeOptions>();
 
 
   // Opcje tortu

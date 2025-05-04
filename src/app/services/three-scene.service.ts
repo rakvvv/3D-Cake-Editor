@@ -8,6 +8,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { FontLoader, Font } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { TransformControlsService } from './transform-controls-service';
+import {Object3D, Object3DEventMap} from 'three';
 
 
 export interface CakeOptions {
@@ -32,12 +33,17 @@ export class ThreeSceneService {
   private options!: CakeOptions;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
+  private boxHelper: THREE.BoxHelper | null = null;
+  private decorationsInfo: Map<string, { modelFileName: string, type: 'SIDE' | 'TOP' }> = new Map(); // Przykładowe dane z API
 
   constructor(
     private http: HttpClient,
     private transformControlsService: TransformControlsService,
     @Inject(PLATFORM_ID) private platformId: Object
-    ) {}
+    ) {
+    // TODO: Załaduj dane dekoracji z API np. w konstruktorze lub metodzie init
+    this.loadDecorationsData();
+  }
 
   public init(container: HTMLElement, options: CakeOptions): void {
     if (!isPlatformBrowser(this.platformId)) {
@@ -89,7 +95,7 @@ export class ThreeSceneService {
     // Zastosuj opcje
     this.updateCakeOptions(this.options);
 
-    container.addEventListener('mousedown', (event) => this.onClickDown(event));
+    container.addEventListener('mousedown', (event) => this.onClickDown(event), false); // false dla bubble phase
 
     this.animate();
 
@@ -197,33 +203,66 @@ export class ThreeSceneService {
     return this.http.post('/api/saveScene', data);
   }
 
-  public async addDecorationFromModel(type: string, options: CakeOptions): Promise<void> {
+  public async addDecorationFromModel(identifier: string /* np. 'Numer_1.glb' lub ID */, options: CakeOptions): Promise<void> {
     if (!isPlatformBrowser(this.platformId)) {
       return;
     }
-    console.log('addDecorationFromModel wywołana dla typu:', type);
-    let modelUrl = '';
-    if (type === 'Numer_1') {
-      modelUrl = '/models/Numer_1.glb';
-    } else if (type === 'custom') {
-      modelUrl = '/models/custom.glb';
+
+    // Użyj 'let', aby umożliwić późniejsze przypisanie
+    let decoInfo = this.decorationsInfo.get(identifier); // Pierwsza próba znalezienia po kluczu
+
+    if (!decoInfo) {
+      console.warn('Nie znaleziono informacji dla klucza:', identifier, ". Próba wyszukania wg nazwy pliku...");
+      // Druga próba: Spróbuj znaleźć na podstawie nazwy pliku w wartościach mapy
+      const possibleInfo = Array.from(this.decorationsInfo.values()).find(info => info.modelFileName === identifier);
+
+      if (possibleInfo) {
+        // Znaleziono! Przypisz znaleziony obiekt do decoInfo
+        console.log("Znaleziono informacje wg nazwy pliku:", possibleInfo);
+        decoInfo = possibleInfo; // <-- TUTAJ JEST POPRAWKA
+      } else {
+        // Nadal nie znaleziono po drugiej próbie
+        console.error('Nie można znaleźć dekoracji o identyfikatorze/nazwie pliku:', identifier);
+        return; // Zakończ, jeśli nie ma informacji
+      }
     }
-    if (!modelUrl) {
-      console.warn('Nieznany typ dekoracji:', type);
+
+    // W tym momencie, jeśli nie wyszliśmy z funkcji, decoInfo POWINIEN być prawidłowym obiektem
+    if (!decoInfo) {
+      // Dodatkowe zabezpieczenie, chociaż teoretycznie nie powinno tu dojść
+      console.error("Krytyczny błąd: decoInfo nadal jest niezdefiniowane po sprawdzeniu.");
       return;
     }
+
+    const modelUrl = `/models/${decoInfo.modelFileName}`; // Ścieżka do modelu
+    console.log(`Ładowanie dekoracji: ${identifier}, Typ: ${decoInfo.type}, URL: ${modelUrl}`);
+
     try {
       const decoration = await ThreeObjectsFactory.loadDecorationModel(modelUrl);
+
+      // Przypisz dane do userData używając poprawnego obiektu decoInfo
+      decoration.userData['decorationType'] = decoInfo.type; // Użyj notacji '.' jeśli to możliwe
+      decoration.userData['modelFileName'] = decoInfo.modelFileName;
+      decoration.userData['isSnapped'] = false; // Początkowo nie jest przyczepiona
+
       decoration.position.set(
-        (Math.random() - 0.5) * 10,
-        3 + Math.random() * 2,
-        (Math.random() - 0.5) * 10
+        (Math.random() - 0.5) * 5, // Bliżej tortu na start
+        this.cakeBase.position.y + (this.cakeBase.geometry as THREE.CylinderGeometry).parameters.height * this.cakeBase.scale.y + 2 + Math.random(), // Nad tortem
+        (Math.random() - 0.5) * 5
       );
+      // Dostosuj skalę, jeśli modele są zbyt duże/małe
+      // decoration.scale.set(0.5, 0.5, 0.5);
+
       this.scene.add(decoration);
-      this.objects.push(decoration);
+      this.objects.push(decoration); // Dodaj do listy obiektów klikalnych
       console.log('Dekoracja dodana:', decoration);
+
+      // Opcjonalnie: Automatycznie zaznacz nowo dodany obiekt
+      this.transformControlsService.attachObject(decoration);
+      this.showBoxHelperFor(decoration); // Pokaż BoxHelper od razu
+
     } catch (error) {
-      console.error('Błąd ładowania dekoracji:', error);
+      console.error(`Błąd ładowania dekoracji ${identifier}:`, error);
     }
   }
 
@@ -250,23 +289,143 @@ export class ThreeSceneService {
     } else {
       this.transformControlsService.deselectObject();
     }
+
+    if (intersects.length > 0) {
+      let selected = intersects[0].object;
+      console.log("Raycast intersected with:", selected.name || selected.type, selected);
+      while (selected.parent && selected.parent !== this.scene && selected.parent !== this.cakeBase) {
+        selected = selected.parent;
+      }
+      console.log("Selected top-level object:", selected.name || selected.type);
+
+      // --- Dodaj BoxHelper ---
+      if (this.boxHelper) this.scene.remove(this.boxHelper); // Usuń stary helper
+      this.boxHelper = new THREE.BoxHelper(selected, 0xff0000); // Czerwony kolor
+      this.scene.add(this.boxHelper);
+      console.log("Added BoxHelper for selected object.");
+      // --- Koniec BoxHelper ---
+
+      console.log("Attaching to TransformControls:", selected.name || selected.type);
+      this.transformControlsService.attachObject(selected);
+    } else {
+      // ... (kod dla braku przecięcia) ...
+      // Usuń helper, jeśli kliknięto w puste miejsce
+      if (this.boxHelper) {
+        this.scene.remove(this.boxHelper);
+        this.boxHelper = null;
+      }
+      this.transformControlsService.deselectObject();
+    }
   }
 
+  // public attachSelectedToCake(): void {
+  //   const selected = this.transformControlsService.getSelectedObject();
+  //   console.log("Wywołano attachSelectedToCake. Zaznaczony obiekt:", selected);
+  //   if (!selected) {
+  //     console.warn('Brak zaznaczonego obiektu!');
+  //     return;
+  //   }
+  //
+  //   if (selected.parent === this.cakeBase) {
+  //     console.log('Obiekt już jest przypięty do tortu.');
+  //     return;
+  //   }
+  //
+  //   this.cakeBase.attach(selected);
+  // }
+
+  private async loadDecorationsData(): Promise<void> {
+    // W rzeczywistej aplikacji zrób zapytanie HTTP GET /api/decorations
+    // Poniżej symulacja:
+    try {
+      // const decorationsFromApi = await this.http.get<any[]>('/api/decorations').toPromise();
+      const decorationsFromApi = [
+        { id: 1, name: "Cyfra 1", modelFileName: "Numer_1.glb", type: "TOP", thumbnailUrl: "..." },
+        { id: 2, name: "Ozdoba Boczna", modelFileName: "custom.glb", type: "SIDE", thumbnailUrl: "..." },
+      ];
+
+      decorationsFromApi.forEach(dec => {
+        // Używamy unikalnego identyfikatora (np. modelFileName lub ID z bazy) jako klucza
+        this.decorationsInfo.set(dec.modelFileName, { modelFileName: dec.modelFileName, type: dec.type as ('SIDE' | 'TOP') });
+      });
+      console.log("Dane dekoracji załadowane:", this.decorationsInfo);
+    } catch (error) {
+      console.error("Błąd ładowania danych dekoracji z API:", error);
+    }
+  }
+
+  private handleInteraction(clientX: number, clientY: number): void {
+    if (this.transformControlsService.isDragging()) {
+      return; // Nie rób nic jeśli już przeciągamy obiekt za pomocą gizmo
+    }
+
+    // Przelicz współrzędne ekranowe na scenę
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    // Intersekcje tylko z dekoracjami (nie z tortem bazowym)
+    const intersects = this.raycaster.intersectObjects(this.objects.filter(obj => obj !== this.cakeBase), true);
+
+    if (intersects.length > 0) {
+      let selected = intersects[0].object;
+      // Znajdź główny obiekt (Group), który dodaliśmy do sceny
+      while (selected.parent && selected.parent !== this.scene) {
+        selected = selected.parent;
+      }
+      console.log("Kliknięto obiekt:", selected.name || selected.type, selected.userData); // Dodaj log userData
+      if (selected !== this.cakeBase && this.objects.includes(selected)) { // Upewnij się, że to obiekt z naszej listy
+        this.transformControlsService.attachObject(selected);
+        this.showBoxHelperFor(selected); // Pokaż BoxHelper
+      } else {
+        this.transformControlsService.deselectObject();
+        this.hideBoxHelper();
+      }
+
+    } else {
+      // Kliknięto w puste miejsce
+      this.transformControlsService.deselectObject();
+      this.hideBoxHelper();
+    }
+  }
+
+
+  private onTouchStart(event: TouchEvent): void {
+    // event.preventDefault(); // Może być potrzebne
+    if (event.touches.length > 0) {
+      this.handleInteraction(event.touches[0].clientX, event.touches[0].clientY);
+    }
+  }
+
+  // --- Funkcje pomocnicze dla BoxHelper ---
+  private showBoxHelperFor(object: THREE.Object3D): void {
+    this.hideBoxHelper(); // Usuń stary
+    this.boxHelper = new THREE.BoxHelper(object, 0xff0000); // Czerwony kolor
+    this.scene.add(this.boxHelper);
+    // Aktualizuj BoxHelper, gdy obiekt się porusza (w TransformControlsService)
+  }
+
+  private hideBoxHelper(): void {
+    if (this.boxHelper) {
+      this.scene.remove(this.boxHelper);
+      this.boxHelper.dispose(); // Zwolnij zasoby
+      this.boxHelper = null;
+    }
+  }
+
+  public updateBoxHelper(): void {
+    if (this.boxHelper && this.transformControlsService.getSelectedObject()) {
+      this.boxHelper.update();
+    } else {
+      this.hideBoxHelper(); // Ukryj, jeśli nic nie jest zaznaczone
+    }
+  }
+  // --- Koniec funkcji BoxHelper ---
+
+  // Metoda publiczna do wywołania z komponentu (np. przyciskiem)
+  // Zastępuje poprzednią implementację w komponencie
   public attachSelectedToCake(): void {
-    const selected = this.transformControlsService.getSelectedObject();
-    console.log("Wywołano attachSelectedToCake. Zaznaczony obiekt:", selected);
-    if (!selected) {
-      console.warn('Brak zaznaczonego obiektu!');
-      return;
-    }
-
-    if (selected.parent === this.cakeBase) {
-      console.log('Obiekt już jest przypięty do tortu.');
-      return;
-    }
-
-    this.cakeBase.attach(selected);
+    this.transformControlsService.attemptSnapSelectionToCake();
   }
-
-
 }

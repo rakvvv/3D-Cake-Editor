@@ -1,7 +1,7 @@
 <div class="sidebar">
     <h3>Opcje dekoracji</h3>
-    <button (click)="onAddDecoration('Numer_1')">Dodaj model Numer 1</button>
-    <button (click)="onAddDecoration('custom')">Dodaj niestandardowy</button>
+    <button (click)="onAddDecoration('Numer_1.glb')">Dodaj model Numer 1</button>
+    <button (click)="onAddDecoration('custom.glb')">Dodaj niestandardowy</button>
     <hr>
     <button (click)="onSaveScene()">Zapisz scenę</button>
     <button (click)="onAttachSelectedToCake()">Przyklej do tortu</button>
@@ -26,4 +26,3 @@
       <input type="text" [(ngModel)]="cakeTextValue" (change)="updateCakeOptions()" [disabled]="!cakeText">
     </div>
   </div>
-  
