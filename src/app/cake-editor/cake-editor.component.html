@@ -2,7 +2,10 @@
     <app-cake-sidebar
       (addDecorationEvent)="onAddDecoration($event)"
       (cakeOptionsChange)="updateCakeOptions($event)"
-     (attachSelectedToCake)="onAttachSelectedToCake()">
+      (attachSelectedToCake)="onAttachSelectedToCake()"
+      (transformModeChange)="onTransformModeChange($event)"
+      (paintModeChange)="onTogglePaintMode($event)"
+      (brushChange)="onBrushChanged($event)">
     </app-cake-sidebar>
     <div #canvasContainer class="canvas-container"></div>
   </div>

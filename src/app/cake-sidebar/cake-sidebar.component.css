@@ -1,19 +1,42 @@
 .sidebar {
-    width: 200px;
-    background: #eee;
-    padding: 10px;
-    box-sizing: border-box;
-    height: 100vh;
-  }
-  
-  .option-group {
-    margin-bottom: 10px;
-  }
-  
-  button {
-    width: 100%;
-    margin: 5px 0;
-    padding: 8px;
-    font-size: 14px;
-  }
-  
+  width: 220px;
+  background: #f8f8f8;
+  padding: 15px;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.sidebar h3 {
+  margin-top: 0;
+  font-size: 1.2rem;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 5px;
+}
+
+.option-group {
+  margin-bottom: 8px;
+}
+
+button {
+  width: 100%;
+  margin: 4px 0;
+  padding: 8px;
+  font-size: 0.9rem;
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #eee;
+}
+
+.transform-group button {
+  width: 32%;
+  margin-right: 1%;
+}
+
+.transform-group button:last-child {
+  margin-right: 0;
+}

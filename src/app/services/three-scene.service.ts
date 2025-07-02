@@ -8,15 +8,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { FontLoader, Font } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { TransformControlsService } from './transform-controls-service';
-import {Object3D, Object3DEventMap} from 'three';
-
-
-export interface CakeOptions {
-  cake_size: number;
-  cake_color: string;
-  cake_text: boolean;
-  cake_text_value: string;
-}
+import { CakeOptions } from '../models/cake.options';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
@@ -34,7 +26,12 @@ export class ThreeSceneService {
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private boxHelper: THREE.BoxHelper | null = null;
-  private decorationsInfo: Map<string, { modelFileName: string, type: 'SIDE' | 'TOP' }> = new Map(); // Przykładowe dane z API
+  private decorationsInfo: Map<string, { modelFileName: string, type: 'SIDE' | 'TOP' }> = new Map();
+  public paintMode = false;
+  public currentBrush = 'trawa.glb';
+  private isPainting = false;
+
+
 
   constructor(
     private http: HttpClient,
@@ -77,8 +74,10 @@ export class ThreeSceneService {
     const ambient = new THREE.AmbientLight(0xffffff, 0.8);
     this.scene.add(ambient);
     const directional = new THREE.DirectionalLight(0xffffff, 1);
+
     directional.position.set(10, 20, 10);
     this.scene.add(directional);
+
 
 
     // gridhelper
@@ -92,10 +91,31 @@ export class ThreeSceneService {
 
     this.transformControlsService.setCakeBase(this.cakeBase);
 
+    const topping = ThreeObjectsFactory.createCakeTopping();
+    this.scene.add(topping);
+
     // Zastosuj opcje
     this.updateCakeOptions(this.options);
 
-    container.addEventListener('mousedown', (event) => this.onClickDown(event), false); // false dla bubble phase
+    container.addEventListener('mousedown', (event) => {
+      if (this.paintMode) {
+        this.isPainting = true;
+        this.handlePaint(event);
+      } else {
+        this.onClickDown(event);
+      }
+    });
+
+    container.addEventListener('mousemove', (event) => {
+      if (this.isPainting && this.paintMode) {
+        this.handlePaint(event);
+      }
+    });
+
+    container.addEventListener('mouseup', () => {
+      this.isPainting = false;
+    });
+
 
     this.animate();
 
@@ -114,12 +134,22 @@ export class ThreeSceneService {
 
   public updateCakeOptions(options: CakeOptions): void {
     this.options = options;
+    const scale = options.cake_size;
     if (this.cakeBase) {
       // Ustaw skalę tortu
       this.cakeBase.scale.set(options.cake_size, options.cake_size, options.cake_size);
       this.cakeBase.position.set(0, options.cake_size, 0);
       // Ustaw kolor tortu – używamy asercji typu
-      (this.cakeBase.material as THREE.MeshPhongMaterial).color.set(options.cake_color);
+      const material = this.cakeBase.material as THREE.MeshStandardMaterial;
+      if (material.map) {
+        material.map.repeat.set(2 * scale, 2 * scale);
+      }
+      if (material.bumpMap) {
+        material.bumpMap.repeat.set(2 * scale, 2 * scale);
+      }
+      if (material.roughnessMap) {
+        material.roughnessMap.repeat.set(2 * scale, 2 * scale);
+      }
 
       if (options.cake_text) {
         // Usuń istniejący napis, jeśli istnieje
@@ -240,6 +270,18 @@ export class ThreeSceneService {
     try {
       const decoration = await ThreeObjectsFactory.loadDecorationModel(modelUrl);
 
+      const box = new THREE.Box3().setFromObject(decoration);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const desiredSize = 1.5; // docelowy rozmiar dekoracji (np. 1.5 jednostki)
+
+      // jeśli obiekt za duży lub za mały – przeskaluj
+      if (maxDim > 0) {
+        const scaleFactor = desiredSize / maxDim;
+        decoration.scale.setScalar(scaleFactor);
+      }
+
       // Przypisz dane do userData używając poprawnego obiektu decoInfo
       decoration.userData['decorationType'] = decoInfo.type; // Użyj notacji '.' jeśli to możliwe
       decoration.userData['modelFileName'] = decoInfo.modelFileName;
@@ -254,7 +296,8 @@ export class ThreeSceneService {
       // decoration.scale.set(0.5, 0.5, 0.5);
 
       this.scene.add(decoration);
-      this.objects.push(decoration); // Dodaj do listy obiektów klikalnych
+      const meshes = (decoration.userData['clickableMeshes'] as THREE.Mesh[]) ?? [];
+      this.objects.push(...meshes);
       console.log('Dekoracja dodana:', decoration);
 
       // Opcjonalnie: Automatycznie zaznacz nowo dodany obiekt
@@ -267,15 +310,25 @@ export class ThreeSceneService {
   }
 
   private onClickDown(event: MouseEvent): void {
+    if (this.paintMode) {
+      this.handlePaint(event);
+      return;
+    }
     if (this.transformControlsService.isDragging()) {
       return;
     }
 
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObjects(this.objects.filter(obj => obj !== this.cakeBase), true);
+    const intersects = this.raycaster.intersectObjects(
+      this.objects.filter(obj => obj !== this.cakeBase && !obj.userData['isPainted']),
+      true
+    );
+
 
     if (intersects.length > 0) {
       let selected = intersects[0].object;
@@ -342,6 +395,8 @@ export class ThreeSceneService {
       const decorationsFromApi = [
         { id: 1, name: "Cyfra 1", modelFileName: "Numer_1.glb", type: "TOP", thumbnailUrl: "..." },
         { id: 2, name: "Ozdoba Boczna", modelFileName: "custom.glb", type: "SIDE", thumbnailUrl: "..." },
+        { id: 3, name: 'czekoladowa ozdoba', modelFileName: 'chocolate_kiss.glb', type: 'TOP' },
+        { id: 4, name: 'Trawa', modelFileName: 'trawa.glb', type: 'SIDE' }
       ];
 
       decorationsFromApi.forEach(dec => {
@@ -366,7 +421,11 @@ export class ThreeSceneService {
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
     // Intersekcje tylko z dekoracjami (nie z tortem bazowym)
-    const intersects = this.raycaster.intersectObjects(this.objects.filter(obj => obj !== this.cakeBase), true);
+    const intersects = this.raycaster.intersectObjects(
+      this.objects.filter(obj => obj !== this.cakeBase && !obj.userData['isPainted']),
+      true
+    );
+
 
     if (intersects.length > 0) {
       let selected = intersects[0].object;
@@ -402,6 +461,7 @@ export class ThreeSceneService {
   private showBoxHelperFor(object: THREE.Object3D): void {
     this.hideBoxHelper(); // Usuń stary
     this.boxHelper = new THREE.BoxHelper(object, 0xff0000); // Czerwony kolor
+    this.boxHelper.layers.set(1);
     this.scene.add(this.boxHelper);
     // Aktualizuj BoxHelper, gdy obiekt się porusza (w TransformControlsService)
   }
@@ -428,4 +488,67 @@ export class ThreeSceneService {
   public attachSelectedToCake(): void {
     this.transformControlsService.attemptSnapSelectionToCake();
   }
+
+  private async handlePaint(event: MouseEvent): Promise<void> {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    // Raycast tylko w kierunku cakeBase
+    const intersects = this.raycaster.intersectObject(this.cakeBase, false);
+
+    if (intersects.length > 0) {
+      const hit = intersects[0];
+      const pointOnCakeWorld = hit.point.clone();
+      const normal = hit.face?.normal.clone() ?? new THREE.Vector3(0,1,0);
+
+      // Użyj factory do załadowania modelu pędzla (currentBrush)
+      try {
+        const brushModel = await ThreeObjectsFactory.loadDecorationModel(
+          `/models/${this.currentBrush}`
+        );
+
+        const box = new THREE.Box3().setFromObject(brushModel);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        brushModel.position.sub(center);
+        // Odetnij model trawy/gwiazdek w miejscu trafienia:
+        // 1. Pozycja
+        // Najpierw w world coordinates, potem dodaj offset wzdłuż normalnej, by nie wchodził wgłąb tortu
+        brushModel.position.copy(pointOnCakeWorld);
+        const offset = normal.clone().multiplyScalar(0.005); // 0.05 jednostki nad powierzchnią
+        brushModel.position.add(offset);
+
+
+        // 2. Rotacja – ustaw “do góry” (Y) albo orientuj zgodnie z normalną
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0), // “góra” modelu
+          normal.clone()              // normala cake
+        );
+        brushModel.quaternion.copy(quaternion);
+        brushModel.rotation.y = Math.random() * Math.PI * 2;
+
+        // 3. Skaluj jeśli za duże/za małe
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 0) {
+          const scaleFactor = 0.5 / maxDim; // lub 0.3
+          brushModel.scale.setScalar(scaleFactor);
+        }
+
+
+
+        // 4. Dodaj do sceny
+        this.scene.add(brushModel);
+        // Nie snaponujemy tego automatycznie, bo to paint – ale możesz ustawić
+        brushModel.userData['isSnapped'] = true;
+      } catch (e) {
+        console.error('Paint: błąd ładowania modelu pędzla:', e);
+      }
+    }
+  }
+
 }

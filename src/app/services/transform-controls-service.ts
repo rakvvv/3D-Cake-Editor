@@ -3,12 +3,13 @@ import * as THREE from 'three';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { isPlatformBrowser } from '@angular/common';
-import { ThreeObjectsFactory } from './three-objects.factory';
-import { ThreeSceneService } from './three-scene.service';
+import { ClosestPointInfo } from '../models/cake.points'
+
 
 @Injectable({
   providedIn: 'root',
 })
+
 export class TransformControlsService {
   private transformControls!: TransformControls;
   private selectedObject: THREE.Object3D | null = null;
@@ -47,7 +48,8 @@ export class TransformControlsService {
     });
 
     this.transformControls = new TransformControls(this.camera, this.renderer.domElement);
-    this.transformControls.space = 'local'; // <-- DODAJ TĘ LINIĘ
+    this.transformControls.space = 'local';
+    this.transformControls.mode = 'translate'; // Domyślny tryb transform controls
 
 
     this.transformControls.addEventListener('change', this.onTransformChange);
@@ -83,6 +85,16 @@ export class TransformControlsService {
         // Jeśli nie jest przyczepiony, sprawdź czy jest blisko tortu
         this.checkProximityAndPotentialSnap();
       }
+    }
+  }
+  public setTransformMode(mode: 'translate' | 'rotate' | 'scale'): void {
+    if (this.transformControls) {
+      this.transformControls.mode = mode;
+      // this.transformControls.enabled = mode !== 'none'; // Włącz/wyłącz gizmo
+      // this.orbit.enabled = mode === 'none'; // Wyłącz/włącz orbit controls
+
+      console.log(`TransformControls mode set to: ${mode}, enabled: ${this.transformControls.enabled}`);
+      this.renderer.render(this.scene, this.camera);  // Renderuj, żeby gizmo się zaktualizowało
     }
   }
 
@@ -172,10 +184,12 @@ export class TransformControlsService {
 
     // 1. Zmień rodzica obiektu na cakeBase
     //    Musimy zachować transformację świata
-    const worldPosition = object.getWorldPosition(new THREE.Vector3());
-    const worldQuaternion = object.getWorldQuaternion(new THREE.Quaternion());
+    // const worldPosition = object.getWorldPosition(new THREE.Vector3());
+    // const worldQuaternion = object.getWorldQuaternion(new THREE.Quaternion());
+    // const worldRotation = object.getWorldDirection(new THREE.Vector3());
 
     this.cakeBase.attach(object); // To przeliczy lokalne koordynaty
+
 
     // 2. Oblicz docelową pozycję LOKALNĄ względem cakeBase
     const targetLocalPosition = point.clone(); // Punkt przecięcia jest już w lokalnych koordynatach cakeBase
@@ -187,7 +201,7 @@ export class TransformControlsService {
       // Góra tortu - zazwyczaj płasko, skierowana w górę (oś Y tortu)
       // Zakładamy, że model jest orientowany tak, że jego 'góra' to +Y
       const up = new THREE.Vector3(0, 1, 0); // Oś Y w lokalnym układzie tortu
-      targetQuaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up); // Domyślna orientacja
+      targetQuaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up); // Domyślna orientacja
     } else { // SIDE
       // Bok tortu - obiekt ma być 'przyklejony' do boku, jego 'tył' ma być skierowany w stronę normalnej
       // Zakładamy, że 'przód' modelu to +Z, a 'góra' to +Y
@@ -224,69 +238,88 @@ export class TransformControlsService {
     const mesh = this.cakeBase as THREE.Mesh;
     const cakeParams = (mesh.geometry as THREE.CylinderGeometry).parameters;
 
-    // 1. Obliczenie efektywnych wymiarów tortu z uwzględnieniem skali
-    // Wydaje się POPRAWNE - mnoży bazowy wymiar przez skalę
-    const cakeRadius = cakeParams.radiusTop * this.cakeBase.scale.x;
-    const cakeHeight = cakeParams.height * this.cakeBase.scale.y;
+    // Używamy nieskalowanych wymiarów tortu dla logiki ograniczeń lokalnych
+    const cakeRadius = cakeParams.radiusTop;
+    const cakeHeight = cakeParams.height;
 
-    // 2. Pobranie LOKALNEJ pozycji obiektu (względem tortu)
-    const currentLocalPos = this.selectedObject.position; // To jest Vector3 pozycji lokalnej
+    // currentLocalPos to pozycja, którą użytkownik próbuje ustawić za pomocą gizma
+    const currentLocalPos = this.selectedObject.position;
 
-    // Logowanie do debugowania - BARDZO WAŻNE TERAZ
-    console.log('--- constrainMovement ---');
-    console.log('Cake Scale:', this.cakeBase.scale.x.toFixed(2)); // Aktualna skala tortu
-    console.log('Base Radius:', cakeParams.radiusTop); // Bazowy promień geometrii
-    console.log('Calculated Cake Radius:', cakeRadius.toFixed(2)); // Obliczony promień z uwzględnieniem skali
-    console.log('Local Pos BEFORE:', currentLocalPos.x.toFixed(2), currentLocalPos.y.toFixed(2), currentLocalPos.z.toFixed(2));
+    // --- NOWE: Definicje głębokości penetracji i "wypchnięcia" ---
+    // Możesz te wartości uczynić konfigurowalnymi lub nawet zależnymi od rozmiaru dekoracji
+    const maxPenetrationDepth = 0.7; // Jak głęboko środek obiektu może wejść WZGLĘDEM powierzchni
+    const maxLiftOffDistance = 0.5;  // Jak daleko środek obiektu może się unieść/odsunąć OD powierzchni
+
+    // console.log('--- constrainMovement ---');
+    // console.log('Cake Scale:', this.cakeBase.scale.x.toFixed(2));
+    // console.log('Base Radius:', cakeParams.radiusTop);
+    // console.log('Calculated Cake Radius (for constraint):', cakeRadius.toFixed(2));
+    // console.log('Local Pos BEFORE:', currentLocalPos.x.toFixed(2), currentLocalPos.y.toFixed(2), currentLocalPos.z.toFixed(2));
 
     if (decorationType === 'TOP') {
       const distanceToCenter = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
-      console.log('TOP - Distance to Center:', distanceToCenter.toFixed(2));
 
+      // Ograniczenie radialne (XZ) - pozostaje bez zmian
       if (distanceToCenter > cakeRadius) {
         const scaleFactor = cakeRadius / distanceToCenter;
-        console.log('TOP - Exceeded radius, scaling by:', scaleFactor.toFixed(2));
+        // console.log('TOP - Exceeded radius, scaling by:', scaleFactor.toFixed(2));
         currentLocalPos.x *= scaleFactor;
         currentLocalPos.z *= scaleFactor;
       }
-      // Ustawienie wysokości
-      currentLocalPos.y = cakeHeight / 2 + this.cakeSurfaceOffset;
+
+      // Ograniczenie wysokości (Y) - ZMODYFIKOWANE
+      const cakeTopSurfaceY = cakeHeight / 2; // Pozycja Y górnej powierzchni tortu w jego lokalnych koordynatach
+      currentLocalPos.y = THREE.MathUtils.clamp(
+        currentLocalPos.y,
+        cakeTopSurfaceY - maxPenetrationDepth, // Minimalna pozycja Y (obiekt "wchodzi" w tort)
+        cakeTopSurfaceY + maxLiftOffDistance   // Maksymalna pozycja Y (obiekt unosi się nad tortem)
+      );
 
     } else { // SIDE
-      const currentObjectRadius = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
-      console.log('SIDE - Current Object Radius:', currentObjectRadius.toFixed(2));
+      const currentObjectLocalRadius = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
 
-      if (Math.abs(currentObjectRadius - cakeRadius) > 0.01) { // Dopuszczamy mały błąd, aby uniknąć niepotrzebnego skalowania
-        const scaleFactor = cakeRadius / currentObjectRadius;
-        console.log('SIDE - Adjusting radius, scaling by:', scaleFactor.toFixed(2));
-        currentLocalPos.x *= scaleFactor;
-        currentLocalPos.z *= scaleFactor;
+      // Ograniczenie radialne (odległość od osi Y tortu) - ZMODYFIKOWANE
+      // cakeRadius to promień powierzchni bocznej tortu
+      const clampedRadius = THREE.MathUtils.clamp(
+        currentObjectLocalRadius,
+        cakeRadius - maxPenetrationDepth, // Minimalny promień (obiekt "wchodzi" w bok tortu)
+        cakeRadius + maxLiftOffDistance   // Maksymalny promień (obiekt odsuwa się od boku)
+      );
+
+      // Skaluj pozycję XZ tylko jeśli jest potrzeba i obiekt nie jest w centrum
+      if (Math.abs(currentObjectLocalRadius - clampedRadius) > 0.001 && currentObjectLocalRadius > 0.001) {
+        const radialScaleFactor = clampedRadius / currentObjectLocalRadius;
+        // console.log('SIDE - Adjusting radius, scaling by:', radialScaleFactor.toFixed(2));
+        currentLocalPos.x *= radialScaleFactor;
+        currentLocalPos.z *= radialScaleFactor;
       }
 
-      // Ograniczenie wysokości
-      const minY = -cakeHeight / 2 + this.cakeSurfaceOffset;
-      const maxY = cakeHeight / 2 - this.cakeSurfaceOffset;
-      currentLocalPos.y = THREE.MathUtils.clamp(currentLocalPos.y, minY, maxY);
+      // Ograniczenie wysokości (Y) dla dekoracji bocznych - pozostaje bez zmian
+      // Utrzymuje obiekt w granicach wysokości tortu
+      const cakeMinY = -cakeHeight / 2;
+      const cakeMaxY = cakeHeight / 2;
+      currentLocalPos.y = THREE.MathUtils.clamp(
+        currentLocalPos.y,
+        // Aby pozwolić na "wjechanie" w górną/dolną krawędź, te limity musiałyby uwzględniać maxPenetrationDepth
+        // Na razie trzymamy się powierzchni bocznej:
+        cakeMinY + this.cakeSurfaceOffset, // Mały offset, by nie znikał na krawędziach
+        cakeMaxY - this.cakeSurfaceOffset
+      );
 
-      // Aktualizacja rotacji (powinna być OK, używa już skorygowanych currentLocalPos)
+      // Aktualizacja rotacji, aby obiekt był zwrócony "na zewnątrz" od tortu
+      // (lub do wewnątrz, jeśli normalna jest odwrócona przy penetracji - ale to bardziej skomplikowane)
       const normal = new THREE.Vector3(currentLocalPos.x, 0, currentLocalPos.z).normalize();
-      const objectUp = new THREE.Vector3(0, 1, 0);
+      const objectUp = new THREE.Vector3(0, 1, 0); // Założenie, że "góra" obiektu to jego lokalna oś Y
       const tempMatrix = new THREE.Matrix4();
-      const desiredForward = normal.clone().negate();
+      const desiredForward = normal.clone().negate(); // Obiekt patrzy w kierunku przeciwnym do normalnej (na zewnątrz)
       const right = new THREE.Vector3().crossVectors(objectUp, desiredForward).normalize();
       const correctedUp = new THREE.Vector3().crossVectors(desiredForward, right).normalize();
       tempMatrix.makeBasis(right, correctedUp, desiredForward);
       this.selectedObject.quaternion.setFromRotationMatrix(tempMatrix);
     }
 
-    // 3. Zastosowanie skorygowanej LOKALNEJ pozycji
+    // Zastosowanie skorygowanej pozycji lokalnej
     this.selectedObject.position.copy(currentLocalPos);
-
-    console.log('Local Pos AFTER:', currentLocalPos.x.toFixed(2), currentLocalPos.y.toFixed(2), currentLocalPos.z.toFixed(2));
-    const worldPosAfter = this.selectedObject.getWorldPosition(new THREE.Vector3());
-    console.log('World Pos AFTER:', worldPosAfter.x.toFixed(2), worldPosAfter.y.toFixed(2), worldPosAfter.z.toFixed(2));
-    console.log('--- end constrainMovement ---');
-
 
   }
 
@@ -323,7 +356,6 @@ export class TransformControlsService {
     console.log("Obiekt odczepiony:", object.name);
   }
 
-
   // --- FUNKCJE POMOCNICZE ---
 
   // Oblicza najbliższy punkt na powierzchni tortu (góra lub bok) do danego punktu w przestrzeni świata
@@ -337,10 +369,8 @@ export class TransformControlsService {
     const mesh = this.cakeBase as THREE.Mesh;
     const cakeParams = (mesh.geometry as THREE.CylinderGeometry).parameters;
 
-    // --- POPRAWKA: Użyj przeskalowanych wymiarów ---
     const radius = cakeParams.radiusTop * this.cakeBase.scale.x; // Użyj skali X dla promienia
     const height = cakeParams.height * this.cakeBase.scale.y; // Użyj skali Y dla wysokości
-    // --- KONIEC POPRAWKI ---
     const halfHeight = height / 2; // Użyj przeskalowanej połowy wysokości
 
     let closestPointLocal = new THREE.Vector3();
@@ -502,10 +532,3 @@ export class TransformControlsService {
   }
 }
 
-
-interface ClosestPointInfo {
-  point: THREE.Vector3;       // Najbliższy punkt na powierzchni tortu (w lokalnych koordynatach tortu)
-  normal: THREE.Vector3;      // Normalna do powierzchni w tym punkcie (w lokalnych koordynatach tortu)
-  distance: number;           // Odległość od oryginalnego punktu do najbliższego punktu na torcie
-  surfaceType: 'TOP' | 'SIDE' | 'NONE'; // Typ powierzchni, na której znaleziono najbliższy punkt
-}
