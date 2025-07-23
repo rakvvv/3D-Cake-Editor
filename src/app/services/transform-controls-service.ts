@@ -23,10 +23,9 @@ export class TransformControlsService {
   private readonly snapDistanceThreshold = 1.5; // Jak blisko musi być obiekt, by próbować przyciągnąć
   private readonly detachDistanceThreshold = 2.0; // Jak daleko odsunąć, by odczepić
   private readonly cakeSurfaceOffset = 0.05; // Mały offset od powierzchni tortu dla przyczepionych obiektów
-  private raycaster = new THREE.Raycaster(); // Do sprawdzania odległości od tortu
   private boxHelperCallback: (() => void) | null = null; // Callback do aktualizacji BoxHelper
   private isBrowser: boolean;
-  private radiusDebugMarker: THREE.Mesh | null = null;
+
 
   constructor(
     @Inject(PLATFORM_ID)
@@ -77,7 +76,7 @@ export class TransformControlsService {
     }
 
     if (this.selectedObject && this.transformControls.dragging) {
-      if (this.selectedObject.userData['isSnapped'] && this.selectedObject.parent === this.cakeBase) {
+      if (this.selectedObject.userData['isSnapped'] && this.selectedObject.parent === this.cakeBase && this.transformControls.mode === 'translate' ) {
         // Jeśli jest przyczepiony, ogranicz ruch i sprawdź odczepienie
         this.constrainMovement();
         this.checkDetachment();
@@ -86,6 +85,8 @@ export class TransformControlsService {
         this.checkProximityAndPotentialSnap();
       }
     }
+
+
   }
   public setTransformMode(mode: 'translate' | 'rotate' | 'scale'): void {
     if (this.transformControls) {
@@ -125,6 +126,13 @@ export class TransformControlsService {
     // Po puszczeniu myszki, jeśli obiekt jest blisko ale nie snapped, spróbuj snap
     if (this.selectedObject && !this.selectedObject.userData['isSnapped']) {
       this.attemptSnapSelectionToCake();
+    }
+    if (
+      this.selectedObject &&
+      this.selectedObject.userData['isSnapped'] &&
+      this.transformControls.mode === 'rotate'
+    ) {
+      this.updateSnapRotationOffset(this.selectedObject);
     }
   }
 
@@ -180,59 +188,82 @@ export class TransformControlsService {
     if (!this.cakeBase) return;
 
     const { point, normal, surfaceType } = closestPointInfo;
+
+    // 1. Zmień rodzica obiektu na cakeBase (zachowując globalną transformację)
+    this.cakeBase.attach(object);
+
+    // 2. Oblicz docelową pozycję LOKALNĄ
+    const targetLocalPosition = point.clone();
+    targetLocalPosition.addScaledVector(normal, this.cakeSurfaceOffset);
+    object.position.copy(targetLocalPosition);
+
+    // === NOWA LOGIKA ROTACJI PRZY PRZYCZEPIANIU ===
     const decorationType = object.userData['decorationType'];
 
-    // 1. Zmień rodzica obiektu na cakeBase
-    //    Musimy zachować transformację świata
-    // const worldPosition = object.getWorldPosition(new THREE.Vector3());
-    // const worldQuaternion = object.getWorldQuaternion(new THREE.Quaternion());
-    // const worldRotation = object.getWorldDirection(new THREE.Vector3());
+    if (decorationType === 'SIDE') {
+      // A. Zapisz oryginalną rotację obiektu w momencie przyczepiania
+      const objectsOriginalQuaternion = object.quaternion.clone();
 
-    this.cakeBase.attach(object); // To przeliczy lokalne koordynaty
+      // B. Oblicz bazową rotację (skierowaną na zewnątrz) w punkcie przyczepienia
+      const baseNormal = new THREE.Vector3(targetLocalPosition.x, 0, targetLocalPosition.z).normalize();
+      if (baseNormal.lengthSq() === 0) { baseNormal.set(1, 0, 0); } // Zabezpieczenie dla centrum
+      const up = new THREE.Vector3(0, 1, 0);
+      const right = new THREE.Vector3().crossVectors(up, baseNormal).normalize();
+      const correctedUp = new THREE.Vector3().crossVectors(baseNormal, right).normalize();
+      const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, baseNormal);
+      const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
 
+      // C. Oblicz RÓŻNICĘ (offset) między oryginalną rotacją a bazową
+      // To jest "własna" rotacja użytkownika, którą chcemy zachować
+      const offsetQuaternion = baseQuaternion.clone().invert().multiply(objectsOriginalQuaternion);
+      object.userData['snapOffsetQuaternion'] = offsetQuaternion; // Zapisz offset
 
-    // 2. Oblicz docelową pozycję LOKALNĄ względem cakeBase
-    const targetLocalPosition = point.clone(); // Punkt przecięcia jest już w lokalnych koordynatach cakeBase
-    targetLocalPosition.addScaledVector(normal, this.cakeSurfaceOffset); // Odsuń lekko od powierzchni
+      // D. Zastosuj połączoną rotację natychmiast
+      object.quaternion.copy(baseQuaternion).multiply(offsetQuaternion);
 
-    // 3. Oblicz docelową rotację LOKALNĄ względem cakeBase
-    const targetQuaternion = new THREE.Quaternion();
-    if (decorationType === 'TOP') {
-      // Góra tortu - zazwyczaj płasko, skierowana w górę (oś Y tortu)
-      // Zakładamy, że model jest orientowany tak, że jego 'góra' to +Y
-      const up = new THREE.Vector3(0, 1, 0); // Oś Y w lokalnym układzie tortu
-      targetQuaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), up); // Domyślna orientacja
-    } else { // SIDE
-      // Bok tortu - obiekt ma być 'przyklejony' do boku, jego 'tył' ma być skierowany w stronę normalnej
-      // Zakładamy, że 'przód' modelu to +Z, a 'góra' to +Y
-      const objectForward = new THREE.Vector3(0, 0, 1); // Kierunek 'do przodu' modelu
-      const objectUp = new THREE.Vector3(0, 1, 0);      // Kierunek 'w górę' modelu
-
-      // Wektor kierunku "na zewnątrz" od tortu (normalna)
-      const lookAtPosition = new THREE.Vector3().addVectors(targetLocalPosition, normal);
-      const tempMatrix = new THREE.Matrix4();
-      tempMatrix.lookAt(targetLocalPosition, lookAtPosition, objectUp); // Ustaw macierz patrzenia
-      targetQuaternion.setFromRotationMatrix(tempMatrix);
-
-      // Korekta - jeśli chcemy, żeby 'przód' modelu był skierowany 'na zewnątrz' tortu
-      const desiredForward = normal.clone().negate(); // Chcemy patrzeć w stronę przeciwną do normalnej
-      const right = new THREE.Vector3().crossVectors(objectUp, desiredForward).normalize();
-      const correctedUp = new THREE.Vector3().crossVectors(desiredForward, right).normalize(); // Orto-normalizacja 'up'
-      tempMatrix.makeBasis(right, correctedUp, desiredForward);
-      targetQuaternion.setFromRotationMatrix(tempMatrix);
+    } else { // Dla dekoracji 'TOP'
+      // Dla góry nie potrzebujemy skomplikowanej logiki, zachowujemy po prostu rotację obiektu
+      // Można tu jawnie wyzerować offset na wszelki wypadek
+      // Dla góry nie potrzebujemy skomplikowanej logiki, zachowujemy po prostu rotację obiektu
+      // Można tu jawnie wyzerować offset na wszelki wypadek
+      object.userData['snapOffsetQuaternion'] = new THREE.Quaternion(); // Reset
     }
-
-    // 4. Zastosuj LOKALNĄ pozycję i rotację
-    object.position.copy(targetLocalPosition);
-    object.quaternion.copy(targetQuaternion);
+    // ===============================================
 
     object.userData['isSnapped'] = true;
-    console.log("Obiekt przyczepiony:", object.name, object.userData);
+    console.log("Obiekt przyczepiony, offset rotacji zapisany.", object.userData);
   }
+
+  private updateSnapRotationOffset(object: THREE.Object3D): void {
+    if (!object || !this.cakeBase || !object.userData['isSnapped'] || object.userData['decorationType'] !== 'SIDE') {
+      return;
+    }
+    console.log("Aktualizacja offsetu rotacji po obrocie przez użytkownika...");
+
+    // Logika jest identyczna jak w snapObject:
+    const localPos = object.position;
+    const objectQuaternion = object.quaternion;
+
+    const baseNormal = new THREE.Vector3(localPos.x, 0, localPos.z).normalize();
+    if (baseNormal.lengthSq() === 0) { baseNormal.set(1, 0, 0); }
+    const up = new THREE.Vector3(0, 1, 0);
+    const right = new THREE.Vector3().crossVectors(up, baseNormal).normalize();
+    const correctedUp = new THREE.Vector3().crossVectors(baseNormal, right).normalize();
+    const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, baseNormal);
+    const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
+
+    const offsetQuaternion = baseQuaternion.clone().invert().multiply(objectQuaternion);
+    object.userData['snapOffsetQuaternion'] = offsetQuaternion;
+  }
+
+
 
   // Ogranicza ruch przyczepionego obiektu
   private constrainMovement(): void {
     if (!this.selectedObject || !this.cakeBase || this.selectedObject.parent !== this.cakeBase) return;
+
+    const worldPos = this.selectedObject.getWorldPosition(new THREE.Vector3());
+    const localPos = this.cakeBase.worldToLocal(worldPos.clone());
 
     const decorationType = this.selectedObject.userData['decorationType'];
     const mesh = this.cakeBase as THREE.Mesh;
@@ -241,20 +272,26 @@ export class TransformControlsService {
     // Używamy nieskalowanych wymiarów tortu dla logiki ograniczeń lokalnych
     const cakeRadius = cakeParams.radiusTop;
     const cakeHeight = cakeParams.height;
+    const halfH = cakeHeight / 2;
 
     // currentLocalPos to pozycja, którą użytkownik próbuje ustawić za pomocą gizma
     const currentLocalPos = this.selectedObject.position;
+    const maxPenetrationDepth = 0.5; // Jak głęboko środek obiektu może wejść WZGLĘDEM powierzchni
+    const maxLiftOffDistance = 0.1;  // Jak daleko środek obiektu może się unieść/odsunąć OD powierzchni
 
-    // --- NOWE: Definicje głębokości penetracji i "wypchnięcia" ---
-    // Możesz te wartości uczynić konfigurowalnymi lub nawet zależnymi od rozmiaru dekoracji
-    const maxPenetrationDepth = 0.7; // Jak głęboko środek obiektu może wejść WZGLĘDEM powierzchni
-    const maxLiftOffDistance = 0.5;  // Jak daleko środek obiektu może się unieść/odsunąć OD powierzchni
-
-    // console.log('--- constrainMovement ---');
-    // console.log('Cake Scale:', this.cakeBase.scale.x.toFixed(2));
-    // console.log('Base Radius:', cakeParams.radiusTop);
-    // console.log('Calculated Cake Radius (for constraint):', cakeRadius.toFixed(2));
-    // console.log('Local Pos BEFORE:', currentLocalPos.x.toFixed(2), currentLocalPos.y.toFixed(2), currentLocalPos.z.toFixed(2));
+    const currR = Math.hypot(localPos.x, localPos.z);
+    const clampedR = THREE.MathUtils.clamp(
+      currR,
+      cakeRadius - maxPenetrationDepth,
+      cakeRadius + maxLiftOffDistance
+    );
+    if (currR > 0.001) {
+      const s = clampedR / currR;
+      localPos.x *= s;
+      localPos.z *= s;
+    }
+    // pionowo
+    localPos.y = THREE.MathUtils.clamp(localPos.y, -halfH + this.cakeSurfaceOffset, halfH - this.cakeSurfaceOffset);
 
     if (decorationType === 'TOP') {
       const distanceToCenter = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
@@ -307,15 +344,22 @@ export class TransformControlsService {
       );
 
       // Aktualizacja rotacji, aby obiekt był zwrócony "na zewnątrz" od tortu
-      // (lub do wewnątrz, jeśli normalna jest odwrócona przy penetracji - ale to bardziej skomplikowane)
       const normal = new THREE.Vector3(currentLocalPos.x, 0, currentLocalPos.z).normalize();
-      const objectUp = new THREE.Vector3(0, 1, 0); // Założenie, że "góra" obiektu to jego lokalna oś Y
-      const tempMatrix = new THREE.Matrix4();
-      const desiredForward = normal.clone().negate(); // Obiekt patrzy w kierunku przeciwnym do normalnej (na zewnątrz)
-      const right = new THREE.Vector3().crossVectors(objectUp, desiredForward).normalize();
-      const correctedUp = new THREE.Vector3().crossVectors(desiredForward, right).normalize();
-      tempMatrix.makeBasis(right, correctedUp, desiredForward);
-      this.selectedObject.quaternion.setFromRotationMatrix(tempMatrix);
+      if (normal.lengthSq() === 0) { normal.set(1, 0, 0); } // Zabezpieczenie
+
+      const up = new THREE.Vector3(0, 1, 0);
+      const right = new THREE.Vector3().crossVectors(up, normal).normalize();
+      const correctedUp = new THREE.Vector3().crossVectors(normal, right).normalize();
+      const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, normal);
+      const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
+
+// 2. Odczytaj ZAPISANY offset rotacji z userData
+//    Jeśli nie istnieje, użyj pustego kwaternionu (brak offsetu)
+      const offsetQuaternion = this.selectedObject.userData['snapOffsetQuaternion'] || new THREE.Quaternion();
+
+// 3. Połącz rotację bazową z offsetem i zastosuj
+      this.selectedObject.quaternion.copy(baseQuaternion).multiply(offsetQuaternion);
+
     }
 
     // Zastosowanie skorygowanej pozycji lokalnej
