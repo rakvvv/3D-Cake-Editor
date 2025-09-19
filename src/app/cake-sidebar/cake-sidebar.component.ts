@@ -1,8 +1,10 @@
-import {Component, Output, EventEmitter, output, NgIterable} from '@angular/core';
+import {Component, Output, EventEmitter, output} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CakeOptions } from '../models/cake.options';
 import {DecorationInfo} from '../models/decorationInfo';
+import {DecorationsService} from '../services/decorations.service';
+import {PaintService} from '../services/paint.service';
 
 
 @Component({
@@ -14,11 +16,14 @@ import {DecorationInfo} from '../models/decorationInfo';
 })
 export class CakeSidebarComponent {
   addDecorationEvent = output<string>();
-  saveSceneEvent = output<void>(); // Nadal istnieje, choć nieużywane w edytorze?
+  saveSceneEvent = output<void>();
   attachSelectedToCake = output<void>();
   cakeOptionsChange = output<CakeOptions>();
   transformModeChange = output<string>();
 
+  constructor(private decorationsService: DecorationsService, public paintService: PaintService) {
+    this.decorationsList = this.decorationsService.getDecorations();
+  }
 
   // Opcje tortu
   cakeSize: number = 1;
@@ -46,12 +51,7 @@ export class CakeSidebarComponent {
       cake_text_value: this.cakeTextValue
     });
   }
-  decorationsList: DecorationInfo[] = [
-    { name: 'Cyfra 1', modelFileName: 'Numer_1.glb', type: 'TOP' },
-    { name: 'Ozdoba Boczna', modelFileName: 'custom.glb', type: 'SIDE' },
-    { name: 'Czekoladowa ozdoba', modelFileName: 'chocolate_kiss.glb', type: 'TOP' },
-    { name: 'Trawa', modelFileName: 'trawa.glb', type: 'SIDE' }
-  ];
+  decorationsList: DecorationInfo[] = [];
 
   setTransformMode(mode: string): void {
     console.log('Sidebar: Zmiana trybu na', mode);
@@ -64,17 +64,17 @@ export class CakeSidebarComponent {
     // dodaj tu inne pędzle
   ];
   selectedBrush = this.brushList[0].id;
-  paintMode = false;
 
   @Output() paintModeChange = new EventEmitter<boolean>();
   @Output() brushChange = new EventEmitter<string>();
 
   togglePaintMode(): void {
-    this.paintMode = !this.paintMode;
-    this.paintModeChange.emit(this.paintMode);
+    this.paintService.paintMode = !this.paintService.paintMode;
+    this.paintModeChange.emit(this.paintService.paintMode);
   }
 
   onBrushChange(): void {
+    this.paintService.currentBrush = this.selectedBrush;
     this.brushChange.emit(this.selectedBrush);
   }
 }

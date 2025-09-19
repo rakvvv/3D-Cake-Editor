@@ -2,6 +2,8 @@ import {Component, AfterViewInit, ViewChild, ElementRef, Inject, PLATFORM_ID} fr
 import {CommonModule} from '@angular/common';
 import {CakeSidebarComponent} from '../cake-sidebar/cake-sidebar.component';
 import {ThreeSceneService} from '../services/three-scene.service';
+import {DecorationsService} from '../services/decorations.service';
+import {PaintService} from '../services/paint.service';
 import {isPlatformBrowser} from '@angular/common';
 import { TransformControlsService } from '../services/transform-controls-service';
 import {CakeOptions} from '../models/cake.options';
@@ -23,17 +25,25 @@ export class CakeEditorComponent implements AfterViewInit {
     cake_text_value: 'Urodziny'
   };
 
-  constructor(private sceneService: ThreeSceneService, private transformService: TransformControlsService, @Inject(PLATFORM_ID) private platformId: Object) {
-  }
-  paintMode = false;
-  currentBrush = 'trawa.glb';
+  constructor(
+    public sceneService: ThreeSceneService,
+    private transformService: TransformControlsService,
+    private decorationsService: DecorationsService,
+    private paintService: PaintService,
+    @Inject(PLATFORM_ID) private platformId: Object
+  ) {}
 
   ngAfterViewInit(): void {
     this.initializeScene();
   }
 
   onAddDecoration(templateId: string): void {
-    this.sceneService.addDecorationFromModel(templateId, this.options);
+    this.decorationsService.addDecorationFromModel(
+      templateId,
+      this.sceneService.scene,
+      this.sceneService.cakeBase,
+      this.sceneService.objects
+    );
   }
 
   updateCakeOptions(newOptions: CakeOptions): void {
@@ -57,13 +67,11 @@ export class CakeEditorComponent implements AfterViewInit {
   }
 
   onTogglePaintMode(enabled: boolean): void {
-    this.paintMode = enabled;
-    this.sceneService.paintMode = enabled;
+    this.paintService.paintMode = enabled;
   }
 
   onBrushChanged(brushId: string): void {
-    this.currentBrush = brushId;
-    this.sceneService.currentBrush = brushId;
+    this.paintService.currentBrush = brushId;
   }
 
 }

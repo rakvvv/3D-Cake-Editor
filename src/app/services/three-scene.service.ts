@@ -1,6 +1,5 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { ThreeObjectsFactory } from './three-objects.factory';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -9,37 +8,46 @@ import { FontLoader, Font } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { TransformControlsService } from './transform-controls-service';
 import { CakeOptions } from '../models/cake.options';
+import { SceneInitService } from './scene-init.service';
+import { DecorationsService } from './decorations.service';
+import { PaintService } from './paint.service';
+import { ExportService } from './export.service';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
 })
 export class ThreeSceneService {
-  private scene!: THREE.Scene;
-  private camera!: THREE.PerspectiveCamera;
-  private renderer!: THREE.WebGLRenderer;
-  private orbit!: OrbitControls;
-  private objects: THREE.Object3D[] = [];
-  private cakeBase!: THREE.Mesh;
+  public objects: THREE.Object3D[] = [];
+  public cakeBase!: THREE.Mesh;
   private textMesh: THREE.Mesh | null = null;
   private font: Font | null = null;
   private options!: CakeOptions;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private boxHelper: THREE.BoxHelper | null = null;
-  private decorationsInfo: Map<string, { modelFileName: string, type: 'SIDE' | 'TOP' }> = new Map();
-  public paintMode = false;
-  public currentBrush = 'trawa.glb';
-  private isPainting = false;
 
 
 
   constructor(
     private http: HttpClient,
     private transformControlsService: TransformControlsService,
+    private sceneInitService: SceneInitService,
+    private decorationsService: DecorationsService,
+    private paintService: PaintService,
+    private exportService: ExportService,
     @Inject(PLATFORM_ID) private platformId: Object
-    ) {
-    // TODO: Załaduj dane dekoracji z API np. w konstruktorze lub metodzie init
-    this.loadDecorationsData();
+  ) {}
+
+  public get scene(): THREE.Scene {
+    return this.sceneInitService.scene;
+  }
+
+  public get camera(): THREE.PerspectiveCamera {
+    return this.sceneInitService.camera;
+  }
+
+  public get renderer(): THREE.WebGLRenderer {
+    return this.sceneInitService.renderer;
   }
 
   public init(container: HTMLElement, options: CakeOptions): void {
@@ -47,38 +55,8 @@ export class ThreeSceneService {
       return;
     }
     this.options = options;
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xffffff);
-
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setSize(container.clientWidth, container.clientHeight);
-    container.appendChild(this.renderer.domElement);
-
-    this.camera = new THREE.PerspectiveCamera(
-      45,
-      container.clientWidth / container.clientHeight,
-      0.1,
-      1000
-    );
-    this.camera.position.set(-10, 30, 30);
-
-    this.orbit = new OrbitControls(this.camera, this.renderer.domElement);
-    this.orbit.enablePan = false;
-    this.orbit.minDistance = 10;
-    this.orbit.maxDistance = 50;
-
-    this.transformControlsService.init(this.scene, this.camera, this.renderer, this.orbit); // opcje do kontroli objektami
-
-
-
-    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-    this.scene.add(ambient);
-    const directional = new THREE.DirectionalLight(0xffffff, 1);
-
-    directional.position.set(10, 20, 10);
-    this.scene.add(directional);
-
-
+    this.sceneInitService.init(container);
+    this.transformControlsService.init(this.scene, this.camera, this.renderer, this.sceneInitService.orbit);
 
     // gridhelper
     const grid = new THREE.GridHelper(50, 50);
@@ -98,38 +76,23 @@ export class ThreeSceneService {
     this.updateCakeOptions(this.options);
 
     container.addEventListener('mousedown', (event) => {
-      if (this.paintMode) {
-        this.isPainting = true;
-        this.handlePaint(event);
+      if (this.paintService.paintMode) {
+        this.paintService.isPainting = true;
+        this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
       } else {
         this.onClickDown(event);
       }
     });
 
     container.addEventListener('mousemove', (event) => {
-      if (this.isPainting && this.paintMode) {
-        this.handlePaint(event);
+      if (this.paintService.isPainting && this.paintService.paintMode) {
+        this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
       }
     });
 
     container.addEventListener('mouseup', () => {
-      this.isPainting = false;
+      this.paintService.isPainting = false;
     });
-
-
-    this.animate();
-
-    window.addEventListener('resize', () => {
-      this.camera.aspect = container.clientWidth / container.clientHeight;
-      this.camera.updateProjectionMatrix();
-      this.renderer.setSize(container.clientWidth, container.clientHeight);
-    });
-  }
-
-  private animate(): void {
-    requestAnimationFrame(() => this.animate());
-    this.orbit.update();
-    this.renderer.render(this.scene, this.camera);
   }
 
   public updateCakeOptions(options: CakeOptions): void {
@@ -233,87 +196,34 @@ export class ThreeSceneService {
     return this.http.post('/api/saveScene', data);
   }
 
-  public async addDecorationFromModel(identifier: string /* np. 'Numer_1.glb' lub ID */, options: CakeOptions): Promise<void> {
-    if (!isPlatformBrowser(this.platformId)) {
-      return;
-    }
-
-    // Użyj 'let', aby umożliwić późniejsze przypisanie
-    let decoInfo = this.decorationsInfo.get(identifier); // Pierwsza próba znalezienia po kluczu
-
-    if (!decoInfo) {
-      console.warn('Nie znaleziono informacji dla klucza:', identifier, ". Próba wyszukania wg nazwy pliku...");
-      // Druga próba: Spróbuj znaleźć na podstawie nazwy pliku w wartościach mapy
-      const possibleInfo = Array.from(this.decorationsInfo.values()).find(info => info.modelFileName === identifier);
-
-      if (possibleInfo) {
-        // Znaleziono! Przypisz znaleziony obiekt do decoInfo
-        console.log("Znaleziono informacje wg nazwy pliku:", possibleInfo);
-        decoInfo = possibleInfo; // <-- TUTAJ JEST POPRAWKA
-      } else {
-        // Nadal nie znaleziono po drugiej próbie
-        console.error('Nie można znaleźć dekoracji o identyfikatorze/nazwie pliku:', identifier);
-        return; // Zakończ, jeśli nie ma informacji
-      }
-    }
-
-    // W tym momencie, jeśli nie wyszliśmy z funkcji, decoInfo POWINIEN być prawidłowym obiektem
-    if (!decoInfo) {
-      // Dodatkowe zabezpieczenie, chociaż teoretycznie nie powinno tu dojść
-      console.error("Krytyczny błąd: decoInfo nadal jest niezdefiniowane po sprawdzeniu.");
-      return;
-    }
-
-    const modelUrl = `/models/${decoInfo.modelFileName}`; // Ścieżka do modelu
-    console.log(`Ładowanie dekoracji: ${identifier}, Typ: ${decoInfo.type}, URL: ${modelUrl}`);
-
-    try {
-      const decoration = await ThreeObjectsFactory.loadDecorationModel(modelUrl);
-
-      const box = new THREE.Box3().setFromObject(decoration);
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const desiredSize = 1.5; // docelowy rozmiar dekoracji (np. 1.5 jednostki)
-
-      // jeśli obiekt za duży lub za mały – przeskaluj
-      if (maxDim > 0) {
-        const scaleFactor = desiredSize / maxDim;
-        decoration.scale.setScalar(scaleFactor);
-      }
-
-      // Przypisz dane do userData używając poprawnego obiektu decoInfo
-      decoration.userData['decorationType'] = decoInfo.type; // Użyj notacji '.' jeśli to możliwe
-      decoration.userData['modelFileName'] = decoInfo.modelFileName;
-      decoration.userData['isSnapped'] = false; // Początkowo nie jest przyczepiona
-
-      decoration.position.set(
-        (Math.random() - 0.5) * 5, // Bliżej tortu na start
-        this.cakeBase.position.y + (this.cakeBase.geometry as THREE.CylinderGeometry).parameters.height * this.cakeBase.scale.y + 2 + Math.random(), // Nad tortem
-        (Math.random() - 0.5) * 5
-      );
-      // Dostosuj skalę, jeśli modele są zbyt duże/małe
-      // decoration.scale.set(0.5, 0.5, 0.5);
-
-      this.scene.add(decoration);
-      const meshes = (decoration.userData['clickableMeshes'] as THREE.Mesh[]) ?? [];
-      this.objects.push(...meshes);
-      console.log('Dekoracja dodana:', decoration);
-
-      // Opcjonalnie: Automatycznie zaznacz nowo dodany obiekt
-      this.transformControlsService.attachObject(decoration);
-      this.showBoxHelperFor(decoration); // Pokaż BoxHelper od razu
-
-    } catch (error) {
-      console.error(`Błąd ładowania dekoracji ${identifier}:`, error);
+  public async addDecorationFromModel(identifier: string): Promise<void> {
+    const decoration = await this.decorationsService.addDecorationFromModel(
+      identifier,
+      this.scene,
+      this.cakeBase,
+      this.objects
+    );
+    if (decoration) {
+      this.showBoxHelperFor(decoration);
     }
   }
 
+  public exportOBJ(): string {
+    return this.exportService.exportOBJ(this.scene);
+  }
+
+  public exportSTL(): string {
+    return this.exportService.exportSTL(this.scene);
+  }
+
+  public exportGLTF(callback: (gltf: object) => void): void {
+    this.exportService.exportGLTF(this.scene, callback);
+  }
+
+  public takeScreenshot(): string {
+    return this.exportService.screenshot(this.renderer);
+  }
   private onClickDown(event: MouseEvent): void {
-    if (this.paintMode) {
-      this.handlePaint(event);
-      return;
-    }
     if (this.transformControlsService.isDragging()) {
       return;
     }
@@ -386,28 +296,6 @@ export class ThreeSceneService {
   //
   //   this.cakeBase.attach(selected);
   // }
-
-  private async loadDecorationsData(): Promise<void> {
-    // W rzeczywistej aplikacji zrób zapytanie HTTP GET /api/decorations
-    // Poniżej symulacja:
-    try {
-      // const decorationsFromApi = await this.http.get<any[]>('/api/decorations').toPromise();
-      const decorationsFromApi = [
-        { id: 1, name: "Cyfra 1", modelFileName: "Numer_1.glb", type: "TOP", thumbnailUrl: "..." },
-        { id: 2, name: "Ozdoba Boczna", modelFileName: "custom.glb", type: "SIDE", thumbnailUrl: "..." },
-        { id: 3, name: 'czekoladowa ozdoba', modelFileName: 'chocolate_kiss.glb', type: 'TOP' },
-        { id: 4, name: 'Trawa', modelFileName: 'trawa.glb', type: 'SIDE' }
-      ];
-
-      decorationsFromApi.forEach(dec => {
-        // Używamy unikalnego identyfikatora (np. modelFileName lub ID z bazy) jako klucza
-        this.decorationsInfo.set(dec.modelFileName, { modelFileName: dec.modelFileName, type: dec.type as ('SIDE' | 'TOP') });
-      });
-      console.log("Dane dekoracji załadowane:", this.decorationsInfo);
-    } catch (error) {
-      console.error("Błąd ładowania danych dekoracji z API:", error);
-    }
-  }
 
   private handleInteraction(clientX: number, clientY: number): void {
     if (this.transformControlsService.isDragging()) {
@@ -487,68 +375,6 @@ export class ThreeSceneService {
   // Zastępuje poprzednią implementację w komponencie
   public attachSelectedToCake(): void {
     this.transformControlsService.attemptSnapSelectionToCake();
-  }
-
-  private async handlePaint(event: MouseEvent): Promise<void> {
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-    // Raycast tylko w kierunku cakeBase
-    const intersects = this.raycaster.intersectObject(this.cakeBase, false);
-
-    if (intersects.length > 0) {
-      const hit = intersects[0];
-      const pointOnCakeWorld = hit.point.clone();
-      const normal = hit.face?.normal.clone() ?? new THREE.Vector3(0,1,0);
-
-      // Użyj factory do załadowania modelu pędzla (currentBrush)
-      try {
-        const brushModel = await ThreeObjectsFactory.loadDecorationModel(
-          `/models/${this.currentBrush}`
-        );
-
-        const box = new THREE.Box3().setFromObject(brushModel);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        brushModel.position.sub(center);
-        // Odetnij model trawy/gwiazdek w miejscu trafienia:
-        // 1. Pozycja
-        // Najpierw w world coordinates, potem dodaj offset wzdłuż normalnej, by nie wchodził wgłąb tortu
-        brushModel.position.copy(pointOnCakeWorld);
-        const offset = normal.clone().multiplyScalar(0.005); // 0.05 jednostki nad powierzchnią
-        brushModel.position.add(offset);
-
-
-        // 2. Rotacja – ustaw “do góry” (Y) albo orientuj zgodnie z normalną
-        const quaternion = new THREE.Quaternion();
-        quaternion.setFromUnitVectors(
-          new THREE.Vector3(0, 1, 0), // “góra” modelu
-          normal.clone()              // normala cake
-        );
-        brushModel.quaternion.copy(quaternion);
-        brushModel.rotation.y = Math.random() * Math.PI * 2;
-
-        // 3. Skaluj jeśli za duże/za małe
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
-        if (maxDim > 0) {
-          const scaleFactor = 0.5 / maxDim; // lub 0.3
-          brushModel.scale.setScalar(scaleFactor);
-        }
-
-
-
-        // 4. Dodaj do sceny
-        this.scene.add(brushModel);
-        // Nie snaponujemy tego automatycznie, bo to paint – ale możesz ustawić
-        brushModel.userData['isSnapped'] = true;
-      } catch (e) {
-        console.error('Paint: błąd ładowania modelu pędzla:', e);
-      }
-    }
   }
 
 }
