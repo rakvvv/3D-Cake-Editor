@@ -10,7 +10,7 @@ import { SceneInitService } from './scene-init.service';
 import { DecorationsService } from './decorations.service';
 import { PaintService } from './paint.service';
 import { ExportService } from './export.service';
-import { CakeFactory } from '../factories/cake.factory';
+import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.factory';
 import { TextFactory } from '../factories/text.factory';
 
 @Injectable({
@@ -18,7 +18,9 @@ import { TextFactory } from '../factories/text.factory';
 })
 export class ThreeSceneService {
   public objects: THREE.Object3D[] = [];
-  public cakeBase!: THREE.Mesh;
+  public cakeBase: THREE.Group | null = null;
+  private cakeLayers: THREE.Mesh[] = [];
+  private cakeMetadata: CakeMetadata | null = null;
   private textMesh: THREE.Mesh | null = null;
   private font: Font | null = null;
   private options!: CakeOptions;
@@ -58,25 +60,20 @@ export class ThreeSceneService {
     this.sceneInitService.init(container);
     this.transformControlsService.init(this.scene, this.camera, this.renderer, this.sceneInitService.orbit);
 
-    // gridhelper
     const grid = new THREE.GridHelper(50, 50);
     this.scene.add(grid);
 
-    // Dodajemy podstawę tortu przy użyciu fabryki
-    this.cakeBase = CakeFactory.createCakeBase();
-    this.scene.add(this.cakeBase);
-    this.objects.push(this.cakeBase);
+    this.rebuildCake();
 
-    this.transformControlsService.setCakeBase(this.cakeBase);
-
-    const topping = CakeFactory.createCakeTopping();
-    this.scene.add(topping);
-
-    // Zastosuj opcje
-    this.updateCakeOptions(this.options);
+    if (this.options.cake_text) {
+      const textSize = this.getCakeHorizontalSize() * 0.2;
+      const textDepth = 0.1;
+      const textHeight = this.getCakeTopHeight();
+      this.loadAndAddText(this.options.cake_text_value, textSize, textHeight, textDepth);
+    }
 
     container.addEventListener('mousedown', (event) => {
-      if (this.paintService.paintMode) {
+      if (this.paintService.paintMode && this.cakeBase) {
         this.paintService.isPainting = true;
         this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
       } else {
@@ -85,7 +82,7 @@ export class ThreeSceneService {
     });
 
     container.addEventListener('mousemove', (event) => {
-      if (this.paintService.isPainting && this.paintService.paintMode) {
+      if (this.paintService.isPainting && this.paintService.paintMode && this.cakeBase) {
         this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
       }
     });
@@ -97,48 +94,127 @@ export class ThreeSceneService {
 
   public updateCakeOptions(options: CakeOptions): void {
     this.options = options;
-    const scale = options.cake_size;
-    if (this.cakeBase) {
-      // Ustaw skalę tortu
-      this.cakeBase.scale.set(options.cake_size, options.cake_size, options.cake_size);
-      this.cakeBase.position.set(0, options.cake_size, 0);
-      // Ustaw kolor tortu – używamy asercji typu
-      const material = this.cakeBase.material as THREE.MeshStandardMaterial;
-      if (material.map) {
-        material.map.repeat.set(2 * scale, 2 * scale);
-      }
-      if (material.bumpMap) {
-        material.bumpMap.repeat.set(2 * scale, 2 * scale);
-      }
-      if (material.roughnessMap) {
-        material.roughnessMap.repeat.set(2 * scale, 2 * scale);
-      }
+    this.rebuildCake();
 
-      if (options.cake_text) {
-        // Usuń istniejący napis, jeśli istnieje
-        if (this.textMesh) {
-          this.scene.remove(this.textMesh);
-          this.textMesh.geometry.dispose();
-          (this.textMesh.material as THREE.Material).dispose();
-          this.textMesh = null;
-        }
-        // Obliczenie wielkosci i pozycji napisu do wielksci tortu
-        const params = (this.cakeBase.geometry as any).parameters;
-        const size = params.radiusTop * 0.2 * options.cake_size;
-        const height = params.height + 2 * (options.cake_size - 1);
-        const depth = 0.1 ;
-        this.loadAndAddText(options.cake_text_value, size, height, depth);
-        this.transformControlsService.updateCakeSize(options.cake_size);
-      } else {
-        // Jeśli napis ma być wyłączony, usuń go, jeśli istnieje
-        if (this.textMesh) {
-          this.scene.remove(this.textMesh);
-          this.textMesh.geometry.dispose();
-          (this.textMesh.material as THREE.Material).dispose();
-          this.textMesh = null;
-        }
-      }
+    if (options.cake_text) {
+      const textSize = this.getCakeHorizontalSize() * 0.2;
+      const textDepth = 0.1;
+      const textHeight = this.getCakeTopHeight();
+      this.loadAndAddText(options.cake_text_value, textSize, textHeight, textDepth);
+      const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * options.cake_size : options.cake_size;
+      this.transformControlsService.updateCakeSize(effectiveSize);
+    } else {
+      this.removeCakeText();
     }
+  }
+
+  private rebuildCake(): void {
+    if (!this.scene) {
+      return;
+    }
+
+    this.removeCakeText();
+    this.disposeCake();
+
+    const { cake, layers, metadata } = ThreeObjectsFactory.createCake(this.options);
+    this.cakeBase = cake;
+    this.cakeLayers = layers;
+    this.cakeMetadata = metadata;
+
+    this.applyCakeTransforms();
+
+    this.scene.add(cake);
+    this.objects.push(cake);
+    this.transformControlsService.setCakeBase(cake);
+    const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * this.options.cake_size : this.options.cake_size;
+    this.transformControlsService.updateCakeSize(effectiveSize);
+  }
+
+  private disposeCake(): void {
+    if (!this.cakeBase) {
+      return;
+    }
+
+    const children = [...this.cakeBase.children];
+    children.forEach((child) => {
+      if (!child.userData['isCakeLayer']) {
+        this.scene.attach(child);
+        child.userData['isSnapped'] = false;
+      }
+    });
+
+    this.scene.remove(this.cakeBase);
+    this.objects = this.objects.filter((obj) => obj !== this.cakeBase);
+
+    this.cakeLayers.forEach((layer) => {
+      layer.geometry.dispose();
+    });
+
+    const material = this.cakeBase.userData['material'] as THREE.Material | undefined;
+    if (material) {
+      material.dispose();
+    }
+
+    this.cakeBase = null;
+    this.cakeLayers = [];
+    this.cakeMetadata = null;
+    this.transformControlsService.setCakeBase(null);
+  }
+
+  private applyCakeTransforms(): void {
+    if (!this.cakeBase || !this.cakeMetadata) {
+      return;
+    }
+
+    const scale = this.options.cake_size;
+    this.cakeBase.scale.set(scale, scale, scale);
+    const totalHeight = this.cakeMetadata.totalHeight * scale;
+    this.cakeBase.position.set(0, totalHeight / 2, 0);
+
+    const material = this.cakeBase.userData['material'] as THREE.MeshStandardMaterial | undefined;
+    if (material) {
+      material.color.set(this.options.cake_color);
+      const textures = [material.map, material.bumpMap, material.roughnessMap];
+      textures.forEach((texture) => {
+        if (texture) {
+          texture.repeat.set(2 * scale, 2 * scale);
+        }
+      });
+    }
+  }
+
+  private removeCakeText(): void {
+    if (!this.textMesh) {
+      return;
+    }
+
+    this.scene.remove(this.textMesh);
+    this.textMesh.geometry.dispose();
+    (this.textMesh.material as THREE.Material).dispose();
+    this.textMesh = null;
+  }
+
+  private getCakeHorizontalSize(): number {
+    if (!this.cakeMetadata) {
+      return this.options.cake_size;
+    }
+
+    const scale = this.options.cake_size;
+    if (this.cakeMetadata.shape === 'cylinder') {
+      return (this.cakeMetadata.radius ?? 1) * scale;
+    }
+
+    const width = this.cakeMetadata.width ?? 1;
+    const depth = this.cakeMetadata.depth ?? 1;
+    return (Math.min(width, depth) / 2) * scale;
+  }
+
+  private getCakeTopHeight(): number {
+    if (!this.cakeMetadata) {
+      return this.options.cake_size * 2;
+    }
+
+    return this.cakeMetadata.totalHeight * this.options.cake_size;
   }
 
   private async loadFont(): Promise<void> {
@@ -174,7 +250,7 @@ export class ThreeSceneService {
       depth,
       curveSegments: 12,
     });
-    newTextMesh.position.y = height;
+    newTextMesh.position.set(0, height + 0.02, 0);
     newTextMesh.rotation.x = -0.5 * Math.PI;
     this.scene.add(newTextMesh);
     this.textMesh = newTextMesh;
@@ -193,6 +269,10 @@ export class ThreeSceneService {
   }
 
   public async addDecorationFromModel(identifier: string): Promise<void> {
+    if (!this.cakeBase) {
+      return;
+    }
+
     const decoration = await this.decorationsService.addDecorationFromModel(
       identifier,
       this.scene,

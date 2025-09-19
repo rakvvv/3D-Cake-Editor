@@ -17,6 +17,8 @@ export class LayersPanelComponent {
   cakeColor = '#ffea00';
   cakeText = false;
   cakeTextValue = 'Urodziny';
+  cakeLayers = 1;
+  cakeShape: 'cylinder' | 'cuboid' = 'cylinder';
 
   updateCakeOptions(): void {
     this.cakeOptionsChange.emit({
@@ -24,6 +26,8 @@ export class LayersPanelComponent {
       cake_color: this.cakeColor,
       cake_text: this.cakeText,
       cake_text_value: this.cakeTextValue,
+      layers: this.cakeLayers,
+      shape: this.cakeShape,
     });
   }
 }

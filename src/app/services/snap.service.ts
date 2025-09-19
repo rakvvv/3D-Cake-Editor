@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import * as THREE from 'three';
 import { SelectionService } from './selection.service';
 import { ClosestPointInfo } from '../models/cake.points';
+import { CakeMetadata } from '../factories/three-objects.factory';
 
 @Injectable({
   providedIn: 'root',
@@ -13,6 +14,10 @@ export class SnapService {
 
   private cakeBase: THREE.Object3D | null = null;
   private scene: THREE.Scene | null = null;
+
+  private getCakeMetadata(): CakeMetadata | undefined {
+    return this.cakeBase?.userData['metadata'] as CakeMetadata | undefined;
+  }
 
   constructor(private readonly selectionService: SelectionService) {}
 
@@ -86,69 +91,119 @@ export class SnapService {
       return;
     }
 
-    const mesh = this.cakeBase as THREE.Mesh;
-    const cakeParams = (mesh.geometry as THREE.CylinderGeometry).parameters;
-    const cakeRadius = cakeParams.radiusTop;
-    const cakeHeight = cakeParams.height;
-    const halfHeight = cakeHeight / 2;
+    const metadata = this.getCakeMetadata();
+    if (!metadata) {
+      return;
+    }
 
+    const scale = this.cakeBase.scale;
+    const halfHeight = (metadata.totalHeight * scale.y) / 2;
     const currentLocalPos = selectedObject.position;
     const maxPenetrationDepth = 0.5;
     const maxLiftOffDistance = 0.1;
 
     if (selectedObject.userData['decorationType'] === 'TOP') {
-      const distanceToCenter = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
+      if (metadata.shape === 'cylinder') {
+        const cakeRadius = (metadata.radius ?? 1) * scale.x;
+        const distanceToCenter = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
 
-      if (distanceToCenter > cakeRadius) {
-        const scaleFactor = cakeRadius / distanceToCenter;
-        currentLocalPos.x *= scaleFactor;
-        currentLocalPos.z *= scaleFactor;
+        if (distanceToCenter > cakeRadius) {
+          const scaleFactor = cakeRadius / distanceToCenter;
+          currentLocalPos.x *= scaleFactor;
+          currentLocalPos.z *= scaleFactor;
+        }
+
+        currentLocalPos.y = THREE.MathUtils.clamp(
+          currentLocalPos.y,
+          halfHeight - maxPenetrationDepth,
+          halfHeight + maxLiftOffDistance,
+        );
+      } else {
+        const halfWidth = ((metadata.width ?? 1) / 2) * scale.x;
+        const halfDepth = ((metadata.depth ?? 1) / 2) * scale.z;
+
+        currentLocalPos.x = THREE.MathUtils.clamp(currentLocalPos.x, -halfWidth, halfWidth);
+        currentLocalPos.z = THREE.MathUtils.clamp(currentLocalPos.z, -halfDepth, halfDepth);
+        currentLocalPos.y = THREE.MathUtils.clamp(
+          currentLocalPos.y,
+          halfHeight - maxPenetrationDepth,
+          halfHeight + maxLiftOffDistance,
+        );
       }
-
-      const cakeTopSurfaceY = cakeHeight / 2;
-      currentLocalPos.y = THREE.MathUtils.clamp(
-        currentLocalPos.y,
-        cakeTopSurfaceY - maxPenetrationDepth,
-        cakeTopSurfaceY + maxLiftOffDistance,
-      );
     } else {
-      const currentObjectLocalRadius = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
-      const clampedRadius = THREE.MathUtils.clamp(
-        currentObjectLocalRadius,
-        cakeRadius - maxPenetrationDepth,
-        cakeRadius + maxLiftOffDistance,
-      );
+      if (metadata.shape === 'cylinder') {
+        const cakeRadius = (metadata.radius ?? 1) * scale.x;
+        const currentObjectLocalRadius = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
+        const clampedRadius = THREE.MathUtils.clamp(
+          currentObjectLocalRadius,
+          cakeRadius - maxPenetrationDepth,
+          cakeRadius + maxLiftOffDistance,
+        );
 
-      if (Math.abs(currentObjectLocalRadius - clampedRadius) > 0.001 && currentObjectLocalRadius > 0.001) {
-        const radialScaleFactor = clampedRadius / currentObjectLocalRadius;
-        currentLocalPos.x *= radialScaleFactor;
-        currentLocalPos.z *= radialScaleFactor;
+        if (Math.abs(currentObjectLocalRadius - clampedRadius) > 0.001 && currentObjectLocalRadius > 0.001) {
+          const radialScaleFactor = clampedRadius / currentObjectLocalRadius;
+          currentLocalPos.x *= radialScaleFactor;
+          currentLocalPos.z *= radialScaleFactor;
+        }
+
+        currentLocalPos.y = THREE.MathUtils.clamp(
+          currentLocalPos.y,
+          -halfHeight + this.cakeSurfaceOffset,
+          halfHeight - this.cakeSurfaceOffset,
+        );
+
+        const normal = new THREE.Vector3(currentLocalPos.x, 0, currentLocalPos.z).normalize();
+        if (normal.lengthSq() === 0) {
+          normal.set(1, 0, 0);
+        }
+
+        const up = new THREE.Vector3(0, 1, 0);
+        const right = new THREE.Vector3().crossVectors(up, normal).normalize();
+        const correctedUp = new THREE.Vector3().crossVectors(normal, right).normalize();
+        const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, normal);
+        const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
+        const offsetQuaternion = selectedObject.userData['snapOffsetQuaternion'] || new THREE.Quaternion();
+        selectedObject.quaternion.copy(baseQuaternion).multiply(offsetQuaternion);
+      } else {
+        const halfWidth = ((metadata.width ?? 1) / 2) * scale.x;
+        const halfDepth = ((metadata.depth ?? 1) / 2) * scale.z;
+        const absX = Math.abs(currentLocalPos.x);
+        const absZ = Math.abs(currentLocalPos.z);
+        const normal = new THREE.Vector3();
+
+        if (absX >= absZ) {
+          const sign = absX < 1e-5 ? 1 : Math.sign(currentLocalPos.x);
+          currentLocalPos.x = sign * halfWidth;
+          currentLocalPos.z = THREE.MathUtils.clamp(currentLocalPos.z, -halfDepth, halfDepth);
+          normal.set(sign, 0, 0);
+        } else {
+          const sign = absZ < 1e-5 ? 1 : Math.sign(currentLocalPos.z);
+          currentLocalPos.z = sign * halfDepth;
+          currentLocalPos.x = THREE.MathUtils.clamp(currentLocalPos.x, -halfWidth, halfWidth);
+          normal.set(0, 0, sign);
+        }
+
+        currentLocalPos.y = THREE.MathUtils.clamp(
+          currentLocalPos.y,
+          -halfHeight + this.cakeSurfaceOffset,
+          halfHeight - this.cakeSurfaceOffset,
+        );
+
+        if (normal.lengthSq() === 0) {
+          normal.set(1, 0, 0);
+        }
+
+        const up = new THREE.Vector3(0, 1, 0);
+        const right = new THREE.Vector3().crossVectors(up, normal).normalize();
+        const correctedUp = new THREE.Vector3().crossVectors(normal, right).normalize();
+        const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, normal);
+        const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
+        const offsetQuaternion = selectedObject.userData['snapOffsetQuaternion'] || new THREE.Quaternion();
+        selectedObject.quaternion.copy(baseQuaternion).multiply(offsetQuaternion);
       }
-
-      const cakeMinY = -cakeHeight / 2;
-      const cakeMaxY = cakeHeight / 2;
-      currentLocalPos.y = THREE.MathUtils.clamp(
-        currentLocalPos.y,
-        cakeMinY + this.cakeSurfaceOffset,
-        cakeMaxY - this.cakeSurfaceOffset,
-      );
-
-      const normal = new THREE.Vector3(currentLocalPos.x, 0, currentLocalPos.z).normalize();
-      if (normal.lengthSq() === 0) {
-        normal.set(1, 0, 0);
-      }
-
-      const up = new THREE.Vector3(0, 1, 0);
-      const right = new THREE.Vector3().crossVectors(up, normal).normalize();
-      const correctedUp = new THREE.Vector3().crossVectors(normal, right).normalize();
-      const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, normal);
-      const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
-      const offsetQuaternion = selectedObject.userData['snapOffsetQuaternion'] || new THREE.Quaternion();
-      selectedObject.quaternion.copy(baseQuaternion).multiply(offsetQuaternion);
     }
-
-    selectedObject.position.copy(currentLocalPos);
   }
+
 
   public checkDetachment(): void {
     const selectedObject = this.selectionService.getSelectedObject();
@@ -187,13 +242,32 @@ export class SnapService {
       return;
     }
 
+    const metadata = this.getCakeMetadata();
+    if (!metadata) {
+      return;
+    }
+
     const localPos = object.position;
     const objectQuaternion = object.quaternion;
 
-    const baseNormal = new THREE.Vector3(localPos.x, 0, localPos.z).normalize();
-    if (baseNormal.lengthSq() === 0) {
-      baseNormal.set(1, 0, 0);
+    let baseNormal: THREE.Vector3;
+    if (metadata.shape === 'cylinder') {
+      baseNormal = new THREE.Vector3(localPos.x, 0, localPos.z).normalize();
+      if (baseNormal.lengthSq() === 0) {
+        baseNormal.set(1, 0, 0);
+      }
+    } else {
+      const absX = Math.abs(localPos.x);
+      const absZ = Math.abs(localPos.z);
+      if (absX >= absZ) {
+        const sign = absX < 1e-5 ? 1 : Math.sign(localPos.x);
+        baseNormal = new THREE.Vector3(sign, 0, 0);
+      } else {
+        const sign = absZ < 1e-5 ? 1 : Math.sign(localPos.z);
+        baseNormal = new THREE.Vector3(0, 0, sign);
+      }
     }
+
     const up = new THREE.Vector3(0, 1, 0);
     const right = new THREE.Vector3().crossVectors(up, baseNormal).normalize();
     const correctedUp = new THREE.Vector3().crossVectors(baseNormal, right).normalize();
@@ -203,6 +277,7 @@ export class SnapService {
     const offsetQuaternion = baseQuaternion.clone().invert().multiply(objectQuaternion);
     object.userData['snapOffsetQuaternion'] = offsetQuaternion;
   }
+
 
   public getClosestPointOnCake(worldPoint: THREE.Vector3): ClosestPointInfo {
     const defaultResult: ClosestPointInfo = {
@@ -216,68 +291,97 @@ export class SnapService {
       return defaultResult;
     }
 
+    const metadata = this.getCakeMetadata();
+    if (!metadata) {
+      return defaultResult;
+    }
+
     const localPoint = this.cakeBase.worldToLocal(worldPoint.clone());
-
-    const mesh = this.cakeBase as THREE.Mesh;
-    const cakeParams = (mesh.geometry as THREE.CylinderGeometry).parameters;
-
-    const radius = cakeParams.radiusTop * this.cakeBase.scale.x;
-    const height = cakeParams.height * this.cakeBase.scale.y;
-    const halfHeight = height / 2;
+    const scale = this.cakeBase.scale;
+    const halfHeight = (metadata.totalHeight * scale.y) / 2;
 
     let closestPointLocal = new THREE.Vector3();
-    let normalLocal = new THREE.Vector3();
+    let normalLocal = new THREE.Vector3(0, 1, 0);
     let distanceSq = Infinity;
     let surfaceType: 'TOP' | 'SIDE' | 'NONE' = 'NONE';
 
-    const pointOnTopPlane = new THREE.Vector3(localPoint.x, halfHeight, localPoint.z);
-    const distToCenterSq = pointOnTopPlane.x * pointOnTopPlane.x + pointOnTopPlane.z * pointOnTopPlane.z;
-    if (distToCenterSq <= radius * radius) {
-      const dSq = localPoint.distanceToSquared(pointOnTopPlane);
-      if (dSq < distanceSq) {
-        distanceSq = dSq;
-        closestPointLocal.copy(pointOnTopPlane);
-        normalLocal.set(0, 1, 0);
-        surfaceType = 'TOP';
-      }
-    } else {
-      const scaleFactor = radius / Math.sqrt(distToCenterSq);
-      const edgePoint = new THREE.Vector3(localPoint.x * scaleFactor, halfHeight, localPoint.z * scaleFactor);
-      const dSq = localPoint.distanceToSquared(edgePoint);
-      if (dSq < distanceSq) {
-        distanceSq = dSq;
-        closestPointLocal.copy(edgePoint);
-        normalLocal.set(edgePoint.x, 0, edgePoint.z).normalize();
-        surfaceType = 'SIDE';
-      }
-    }
+    if (metadata.shape === 'cylinder') {
+      const radius = (metadata.radius ?? 1) * scale.x;
+      const pointOnTopPlane = new THREE.Vector3(localPoint.x, halfHeight, localPoint.z);
+      const distToCenterSq = pointOnTopPlane.x * pointOnTopPlane.x + pointOnTopPlane.z * pointOnTopPlane.z;
 
-    const pointOnAxis = new THREE.Vector3(0, THREE.MathUtils.clamp(localPoint.y, -halfHeight, halfHeight), 0);
-    const horizontalVec = new THREE.Vector3(localPoint.x, 0, localPoint.z);
-    const distToAxis = horizontalVec.length();
-
-    if (distToAxis > 0) {
-      const pointOnSide = horizontalVec.setLength(radius).add(pointOnAxis);
-      const dSq = localPoint.distanceToSquared(pointOnSide);
-
-      if (dSq < distanceSq) {
-        if (localPoint.y >= -halfHeight && localPoint.y <= halfHeight) {
+      if (distToCenterSq <= radius * radius) {
+        const dSq = localPoint.distanceToSquared(pointOnTopPlane);
+        if (dSq < distanceSq) {
           distanceSq = dSq;
-          closestPointLocal.copy(pointOnSide);
-          normalLocal.set(localPoint.x, 0, localPoint.z).normalize();
+          closestPointLocal.copy(pointOnTopPlane);
+          normalLocal.set(0, 1, 0);
+          surfaceType = 'TOP';
+        }
+      }
+
+      const clampedY = THREE.MathUtils.clamp(localPoint.y, -halfHeight, halfHeight);
+      const horizontalVec = new THREE.Vector3(localPoint.x, 0, localPoint.z);
+      const distToAxis = horizontalVec.length();
+
+      if (distToAxis > 0) {
+        const sidePoint = horizontalVec.clone().setLength(radius);
+        sidePoint.y = clampedY;
+        const dSq = localPoint.distanceToSquared(sidePoint);
+
+        if (dSq < distanceSq) {
+          distanceSq = dSq;
+          closestPointLocal.copy(sidePoint);
+          normalLocal.set(sidePoint.x, 0, sidePoint.z).normalize();
+          surfaceType = 'SIDE';
+        }
+      } else {
+        const sidePoint = new THREE.Vector3(radius, clampedY, 0);
+        const dSq = localPoint.distanceToSquared(sidePoint);
+        if (dSq < distanceSq) {
+          distanceSq = dSq;
+          closestPointLocal.copy(sidePoint);
+          normalLocal.set(1, 0, 0);
           surfaceType = 'SIDE';
         }
       }
     } else {
-      const closestY = THREE.MathUtils.clamp(localPoint.y, -halfHeight, halfHeight);
-      const pointOnSideIfAxis = new THREE.Vector3(radius, closestY, 0);
-      const dSq = localPoint.distanceToSquared(pointOnSideIfAxis);
-      if (dSq < distanceSq) {
-        distanceSq = dSq;
-        closestPointLocal.copy(pointOnSideIfAxis);
-        normalLocal.set(1, 0, 0);
-        surfaceType = 'SIDE';
+      const halfWidth = ((metadata.width ?? 1) / 2) * scale.x;
+      const halfDepth = ((metadata.depth ?? 1) / 2) * scale.z;
+
+      const clampedX = THREE.MathUtils.clamp(localPoint.x, -halfWidth, halfWidth);
+      const clampedY = THREE.MathUtils.clamp(localPoint.y, -halfHeight, halfHeight);
+      const clampedZ = THREE.MathUtils.clamp(localPoint.z, -halfDepth, halfDepth);
+
+      const topPoint = new THREE.Vector3(clampedX, halfHeight, clampedZ);
+      const topDistSq = localPoint.distanceToSquared(topPoint);
+      if (topDistSq < distanceSq) {
+        distanceSq = topDistSq;
+        closestPointLocal.copy(topPoint);
+        normalLocal.set(0, 1, 0);
+        surfaceType = 'TOP';
       }
+
+      const sideCandidates: Array<{ point: THREE.Vector3; normal: THREE.Vector3 }> = [
+        { point: new THREE.Vector3(halfWidth, clampedY, clampedZ), normal: new THREE.Vector3(1, 0, 0) },
+        { point: new THREE.Vector3(-halfWidth, clampedY, clampedZ), normal: new THREE.Vector3(-1, 0, 0) },
+        { point: new THREE.Vector3(clampedX, clampedY, halfDepth), normal: new THREE.Vector3(0, 0, 1) },
+        { point: new THREE.Vector3(clampedX, clampedY, -halfDepth), normal: new THREE.Vector3(0, 0, -1) },
+      ];
+
+      for (const candidate of sideCandidates) {
+        const dSq = localPoint.distanceToSquared(candidate.point);
+        if (dSq < distanceSq) {
+          distanceSq = dSq;
+          closestPointLocal.copy(candidate.point);
+          normalLocal.copy(candidate.normal);
+          surfaceType = 'SIDE';
+        }
+      }
+    }
+
+    if (distanceSq === Infinity) {
+      return defaultResult;
     }
 
     return {
@@ -287,6 +391,7 @@ export class SnapService {
       surfaceType,
     };
   }
+
 
   private snapObject(object: THREE.Object3D, closestPointInfo: ClosestPointInfo): void {
     if (!this.cakeBase) {

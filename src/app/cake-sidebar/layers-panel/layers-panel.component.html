@@ -16,6 +16,24 @@
     <input type="color" [(ngModel)]="cakeColor" (change)="updateCakeOptions()" />
   </div>
   <div class="option-group">
+    <label>Liczba pięter: {{ cakeLayers }}</label>
+    <input
+      type="range"
+      min="1"
+      max="5"
+      step="1"
+      [(ngModel)]="cakeLayers"
+      (change)="updateCakeOptions()"
+    />
+  </div>
+  <div class="option-group">
+    <label>Kształt tortu:</label>
+    <select [(ngModel)]="cakeShape" (change)="updateCakeOptions()">
+      <option value="cylinder">Okrągły</option>
+      <option value="cuboid">Prostokątny</option>
+    </select>
+  </div>
+  <div class="option-group">
     <label>
       <input type="checkbox" [(ngModel)]="cakeText" (change)="updateCakeOptions()" />
       Włącz napis

@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { TransformControlsService } from './transform-controls-service';
 import { DecorationFactory } from '../factories/decoration.factory';
+import { CakeMetadata } from '../factories/three-objects.factory';
 import { DecorationInfo } from '../models/decorationInfo';
 
 @Injectable({ providedIn: 'root' })
@@ -43,10 +44,14 @@ export class DecorationsService {
   public async addDecorationFromModel(
     identifier: string,
     scene: THREE.Scene,
-    cakeBase: THREE.Mesh,
+    cakeBase: THREE.Object3D | null,
     objects: THREE.Object3D[]
   ): Promise<THREE.Object3D | undefined> {
     if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    if (!cakeBase) {
       return;
     }
 
@@ -77,9 +82,15 @@ export class DecorationsService {
       decoration.userData['modelFileName'] = decoInfo.modelFileName;
       decoration.userData['isSnapped'] = false;
 
+      const metadata = cakeBase.userData['metadata'] as CakeMetadata | undefined;
+      const worldScale = cakeBase.getWorldScale(new THREE.Vector3());
+      const topHeight = metadata
+        ? metadata.totalHeight * worldScale.y
+        : cakeBase.position.y + 2;
+
       decoration.position.set(
         (Math.random() - 0.5) * 5,
-        cakeBase.position.y + (cakeBase.geometry as THREE.CylinderGeometry).parameters.height * cakeBase.scale.y + 2 + Math.random(),
+        topHeight + 2 + Math.random(),
         (Math.random() - 0.5) * 5
       );
 
