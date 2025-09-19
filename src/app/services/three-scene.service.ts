@@ -1,17 +1,17 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import * as THREE from 'three';
-import { ThreeObjectsFactory } from './three-objects.factory';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { isPlatformBrowser } from '@angular/common';
 import { FontLoader, Font } from 'three/examples/jsm/loaders/FontLoader.js';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { TransformControlsService } from './transform-controls-service';
 import { CakeOptions } from '../models/cake.options';
 import { SceneInitService } from './scene-init.service';
 import { DecorationsService } from './decorations.service';
 import { PaintService } from './paint.service';
 import { ExportService } from './export.service';
+import { CakeFactory } from '../factories/cake.factory';
+import { TextFactory } from '../factories/text.factory';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
@@ -63,13 +63,13 @@ export class ThreeSceneService {
     this.scene.add(grid);
 
     // Dodajemy podstawę tortu przy użyciu fabryki
-    this.cakeBase = ThreeObjectsFactory.createCakeBase();
+    this.cakeBase = CakeFactory.createCakeBase();
     this.scene.add(this.cakeBase);
     this.objects.push(this.cakeBase);
 
     this.transformControlsService.setCakeBase(this.cakeBase);
 
-    const topping = ThreeObjectsFactory.createCakeTopping();
+    const topping = CakeFactory.createCakeTopping();
     this.scene.add(topping);
 
     // Zastosuj opcje
@@ -169,15 +169,11 @@ export class ThreeSceneService {
       console.error('Font nie został załadowany');
       return;
     }
-    const textGeometry = new TextGeometry(text, {
-      font: this.font,
-      size: size,
-      depth: depth,
-      curveSegments: 12
+    const newTextMesh = TextFactory.createTextMesh(this.font, text, {
+      size,
+      depth,
+      curveSegments: 12,
     });
-    textGeometry.center();
-    const textMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-    const newTextMesh = new THREE.Mesh(textGeometry, textMaterial);
     newTextMesh.position.y = height;
     newTextMesh.rotation.x = -0.5 * Math.PI;
     this.scene.add(newTextMesh);

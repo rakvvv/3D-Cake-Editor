@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { HttpClient } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { TransformControlsService } from './transform-controls-service';
-import { ThreeObjectsFactory } from './three-objects.factory';
+import { DecorationFactory } from '../factories/decoration.factory';
 import { DecorationInfo } from '../models/decorationInfo';
 
 @Injectable({ providedIn: 'root' })
@@ -61,7 +61,7 @@ export class DecorationsService {
 
     const modelUrl = `/models/${decoInfo.modelFileName}`;
     try {
-      const decoration = await ThreeObjectsFactory.loadDecorationModel(modelUrl);
+      const decoration = await DecorationFactory.loadDecorationModel(modelUrl);
 
       const box = new THREE.Box3().setFromObject(decoration);
       const size = new THREE.Vector3();
