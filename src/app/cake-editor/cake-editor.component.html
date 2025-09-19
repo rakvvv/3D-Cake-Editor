@@ -5,7 +5,13 @@
       (attachSelectedToCake)="onAttachSelectedToCake()"
       (transformModeChange)="onTransformModeChange($event)"
       (paintModeChange)="onTogglePaintMode($event)"
-      (brushChange)="onBrushChanged($event)">
+      (brushChange)="onBrushChanged($event)"
+      (saveSceneEvent)="onSaveScene()"
+      (exportObj)="onExportObj()"
+      (exportStl)="onExportStl()"
+      (exportGltf)="onExportGltf()"
+      (screenshot)="onScreenshot()"
+    >
     </app-cake-sidebar>
     <div #canvasContainer class="canvas-container"></div>
   </div>
