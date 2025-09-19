@@ -4,6 +4,15 @@ import { SelectionService } from './selection.service';
 import { ClosestPointInfo } from '../models/cake.points';
 import { CakeMetadata } from '../factories/three-objects.factory';
 
+interface ScaledLayerInfo {
+  index: number;
+  bottom: number;
+  top: number;
+  radius?: number;
+  halfWidth?: number;
+  halfDepth?: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -14,6 +23,34 @@ export class SnapService {
 
   private cakeBase: THREE.Object3D | null = null;
   private scene: THREE.Scene | null = null;
+
+  private getScaledLayers(metadata: CakeMetadata): ScaledLayerInfo[] {
+    const scale = this.cakeBase?.scale ?? new THREE.Vector3(1, 1, 1);
+
+    return metadata.layerDimensions.map((layer) => ({
+      index: layer.index,
+      bottom: layer.bottomY * scale.y,
+      top: layer.topY * scale.y,
+      radius: layer.radius !== undefined ? layer.radius * scale.x : undefined,
+      halfWidth: layer.width !== undefined ? (layer.width / 2) * scale.x : undefined,
+      halfDepth: layer.depth !== undefined ? (layer.depth / 2) * scale.z : undefined,
+    }));
+  }
+
+  private findLayerForY(layers: ScaledLayerInfo[], y: number): ScaledLayerInfo | null {
+    if (!layers.length) {
+      return null;
+    }
+
+    const epsilon = 1e-3;
+    for (const layer of layers) {
+      if (y >= layer.bottom - epsilon && y <= layer.top + epsilon) {
+        return layer;
+      }
+    }
+
+    return y < layers[0].bottom ? layers[0] : layers[layers.length - 1];
+  }
 
   private getCakeMetadata(): CakeMetadata | undefined {
     return this.cakeBase?.userData['metadata'] as CakeMetadata | undefined;
@@ -101,10 +138,14 @@ export class SnapService {
     const currentLocalPos = selectedObject.position;
     const maxPenetrationDepth = 0.5;
     const maxLiftOffDistance = 0.1;
+    const scaledLayers = this.getScaledLayers(metadata);
+    const topLayer = scaledLayers[scaledLayers.length - 1];
+    const overallBottom = scaledLayers[0]?.bottom ?? -halfHeight;
+    const overallTop = topLayer?.top ?? halfHeight;
 
     if (selectedObject.userData['decorationType'] === 'TOP') {
       if (metadata.shape === 'cylinder') {
-        const cakeRadius = (metadata.radius ?? 1) * scale.x;
+        const cakeRadius = topLayer?.radius ?? (metadata.maxRadius ?? metadata.radius ?? 1) * scale.x;
         const distanceToCenter = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
 
         if (distanceToCenter > cakeRadius) {
@@ -115,24 +156,25 @@ export class SnapService {
 
         currentLocalPos.y = THREE.MathUtils.clamp(
           currentLocalPos.y,
-          halfHeight - maxPenetrationDepth,
-          halfHeight + maxLiftOffDistance,
+          (topLayer?.top ?? halfHeight) - maxPenetrationDepth,
+          (topLayer?.top ?? halfHeight) + maxLiftOffDistance,
         );
       } else {
-        const halfWidth = ((metadata.width ?? 1) / 2) * scale.x;
-        const halfDepth = ((metadata.depth ?? 1) / 2) * scale.z;
+        const halfWidth = topLayer?.halfWidth ?? ((metadata.width ?? 1) / 2) * scale.x;
+        const halfDepth = topLayer?.halfDepth ?? ((metadata.depth ?? 1) / 2) * scale.z;
 
         currentLocalPos.x = THREE.MathUtils.clamp(currentLocalPos.x, -halfWidth, halfWidth);
         currentLocalPos.z = THREE.MathUtils.clamp(currentLocalPos.z, -halfDepth, halfDepth);
         currentLocalPos.y = THREE.MathUtils.clamp(
           currentLocalPos.y,
-          halfHeight - maxPenetrationDepth,
-          halfHeight + maxLiftOffDistance,
+          (topLayer?.top ?? halfHeight) - maxPenetrationDepth,
+          (topLayer?.top ?? halfHeight) + maxLiftOffDistance,
         );
       }
     } else {
       if (metadata.shape === 'cylinder') {
-        const cakeRadius = (metadata.radius ?? 1) * scale.x;
+        const activeLayer = this.findLayerForY(scaledLayers, currentLocalPos.y) ?? topLayer;
+        const cakeRadius = activeLayer?.radius ?? (metadata.maxRadius ?? metadata.radius ?? 1) * scale.x;
         const currentObjectLocalRadius = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
         const clampedRadius = THREE.MathUtils.clamp(
           currentObjectLocalRadius,
@@ -148,8 +190,8 @@ export class SnapService {
 
         currentLocalPos.y = THREE.MathUtils.clamp(
           currentLocalPos.y,
-          -halfHeight + this.cakeSurfaceOffset,
-          halfHeight - this.cakeSurfaceOffset,
+          overallBottom + this.cakeSurfaceOffset,
+          overallTop - this.cakeSurfaceOffset,
         );
 
         const normal = new THREE.Vector3(currentLocalPos.x, 0, currentLocalPos.z).normalize();
@@ -165,13 +207,16 @@ export class SnapService {
         const offsetQuaternion = selectedObject.userData['snapOffsetQuaternion'] || new THREE.Quaternion();
         selectedObject.quaternion.copy(baseQuaternion).multiply(offsetQuaternion);
       } else {
-        const halfWidth = ((metadata.width ?? 1) / 2) * scale.x;
-        const halfDepth = ((metadata.depth ?? 1) / 2) * scale.z;
+        const activeLayer = this.findLayerForY(scaledLayers, currentLocalPos.y) ?? topLayer;
+        const halfWidth = activeLayer?.halfWidth ?? ((metadata.width ?? 1) / 2) * scale.x;
+        const halfDepth = activeLayer?.halfDepth ?? ((metadata.depth ?? 1) / 2) * scale.z;
         const absX = Math.abs(currentLocalPos.x);
         const absZ = Math.abs(currentLocalPos.z);
         const normal = new THREE.Vector3();
+        const normalizedX = halfWidth > 0 ? absX / halfWidth : 0;
+        const normalizedZ = halfDepth > 0 ? absZ / halfDepth : 0;
 
-        if (absX >= absZ) {
+        if (normalizedX >= normalizedZ) {
           const sign = absX < 1e-5 ? 1 : Math.sign(currentLocalPos.x);
           currentLocalPos.x = sign * halfWidth;
           currentLocalPos.z = THREE.MathUtils.clamp(currentLocalPos.z, -halfDepth, halfDepth);
@@ -185,8 +230,8 @@ export class SnapService {
 
         currentLocalPos.y = THREE.MathUtils.clamp(
           currentLocalPos.y,
-          -halfHeight + this.cakeSurfaceOffset,
-          halfHeight - this.cakeSurfaceOffset,
+          overallBottom + this.cakeSurfaceOffset,
+          overallTop - this.cakeSurfaceOffset,
         );
 
         if (normal.lengthSq() === 0) {
@@ -257,9 +302,17 @@ export class SnapService {
         baseNormal.set(1, 0, 0);
       }
     } else {
+      const scale = this.cakeBase.scale;
+      const scaledLayers = this.getScaledLayers(metadata);
+      const activeLayer = this.findLayerForY(scaledLayers, localPos.y) ?? scaledLayers[scaledLayers.length - 1];
+      const halfWidth = activeLayer?.halfWidth ?? ((metadata.width ?? 1) / 2) * scale.x;
+      const halfDepth = activeLayer?.halfDepth ?? ((metadata.depth ?? 1) / 2) * scale.z;
       const absX = Math.abs(localPos.x);
       const absZ = Math.abs(localPos.z);
-      if (absX >= absZ) {
+      const normalizedX = halfWidth > 0 ? absX / halfWidth : 0;
+      const normalizedZ = halfDepth > 0 ? absZ / halfDepth : 0;
+
+      if (normalizedX >= normalizedZ) {
         const sign = absX < 1e-5 ? 1 : Math.sign(localPos.x);
         baseNormal = new THREE.Vector3(sign, 0, 0);
       } else {
@@ -299,83 +352,102 @@ export class SnapService {
     const localPoint = this.cakeBase.worldToLocal(worldPoint.clone());
     const scale = this.cakeBase.scale;
     const halfHeight = (metadata.totalHeight * scale.y) / 2;
+    const scaledLayers = this.getScaledLayers(metadata);
 
     let closestPointLocal = new THREE.Vector3();
     let normalLocal = new THREE.Vector3(0, 1, 0);
     let distanceSq = Infinity;
     let surfaceType: 'TOP' | 'SIDE' | 'NONE' = 'NONE';
 
-    if (metadata.shape === 'cylinder') {
-      const radius = (metadata.radius ?? 1) * scale.x;
-      const pointOnTopPlane = new THREE.Vector3(localPoint.x, halfHeight, localPoint.z);
-      const distToCenterSq = pointOnTopPlane.x * pointOnTopPlane.x + pointOnTopPlane.z * pointOnTopPlane.z;
+    if (scaledLayers.length === 0) {
+      scaledLayers.push({
+        index: 0,
+        bottom: -halfHeight,
+        top: halfHeight,
+        radius: metadata.radius ? metadata.radius * scale.x : undefined,
+        halfWidth: metadata.width ? (metadata.width / 2) * scale.x : undefined,
+        halfDepth: metadata.depth ? (metadata.depth / 2) * scale.z : undefined,
+      });
+    }
 
-      if (distToCenterSq <= radius * radius) {
-        const dSq = localPoint.distanceToSquared(pointOnTopPlane);
-        if (dSq < distanceSq) {
-          distanceSq = dSq;
-          closestPointLocal.copy(pointOnTopPlane);
+    for (const layer of scaledLayers) {
+      if (metadata.shape === 'cylinder') {
+        const radius = layer.radius ?? (metadata.maxRadius ?? metadata.radius ?? 1) * scale.x;
+        const topY = layer.top;
+        const bottomY = layer.bottom;
+
+        const horizontal = new THREE.Vector3(localPoint.x, 0, localPoint.z);
+        if (horizontal.lengthSq() > radius * radius) {
+          horizontal.setLength(radius);
+        }
+
+        const topPoint = new THREE.Vector3(horizontal.x, topY, horizontal.z);
+        const topDistanceSq = localPoint.distanceToSquared(topPoint);
+        if (topDistanceSq < distanceSq) {
+          distanceSq = topDistanceSq;
+          closestPointLocal.copy(topPoint);
           normalLocal.set(0, 1, 0);
           surfaceType = 'TOP';
         }
-      }
 
-      const clampedY = THREE.MathUtils.clamp(localPoint.y, -halfHeight, halfHeight);
-      const horizontalVec = new THREE.Vector3(localPoint.x, 0, localPoint.z);
-      const distToAxis = horizontalVec.length();
+        const sideHorizontal = new THREE.Vector3(localPoint.x, 0, localPoint.z);
+        const clampedY = THREE.MathUtils.clamp(localPoint.y, bottomY, topY);
 
-      if (distToAxis > 0) {
-        const sidePoint = horizontalVec.clone().setLength(radius);
-        sidePoint.y = clampedY;
-        const dSq = localPoint.distanceToSquared(sidePoint);
+        if (sideHorizontal.lengthSq() > 1e-6) {
+          const sidePoint = sideHorizontal.clone().setLength(radius);
+          sidePoint.y = clampedY;
+          const dSq = localPoint.distanceToSquared(sidePoint);
 
-        if (dSq < distanceSq) {
-          distanceSq = dSq;
-          closestPointLocal.copy(sidePoint);
-          normalLocal.set(sidePoint.x, 0, sidePoint.z).normalize();
-          surfaceType = 'SIDE';
+          if (dSq < distanceSq) {
+            distanceSq = dSq;
+            closestPointLocal.copy(sidePoint);
+            normalLocal.set(sidePoint.x, 0, sidePoint.z).normalize();
+            surfaceType = 'SIDE';
+          }
+        } else {
+          const sidePoint = new THREE.Vector3(radius, clampedY, 0);
+          const dSq = localPoint.distanceToSquared(sidePoint);
+          if (dSq < distanceSq) {
+            distanceSq = dSq;
+            closestPointLocal.copy(sidePoint);
+            normalLocal.set(1, 0, 0);
+            surfaceType = 'SIDE';
+          }
         }
       } else {
-        const sidePoint = new THREE.Vector3(radius, clampedY, 0);
-        const dSq = localPoint.distanceToSquared(sidePoint);
-        if (dSq < distanceSq) {
-          distanceSq = dSq;
-          closestPointLocal.copy(sidePoint);
-          normalLocal.set(1, 0, 0);
-          surfaceType = 'SIDE';
+        const halfWidth = layer.halfWidth ?? ((metadata.width ?? 1) / 2) * scale.x;
+        const halfDepth = layer.halfDepth ?? ((metadata.depth ?? 1) / 2) * scale.z;
+        const topY = layer.top;
+        const bottomY = layer.bottom;
+
+        const clampedX = THREE.MathUtils.clamp(localPoint.x, -halfWidth, halfWidth);
+        const clampedZ = THREE.MathUtils.clamp(localPoint.z, -halfDepth, halfDepth);
+        const topPoint = new THREE.Vector3(clampedX, topY, clampedZ);
+        const topDistanceSq = localPoint.distanceToSquared(topPoint);
+
+        if (topDistanceSq < distanceSq) {
+          distanceSq = topDistanceSq;
+          closestPointLocal.copy(topPoint);
+          normalLocal.set(0, 1, 0);
+          surfaceType = 'TOP';
         }
-      }
-    } else {
-      const halfWidth = ((metadata.width ?? 1) / 2) * scale.x;
-      const halfDepth = ((metadata.depth ?? 1) / 2) * scale.z;
 
-      const clampedX = THREE.MathUtils.clamp(localPoint.x, -halfWidth, halfWidth);
-      const clampedY = THREE.MathUtils.clamp(localPoint.y, -halfHeight, halfHeight);
-      const clampedZ = THREE.MathUtils.clamp(localPoint.z, -halfDepth, halfDepth);
+        const clampedY = THREE.MathUtils.clamp(localPoint.y, bottomY, topY);
+        const sideCandidates: Array<{ point: THREE.Vector3; normal: THREE.Vector3 }> = [
+          { point: new THREE.Vector3(halfWidth, clampedY, clampedZ), normal: new THREE.Vector3(1, 0, 0) },
+          { point: new THREE.Vector3(-halfWidth, clampedY, clampedZ), normal: new THREE.Vector3(-1, 0, 0) },
+          { point: new THREE.Vector3(clampedX, clampedY, halfDepth), normal: new THREE.Vector3(0, 0, 1) },
+          { point: new THREE.Vector3(clampedX, clampedY, -halfDepth), normal: new THREE.Vector3(0, 0, -1) },
+        ];
 
-      const topPoint = new THREE.Vector3(clampedX, halfHeight, clampedZ);
-      const topDistSq = localPoint.distanceToSquared(topPoint);
-      if (topDistSq < distanceSq) {
-        distanceSq = topDistSq;
-        closestPointLocal.copy(topPoint);
-        normalLocal.set(0, 1, 0);
-        surfaceType = 'TOP';
-      }
-
-      const sideCandidates: Array<{ point: THREE.Vector3; normal: THREE.Vector3 }> = [
-        { point: new THREE.Vector3(halfWidth, clampedY, clampedZ), normal: new THREE.Vector3(1, 0, 0) },
-        { point: new THREE.Vector3(-halfWidth, clampedY, clampedZ), normal: new THREE.Vector3(-1, 0, 0) },
-        { point: new THREE.Vector3(clampedX, clampedY, halfDepth), normal: new THREE.Vector3(0, 0, 1) },
-        { point: new THREE.Vector3(clampedX, clampedY, -halfDepth), normal: new THREE.Vector3(0, 0, -1) },
-      ];
-
-      for (const candidate of sideCandidates) {
-        const dSq = localPoint.distanceToSquared(candidate.point);
-        if (dSq < distanceSq) {
-          distanceSq = dSq;
-          closestPointLocal.copy(candidate.point);
-          normalLocal.copy(candidate.normal);
-          surfaceType = 'SIDE';
+        for (const candidate of sideCandidates) {
+          const dSq = localPoint.distanceToSquared(candidate.point);
+          if (dSq < distanceSq) {
+            distanceSq = dSq;
+            closestPointLocal.copy(candidate.point);
+            normalLocal.copy(candidate.normal);
+            surfaceType = 'SIDE';
+          }
         }
       }
     }

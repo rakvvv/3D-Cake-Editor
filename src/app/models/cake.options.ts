@@ -5,4 +5,5 @@ export interface CakeOptions {
   cake_text_value: string;
   layers: number;
   shape: 'cylinder' | 'cuboid';
+  layerSizes: number[];
 }

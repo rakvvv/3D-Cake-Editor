@@ -13,12 +13,54 @@ import { CakeOptions } from '../../models/cake.options';
 export class LayersPanelComponent {
   @Output() cakeOptionsChange = new EventEmitter<CakeOptions>();
 
+  readonly minLayerSize = 0.6;
+  readonly maxLayerSize = 1.5;
+
   cakeSize = 1;
   cakeColor = '#ffea00';
   cakeText = false;
   cakeTextValue = 'Urodziny';
   cakeLayers = 1;
   cakeShape: 'cylinder' | 'cuboid' = 'cylinder';
+  cakeLayerSizes: number[] = [1];
+
+  onLayersChanged(newCount: number): void {
+    const targetCount = Math.max(1, Math.min(5, Math.round(Number(newCount))));
+    if (targetCount > this.cakeLayerSizes.length) {
+      let previous = this.cakeLayerSizes[this.cakeLayerSizes.length - 1] ?? 1;
+      for (let index = this.cakeLayerSizes.length; index < targetCount; index++) {
+        previous = this.clampLayerSize(previous - 0.15, this.minLayerSize, previous);
+        this.cakeLayerSizes.push(previous);
+      }
+    } else if (targetCount < this.cakeLayerSizes.length) {
+      this.cakeLayerSizes = this.cakeLayerSizes.slice(0, targetCount);
+    }
+
+    this.cakeLayers = targetCount;
+    this.updateCakeOptions();
+  }
+
+  onLayerSizeChanged(index: number, value: number): void {
+    const numericValue = Number(value);
+    const maxNeighbor = index > 0 ? this.cakeLayerSizes[index - 1] : this.maxLayerSize;
+    const minNeighbor = index < this.cakeLayerSizes.length - 1 ? this.cakeLayerSizes[index + 1] : this.minLayerSize;
+    const clampedValue = this.clampLayerSize(
+      numericValue,
+      Math.max(this.minLayerSize, minNeighbor),
+      Math.min(this.maxLayerSize, maxNeighbor),
+    );
+    this.cakeLayerSizes[index] = clampedValue;
+    this.updateCakeOptions();
+  }
+
+  private clampLayerSize(value: number, min: number, max: number): number {
+    let effectiveMin = min;
+    let effectiveMax = max;
+    if (effectiveMin > effectiveMax) {
+      [effectiveMin, effectiveMax] = [effectiveMax, effectiveMin];
+    }
+    return Math.min(Math.max(value, effectiveMin), effectiveMax);
+  }
 
   updateCakeOptions(): void {
     this.cakeOptionsChange.emit({
@@ -28,6 +70,7 @@ export class LayersPanelComponent {
       cake_text_value: this.cakeTextValue,
       layers: this.cakeLayers,
       shape: this.cakeShape,
+      layerSizes: [...this.cakeLayerSizes],
     });
   }
 }

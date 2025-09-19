@@ -24,6 +24,7 @@ export class CakeEditorComponent implements AfterViewInit {
     cake_text_value: 'Urodziny',
     layers: 1,
     shape: 'cylinder',
+    layerSizes: [1],
   };
 
   constructor(

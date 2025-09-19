@@ -200,12 +200,15 @@ export class ThreeSceneService {
     }
 
     const scale = this.options.cake_size;
+    const topLayer = this.cakeMetadata.layerDimensions[this.cakeMetadata.layerDimensions.length - 1];
+
     if (this.cakeMetadata.shape === 'cylinder') {
-      return (this.cakeMetadata.radius ?? 1) * scale;
+      const radius = topLayer?.radius ?? this.cakeMetadata.radius ?? 1;
+      return radius * scale;
     }
 
-    const width = this.cakeMetadata.width ?? 1;
-    const depth = this.cakeMetadata.depth ?? 1;
+    const width = topLayer?.width ?? this.cakeMetadata.width ?? 1;
+    const depth = topLayer?.depth ?? this.cakeMetadata.depth ?? 1;
     return (Math.min(width, depth) / 2) * scale;
   }
 
