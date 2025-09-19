@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import * as THREE from 'three';
-import { ThreeObjectsFactory } from './three-objects.factory';
+import { DecorationFactory } from '../factories/decoration.factory';
 
 @Injectable({ providedIn: 'root' })
 export class PaintService {
@@ -29,7 +29,7 @@ export class PaintService {
       const pointOnCakeWorld = hit.point.clone();
       const normal = hit.face?.normal.clone() ?? new THREE.Vector3(0, 1, 0);
       try {
-        const brushModel = await ThreeObjectsFactory.loadDecorationModel(`/models/${this.currentBrush}`);
+        const brushModel = await DecorationFactory.loadDecorationModel(`/models/${this.currentBrush}`);
 
         const box = new THREE.Box3().setFromObject(brushModel);
         const center = new THREE.Vector3();
