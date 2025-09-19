@@ -1,0 +1,14 @@
+<section class="panel">
+  <h3>Narzędzie malowania</h3>
+  <div class="option-group">
+    <label for="brush-select">Wybierz pędzel</label>
+    <select id="brush-select" [(ngModel)]="selectedBrush" (change)="onBrushChange()">
+      <option *ngFor="let brush of brushList" [value]="brush.id">
+        {{ brush.name }}
+      </option>
+    </select>
+  </div>
+  <button type="button" (click)="togglePaintMode()">
+    {{ paintService.paintMode ? 'Wyłącz rysowanie' : 'Włącz rysowanie' }}
+  </button>
+</section>

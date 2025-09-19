@@ -1,80 +1,34 @@
-import {Component, Output, EventEmitter, output} from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { Component, output } from '@angular/core';
+import { DecorationsService } from '../services/decorations.service';
+import { PaintService } from '../services/paint.service';
 import { CakeOptions } from '../models/cake.options';
-import {DecorationInfo} from '../models/decorationInfo';
-import {DecorationsService} from '../services/decorations.service';
-import {PaintService} from '../services/paint.service';
-
+import { LayersPanelComponent } from './layers-panel/layers-panel.component';
+import { DecorationsPanelComponent } from './decorations-panel/decorations-panel.component';
+import { PaintPanelComponent } from './paint-panel/paint-panel.component';
+import { ExportPanelComponent } from './export-panel/export-panel.component';
 
 @Component({
   selector: 'app-cake-sidebar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [LayersPanelComponent, DecorationsPanelComponent, PaintPanelComponent, ExportPanelComponent],
   templateUrl: './cake-sidebar.component.html',
   styleUrls: ['./cake-sidebar.component.css']
 })
 export class CakeSidebarComponent {
-  addDecorationEvent = output<string>();
-  saveSceneEvent = output<void>();
-  attachSelectedToCake = output<void>();
-  cakeOptionsChange = output<CakeOptions>();
-  transformModeChange = output<string>();
+  readonly addDecorationEvent = output<string>();
+  readonly saveSceneEvent = output<void>();
+  readonly attachSelectedToCake = output<void>();
+  readonly cakeOptionsChange = output<CakeOptions>();
+  readonly transformModeChange = output<'translate' | 'rotate' | 'scale'>();
+  readonly paintModeChange = output<boolean>();
+  readonly brushChange = output<string>();
+  readonly exportObj = output<void>();
+  readonly exportStl = output<void>();
+  readonly exportGltf = output<void>();
+  readonly screenshot = output<void>();
 
-  constructor(private decorationsService: DecorationsService, public paintService: PaintService) {
-    this.decorationsList = this.decorationsService.getDecorations();
-  }
-
-  // Opcje tortu
-  cakeSize: number = 1;
-  cakeColor: string = '#ffea00';
-  cakeText: boolean = false;
-  cakeTextValue: string = 'Urodziny';
-
-  onAddDecoration(templateId: string): void {
-    this.addDecorationEvent.emit(templateId);
-  }
-
-  onSaveScene(): void {
-    this.saveSceneEvent.emit();
-  }
-
-  onAttachSelectedToCake(): void {
-    this.attachSelectedToCake.emit();
-  }
-
-  updateCakeOptions(): void {
-    this.cakeOptionsChange.emit(<CakeOptions>{
-      cake_size: this.cakeSize,
-      cake_color: this.cakeColor,
-      cake_text: this.cakeText,
-      cake_text_value: this.cakeTextValue
-    });
-  }
-  decorationsList: DecorationInfo[] = [];
-
-  setTransformMode(mode: string): void {
-    console.log('Sidebar: Zmiana trybu na', mode);
-    this.transformModeChange.emit(mode);
-  }
-
-  brushList: { id: string; name: string }[] = [
-    { id: 'trawa.glb', name: 'Trawa' },
-    { id: 'chocolate_kiss.glb', name: 'Stożek' },
-    // dodaj tu inne pędzle
-  ];
-  selectedBrush = this.brushList[0].id;
-
-  @Output() paintModeChange = new EventEmitter<boolean>();
-  @Output() brushChange = new EventEmitter<string>();
-
-  togglePaintMode(): void {
-    this.paintService.paintMode = !this.paintService.paintMode;
-    this.paintModeChange.emit(this.paintService.paintMode);
-  }
-
-  onBrushChange(): void {
-    this.paintService.currentBrush = this.selectedBrush;
-    this.brushChange.emit(this.selectedBrush);
-  }
+  constructor(
+    public readonly decorationsService: DecorationsService,
+    public readonly paintService: PaintService,
+  ) {}
 }

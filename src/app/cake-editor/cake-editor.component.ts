@@ -1,10 +1,9 @@
 import {Component, AfterViewInit, ViewChild, ElementRef, Inject, PLATFORM_ID} from '@angular/core';
-import {CommonModule} from '@angular/common';
+import {CommonModule, isPlatformBrowser} from '@angular/common';
 import {CakeSidebarComponent} from '../cake-sidebar/cake-sidebar.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
 import {PaintService} from '../services/paint.service';
-import {isPlatformBrowser} from '@angular/common';
 import { TransformControlsService } from '../services/transform-controls-service';
 import {CakeOptions} from '../models/cake.options';
 
@@ -55,11 +54,6 @@ export class CakeEditorComponent implements AfterViewInit {
     this.sceneService.attachSelectedToCake();
   }
 
-  private initializeScene() {
-    if (isPlatformBrowser(this.platformId)) {
-      this.sceneService.init(this.container.nativeElement, this.options);
-    }
-  }
   onTransformModeChange(mode: string): void {
     if (isPlatformBrowser(this.platformId)) {
       this.transformService.setTransformMode(mode as 'translate' | 'rotate' | 'scale');
@@ -74,4 +68,62 @@ export class CakeEditorComponent implements AfterViewInit {
     this.paintService.currentBrush = brushId;
   }
 
+  onSaveScene(): void {
+    this.onExportGltf();
+  }
+
+  onExportObj(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+    const data = this.sceneService.exportOBJ();
+    const blob = new Blob([data], { type: 'text/plain' });
+    this.triggerDownload(blob, 'cake-scene.obj');
+  }
+
+  onExportStl(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+    const data = this.sceneService.exportSTL();
+    const blob = new Blob([data], { type: 'application/sla' });
+    this.triggerDownload(blob, 'cake-scene.stl');
+  }
+
+  onExportGltf(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+    this.sceneService.exportGLTF((gltf) => {
+      const serialized = JSON.stringify(gltf, null, 2);
+      const blob = new Blob([serialized], { type: 'model/gltf+json' });
+      this.triggerDownload(blob, 'cake-scene.gltf');
+    });
+  }
+
+  onScreenshot(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+    const dataUrl = this.sceneService.takeScreenshot();
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = 'cake-screenshot.png';
+    link.click();
+  }
+
+  private initializeScene() {
+    if (isPlatformBrowser(this.platformId)) {
+      this.sceneService.init(this.container.nativeElement, this.options);
+    }
+  }
+
+  private triggerDownload(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 }
