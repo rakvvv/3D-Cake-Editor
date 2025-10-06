@@ -111,3 +111,45 @@ button:hover {
   flex: 1;
   margin: 0;
 }
+
+.validation-results {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.validation-results .message {
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  white-space: pre-line;
+  border: 1px solid transparent;
+}
+
+.validation-results .message--success {
+  background: #f2fbf2;
+  border-color: #8bd48b;
+  color: #276327;
+}
+
+.validation-results .message--warning {
+  background: #fff7f0;
+  border-color: #f5a463;
+  color: #8a3c07;
+}
+
+.validation-results .override-button {
+  align-self: flex-start;
+  background: #ff9552;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.validation-results .override-button:hover {
+  background: #f57d2b;
+}

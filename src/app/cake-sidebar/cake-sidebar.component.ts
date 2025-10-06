@@ -1,4 +1,4 @@
-import { Component, output } from '@angular/core';
+import { Component, Input, output } from '@angular/core';
 import { DecorationsService } from '../services/decorations.service';
 import { PaintService } from '../services/paint.service';
 import { CakeOptions } from '../models/cake.options';
@@ -6,6 +6,7 @@ import { LayersPanelComponent } from './layers-panel/layers-panel.component';
 import { DecorationsPanelComponent } from './decorations-panel/decorations-panel.component';
 import { PaintPanelComponent } from './paint-panel/paint-panel.component';
 import { ExportPanelComponent } from './export-panel/export-panel.component';
+import { DecorationValidationIssue } from '../models/decoration-validation';
 
 @Component({
   selector: 'app-cake-sidebar',
@@ -15,6 +16,10 @@ import { ExportPanelComponent } from './export-panel/export-panel.component';
   styleUrls: ['./cake-sidebar.component.css']
 })
 export class CakeSidebarComponent {
+  @Input() validationSummary: string | null = null;
+  @Input() validationIssues: DecorationValidationIssue[] = [];
+  @Input() pendingValidationLabel: string | null = null;
+
   readonly addDecorationEvent = output<string>();
   readonly saveSceneEvent = output<void>();
   readonly validateDecorations = output<void>();
@@ -26,6 +31,7 @@ export class CakeSidebarComponent {
   readonly exportStl = output<void>();
   readonly exportGltf = output<void>();
   readonly screenshot = output<void>();
+  readonly proceedDespiteWarnings = output<void>();
 
   constructor(
     public readonly decorationsService: DecorationsService,

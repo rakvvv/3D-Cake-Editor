@@ -22,6 +22,108 @@ export class SnapService {
 
   private cakeBase: THREE.Object3D | null = null;
 
+  public snapDecorationToCake(object: THREE.Object3D): {
+    success: boolean;
+    surfaceType: 'TOP' | 'SIDE' | 'NONE';
+    message: string;
+  } {
+    if (!this.cakeBase) {
+      return {
+        success: false,
+        surfaceType: 'NONE',
+        message: 'Brak tortu do przypięcia dekoracji.',
+      };
+    }
+
+    const metadata = this.getCakeMetadata();
+    if (!metadata) {
+      return {
+        success: false,
+        surfaceType: 'NONE',
+        message: 'Brak danych tortu – nie można obliczyć pozycji przyczepienia.',
+      };
+    }
+
+    const worldPosition = object.getWorldPosition(new THREE.Vector3());
+    const closest = this.getClosestPointOnCake(worldPosition);
+
+    if (closest.surfaceType === 'NONE' || !isFinite(closest.distance)) {
+      return {
+        success: false,
+        surfaceType: 'NONE',
+        message: 'Dekoracja znajduje się zbyt daleko od tortu.',
+      };
+    }
+
+    const surfaceWorldPosition = this.cakeBase.localToWorld(closest.point.clone());
+    const surfaceWorldNormal = this.getWorldNormal(closest.normal.clone());
+    const offset = this.computeOffsetDistance(object, surfaceWorldNormal);
+    const finalWorldPosition = surfaceWorldPosition.add(surfaceWorldNormal.multiplyScalar(offset));
+
+    if (object.parent !== this.cakeBase) {
+      this.cakeBase.attach(object);
+    }
+
+    const finalLocalPosition = this.cakeBase.worldToLocal(finalWorldPosition.clone());
+    object.position.copy(finalLocalPosition);
+    object.updateMatrixWorld(true);
+    object.userData['isSnapped'] = true;
+
+    return {
+      success: true,
+      surfaceType: closest.surfaceType,
+      message:
+        closest.surfaceType === 'TOP'
+          ? 'Dekoracja umieszczona na górnej powierzchni tortu.'
+          : 'Dekoracja umieszczona na boku tortu.',
+    };
+  }
+
+  public alignDecorationToSurface(object: THREE.Object3D): {
+    success: boolean;
+    message: string;
+  } {
+    if (!this.cakeBase) {
+      return {
+        success: false,
+        message: 'Brak tortu – nie można ustawić orientacji dekoracji.',
+      };
+    }
+
+    const worldPosition = object.getWorldPosition(new THREE.Vector3());
+    const closest = this.getClosestPointOnCake(worldPosition);
+
+    if (closest.surfaceType === 'NONE' || closest.distance > this.attachmentTolerance * 3) {
+      return {
+        success: false,
+        message: 'Dekoracja jest zbyt daleko od tortu, aby wyrównać orientację.',
+      };
+    }
+
+    const surfaceWorldNormal = this.getWorldNormal(closest.normal.clone());
+    const forward = new THREE.Vector3(surfaceWorldNormal.x, 0, surfaceWorldNormal.z);
+    const up = new THREE.Vector3(0, 1, 0);
+
+    if (forward.lengthSq() < 1e-6) {
+      forward.set(0, 0, 1);
+    }
+
+    forward.normalize();
+    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+    const adjustedUp = new THREE.Vector3().crossVectors(forward, right).normalize();
+
+    const basis = new THREE.Matrix4().makeBasis(right, adjustedUp, forward);
+    const quaternion = new THREE.Quaternion().setFromRotationMatrix(basis);
+
+    object.quaternion.copy(quaternion);
+    object.updateMatrixWorld(true);
+
+    return {
+      success: true,
+      message: 'Dekoracja została wyrównana do powierzchni tortu.',
+    };
+  }
+
   private getScaledLayers(metadata: CakeMetadata): ScaledLayerInfo[] {
     const scale = this.cakeBase?.scale ?? new THREE.Vector3(1, 1, 1);
 
@@ -255,5 +357,46 @@ export class SnapService {
       case undefined:
         return ['TOP', 'SIDE'];
     }
+  }
+
+  private computeOffsetDistance(object: THREE.Object3D, normalWorld: THREE.Vector3): number {
+    const boundingBox = new THREE.Box3().setFromObject(object);
+    const center = boundingBox.getCenter(new THREE.Vector3());
+
+    const vertices = [
+      new THREE.Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z),
+      new THREE.Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.max.z),
+      new THREE.Vector3(boundingBox.min.x, boundingBox.max.y, boundingBox.min.z),
+      new THREE.Vector3(boundingBox.min.x, boundingBox.max.y, boundingBox.max.z),
+      new THREE.Vector3(boundingBox.max.x, boundingBox.min.y, boundingBox.min.z),
+      new THREE.Vector3(boundingBox.max.x, boundingBox.min.y, boundingBox.max.z),
+      new THREE.Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.min.z),
+      new THREE.Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z),
+    ];
+
+    const normal = normalWorld.clone().normalize();
+    let minProjection = Infinity;
+
+    for (const vertex of vertices) {
+      const projection = normal.dot(vertex.clone().sub(center));
+      if (projection < minProjection) {
+        minProjection = projection;
+      }
+    }
+
+    if (!isFinite(minProjection)) {
+      return 0.2;
+    }
+
+    return Math.max(0.1, -minProjection + 0.01);
+  }
+
+  private getWorldNormal(normalLocal: THREE.Vector3): THREE.Vector3 {
+    if (!this.cakeBase) {
+      return normalLocal.normalize();
+    }
+
+    const normalMatrix = new THREE.Matrix3().getNormalMatrix(this.cakeBase.matrixWorld);
+    return normalLocal.applyMatrix3(normalMatrix).normalize();
   }
 }

@@ -306,61 +306,7 @@ export class ThreeSceneService {
     return this.exportService.screenshot(this.renderer);
   }
   private onClickDown(event: MouseEvent): void {
-    if (this.transformControlsService.isDragging()) {
-      return;
-    }
-
-
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObjects(
-      this.objects.filter(obj => obj !== this.cakeBase && !obj.userData['isPainted']),
-      true
-    );
-
-
-    if (intersects.length > 0) {
-      let selected = intersects[0].object;
-
-      // Znajdź najwyższy kontener (Group)
-      while (selected.parent && selected.parent.type !== 'Scene') {
-        selected = selected.parent;
-      }
-
-      this.transformControlsService.attachObject(selected);
-    } else {
-      this.transformControlsService.deselectObject();
-    }
-
-    if (intersects.length > 0) {
-      let selected = intersects[0].object;
-      console.log("Raycast intersected with:", selected.name || selected.type, selected);
-      while (selected.parent && selected.parent !== this.scene && selected.parent !== this.cakeBase) {
-        selected = selected.parent;
-      }
-      console.log("Selected top-level object:", selected.name || selected.type);
-
-      // --- Dodaj BoxHelper ---
-      if (this.boxHelper) this.scene.remove(this.boxHelper); // Usuń stary helper
-      this.boxHelper = new THREE.BoxHelper(selected, 0xff0000); // Czerwony kolor
-      this.scene.add(this.boxHelper);
-      console.log("Added BoxHelper for selected object.");
-      // --- Koniec BoxHelper ---
-
-      console.log("Attaching to TransformControls:", selected.name || selected.type);
-      this.transformControlsService.attachObject(selected);
-    } else {
-      // ... (kod dla braku przecięcia) ...
-      // Usuń helper, jeśli kliknięto w puste miejsce
-      if (this.boxHelper) {
-        this.scene.remove(this.boxHelper);
-        this.boxHelper = null;
-      }
-      this.transformControlsService.deselectObject();
-    }
+    this.handleInteraction(event.clientX, event.clientY, true);
   }
 
   // public attachSelectedToCake(): void {
@@ -379,51 +325,54 @@ export class ThreeSceneService {
   //   this.cakeBase.attach(selected);
   // }
 
-  private handleInteraction(clientX: number, clientY: number): void {
+  private handleInteraction(clientX: number, clientY: number, attach = false): THREE.Object3D | null {
     if (this.transformControlsService.isDragging()) {
-      return; // Nie rób nic jeśli już przeciągamy obiekt za pomocą gizmo
+      return null;
     }
 
-    // Przelicz współrzędne ekranowe na scenę
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    // Intersekcje tylko z dekoracjami (nie z tortem bazowym)
     const intersects = this.raycaster.intersectObjects(
-      this.objects.filter(obj => obj !== this.cakeBase && !obj.userData['isPainted']),
-      true
+      this.objects.filter((obj) => obj !== this.cakeBase && !obj.userData['isPainted']),
+      true,
     );
 
-
-    if (intersects.length > 0) {
-      let selected = intersects[0].object;
-      // Znajdź główny obiekt (Group), który dodaliśmy do sceny
-      while (selected.parent && selected.parent !== this.scene) {
-        selected = selected.parent;
-      }
-      console.log("Kliknięto obiekt:", selected.name || selected.type, selected.userData); // Dodaj log userData
-      if (selected !== this.cakeBase && this.objects.includes(selected)) { // Upewnij się, że to obiekt z naszej listy
-        this.transformControlsService.attachObject(selected);
-        this.showBoxHelperFor(selected); // Pokaż BoxHelper
-      } else {
+    if (intersects.length === 0) {
+      if (attach) {
         this.transformControlsService.deselectObject();
         this.hideBoxHelper();
       }
-
-    } else {
-      // Kliknięto w puste miejsce
-      this.transformControlsService.deselectObject();
-      this.hideBoxHelper();
+      return null;
     }
+
+    let selected = intersects[0].object;
+    while (selected.parent && selected.parent !== this.scene && selected.parent !== this.cakeBase) {
+      selected = selected.parent;
+    }
+
+    if (selected === this.cakeBase || !this.objects.includes(selected)) {
+      if (attach) {
+        this.transformControlsService.deselectObject();
+        this.hideBoxHelper();
+      }
+      return null;
+    }
+
+    if (attach) {
+      this.transformControlsService.attachObject(selected);
+      this.showBoxHelperFor(selected);
+    }
+
+    return selected;
   }
 
 
   private onTouchStart(event: TouchEvent): void {
-    // event.preventDefault(); // Może być potrzebne
     if (event.touches.length > 0) {
-      this.handleInteraction(event.touches[0].clientX, event.touches[0].clientY);
+      this.handleInteraction(event.touches[0].clientX, event.touches[0].clientY, true);
     }
   }
 
@@ -456,6 +405,58 @@ export class ThreeSceneService {
   public validateDecorations(): DecorationValidationIssue[] {
     const decorations = this.collectDecorationRoots();
     return this.snapService.validateDecorations(decorations);
+  }
+
+  public selectDecorationAt(clientX: number, clientY: number): THREE.Object3D | null {
+    return this.handleInteraction(clientX, clientY, true);
+  }
+
+  public getSelectedDecoration(): THREE.Object3D | null {
+    return this.transformControlsService.getSelectedObject();
+  }
+
+  public snapSelectedDecorationToCake(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.snapDecorationToCake(selected);
+    if (result.success) {
+      this.updateBoxHelper();
+    }
+
+    return { success: result.success, message: result.message };
+  }
+
+  public alignSelectedDecorationToSurface(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.alignDecorationToSurface(selected);
+    if (result.success) {
+      this.updateBoxHelper();
+    }
+
+    return result;
+  }
+
+  public resetSelectedDecorationOrientation(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    selected.rotation.set(0, selected.rotation.y, 0);
+    selected.updateMatrixWorld(true);
+    this.updateBoxHelper();
+
+    return {
+      success: true,
+      message: 'Dekoracja została ustawiona pionowo.',
+    };
   }
 
   public buildValidationSummary(issues: DecorationValidationIssue[]): string {

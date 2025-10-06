@@ -34,4 +34,18 @@
       <button type="button" (click)="setTransformMode('scale')">Skaluj</button>
     </div>
   </div>
+
+  <div class="validation-results" *ngIf="validationSummary as summary">
+    <p class="message" [class.message--warning]="hasValidationIssues" [class.message--success]="!hasValidationIssues">
+      {{ summary }}
+    </p>
+    <button
+      type="button"
+      *ngIf="hasValidationIssues && pendingActionLabel"
+      class="override-button"
+      (click)="proceedDespiteWarnings.emit()"
+    >
+      Kontynuuj: {{ pendingActionLabel }}
+    </button>
+  </div>
 </section>

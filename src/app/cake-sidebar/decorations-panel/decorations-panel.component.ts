@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DecorationInfo, DecorationPlacementType } from '../../models/decorationInfo';
 import { DecorationsService } from '../../services/decorations.service';
+import { DecorationValidationIssue } from '../../models/decoration-validation';
 
 @Component({
   selector: 'app-decorations-panel',
@@ -13,9 +14,13 @@ import { DecorationsService } from '../../services/decorations.service';
 })
 export class DecorationsPanelComponent implements OnChanges {
   @Input() decorationsService!: DecorationsService;
+  @Input() validationSummary: string | null = null;
+  @Input() validationIssues: DecorationValidationIssue[] = [];
+  @Input() pendingActionLabel: string | null = null;
   @Output() addDecoration = new EventEmitter<string>();
   @Output() validateDecorations = new EventEmitter<void>();
   @Output() transformModeChange = new EventEmitter<'translate' | 'rotate' | 'scale'>();
+  @Output() proceedDespiteWarnings = new EventEmitter<void>();
 
   filterText = '';
   filterType: 'ALL' | DecorationPlacementType = 'ALL';
@@ -59,5 +64,9 @@ export class DecorationsPanelComponent implements OnChanges {
       default:
         return type;
     }
+  }
+
+  get hasValidationIssues(): boolean {
+    return this.validationIssues.length > 0;
   }
 }
