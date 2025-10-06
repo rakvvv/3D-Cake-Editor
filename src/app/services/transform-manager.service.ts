@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { SelectionService } from './selection.service';
+import { SnapService } from './snap.service';
 
 @Injectable({
   providedIn: 'root',
@@ -21,6 +22,7 @@ export class TransformManagerService {
   constructor(
     @Inject(PLATFORM_ID) private readonly platformId: Object,
     private readonly selectionService: SelectionService,
+    private readonly snapService: SnapService,
   ) {
     this.isBrowser = isPlatformBrowser(this.platformId);
   }
@@ -130,9 +132,9 @@ export class TransformManagerService {
     }
 
     const selectedObject = this.selectionService.getSelectedObject();
-
-    // Brak automatycznego ograniczania i przyciągania dekoracji — użytkownik
-    // może swobodnie rozmieszczać obiekty i dopiero później wykonać walidację.
+    if (selectedObject) {
+      this.snapService.enforceSnappedPosition(selectedObject);
+    }
   };
 
   private onDraggingChanged = (event: THREE.Event) => {

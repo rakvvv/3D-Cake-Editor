@@ -193,6 +193,12 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.showStatus(result.message);
   }
 
+  onContextRotateQuarter(): void {
+    this.hideContextMenu();
+    const result = this.sceneService.rotateSelectedDecorationQuarter();
+    this.showStatus(result.message);
+  }
+
   onContextResetOrientation(): void {
     this.hideContextMenu();
     const result = this.sceneService.resetSelectedDecorationOrientation();

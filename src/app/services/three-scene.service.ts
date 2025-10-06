@@ -461,14 +461,24 @@ export class ThreeSceneService {
     return result;
   }
 
+  public rotateSelectedDecorationQuarter(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.rotateDecorationQuarter(selected);
+    this.updateBoxHelper();
+    return result;
+  }
+
   public resetSelectedDecorationOrientation(): { success: boolean; message: string } {
     const selected = this.transformControlsService.getSelectedObject();
     if (!selected) {
       return { success: false, message: 'Najpierw zaznacz dekorację.' };
     }
 
-    selected.rotation.set(0, selected.rotation.y, 0);
-    selected.updateMatrixWorld(true);
+    this.snapService.resetDecorationOrientation(selected);
     this.updateBoxHelper();
 
     return {
