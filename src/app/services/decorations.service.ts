@@ -79,6 +79,7 @@ export class DecorationsService {
       }
 
       decoration.userData['decorationType'] = decoInfo.type;
+      decoration.userData['isDecoration'] = true;
       decoration.userData['modelFileName'] = decoInfo.modelFileName;
       decoration.userData['isSnapped'] = false;
 
@@ -95,8 +96,10 @@ export class DecorationsService {
       );
 
       scene.add(decoration);
-      const meshes = (decoration.userData['clickableMeshes'] as THREE.Mesh[]) ?? [];
-      objects.push(...meshes);
+
+      if (!objects.includes(decoration)) {
+        objects.push(decoration);
+      }
 
       this.transformControlsService.attachObject(decoration);
       return decoration;

@@ -61,7 +61,13 @@ export class ThreeSceneService {
     }
     this.options = options;
     this.sceneInitService.init(container);
-    this.transformControlsService.init(this.scene, this.camera, this.renderer, this.sceneInitService.orbit);
+    this.transformControlsService.init(
+      this.scene,
+      this.camera,
+      this.renderer,
+      this.sceneInitService.orbit,
+      () => this.updateBoxHelper(),
+    );
 
     const grid = new THREE.GridHelper(50, 50);
     this.scene.add(grid);
@@ -353,12 +359,24 @@ export class ThreeSceneService {
       selected = selected.parent;
     }
 
-    if (selected === this.cakeBase || !this.objects.includes(selected)) {
+    if (selected === this.cakeBase) {
       if (attach) {
         this.transformControlsService.deselectObject();
         this.hideBoxHelper();
       }
       return null;
+    }
+
+    if (!this.objects.includes(selected)) {
+      if (selected.userData['isDecoration']) {
+        this.objects.push(selected);
+      } else {
+        if (attach) {
+          this.transformControlsService.deselectObject();
+          this.hideBoxHelper();
+        }
+        return null;
+      }
     }
 
     if (attach) {
