@@ -200,6 +200,26 @@ export class ThreeSceneService {
         }
       });
     }
+
+    const scale = this.options.cake_size;
+    const topLayer = this.cakeMetadata.layerDimensions[this.cakeMetadata.layerDimensions.length - 1];
+
+    if (this.cakeMetadata.shape === 'cylinder') {
+      const radius = topLayer?.radius ?? this.cakeMetadata.radius ?? 1;
+      return radius * scale;
+    }
+
+    const width = topLayer?.width ?? this.cakeMetadata.width ?? 1;
+    const depth = topLayer?.depth ?? this.cakeMetadata.depth ?? 1;
+    return (Math.min(width, depth) / 2) * scale;
+  }
+
+  private getCakeTopHeight(): number {
+    if (!this.cakeMetadata) {
+      return this.options.cake_size * 2;
+    }
+
+    return this.cakeMetadata.totalHeight * this.options.cake_size;
   }
 
   private removeCakeText(): void {
