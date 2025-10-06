@@ -13,16 +13,19 @@ export class PaintService {
     renderer: THREE.WebGLRenderer,
     camera: THREE.PerspectiveCamera,
     scene: THREE.Scene,
-    cakeBase: THREE.Mesh,
+    cakeBase: THREE.Object3D | null,
     mouse: THREE.Vector2,
     raycaster: THREE.Raycaster
   ): Promise<void> {
+    if (!cakeBase) {
+      return;
+    }
     const rect = renderer.domElement.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(cakeBase, false);
+    const intersects = raycaster.intersectObject(cakeBase, true);
 
     if (intersects.length > 0) {
       const hit = intersects[0];

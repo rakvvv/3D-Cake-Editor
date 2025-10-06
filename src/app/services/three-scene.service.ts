@@ -10,15 +10,19 @@ import { SceneInitService } from './scene-init.service';
 import { DecorationsService } from './decorations.service';
 import { PaintService } from './paint.service';
 import { ExportService } from './export.service';
-import { CakeFactory } from '../factories/cake.factory';
+import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.factory';
 import { TextFactory } from '../factories/text.factory';
+import { SnapService } from './snap.service';
+import { DecorationValidationIssue } from '../models/decoration-validation';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
 })
 export class ThreeSceneService {
   public objects: THREE.Object3D[] = [];
-  public cakeBase!: THREE.Mesh;
+  public cakeBase: THREE.Group | null = null;
+  private cakeLayers: THREE.Mesh[] = [];
+  private cakeMetadata: CakeMetadata | null = null;
   private textMesh: THREE.Mesh | null = null;
   private font: Font | null = null;
   private options!: CakeOptions;
@@ -35,6 +39,7 @@ export class ThreeSceneService {
     private decorationsService: DecorationsService,
     private paintService: PaintService,
     private exportService: ExportService,
+    private snapService: SnapService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
@@ -56,27 +61,28 @@ export class ThreeSceneService {
     }
     this.options = options;
     this.sceneInitService.init(container);
-    this.transformControlsService.init(this.scene, this.camera, this.renderer, this.sceneInitService.orbit);
+    this.transformControlsService.init(
+      this.scene,
+      this.camera,
+      this.renderer,
+      this.sceneInitService.orbit,
+      () => this.updateBoxHelper(),
+    );
 
-    // gridhelper
     const grid = new THREE.GridHelper(50, 50);
     this.scene.add(grid);
 
-    // Dodajemy podstawę tortu przy użyciu fabryki
-    this.cakeBase = CakeFactory.createCakeBase();
-    this.scene.add(this.cakeBase);
-    this.objects.push(this.cakeBase);
+    this.rebuildCake();
 
-    this.transformControlsService.setCakeBase(this.cakeBase);
-
-    const topping = CakeFactory.createCakeTopping();
-    this.scene.add(topping);
-
-    // Zastosuj opcje
-    this.updateCakeOptions(this.options);
+    if (this.options.cake_text) {
+      const textSize = this.getCakeHorizontalSize() * 0.2;
+      const textDepth = 0.1;
+      const textHeight = this.getCakeTopHeight();
+      this.loadAndAddText(this.options.cake_text_value, textSize, textHeight, textDepth);
+    }
 
     container.addEventListener('mousedown', (event) => {
-      if (this.paintService.paintMode) {
+      if (this.paintService.paintMode && this.cakeBase) {
         this.paintService.isPainting = true;
         this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
       } else {
@@ -85,7 +91,7 @@ export class ThreeSceneService {
     });
 
     container.addEventListener('mousemove', (event) => {
-      if (this.paintService.isPainting && this.paintService.paintMode) {
+      if (this.paintService.isPainting && this.paintService.paintMode && this.cakeBase) {
         this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
       }
     });
@@ -97,48 +103,130 @@ export class ThreeSceneService {
 
   public updateCakeOptions(options: CakeOptions): void {
     this.options = options;
-    const scale = options.cake_size;
-    if (this.cakeBase) {
-      // Ustaw skalę tortu
-      this.cakeBase.scale.set(options.cake_size, options.cake_size, options.cake_size);
-      this.cakeBase.position.set(0, options.cake_size, 0);
-      // Ustaw kolor tortu – używamy asercji typu
-      const material = this.cakeBase.material as THREE.MeshStandardMaterial;
-      if (material.map) {
-        material.map.repeat.set(2 * scale, 2 * scale);
-      }
-      if (material.bumpMap) {
-        material.bumpMap.repeat.set(2 * scale, 2 * scale);
-      }
-      if (material.roughnessMap) {
-        material.roughnessMap.repeat.set(2 * scale, 2 * scale);
-      }
+    this.rebuildCake();
 
-      if (options.cake_text) {
-        // Usuń istniejący napis, jeśli istnieje
-        if (this.textMesh) {
-          this.scene.remove(this.textMesh);
-          this.textMesh.geometry.dispose();
-          (this.textMesh.material as THREE.Material).dispose();
-          this.textMesh = null;
-        }
-        // Obliczenie wielkosci i pozycji napisu do wielksci tortu
-        const params = (this.cakeBase.geometry as any).parameters;
-        const size = params.radiusTop * 0.2 * options.cake_size;
-        const height = params.height + 2 * (options.cake_size - 1);
-        const depth = 0.1 ;
-        this.loadAndAddText(options.cake_text_value, size, height, depth);
-        this.transformControlsService.updateCakeSize(options.cake_size);
-      } else {
-        // Jeśli napis ma być wyłączony, usuń go, jeśli istnieje
-        if (this.textMesh) {
-          this.scene.remove(this.textMesh);
-          this.textMesh.geometry.dispose();
-          (this.textMesh.material as THREE.Material).dispose();
-          this.textMesh = null;
-        }
-      }
+    if (options.cake_text) {
+      const textSize = this.getCakeHorizontalSize() * 0.2;
+      const textDepth = 0.1;
+      const textHeight = this.getCakeTopHeight();
+      this.loadAndAddText(options.cake_text_value, textSize, textHeight, textDepth);
+      const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * options.cake_size : options.cake_size;
+      this.transformControlsService.updateCakeSize(effectiveSize);
+    } else {
+      this.removeCakeText();
     }
+  }
+
+  private rebuildCake(): void {
+    if (!this.scene) {
+      return;
+    }
+
+    this.removeCakeText();
+    this.disposeCake();
+
+    const { cake, layers, metadata } = ThreeObjectsFactory.createCake(this.options);
+    this.cakeBase = cake;
+    this.cakeLayers = layers;
+    this.cakeMetadata = metadata;
+
+    this.applyCakeTransforms();
+
+    this.scene.add(cake);
+    this.objects.push(cake);
+    this.snapService.setCakeBase(cake);
+    const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * this.options.cake_size : this.options.cake_size;
+    this.transformControlsService.updateCakeSize(effectiveSize);
+  }
+
+  private disposeCake(): void {
+    if (!this.cakeBase) {
+      return;
+    }
+
+    const children = [...this.cakeBase.children];
+    children.forEach((child) => {
+      if (!child.userData['isCakeLayer']) {
+        this.scene.attach(child);
+        child.userData['isSnapped'] = false;
+      }
+    });
+
+    this.scene.remove(this.cakeBase);
+    this.objects = this.objects.filter((obj) => obj !== this.cakeBase);
+
+    this.cakeLayers.forEach((layer) => {
+      layer.geometry.dispose();
+    });
+
+    const material = this.cakeBase.userData['material'] as THREE.Material | undefined;
+    if (material) {
+      material.dispose();
+    }
+
+    this.cakeBase = null;
+    this.cakeLayers = [];
+    this.cakeMetadata = null;
+    this.snapService.setCakeBase(null);
+  }
+
+  private applyCakeTransforms(): void {
+    if (!this.cakeBase || !this.cakeMetadata) {
+      return;
+    }
+
+    const scale = this.options.cake_size;
+    this.cakeBase.scale.set(scale, scale, scale);
+    const totalHeight = this.cakeMetadata.totalHeight * scale;
+    this.cakeBase.position.set(0, totalHeight / 2, 0);
+
+    const material = this.cakeBase.userData['material'] as THREE.MeshStandardMaterial | undefined;
+    if (material) {
+      material.color.set(this.options.cake_color);
+      const textures = [material.map, material.bumpMap, material.roughnessMap];
+      textures.forEach((texture) => {
+        if (texture) {
+          texture.repeat.set(2 * scale, 2 * scale);
+        }
+      });
+    }
+  }
+
+  private removeCakeText(): void {
+    if (!this.textMesh) {
+      return;
+    }
+
+    this.scene.remove(this.textMesh);
+    this.textMesh.geometry.dispose();
+    (this.textMesh.material as THREE.Material).dispose();
+    this.textMesh = null;
+  }
+
+  private getCakeHorizontalSize(): number {
+    if (!this.cakeMetadata) {
+      return this.options.cake_size;
+    }
+
+    const scale = this.options.cake_size;
+    const topLayer = this.cakeMetadata.layerDimensions[this.cakeMetadata.layerDimensions.length - 1];
+
+    if (this.cakeMetadata.shape === 'cylinder') {
+      const radius = topLayer?.radius ?? this.cakeMetadata.radius ?? 1;
+      return radius * scale;
+    }
+
+    const width = topLayer?.width ?? this.cakeMetadata.width ?? 1;
+    const depth = topLayer?.depth ?? this.cakeMetadata.depth ?? 1;
+    return (Math.min(width, depth) / 2) * scale;
+  }
+
+  private getCakeTopHeight(): number {
+    if (!this.cakeMetadata) {
+      return this.options.cake_size * 2;
+    }
+
+    return this.cakeMetadata.totalHeight * this.options.cake_size;
   }
 
   private async loadFont(): Promise<void> {
@@ -174,7 +262,7 @@ export class ThreeSceneService {
       depth,
       curveSegments: 12,
     });
-    newTextMesh.position.y = height;
+    newTextMesh.position.set(0, height + 0.02, 0);
     newTextMesh.rotation.x = -0.5 * Math.PI;
     this.scene.add(newTextMesh);
     this.textMesh = newTextMesh;
@@ -193,6 +281,10 @@ export class ThreeSceneService {
   }
 
   public async addDecorationFromModel(identifier: string): Promise<void> {
+    if (!this.cakeBase) {
+      return;
+    }
+
     const decoration = await this.decorationsService.addDecorationFromModel(
       identifier,
       this.scene,
@@ -220,61 +312,7 @@ export class ThreeSceneService {
     return this.exportService.screenshot(this.renderer);
   }
   private onClickDown(event: MouseEvent): void {
-    if (this.transformControlsService.isDragging()) {
-      return;
-    }
-
-
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObjects(
-      this.objects.filter(obj => obj !== this.cakeBase && !obj.userData['isPainted']),
-      true
-    );
-
-
-    if (intersects.length > 0) {
-      let selected = intersects[0].object;
-
-      // Znajdź najwyższy kontener (Group)
-      while (selected.parent && selected.parent.type !== 'Scene') {
-        selected = selected.parent;
-      }
-
-      this.transformControlsService.attachObject(selected);
-    } else {
-      this.transformControlsService.deselectObject();
-    }
-
-    if (intersects.length > 0) {
-      let selected = intersects[0].object;
-      console.log("Raycast intersected with:", selected.name || selected.type, selected);
-      while (selected.parent && selected.parent !== this.scene && selected.parent !== this.cakeBase) {
-        selected = selected.parent;
-      }
-      console.log("Selected top-level object:", selected.name || selected.type);
-
-      // --- Dodaj BoxHelper ---
-      if (this.boxHelper) this.scene.remove(this.boxHelper); // Usuń stary helper
-      this.boxHelper = new THREE.BoxHelper(selected, 0xff0000); // Czerwony kolor
-      this.scene.add(this.boxHelper);
-      console.log("Added BoxHelper for selected object.");
-      // --- Koniec BoxHelper ---
-
-      console.log("Attaching to TransformControls:", selected.name || selected.type);
-      this.transformControlsService.attachObject(selected);
-    } else {
-      // ... (kod dla braku przecięcia) ...
-      // Usuń helper, jeśli kliknięto w puste miejsce
-      if (this.boxHelper) {
-        this.scene.remove(this.boxHelper);
-        this.boxHelper = null;
-      }
-      this.transformControlsService.deselectObject();
-    }
+    this.handleInteraction(event.clientX, event.clientY, true);
   }
 
   // public attachSelectedToCake(): void {
@@ -293,51 +331,66 @@ export class ThreeSceneService {
   //   this.cakeBase.attach(selected);
   // }
 
-  private handleInteraction(clientX: number, clientY: number): void {
+  private handleInteraction(clientX: number, clientY: number, attach = false): THREE.Object3D | null {
     if (this.transformControlsService.isDragging()) {
-      return; // Nie rób nic jeśli już przeciągamy obiekt za pomocą gizmo
+      return null;
     }
 
-    // Przelicz współrzędne ekranowe na scenę
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    // Intersekcje tylko z dekoracjami (nie z tortem bazowym)
     const intersects = this.raycaster.intersectObjects(
-      this.objects.filter(obj => obj !== this.cakeBase && !obj.userData['isPainted']),
-      true
+      this.objects.filter((obj) => obj !== this.cakeBase && !obj.userData['isPainted']),
+      true,
     );
 
-
-    if (intersects.length > 0) {
-      let selected = intersects[0].object;
-      // Znajdź główny obiekt (Group), który dodaliśmy do sceny
-      while (selected.parent && selected.parent !== this.scene) {
-        selected = selected.parent;
-      }
-      console.log("Kliknięto obiekt:", selected.name || selected.type, selected.userData); // Dodaj log userData
-      if (selected !== this.cakeBase && this.objects.includes(selected)) { // Upewnij się, że to obiekt z naszej listy
-        this.transformControlsService.attachObject(selected);
-        this.showBoxHelperFor(selected); // Pokaż BoxHelper
-      } else {
+    if (intersects.length === 0) {
+      if (attach) {
         this.transformControlsService.deselectObject();
         this.hideBoxHelper();
       }
-
-    } else {
-      // Kliknięto w puste miejsce
-      this.transformControlsService.deselectObject();
-      this.hideBoxHelper();
+      return null;
     }
+
+    let selected = intersects[0].object;
+    while (selected.parent && selected.parent !== this.scene && selected.parent !== this.cakeBase) {
+      selected = selected.parent;
+    }
+
+    if (selected === this.cakeBase) {
+      if (attach) {
+        this.transformControlsService.deselectObject();
+        this.hideBoxHelper();
+      }
+      return null;
+    }
+
+    if (!this.objects.includes(selected)) {
+      if (selected.userData['isDecoration']) {
+        this.objects.push(selected);
+      } else {
+        if (attach) {
+          this.transformControlsService.deselectObject();
+          this.hideBoxHelper();
+        }
+        return null;
+      }
+    }
+
+    if (attach) {
+      this.transformControlsService.attachObject(selected);
+      this.showBoxHelperFor(selected);
+    }
+
+    return selected;
   }
 
 
   private onTouchStart(event: TouchEvent): void {
-    // event.preventDefault(); // Może być potrzebne
     if (event.touches.length > 0) {
-      this.handleInteraction(event.touches[0].clientX, event.touches[0].clientY);
+      this.handleInteraction(event.touches[0].clientX, event.touches[0].clientY, true);
     }
   }
 
@@ -367,10 +420,161 @@ export class ThreeSceneService {
   }
   // --- Koniec funkcji BoxHelper ---
 
-  // Metoda publiczna do wywołania z komponentu (np. przyciskiem)
-  // Zastępuje poprzednią implementację w komponencie
-  public attachSelectedToCake(): void {
-    this.transformControlsService.attemptSnapSelectionToCake();
+  public validateDecorations(): DecorationValidationIssue[] {
+    const decorations = this.collectDecorationRoots();
+    return this.snapService.validateDecorations(decorations);
   }
 
+  public selectDecorationAt(clientX: number, clientY: number): THREE.Object3D | null {
+    return this.handleInteraction(clientX, clientY, true);
+  }
+
+  public getSelectedDecoration(): THREE.Object3D | null {
+    return this.transformControlsService.getSelectedObject();
+  }
+
+  public snapSelectedDecorationToCake(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.snapDecorationToCake(selected);
+    if (result.success) {
+      this.updateBoxHelper();
+    }
+
+    return { success: result.success, message: result.message };
+  }
+
+  public alignSelectedDecorationToSurface(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.alignDecorationToSurface(selected);
+    if (result.success) {
+      this.updateBoxHelper();
+    }
+
+    return result;
+  }
+
+  public rotateSelectedDecorationQuarter(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.rotateDecorationQuarter(selected);
+    this.updateBoxHelper();
+    return result;
+  }
+
+  public resetSelectedDecorationOrientation(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    this.snapService.resetDecorationOrientation(selected);
+    this.updateBoxHelper();
+
+    return {
+      success: true,
+      message: 'Dekoracja została ustawiona pionowo.',
+    };
+  }
+
+  public buildValidationSummary(issues: DecorationValidationIssue[]): string {
+    if (!issues.length) {
+      return 'Wszystkie dekoracje znajdują się w dozwolonych miejscach.';
+    }
+
+    const lines = issues.map((issue, index) => {
+      const name = this.describeDecoration(issue.object);
+      const prefix = `${index + 1}. ${name} —`;
+
+      switch (issue.reason) {
+        case 'NO_CAKE':
+          return `${prefix} brak tortu do walidacji.`;
+        case 'TYPE_MISMATCH': {
+          const expected = this.formatExpectedSurfaces(issue.expectedSurfaces);
+          const found = this.describeSurface(issue.surfaceType);
+          return `${prefix} oczekiwano pozycji na ${expected}, ale najbliższa powierzchnia to ${found}.`;
+        }
+        case 'OUTSIDE': {
+          const distance = isFinite(issue.distance) ? issue.distance.toFixed(2) : 'nieznana';
+          if (issue.surfaceType === 'NONE') {
+            return `${prefix} dekoracja znajduje się zbyt daleko od tortu (odległość ${distance}).`;
+          }
+          const surface = this.describeSurface(issue.surfaceType);
+          return `${prefix} jest zbyt daleko od ${surface} (odległość ${distance}).`;
+        }
+      }
+    });
+
+    return ['Znaleziono problemy z rozmieszczeniem dekoracji:', ...lines].join('\n');
+  }
+
+  private collectDecorationRoots(): THREE.Object3D[] {
+    const result: THREE.Object3D[] = [];
+    const visited = new Set<THREE.Object3D>();
+
+    const traverse = (object: THREE.Object3D) => {
+      for (const child of object.children) {
+        if (child.userData['decorationType']) {
+          const root = this.resolveDecorationRoot(child);
+          if (!visited.has(root)) {
+            visited.add(root);
+            result.push(root);
+          }
+        }
+        traverse(child);
+      }
+    };
+
+    traverse(this.scene);
+
+    return result;
+  }
+
+  private resolveDecorationRoot(object: THREE.Object3D): THREE.Object3D {
+    let current: THREE.Object3D = object;
+
+    while (current.parent && current.parent !== this.scene && current.parent !== this.cakeBase) {
+      current = current.parent;
+    }
+
+    return current;
+  }
+
+  private describeDecoration(object: THREE.Object3D): string {
+    const label =
+      object.userData['displayName'] ||
+      object.userData['modelFileName'] ||
+      object.name;
+
+    return label || 'Dekoracja';
+  }
+
+  private formatExpectedSurfaces(surfaces: Array<'TOP' | 'SIDE'>): string {
+    if (surfaces.length === 0 || surfaces.length === 2) {
+      return 'górze lub boku tortu';
+    }
+
+    return surfaces[0] === 'TOP' ? 'górze tortu' : 'boku tortu';
+  }
+
+  private describeSurface(surface: 'TOP' | 'SIDE' | 'NONE'): string {
+    switch (surface) {
+      case 'TOP':
+        return 'górna powierzchnia tortu';
+      case 'SIDE':
+        return 'boczna ścianka tortu';
+      default:
+        return 'tort';
+    }
+  }
 }
