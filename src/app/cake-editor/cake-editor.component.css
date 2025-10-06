@@ -45,6 +45,16 @@
   padding-right: 6px;
 }
 
+.context-menu__item--submenu::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: 100%;
+  width: 12px;
+  pointer-events: none;
+}
+
 .context-menu__item--submenu > .context-menu__submenu-trigger {
   display: flex;
   justify-content: space-between;
@@ -59,9 +69,9 @@
 
 .context-menu__submenu {
   position: absolute;
-  top: -8px;
-  left: 100%;
-  transform: translateX(4px);
+  top: -6px;
+  left: calc(100% - 4px);
+  transform: none;
   display: none;
   flex-direction: column;
   padding: 6px;

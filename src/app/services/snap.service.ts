@@ -993,7 +993,14 @@ export class SnapService {
       return 0.2;
     }
 
-    return Math.max(0.005, -minProjection + 0.002);
+    const clearance = 0.002;
+    const computedOffset = -minProjection + clearance;
+
+    const boundingSphere = new THREE.Sphere();
+    boundingBox.getBoundingSphere(boundingSphere);
+    const sphereLimit = Math.max(0.005, boundingSphere.radius + clearance);
+
+    return THREE.MathUtils.clamp(computedOffset, 0.005, sphereLimit);
   }
 
   private getWorldNormal(normalLocal: THREE.Vector3): THREE.Vector3 {
