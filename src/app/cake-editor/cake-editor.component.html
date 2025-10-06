@@ -34,8 +34,14 @@
       </button>
       <div class="context-menu__submenu" role="menu">
         <button type="button" (click)="onContextAlignToSurface()">Wyrównaj do powierzchni</button>
-        <button type="button" (click)="onContextRotateQuarter(1)">Obróć 90° w prawo</button>
-        <button type="button" (click)="onContextRotateQuarter(-1)">Obróć 90° w lewo</button>
+        <div class="context-menu__submenu-grid">
+          <button type="button" (click)="onContextRotateQuarter(1)">Obróć 90° w prawo</button>
+          <button type="button" (click)="onContextRotateQuarter(-1)">Obróć 90° w lewo</button>
+          <button type="button" (click)="onContextRotateDegrees(45)">Obróć 45° w prawo</button>
+          <button type="button" (click)="onContextRotateDegrees(-45)">Obróć 45° w lewo</button>
+          <button type="button" (click)="onContextRotateDegrees(30)">Obróć 30° w prawo</button>
+          <button type="button" (click)="onContextRotateDegrees(-30)">Obróć 30° w lewo</button>
+        </div>
         <button type="button" (click)="onContextRotateHalf()">Obróć 180°</button>
         <button type="button" (click)="onContextResetOrientation()">Ustaw pionowo</button>
       </div>

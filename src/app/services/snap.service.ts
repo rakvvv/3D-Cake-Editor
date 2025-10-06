@@ -459,6 +459,16 @@ export class SnapService {
     return this.rotateDecorationByAngle(object, Math.PI, 'Dekoracja została obrócona o 180°.');
   }
 
+  public rotateDecorationByDegrees(
+    object: THREE.Object3D,
+    degrees: number,
+  ): { success: boolean; message: string } {
+    const radians = THREE.MathUtils.degToRad(degrees);
+    const rounded = Math.round(degrees * 100) / 100;
+    const message = `Dekoracja została obrócona o ${rounded}°.`;
+    return this.rotateDecorationByAngle(object, radians, message);
+  }
+
   private rotateDecorationByAngle(
     object: THREE.Object3D,
     angle: number,
@@ -863,7 +873,7 @@ export class SnapService {
       return 0.2;
     }
 
-    return Math.max(0.1, -minProjection + 0.01);
+    return Math.max(0.02, -minProjection + 0.01);
   }
 
   private getWorldNormal(normalLocal: THREE.Vector3): THREE.Vector3 {

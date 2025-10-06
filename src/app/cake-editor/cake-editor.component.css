@@ -75,6 +75,17 @@
   white-space: nowrap;
 }
 
+.context-menu__submenu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.context-menu__submenu-grid button {
+  width: 100%;
+}
+
 .context-menu__separator {
   height: 1px;
   margin: 6px 0;

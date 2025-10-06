@@ -493,6 +493,17 @@ export class ThreeSceneService {
     return result;
   }
 
+  public rotateSelectedDecorationByDegrees(degrees: number): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.rotateDecorationByDegrees(selected, degrees);
+    this.updateBoxHelper();
+    return result;
+  }
+
   public resetSelectedDecorationOrientation(): { success: boolean; message: string } {
     const selected = this.transformControlsService.getSelectedObject();
     if (!selected) {

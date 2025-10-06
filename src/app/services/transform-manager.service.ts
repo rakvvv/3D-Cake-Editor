@@ -136,8 +136,6 @@ export class TransformManagerService {
       const mode = this.transformControls.mode;
       if (mode === 'translate' || mode === 'scale') {
         this.snapService.enforceSnappedPosition(selectedObject);
-      } else if (mode === 'rotate') {
-        this.snapService.captureSnappedOrientation(selectedObject);
       }
     }
   };
@@ -147,6 +145,19 @@ export class TransformManagerService {
 
     this.orbit.enabled = !draggingValue;
 
+    if (!draggingValue && this.transformControls) {
+      const selectedObject = this.selectionService.getSelectedObject();
+      if (!selectedObject) {
+        return;
+      }
+
+      const mode = this.transformControls.mode;
+      if (mode === 'rotate') {
+        this.snapService.captureSnappedOrientation(selectedObject);
+      } else if (mode === 'translate' || mode === 'scale') {
+        this.snapService.enforceSnappedPosition(selectedObject);
+      }
+    }
   };
 
   private onKeyDown = (event: KeyboardEvent): void => {
