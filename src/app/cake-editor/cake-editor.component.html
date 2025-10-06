@@ -25,10 +25,21 @@
     [style.top.px]="contextMenuY"
   >
     <button type="button" (click)="onContextSnapToCake()">Przyczep do tortu</button>
+    <button type="button" (click)="onContextDetachFromCake()">Odczep od tortu</button>
     <div class="context-menu__separator" aria-hidden="true"></div>
-    <button type="button" (click)="onContextAlignToSurface()">Wyrównaj do powierzchni</button>
-    <button type="button" (click)="onContextRotateQuarter()">Obróć o 90°</button>
-    <button type="button" (click)="onContextResetOrientation()">Ustaw pionowo</button>
+    <div class="context-menu__item context-menu__item--submenu">
+      <button type="button" class="context-menu__submenu-trigger">
+        Orientacja
+        <span aria-hidden="true" class="context-menu__submenu-arrow">▶</span>
+      </button>
+      <div class="context-menu__submenu" role="menu">
+        <button type="button" (click)="onContextAlignToSurface()">Wyrównaj do powierzchni</button>
+        <button type="button" (click)="onContextRotateQuarter(1)">Obróć 90° w prawo</button>
+        <button type="button" (click)="onContextRotateQuarter(-1)">Obróć 90° w lewo</button>
+        <button type="button" (click)="onContextRotateHalf()">Obróć 180°</button>
+        <button type="button" (click)="onContextResetOrientation()">Ustaw pionowo</button>
+      </div>
+    </div>
   </div>
 
   <div *ngIf="statusMessage" class="status-banner">{{ statusMessage }}</div>

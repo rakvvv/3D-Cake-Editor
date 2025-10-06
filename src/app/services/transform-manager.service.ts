@@ -132,8 +132,13 @@ export class TransformManagerService {
     }
 
     const selectedObject = this.selectionService.getSelectedObject();
-    if (selectedObject) {
-      this.snapService.enforceSnappedPosition(selectedObject);
+    if (selectedObject && this.transformControls) {
+      const mode = this.transformControls.mode;
+      if (mode === 'translate' || mode === 'scale') {
+        this.snapService.enforceSnappedPosition(selectedObject);
+      } else if (mode === 'rotate') {
+        this.snapService.captureSnappedOrientation(selectedObject);
+      }
     }
   };
 

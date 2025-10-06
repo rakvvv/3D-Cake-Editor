@@ -14,12 +14,19 @@ interface ScaledLayerInfo {
   halfDepth?: number;
 }
 
-interface SnapUserData {
+export interface SnapInfoSnapshot {
   layerIndex: number;
   surfaceType: 'TOP' | 'SIDE';
   normal: [number, number, number];
   offset: number;
   roll: number;
+}
+
+interface SnapUserData extends SnapInfoSnapshot {}
+
+export interface SnappedDecorationState {
+  object: THREE.Object3D;
+  info: SnapInfoSnapshot;
 }
 
 @Injectable({
@@ -406,10 +413,13 @@ export class SnapService {
       return;
     }
 
-    const snapInfo = this.readSnapInfo(object);
+    let snapInfo = this.readSnapInfo(object);
     if (!snapInfo) {
       return;
     }
+
+    snapInfo = this.normalizeSnapInfo(snapInfo, metadata);
+    this.writeSnapInfo(object, snapInfo);
 
     const localNormal = new THREE.Vector3().fromArray(snapInfo.normal).normalize();
     const layers = this.getScaledLayers(metadata);
@@ -441,6 +451,19 @@ export class SnapService {
     message: string;
   } {
     const angle = (Math.PI / 2) * direction;
+    const message = direction === 1 ? 'Dekoracja została obrócona o 90° w prawo.' : 'Dekoracja została obrócona o 90° w lewo.';
+    return this.rotateDecorationByAngle(object, angle, message);
+  }
+
+  public rotateDecorationHalf(object: THREE.Object3D): { success: boolean; message: string } {
+    return this.rotateDecorationByAngle(object, Math.PI, 'Dekoracja została obrócona o 180°.');
+  }
+
+  private rotateDecorationByAngle(
+    object: THREE.Object3D,
+    angle: number,
+    message: string,
+  ): { success: boolean; message: string } {
     const snapInfo = this.readSnapInfo(object);
     if (snapInfo && object.userData['isSnapped'] && this.cakeBase) {
       const updatedInfo: SnapUserData = {
@@ -457,7 +480,7 @@ export class SnapService {
 
       return {
         success: true,
-        message: 'Dekoracja została obrócona o 90°.',
+        message,
       };
     }
 
@@ -465,10 +488,7 @@ export class SnapService {
     object.rotateOnWorldAxis(axis, angle);
     object.updateMatrixWorld(true);
 
-    return {
-      success: true,
-      message: 'Dekoracja została obrócona o 90°.',
-    };
+    return { success: true, message };
   }
 
   public resetDecorationOrientation(object: THREE.Object3D): void {
@@ -498,8 +518,116 @@ export class SnapService {
     this.enforceSnappedPosition(object);
   }
 
+  public captureSnappedOrientation(object: THREE.Object3D): void {
+    if (!object.userData['isSnapped'] || !this.cakeBase) {
+      return;
+    }
+
+    const snapInfo = this.readSnapInfo(object);
+    if (!snapInfo) {
+      return;
+    }
+
+    const metadata = this.getCakeMetadata();
+    if (!metadata) {
+      return;
+    }
+
+    const normalizedInfo = this.normalizeSnapInfo(snapInfo, metadata);
+    const localNormal = new THREE.Vector3().fromArray(normalizedInfo.normal).normalize();
+    const worldNormal = this.getWorldNormal(localNormal.clone());
+    const baseQuaternion = this.buildOrientationQuaternion(worldNormal, normalizedInfo.surfaceType);
+    const currentQuaternion = object.getWorldQuaternion(new THREE.Quaternion());
+    const relative = baseQuaternion.clone().invert().multiply(currentQuaternion);
+
+    const sinHalf = Math.sqrt(relative.x * relative.x + relative.y * relative.y + relative.z * relative.z);
+
+    if (sinHalf < 1e-6) {
+      const updatedInfo: SnapUserData = { ...normalizedInfo, roll: 0 };
+      this.writeSnapInfo(object, updatedInfo);
+      this.applyOrientationForSurface(object, worldNormal, updatedInfo.surfaceType, 0);
+      this.enforceSnappedPosition(object);
+      return;
+    }
+
+    let angle = 2 * Math.atan2(sinHalf, relative.w);
+    const axis = new THREE.Vector3(relative.x, relative.y, relative.z).normalize();
+    const allowedAxis = normalizedInfo.surfaceType === 'SIDE'
+      ? worldNormal.clone().normalize()
+      : new THREE.Vector3(0, 1, 0);
+
+    if (axis.dot(allowedAxis) < 0) {
+      angle = -angle;
+    }
+
+    const updatedInfo: SnapUserData = {
+      ...normalizedInfo,
+      roll: this.normalizeRoll(angle),
+    };
+
+    this.writeSnapInfo(object, updatedInfo);
+    this.applyOrientationForSurface(object, worldNormal, updatedInfo.surfaceType, updatedInfo.roll);
+    object.updateMatrixWorld(true);
+    this.enforceSnappedPosition(object);
+  }
+
+  public captureSnappedDecorations(objects: THREE.Object3D[]): SnappedDecorationState[] {
+    const states: SnappedDecorationState[] = [];
+
+    for (const object of objects) {
+      if (!object.userData['isSnapped']) {
+        continue;
+      }
+
+      const info = this.readSnapInfo(object);
+      if (!info) {
+        continue;
+      }
+
+      states.push({
+        object,
+        info: {
+          ...info,
+          normal: [...info.normal] as [number, number, number],
+        },
+      });
+    }
+
+    return states;
+  }
+
+  public restoreSnappedDecorations(states: SnappedDecorationState[]): void {
+    if (!this.cakeBase) {
+      return;
+    }
+
+    const metadata = this.getCakeMetadata();
+
+    for (const state of states) {
+      const object = state.object;
+      const snapshot = { ...state.info } as SnapUserData;
+
+      if (metadata) {
+        snapshot.layerIndex = this.clampLayerIndex(snapshot.layerIndex, metadata);
+      }
+
+      object.userData['isSnapped'] = true;
+      this.writeSnapInfo(object, snapshot);
+      this.cakeBase.attach(object);
+      this.enforceSnappedPosition(object);
+    }
+  }
+
+  public clearSnapInfo(object: THREE.Object3D): void {
+    delete object.userData['snapInfo'];
+    object.userData['isSnapped'] = false;
+  }
+
   private writeSnapInfo(object: THREE.Object3D, info: SnapUserData): void {
-    object.userData['snapInfo'] = { ...info };
+    object.userData['snapInfo'] = {
+      ...info,
+      normal: [...info.normal] as [number, number, number],
+    };
   }
 
   private readSnapInfo(object: THREE.Object3D): SnapUserData | null {
@@ -545,6 +673,60 @@ export class SnapService {
 
   private normalizeRoll(angle: number): number {
     return THREE.MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
+  }
+
+  private clampLayerIndex(index: number, metadata: CakeMetadata): number {
+    const totalLayers = metadata.layerDimensions.length;
+    if (totalLayers <= 0) {
+      return 0;
+    }
+
+    const maxIndex = totalLayers - 1;
+    return THREE.MathUtils.clamp(Math.round(index), 0, maxIndex);
+  }
+
+  private normalizeSnapInfo(info: SnapUserData, metadata: CakeMetadata): SnapUserData {
+    const layerIndex = this.clampLayerIndex(info.layerIndex, metadata);
+    const normal = new THREE.Vector3().fromArray(info.normal).normalize();
+    const offset = Math.max(0, info.offset);
+    const roll = this.normalizeRoll(info.roll ?? 0);
+
+    return {
+      layerIndex,
+      surfaceType: info.surfaceType,
+      normal: normal.toArray() as [number, number, number],
+      offset,
+      roll,
+    };
+  }
+
+  private buildOrientationQuaternion(
+    surfaceWorldNormal: THREE.Vector3,
+    surfaceType: 'TOP' | 'SIDE',
+  ): THREE.Quaternion {
+    const forward = surfaceWorldNormal.clone();
+
+    if (surfaceType === 'TOP') {
+      forward.set(surfaceWorldNormal.x, 0, surfaceWorldNormal.z);
+    }
+
+    if (forward.lengthSq() < 1e-6) {
+      forward.set(0, 0, 1);
+    }
+
+    forward.normalize();
+
+    const up = new THREE.Vector3(0, 1, 0);
+    let right = new THREE.Vector3().crossVectors(up, forward);
+
+    if (right.lengthSq() < 1e-6) {
+      right = new THREE.Vector3(1, 0, 0);
+    }
+
+    right.normalize();
+    const adjustedUp = new THREE.Vector3().crossVectors(forward, right).normalize();
+    const basis = new THREE.Matrix4().makeBasis(right, adjustedUp, forward);
+    return new THREE.Quaternion().setFromRotationMatrix(basis);
   }
 
   private projectPointToTopSurface(
@@ -641,32 +823,14 @@ export class SnapService {
       return;
     }
 
-    const forward = surfaceWorldNormal.clone();
-    if (surfaceType === 'TOP') {
-      forward.set(surfaceWorldNormal.x, 0, surfaceWorldNormal.z);
-    }
-
-    if (forward.lengthSq() < 1e-6) {
-      forward.set(0, 0, 1);
-    }
-
-    forward.normalize();
-    const up = new THREE.Vector3(0, 1, 0);
-    let right = new THREE.Vector3().crossVectors(up, forward);
-
-    if (right.lengthSq() < 1e-6) {
-      right = new THREE.Vector3(1, 0, 0);
-    }
-
-    right.normalize();
-    const adjustedUp = new THREE.Vector3().crossVectors(forward, right).normalize();
-    const basis = new THREE.Matrix4().makeBasis(right, adjustedUp, forward);
-    const quaternion = new THREE.Quaternion().setFromRotationMatrix(basis);
+    const quaternion = this.buildOrientationQuaternion(surfaceWorldNormal.clone(), surfaceType);
     object.quaternion.copy(quaternion);
 
     if (Math.abs(roll) > 1e-6) {
-      const rollAxis = surfaceType === 'SIDE' ? forward.clone() : new THREE.Vector3(0, 1, 0);
-      object.rotateOnWorldAxis(rollAxis.normalize(), roll);
+      const rollAxis = surfaceType === 'SIDE'
+        ? surfaceWorldNormal.clone().normalize()
+        : new THREE.Vector3(0, 1, 0);
+      object.rotateOnWorldAxis(rollAxis, roll);
     }
   }
 
