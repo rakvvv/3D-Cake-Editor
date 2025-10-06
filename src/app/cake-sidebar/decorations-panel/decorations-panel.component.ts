@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DecorationInfo } from '../../models/decorationInfo';
+import { DecorationInfo, DecorationPlacementType } from '../../models/decorationInfo';
 import { DecorationsService } from '../../services/decorations.service';
 
 @Component({
@@ -14,11 +14,11 @@ import { DecorationsService } from '../../services/decorations.service';
 export class DecorationsPanelComponent implements OnChanges {
   @Input() decorationsService!: DecorationsService;
   @Output() addDecoration = new EventEmitter<string>();
-  @Output() attachSelectedToCake = new EventEmitter<void>();
+  @Output() validateDecorations = new EventEmitter<void>();
   @Output() transformModeChange = new EventEmitter<'translate' | 'rotate' | 'scale'>();
 
   filterText = '';
-  filterType: 'ALL' | 'TOP' | 'SIDE' = 'ALL';
+  filterType: 'ALL' | DecorationPlacementType = 'ALL';
   decorations: DecorationInfo[] = [];
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -30,7 +30,8 @@ export class DecorationsPanelComponent implements OnChanges {
   get filteredDecorations(): DecorationInfo[] {
     return this.decorations.filter((decoration) => {
       const matchesText = decoration.name.toLowerCase().includes(this.filterText.toLowerCase());
-      const matchesType = this.filterType === 'ALL' || decoration.type === this.filterType;
+      const matchesType =
+        this.filterType === 'ALL' || decoration.type === this.filterType;
       return matchesText && matchesType;
     });
   }
@@ -39,11 +40,24 @@ export class DecorationsPanelComponent implements OnChanges {
     this.addDecoration.emit(identifier);
   }
 
-  onAttachSelectedToCake(): void {
-    this.attachSelectedToCake.emit();
+  onValidateDecorations(): void {
+    this.validateDecorations.emit();
   }
 
   setTransformMode(mode: 'translate' | 'rotate' | 'scale'): void {
     this.transformModeChange.emit(mode);
+  }
+
+  displayTypeLabel(type: DecorationPlacementType): string {
+    switch (type) {
+      case 'TOP':
+        return 'Na górę';
+      case 'SIDE':
+        return 'Na bok';
+      case 'BOTH':
+        return 'Na górę i bok';
+      default:
+        return type;
+    }
   }
 }

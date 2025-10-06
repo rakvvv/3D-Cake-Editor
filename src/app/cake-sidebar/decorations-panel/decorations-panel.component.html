@@ -10,6 +10,7 @@
       <option value="ALL">Wszystkie</option>
       <option value="TOP">Górne</option>
       <option value="SIDE">Boczne</option>
+      <option value="BOTH">Uniwersalne</option>
     </select>
   </div>
   <div class="decorations-list">
@@ -21,12 +22,12 @@
       <div class="thumbnail" aria-hidden="true">{{ decoration.name[0] }}</div>
       <div class="details">
         <span class="name">{{ decoration.name }}</span>
-        <span class="type">{{ decoration.type === 'TOP' ? 'Na górę' : 'Na bok' }}</span>
+        <span class="type">{{ displayTypeLabel(decoration.type) }}</span>
       </div>
     </div>
   </div>
   <div class="actions">
-    <button type="button" (click)="onAttachSelectedToCake()">Przyklej do tortu</button>
+    <button type="button" (click)="onValidateDecorations()">Sprawdź dekoracje</button>
     <div class="transform-group">
       <button type="button" (click)="setTransformMode('translate')">Przesuń</button>
       <button type="button" (click)="setTransformMode('rotate')">Obróć</button>

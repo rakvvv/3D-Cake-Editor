@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformManagerService } from './transform-manager.service';
-import { SnapService } from './snap.service';
 import { SelectionService } from './selection.service';
 
 @Injectable({
@@ -11,7 +10,6 @@ import { SelectionService } from './selection.service';
 export class TransformControlsService {
   constructor(
     private readonly transformManager: TransformManagerService,
-    private readonly snapService: SnapService,
     private readonly selectionService: SelectionService,
   ) {}
 
@@ -45,16 +43,8 @@ export class TransformControlsService {
     this.transformManager.deselectObject();
   }
 
-  public attemptSnapSelectionToCake(): void {
-    this.snapService.attemptSnapSelectionToCake();
-  }
-
   public isDragging(): boolean {
     return this.transformManager.isDragging();
-  }
-
-  public setCakeBase(cake: THREE.Object3D | null): void {
-    this.snapService.setCakeBase(cake);
   }
 
   public dispose(): void {

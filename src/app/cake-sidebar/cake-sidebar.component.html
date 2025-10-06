@@ -6,7 +6,7 @@
   <app-decorations-panel
     [decorationsService]="decorationsService"
     (addDecoration)="addDecorationEvent.emit($event)"
-    (attachSelectedToCake)="attachSelectedToCake.emit()"
+    (validateDecorations)="validateDecorations.emit()"
     (transformModeChange)="transformModeChange.emit($event)"
   ></app-decorations-panel>
 

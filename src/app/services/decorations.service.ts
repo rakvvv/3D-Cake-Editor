@@ -29,7 +29,7 @@ export class DecorationsService {
       const decorationsFromApi: DecorationInfo[] = [
         { name: 'Cyfra 1', modelFileName: 'Numer_1.glb', type: 'TOP' },
         { name: 'Ozdoba Boczna', modelFileName: 'custom.glb', type: 'SIDE' },
-        { name: 'czekoladowa ozdoba', modelFileName: 'chocolate_kiss.glb', type: 'TOP' },
+        { name: 'Czekoladowa ozdoba', modelFileName: 'chocolate_kiss.glb', type: 'BOTH' },
         { name: 'Trawa', modelFileName: 'trawa.glb', type: 'SIDE' }
       ];
       this.decorations = decorationsFromApi;

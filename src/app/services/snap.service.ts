@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import * as THREE from 'three';
-import { SelectionService } from './selection.service';
 import { ClosestPointInfo } from '../models/cake.points';
 import { CakeMetadata } from '../factories/three-objects.factory';
+import { DecorationPlacementType } from '../models/decorationInfo';
+import { DecorationValidationIssue } from '../models/decoration-validation';
 
 interface ScaledLayerInfo {
   index: number;
@@ -17,12 +18,9 @@ interface ScaledLayerInfo {
   providedIn: 'root',
 })
 export class SnapService {
-  private readonly snapDistanceThreshold = 1.5;
-  private readonly detachDistanceThreshold = 2.0;
-  private readonly cakeSurfaceOffset = 0.05;
+  private readonly attachmentTolerance = 0.75;
 
   private cakeBase: THREE.Object3D | null = null;
-  private scene: THREE.Scene | null = null;
 
   private getScaledLayers(metadata: CakeMetadata): ScaledLayerInfo[] {
     const scale = this.cakeBase?.scale ?? new THREE.Vector3(1, 1, 1);
@@ -37,30 +35,8 @@ export class SnapService {
     }));
   }
 
-  private findLayerForY(layers: ScaledLayerInfo[], y: number): ScaledLayerInfo | null {
-    if (!layers.length) {
-      return null;
-    }
-
-    const epsilon = 1e-3;
-    const offsetTolerance = this.cakeSurfaceOffset + epsilon;
-    for (const layer of layers) {
-      if (y >= layer.bottom - offsetTolerance && y <= layer.top + offsetTolerance) {
-        return layer;
-      }
-    }
-
-    return y < layers[0].bottom ? layers[0] : layers[layers.length - 1];
-  }
-
   private getCakeMetadata(): CakeMetadata | undefined {
     return this.cakeBase?.userData['metadata'] as CakeMetadata | undefined;
-  }
-
-  constructor(private readonly selectionService: SelectionService) {}
-
-  public setScene(scene: THREE.Scene): void {
-    this.scene = scene;
   }
 
   public setCakeBase(cake: THREE.Object3D | null): void {
@@ -71,314 +47,71 @@ export class SnapService {
     return this.cakeBase;
   }
 
-  public checkProximityAndPotentialSnap(): void {
-    const selectedObject = this.selectionService.getSelectedObject();
+  public validateDecorations(objects: THREE.Object3D[]): DecorationValidationIssue[] {
+    const issues: DecorationValidationIssue[] = [];
 
-    if (!selectedObject || !this.cakeBase) {
-      return;
-    }
-
-    const objectWorldPosition = selectedObject.getWorldPosition(new THREE.Vector3());
-    const closestPointInfo = this.getClosestPointOnCake(objectWorldPosition);
-
-    if (closestPointInfo.distance < this.snapDistanceThreshold) {
-      // Placeholder for future visual feedback.
-    }
-  }
-
-  public attemptSnapSelectionToCake(): void {
-    const selectedObject = this.selectionService.getSelectedObject();
-
-    if (!selectedObject || !this.cakeBase || selectedObject.userData['isSnapped']) {
-      console.log('Nie można przyczepić:', {
-        selected: !!selectedObject,
-        cake: !!this.cakeBase,
-        snapped: selectedObject?.userData['isSnapped'],
-      });
-      return;
-    }
-
-    const objectWorldPosition = selectedObject.getWorldPosition(new THREE.Vector3());
-    const closestPointInfo = this.getClosestPointOnCake(objectWorldPosition);
-
-    console.log('Próba przyczepienia, dystans:', closestPointInfo.distance, 'threshold:', this.snapDistanceThreshold);
-
-    if (closestPointInfo.distance < this.snapDistanceThreshold && closestPointInfo.surfaceType !== 'NONE') {
-      const decorationType = selectedObject.userData['decorationType'];
-
-      if (
-        (decorationType === 'TOP' && closestPointInfo.surfaceType === 'TOP') ||
-        (decorationType === 'SIDE' && closestPointInfo.surfaceType === 'SIDE')
-      ) {
-        console.log(`Przyczepianie typu ${decorationType} do powierzchni ${closestPointInfo.surfaceType}`);
-        this.snapObject(selectedObject, closestPointInfo);
-      } else {
-        console.log(
-          `Typ dekoracji (${decorationType}) nie pasuje do typu powierzchni tortu (${closestPointInfo.surfaceType})`,
-        );
-      }
-    } else {
-      console.log('Za daleko od tortu lub nie znaleziono powierzchni.');
-    }
-  }
-
-  public constrainMovement(): void {
-    const selectedObject = this.selectionService.getSelectedObject();
-
-    if (!selectedObject || !this.cakeBase || selectedObject.parent !== this.cakeBase) {
-      return;
-    }
-
-    const metadata = this.getCakeMetadata();
-    if (!metadata) {
-      return;
-    }
-
-    const scale = this.cakeBase.scale;
-    const halfHeight = (metadata.totalHeight * scale.y) / 2;
-    const currentLocalPos = selectedObject.position;
-    const maxPenetrationDepth = 0.5;
-    const maxLiftOffDistance = 0.1;
-    const scaledLayers = this.getScaledLayers(metadata);
-    const topLayer = scaledLayers[scaledLayers.length - 1];
-    const overallBottom = scaledLayers[0]?.bottom ?? -halfHeight;
-    const overallTop = topLayer?.top ?? halfHeight;
-
-    if (selectedObject.userData['decorationType'] === 'TOP') {
-      const activeLayer = this.findLayerForY(scaledLayers, currentLocalPos.y) ?? topLayer;
-      const activeLayerIndex = activeLayer ? scaledLayers.indexOf(activeLayer) : -1;
-      const layerAbove = activeLayerIndex >= 0 ? scaledLayers[activeLayerIndex + 1] : undefined;
-      const activeTop = activeLayer?.top ?? topLayer?.top ?? halfHeight;
-
-      if (metadata.shape === 'cylinder') {
-        const fallbackRadius = metadata.maxRadius ?? metadata.radius ?? 1;
-        const cakeRadius = activeLayer?.radius ?? fallbackRadius * scale.x;
-        const distanceToCenter = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
-
-        let minAllowedRadius = 0;
-        if (layerAbove?.radius !== undefined) {
-          minAllowedRadius = Math.min(
-            cakeRadius,
-            Math.max(0, layerAbove.radius + this.cakeSurfaceOffset),
-          );
-        }
-
-        if (distanceToCenter > cakeRadius && distanceToCenter > 0) {
-          const scaleFactor = cakeRadius / distanceToCenter;
-          currentLocalPos.x *= scaleFactor;
-          currentLocalPos.z *= scaleFactor;
-        } else if (distanceToCenter < minAllowedRadius) {
-          const targetRadius = minAllowedRadius;
-          if (distanceToCenter > 1e-5) {
-            const scaleFactor = targetRadius / distanceToCenter;
-            currentLocalPos.x *= scaleFactor;
-            currentLocalPos.z *= scaleFactor;
-          } else {
-            currentLocalPos.set(targetRadius, currentLocalPos.y, 0);
-          }
-        }
-
-        currentLocalPos.y = THREE.MathUtils.clamp(
-          currentLocalPos.y,
-          activeTop - maxPenetrationDepth,
-          activeTop + maxLiftOffDistance,
-        );
-      } else {
-        const halfWidth = activeLayer?.halfWidth ?? ((metadata.width ?? 1) / 2) * scale.x;
-        const halfDepth = activeLayer?.halfDepth ?? ((metadata.depth ?? 1) / 2) * scale.z;
-        const innerHalfWidth = layerAbove?.halfWidth ?? 0;
-        const innerHalfDepth = layerAbove?.halfDepth ?? 0;
-
-        currentLocalPos.x = THREE.MathUtils.clamp(currentLocalPos.x, -halfWidth, halfWidth);
-        currentLocalPos.z = THREE.MathUtils.clamp(currentLocalPos.z, -halfDepth, halfDepth);
-
-        if (layerAbove) {
-          const absX = Math.abs(currentLocalPos.x);
-          const absZ = Math.abs(currentLocalPos.z);
-          const insideInnerX = absX < innerHalfWidth - this.cakeSurfaceOffset;
-          const insideInnerZ = absZ < innerHalfDepth - this.cakeSurfaceOffset;
-
-          if (insideInnerX && insideInnerZ) {
-            const distanceToInnerX = innerHalfWidth - absX;
-            const distanceToInnerZ = innerHalfDepth - absZ;
-            if (distanceToInnerX <= distanceToInnerZ) {
-              const sign = absX < 1e-5 ? 1 : Math.sign(currentLocalPos.x);
-              currentLocalPos.x = sign * (innerHalfWidth + this.cakeSurfaceOffset);
-              currentLocalPos.x = THREE.MathUtils.clamp(currentLocalPos.x, -halfWidth, halfWidth);
-            } else {
-              const sign = absZ < 1e-5 ? 1 : Math.sign(currentLocalPos.z);
-              currentLocalPos.z = sign * (innerHalfDepth + this.cakeSurfaceOffset);
-              currentLocalPos.z = THREE.MathUtils.clamp(currentLocalPos.z, -halfDepth, halfDepth);
-            }
-          }
-        }
-
-        currentLocalPos.y = THREE.MathUtils.clamp(
-          currentLocalPos.y,
-          activeTop - maxPenetrationDepth,
-          activeTop + maxLiftOffDistance,
-        );
-      }
-    } else {
-      if (metadata.shape === 'cylinder') {
-        const activeLayer = this.findLayerForY(scaledLayers, currentLocalPos.y) ?? topLayer;
-        const cakeRadius = activeLayer?.radius ?? (metadata.maxRadius ?? metadata.radius ?? 1) * scale.x;
-        const currentObjectLocalRadius = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
-        const clampedRadius = THREE.MathUtils.clamp(
-          currentObjectLocalRadius,
-          cakeRadius - maxPenetrationDepth,
-          cakeRadius + maxLiftOffDistance,
-        );
-
-        if (Math.abs(currentObjectLocalRadius - clampedRadius) > 0.001 && currentObjectLocalRadius > 0.001) {
-          const radialScaleFactor = clampedRadius / currentObjectLocalRadius;
-          currentLocalPos.x *= radialScaleFactor;
-          currentLocalPos.z *= radialScaleFactor;
-        }
-
-        currentLocalPos.y = THREE.MathUtils.clamp(
-          currentLocalPos.y,
-          overallBottom + this.cakeSurfaceOffset,
-          overallTop - this.cakeSurfaceOffset,
-        );
-
-        const normal = new THREE.Vector3(currentLocalPos.x, 0, currentLocalPos.z).normalize();
-        if (normal.lengthSq() === 0) {
-          normal.set(1, 0, 0);
-        }
-
-        const up = new THREE.Vector3(0, 1, 0);
-        const right = new THREE.Vector3().crossVectors(up, normal).normalize();
-        const correctedUp = new THREE.Vector3().crossVectors(normal, right).normalize();
-        const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, normal);
-        const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
-        const offsetQuaternion = selectedObject.userData['snapOffsetQuaternion'] || new THREE.Quaternion();
-        selectedObject.quaternion.copy(baseQuaternion).multiply(offsetQuaternion);
-      } else {
-        const activeLayer = this.findLayerForY(scaledLayers, currentLocalPos.y) ?? topLayer;
-        const halfWidth = activeLayer?.halfWidth ?? ((metadata.width ?? 1) / 2) * scale.x;
-        const halfDepth = activeLayer?.halfDepth ?? ((metadata.depth ?? 1) / 2) * scale.z;
-        const absX = Math.abs(currentLocalPos.x);
-        const absZ = Math.abs(currentLocalPos.z);
-        const normal = new THREE.Vector3();
-        const normalizedX = halfWidth > 0 ? absX / halfWidth : 0;
-        const normalizedZ = halfDepth > 0 ? absZ / halfDepth : 0;
-
-        if (normalizedX >= normalizedZ) {
-          const sign = absX < 1e-5 ? 1 : Math.sign(currentLocalPos.x);
-          currentLocalPos.x = sign * halfWidth;
-          currentLocalPos.z = THREE.MathUtils.clamp(currentLocalPos.z, -halfDepth, halfDepth);
-          normal.set(sign, 0, 0);
-        } else {
-          const sign = absZ < 1e-5 ? 1 : Math.sign(currentLocalPos.z);
-          currentLocalPos.z = sign * halfDepth;
-          currentLocalPos.x = THREE.MathUtils.clamp(currentLocalPos.x, -halfWidth, halfWidth);
-          normal.set(0, 0, sign);
-        }
-
-        currentLocalPos.y = THREE.MathUtils.clamp(
-          currentLocalPos.y,
-          overallBottom + this.cakeSurfaceOffset,
-          overallTop - this.cakeSurfaceOffset,
-        );
-
-        if (normal.lengthSq() === 0) {
-          normal.set(1, 0, 0);
-        }
-
-        const up = new THREE.Vector3(0, 1, 0);
-        const right = new THREE.Vector3().crossVectors(up, normal).normalize();
-        const correctedUp = new THREE.Vector3().crossVectors(normal, right).normalize();
-        const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, normal);
-        const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
-        const offsetQuaternion = selectedObject.userData['snapOffsetQuaternion'] || new THREE.Quaternion();
-        selectedObject.quaternion.copy(baseQuaternion).multiply(offsetQuaternion);
-      }
-    }
-  }
-
-
-  public checkDetachment(): void {
-    const selectedObject = this.selectionService.getSelectedObject();
-
-    if (!selectedObject || !this.cakeBase || !selectedObject.userData['isSnapped']) {
-      return;
-    }
-
-    const currentWorldPos = selectedObject.getWorldPosition(new THREE.Vector3());
-    const closestPointInfo = this.getClosestPointOnCake(currentWorldPos);
-
-    if (closestPointInfo.distance > this.detachDistanceThreshold) {
-      console.log('Odczepianie obiektu, dystans:', closestPointInfo.distance);
-      this.detachObject(selectedObject);
-    }
-  }
-
-  public detachObject(object: THREE.Object3D): void {
-    if (!this.scene || object.parent !== this.cakeBase) {
-      return;
-    }
-
-    const worldPosition = object.getWorldPosition(new THREE.Vector3());
-    const worldQuaternion = object.getWorldQuaternion(new THREE.Quaternion());
-
-    this.scene.attach(object);
-    object.position.copy(worldPosition);
-    object.quaternion.copy(worldQuaternion);
-
-    object.userData['isSnapped'] = false;
-    console.log('Obiekt odczepiony:', object.name);
-  }
-
-  public updateSnapRotationOffset(object: THREE.Object3D): void {
-    if (!object || !this.cakeBase || !object.userData['isSnapped'] || object.userData['decorationType'] !== 'SIDE') {
-      return;
-    }
-
-    const metadata = this.getCakeMetadata();
-    if (!metadata) {
-      return;
-    }
-
-    const localPos = object.position;
-    const objectQuaternion = object.quaternion;
-
-    let baseNormal: THREE.Vector3;
-    if (metadata.shape === 'cylinder') {
-      baseNormal = new THREE.Vector3(localPos.x, 0, localPos.z).normalize();
-      if (baseNormal.lengthSq() === 0) {
-        baseNormal.set(1, 0, 0);
-      }
-    } else {
-      const scale = this.cakeBase.scale;
-      const scaledLayers = this.getScaledLayers(metadata);
-      const activeLayer = this.findLayerForY(scaledLayers, localPos.y) ?? scaledLayers[scaledLayers.length - 1];
-      const halfWidth = activeLayer?.halfWidth ?? ((metadata.width ?? 1) / 2) * scale.x;
-      const halfDepth = activeLayer?.halfDepth ?? ((metadata.depth ?? 1) / 2) * scale.z;
-      const absX = Math.abs(localPos.x);
-      const absZ = Math.abs(localPos.z);
-      const normalizedX = halfWidth > 0 ? absX / halfWidth : 0;
-      const normalizedZ = halfDepth > 0 ? absZ / halfDepth : 0;
-
-      if (normalizedX >= normalizedZ) {
-        const sign = absX < 1e-5 ? 1 : Math.sign(localPos.x);
-        baseNormal = new THREE.Vector3(sign, 0, 0);
-      } else {
-        const sign = absZ < 1e-5 ? 1 : Math.sign(localPos.z);
-        baseNormal = new THREE.Vector3(0, 0, sign);
+    for (const object of objects) {
+      const issue = this.validateDecoration(object);
+      if (issue) {
+        issues.push(issue);
       }
     }
 
-    const up = new THREE.Vector3(0, 1, 0);
-    const right = new THREE.Vector3().crossVectors(up, baseNormal).normalize();
-    const correctedUp = new THREE.Vector3().crossVectors(baseNormal, right).normalize();
-    const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, baseNormal);
-    const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
-
-    const offsetQuaternion = baseQuaternion.clone().invert().multiply(objectQuaternion);
-    object.userData['snapOffsetQuaternion'] = offsetQuaternion;
+    return issues;
   }
 
+  public validateDecoration(object: THREE.Object3D): DecorationValidationIssue | null {
+    const decorationType = object.userData['decorationType'] as DecorationPlacementType | undefined;
+    const expectedSurfaces = this.mapPlacementTypeToSurfaces(decorationType);
+
+    if (!this.cakeBase) {
+      return {
+        object,
+        decorationType,
+        surfaceType: 'NONE',
+        expectedSurfaces,
+        distance: Infinity,
+        reason: 'NO_CAKE',
+      };
+    }
+
+    const closestPointInfo = this.getClosestPointOnCake(object.getWorldPosition(new THREE.Vector3()));
+
+    if (closestPointInfo.surfaceType === 'NONE' || !isFinite(closestPointInfo.distance)) {
+      return {
+        object,
+        decorationType,
+        surfaceType: closestPointInfo.surfaceType,
+        expectedSurfaces,
+        distance: closestPointInfo.distance,
+        reason: 'OUTSIDE',
+      };
+    }
+
+    if (closestPointInfo.distance > this.attachmentTolerance) {
+      return {
+        object,
+        decorationType,
+        surfaceType: closestPointInfo.surfaceType,
+        expectedSurfaces,
+        distance: closestPointInfo.distance,
+        reason: 'OUTSIDE',
+      };
+    }
+
+    if (expectedSurfaces.length > 0 && !expectedSurfaces.includes(closestPointInfo.surfaceType)) {
+      return {
+        object,
+        decorationType,
+        surfaceType: closestPointInfo.surfaceType,
+        expectedSurfaces,
+        distance: closestPointInfo.distance,
+        reason: 'TYPE_MISMATCH',
+      };
+    }
+
+    return null;
+  }
 
   public getClosestPointOnCake(worldPoint: THREE.Vector3): ClosestPointInfo {
     const defaultResult: ClosestPointInfo = {
@@ -512,42 +245,15 @@ export class SnapService {
     };
   }
 
-
-  private snapObject(object: THREE.Object3D, closestPointInfo: ClosestPointInfo): void {
-    if (!this.cakeBase) {
-      return;
+  private mapPlacementTypeToSurfaces(type?: DecorationPlacementType): Array<'TOP' | 'SIDE'> {
+    switch (type) {
+      case 'TOP':
+        return ['TOP'];
+      case 'SIDE':
+        return ['SIDE'];
+      case 'BOTH':
+      case undefined:
+        return ['TOP', 'SIDE'];
     }
-
-    const { point, normal, surfaceType } = closestPointInfo;
-
-    this.cakeBase.attach(object);
-
-    const targetLocalPosition = point.clone();
-    targetLocalPosition.addScaledVector(normal, this.cakeSurfaceOffset);
-    object.position.copy(targetLocalPosition);
-
-    const decorationType = object.userData['decorationType'];
-
-    if (decorationType === 'SIDE') {
-      const objectsOriginalQuaternion = object.quaternion.clone();
-      const baseNormal = normal.clone().normalize();
-      if (baseNormal.lengthSq() === 0) {
-        baseNormal.set(1, 0, 0);
-      }
-      const up = new THREE.Vector3(0, 1, 0);
-      const right = new THREE.Vector3().crossVectors(up, baseNormal).normalize();
-      const correctedUp = new THREE.Vector3().crossVectors(baseNormal, right).normalize();
-      const baseMatrix = new THREE.Matrix4().makeBasis(right, correctedUp, baseNormal);
-      const baseQuaternion = new THREE.Quaternion().setFromRotationMatrix(baseMatrix);
-      const offsetQuaternion = baseQuaternion.clone().invert().multiply(objectsOriginalQuaternion);
-      object.userData['snapOffsetQuaternion'] = offsetQuaternion;
-      object.quaternion.copy(baseQuaternion).multiply(offsetQuaternion);
-    } else {
-      object.userData['snapOffsetQuaternion'] = new THREE.Quaternion();
-    }
-
-    object.userData['isSnapped'] = true;
-    object.userData['surfaceType'] = surfaceType;
-    console.log('Obiekt przyczepiony, offset rotacji zapisany.', object.userData);
   }
 }

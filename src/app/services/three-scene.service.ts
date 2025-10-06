@@ -12,6 +12,8 @@ import { PaintService } from './paint.service';
 import { ExportService } from './export.service';
 import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.factory';
 import { TextFactory } from '../factories/text.factory';
+import { SnapService } from './snap.service';
+import { DecorationValidationIssue } from '../models/decoration-validation';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
@@ -37,6 +39,7 @@ export class ThreeSceneService {
     private decorationsService: DecorationsService,
     private paintService: PaintService,
     private exportService: ExportService,
+    private snapService: SnapService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
@@ -125,7 +128,7 @@ export class ThreeSceneService {
 
     this.scene.add(cake);
     this.objects.push(cake);
-    this.transformControlsService.setCakeBase(cake);
+    this.snapService.setCakeBase(cake);
     const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * this.options.cake_size : this.options.cake_size;
     this.transformControlsService.updateCakeSize(effectiveSize);
   }
@@ -158,7 +161,7 @@ export class ThreeSceneService {
     this.cakeBase = null;
     this.cakeLayers = [];
     this.cakeMetadata = null;
-    this.transformControlsService.setCakeBase(null);
+    this.snapService.setCakeBase(null);
   }
 
   private applyCakeTransforms(): void {
@@ -450,10 +453,99 @@ export class ThreeSceneService {
   }
   // --- Koniec funkcji BoxHelper ---
 
-  // Metoda publiczna do wywołania z komponentu (np. przyciskiem)
-  // Zastępuje poprzednią implementację w komponencie
-  public attachSelectedToCake(): void {
-    this.transformControlsService.attemptSnapSelectionToCake();
+  public validateDecorations(): DecorationValidationIssue[] {
+    const decorations = this.collectDecorationRoots();
+    return this.snapService.validateDecorations(decorations);
   }
 
+  public buildValidationSummary(issues: DecorationValidationIssue[]): string {
+    if (!issues.length) {
+      return 'Wszystkie dekoracje znajdują się w dozwolonych miejscach.';
+    }
+
+    const lines = issues.map((issue, index) => {
+      const name = this.describeDecoration(issue.object);
+      const prefix = `${index + 1}. ${name} —`;
+
+      switch (issue.reason) {
+        case 'NO_CAKE':
+          return `${prefix} brak tortu do walidacji.`;
+        case 'TYPE_MISMATCH': {
+          const expected = this.formatExpectedSurfaces(issue.expectedSurfaces);
+          const found = this.describeSurface(issue.surfaceType);
+          return `${prefix} oczekiwano pozycji na ${expected}, ale najbliższa powierzchnia to ${found}.`;
+        }
+        case 'OUTSIDE': {
+          const distance = isFinite(issue.distance) ? issue.distance.toFixed(2) : 'nieznana';
+          if (issue.surfaceType === 'NONE') {
+            return `${prefix} dekoracja znajduje się zbyt daleko od tortu (odległość ${distance}).`;
+          }
+          const surface = this.describeSurface(issue.surfaceType);
+          return `${prefix} jest zbyt daleko od ${surface} (odległość ${distance}).`;
+        }
+      }
+    });
+
+    return ['Znaleziono problemy z rozmieszczeniem dekoracji:', ...lines].join('\n');
+  }
+
+  private collectDecorationRoots(): THREE.Object3D[] {
+    const result: THREE.Object3D[] = [];
+    const visited = new Set<THREE.Object3D>();
+
+    const traverse = (object: THREE.Object3D) => {
+      for (const child of object.children) {
+        if (child.userData['decorationType']) {
+          const root = this.resolveDecorationRoot(child);
+          if (!visited.has(root)) {
+            visited.add(root);
+            result.push(root);
+          }
+        }
+        traverse(child);
+      }
+    };
+
+    traverse(this.scene);
+
+    return result;
+  }
+
+  private resolveDecorationRoot(object: THREE.Object3D): THREE.Object3D {
+    let current: THREE.Object3D = object;
+
+    while (current.parent && current.parent !== this.scene && current.parent !== this.cakeBase) {
+      current = current.parent;
+    }
+
+    return current;
+  }
+
+  private describeDecoration(object: THREE.Object3D): string {
+    const label =
+      object.userData['displayName'] ||
+      object.userData['modelFileName'] ||
+      object.name;
+
+    return label || 'Dekoracja';
+  }
+
+  private formatExpectedSurfaces(surfaces: Array<'TOP' | 'SIDE'>): string {
+    if (surfaces.length === 0 || surfaces.length === 2) {
+      return 'górze lub boku tortu';
+    }
+
+    return surfaces[0] === 'TOP' ? 'górze tortu' : 'boku tortu';
+  }
+
+  private describeSurface(surface: 'TOP' | 'SIDE' | 'NONE'): string {
+    switch (surface) {
+      case 'TOP':
+        return 'górna powierzchnia tortu';
+      case 'SIDE':
+        return 'boczna ścianka tortu';
+      default:
+        return 'tort';
+    }
+  }
 }

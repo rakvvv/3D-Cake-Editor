@@ -53,8 +53,10 @@ export class CakeEditorComponent implements AfterViewInit {
     this.sceneService.updateCakeOptions(newOptions);
   }
 
-  onAttachSelectedToCake(): void {
-    this.sceneService.attachSelectedToCake();
+  onValidateDecorations(): void {
+    const issues = this.sceneService.validateDecorations();
+    const message = this.sceneService.buildValidationSummary(issues);
+    alert(message);
   }
 
   onTransformModeChange(mode: string): void {
@@ -79,6 +81,9 @@ export class CakeEditorComponent implements AfterViewInit {
     if (!isPlatformBrowser(this.platformId)) {
       return;
     }
+    if (!this.ensureDecorationsPlacement()) {
+      return;
+    }
     const data = this.sceneService.exportOBJ();
     const blob = new Blob([data], { type: 'text/plain' });
     this.triggerDownload(blob, 'cake-scene.obj');
@@ -88,6 +93,9 @@ export class CakeEditorComponent implements AfterViewInit {
     if (!isPlatformBrowser(this.platformId)) {
       return;
     }
+    if (!this.ensureDecorationsPlacement()) {
+      return;
+    }
     const data = this.sceneService.exportSTL();
     const blob = new Blob([data], { type: 'application/sla' });
     this.triggerDownload(blob, 'cake-scene.stl');
@@ -95,6 +103,9 @@ export class CakeEditorComponent implements AfterViewInit {
 
   onExportGltf(): void {
     if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+    if (!this.ensureDecorationsPlacement()) {
       return;
     }
     this.sceneService.exportGLTF((gltf) => {
@@ -119,6 +130,17 @@ export class CakeEditorComponent implements AfterViewInit {
     if (isPlatformBrowser(this.platformId)) {
       this.sceneService.init(this.container.nativeElement, this.options);
     }
+  }
+
+  private ensureDecorationsPlacement(): boolean {
+    const issues = this.sceneService.validateDecorations();
+
+    if (!issues.length) {
+      return true;
+    }
+
+    const summary = this.sceneService.buildValidationSummary(issues);
+    return confirm(`${summary}\n\nCzy kontynuować mimo ostrzeżeń?`);
   }
 
   private triggerDownload(blob: Blob, filename: string): void {

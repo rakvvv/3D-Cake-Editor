@@ -17,7 +17,7 @@ import { ExportPanelComponent } from './export-panel/export-panel.component';
 export class CakeSidebarComponent {
   readonly addDecorationEvent = output<string>();
   readonly saveSceneEvent = output<void>();
-  readonly attachSelectedToCake = output<void>();
+  readonly validateDecorations = output<void>();
   readonly cakeOptionsChange = output<CakeOptions>();
   readonly transformModeChange = output<'translate' | 'rotate' | 'scale'>();
   readonly paintModeChange = output<boolean>();
