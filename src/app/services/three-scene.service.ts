@@ -12,7 +12,7 @@ import { PaintService } from './paint.service';
 import { ExportService } from './export.service';
 import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.factory';
 import { TextFactory } from '../factories/text.factory';
-import { SnapService } from './snap.service';
+import { SnapService, SnappedDecorationState } from './snap.service';
 import { DecorationValidationIssue } from '../models/decoration-validation';
 
 @Injectable({
@@ -110,17 +110,22 @@ export class ThreeSceneService {
       const textDepth = 0.1;
       const textHeight = this.getCakeTopHeight();
       this.loadAndAddText(options.cake_text_value, textSize, textHeight, textDepth);
-      const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * options.cake_size : options.cake_size;
-      this.transformControlsService.updateCakeSize(effectiveSize);
     } else {
       this.removeCakeText();
     }
+
+    const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * options.cake_size : options.cake_size;
+    this.transformControlsService.updateCakeSize(effectiveSize);
   }
 
   private rebuildCake(): void {
     if (!this.scene) {
       return;
     }
+
+    const snappedState: SnappedDecorationState[] = this.snapService.captureSnappedDecorations(
+      this.collectDecorationRoots(),
+    );
 
     this.removeCakeText();
     this.disposeCake();
@@ -137,6 +142,11 @@ export class ThreeSceneService {
     this.snapService.setCakeBase(cake);
     const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * this.options.cake_size : this.options.cake_size;
     this.transformControlsService.updateCakeSize(effectiveSize);
+
+    if (snappedState.length) {
+      this.snapService.restoreSnappedDecorations(snappedState);
+      this.updateBoxHelper();
+    }
   }
 
   private disposeCake(): void {
@@ -190,6 +200,26 @@ export class ThreeSceneService {
         }
       });
     }
+
+    const scale = this.options.cake_size;
+    const topLayer = this.cakeMetadata.layerDimensions[this.cakeMetadata.layerDimensions.length - 1];
+
+    if (this.cakeMetadata.shape === 'cylinder') {
+      const radius = topLayer?.radius ?? this.cakeMetadata.radius ?? 1;
+      return radius * scale;
+    }
+
+    const width = topLayer?.width ?? this.cakeMetadata.width ?? 1;
+    const depth = topLayer?.depth ?? this.cakeMetadata.depth ?? 1;
+    return (Math.min(width, depth) / 2) * scale;
+  }
+
+  private getCakeTopHeight(): number {
+    if (!this.cakeMetadata) {
+      return this.options.cake_size * 2;
+    }
+
+    return this.cakeMetadata.totalHeight * this.options.cake_size;
   }
 
   private removeCakeText(): void {
@@ -461,13 +491,35 @@ export class ThreeSceneService {
     return result;
   }
 
-  public rotateSelectedDecorationQuarter(): { success: boolean; message: string } {
+  public rotateSelectedDecorationQuarter(direction: 1 | -1 = 1): { success: boolean; message: string } {
     const selected = this.transformControlsService.getSelectedObject();
     if (!selected) {
       return { success: false, message: 'Najpierw zaznacz dekorację.' };
     }
 
-    const result = this.snapService.rotateDecorationQuarter(selected);
+    const result = this.snapService.rotateDecorationQuarter(selected, direction);
+    this.updateBoxHelper();
+    return result;
+  }
+
+  public rotateSelectedDecorationHalf(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.rotateDecorationHalf(selected);
+    this.updateBoxHelper();
+    return result;
+  }
+
+  public rotateSelectedDecorationByDegrees(degrees: number): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.rotateDecorationByDegrees(selected, degrees);
     this.updateBoxHelper();
     return result;
   }
@@ -484,6 +536,27 @@ export class ThreeSceneService {
     return {
       success: true,
       message: 'Dekoracja została ustawiona pionowo.',
+    };
+  }
+
+  public detachSelectedDecorationFromCake(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    if (!selected.parent) {
+      this.scene.add(selected);
+    } else if (selected.parent !== this.scene) {
+      this.scene.attach(selected);
+    }
+
+    this.snapService.clearSnapInfo(selected);
+    this.updateBoxHelper();
+
+    return {
+      success: true,
+      message: 'Dekoracja została odczepiona od tortu.',
     };
   }
 

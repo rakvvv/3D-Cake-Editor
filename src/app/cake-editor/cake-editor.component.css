@@ -9,7 +9,7 @@
   background: #fff;
 }
 
-.context-menu {
+.context-menu { 
   position: fixed;
   z-index: 1000;
   display: flex;
@@ -35,6 +35,70 @@
 
 .context-menu button:hover {
   background: rgba(255, 255, 255, 0.15);
+}
+
+.context-menu__item {
+  position: relative;
+}
+
+.context-menu__item--submenu {
+  padding-right: 6px;
+}
+
+.context-menu__item--submenu::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: 100%;
+  width: 12px;
+  pointer-events: none;
+}
+
+.context-menu__item--submenu > .context-menu__submenu-trigger {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.context-menu__submenu-arrow {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.context-menu__submenu {
+  position: absolute;
+  top: -6px;
+  left: calc(100% - 4px);
+  transform: none;
+  display: none;
+  flex-direction: column;
+  padding: 6px;
+  background: #1f1f1f;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  min-width: 190px;
+}
+
+.context-menu__item--submenu:hover > .context-menu__submenu,
+.context-menu__item--submenu:focus-within > .context-menu__submenu {
+  display: flex;
+}
+
+.context-menu__submenu button {
+  white-space: nowrap;
+}
+
+.context-menu__submenu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.context-menu__submenu-grid button {
+  width: 100%;
 }
 
 .context-menu__separator {
