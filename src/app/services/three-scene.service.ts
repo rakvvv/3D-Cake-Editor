@@ -67,6 +67,7 @@ export class ThreeSceneService {
       this.renderer,
       this.sceneInitService.orbit,
       () => this.updateBoxHelper(),
+      (object) => this.removeDecoration(object),
     );
 
     const grid = new THREE.GridHelper(50, 50);
@@ -450,6 +451,24 @@ export class ThreeSceneService {
   }
   // --- Koniec funkcji BoxHelper ---
 
+  public removeDecoration(object: THREE.Object3D): void {
+    if (!object) {
+      return;
+    }
+
+    if (this.cakeBase && object.parent === this.cakeBase) {
+      this.scene.attach(object);
+    }
+
+    this.scene.remove(object);
+    this.objects = this.objects.filter((entry) => entry !== object);
+
+    object.traverse((child) => {
+      this.snapService.clearSnapInfo(child);
+      this.disposeObjectResources(child);
+    });
+  }
+
   public validateDecorations(): DecorationValidationIssue[] {
     const decorations = this.collectDecorationRoots();
     return this.snapService.validateDecorations(decorations);
@@ -648,6 +667,22 @@ export class ThreeSceneService {
         return 'boczna ścianka tortu';
       default:
         return 'tort';
+    }
+  }
+
+  private disposeObjectResources(object: THREE.Object3D): void {
+    const meshLike = object as any;
+
+    const geometry = meshLike.geometry as THREE.BufferGeometry | undefined;
+    if (geometry && typeof geometry.dispose === 'function') {
+      geometry.dispose();
+    }
+
+    const material = meshLike.material as THREE.Material | THREE.Material[] | undefined;
+    if (Array.isArray(material)) {
+      material.forEach((mat) => mat?.dispose());
+    } else if (material && typeof material.dispose === 'function') {
+      material.dispose();
     }
   }
 }
