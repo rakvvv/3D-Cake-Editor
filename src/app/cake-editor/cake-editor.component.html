@@ -1,17 +1,35 @@
 <div class="editor-container">
-    <app-cake-sidebar
-      (addDecorationEvent)="onAddDecoration($event)"
-      (cakeOptionsChange)="updateCakeOptions($event)"
-      (attachSelectedToCake)="onAttachSelectedToCake()"
-      (transformModeChange)="onTransformModeChange($event)"
-      (paintModeChange)="onTogglePaintMode($event)"
-      (brushChange)="onBrushChanged($event)"
-      (saveSceneEvent)="onSaveScene()"
-      (exportObj)="onExportObj()"
-      (exportStl)="onExportStl()"
-      (exportGltf)="onExportGltf()"
-      (screenshot)="onScreenshot()"
-    >
-    </app-cake-sidebar>
-    <div #canvasContainer class="canvas-container"></div>
+  <app-cake-sidebar
+    [validationSummary]="validationSummary"
+    [validationIssues]="validationIssues"
+    [pendingValidationLabel]="pendingValidationLabel"
+    (addDecorationEvent)="onAddDecoration($event)"
+    (cakeOptionsChange)="updateCakeOptions($event)"
+    (validateDecorations)="onValidateDecorations()"
+    (transformModeChange)="onTransformModeChange($event)"
+    (paintModeChange)="onTogglePaintMode($event)"
+    (brushChange)="onBrushChanged($event)"
+    (saveSceneEvent)="onSaveScene()"
+    (exportObj)="onExportObj()"
+    (exportStl)="onExportStl()"
+    (exportGltf)="onExportGltf()"
+    (screenshot)="onScreenshot()"
+    (proceedDespiteWarnings)="onProceedDespiteWarnings()"
+  ></app-cake-sidebar>
+  <div #canvasContainer class="canvas-container"></div>
+
+  <div
+    *ngIf="contextMenuVisible"
+    class="context-menu"
+    [style.left.px]="contextMenuX"
+    [style.top.px]="contextMenuY"
+  >
+    <button type="button" (click)="onContextSnapToCake()">Przyczep do tortu</button>
+    <div class="context-menu__separator" aria-hidden="true"></div>
+    <button type="button" (click)="onContextAlignToSurface()">Wyrównaj do powierzchni</button>
+    <button type="button" (click)="onContextRotateQuarter()">Obróć o 90°</button>
+    <button type="button" (click)="onContextResetOrientation()">Ustaw pionowo</button>
   </div>
+
+  <div *ngIf="statusMessage" class="status-banner">{{ statusMessage }}</div>
+</div>

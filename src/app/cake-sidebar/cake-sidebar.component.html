@@ -5,9 +5,13 @@
 
   <app-decorations-panel
     [decorationsService]="decorationsService"
+    [validationSummary]="validationSummary"
+    [validationIssues]="validationIssues"
+    [pendingActionLabel]="pendingValidationLabel"
     (addDecoration)="addDecorationEvent.emit($event)"
-    (attachSelectedToCake)="attachSelectedToCake.emit()"
+    (validateDecorations)="validateDecorations.emit()"
     (transformModeChange)="transformModeChange.emit($event)"
+    (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
   ></app-decorations-panel>
 
   <app-paint-panel

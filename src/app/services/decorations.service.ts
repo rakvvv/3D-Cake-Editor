@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { TransformControlsService } from './transform-controls-service';
 import { DecorationFactory } from '../factories/decoration.factory';
+import { CakeMetadata } from '../factories/three-objects.factory';
 import { DecorationInfo } from '../models/decorationInfo';
 
 @Injectable({ providedIn: 'root' })
@@ -28,7 +29,7 @@ export class DecorationsService {
       const decorationsFromApi: DecorationInfo[] = [
         { name: 'Cyfra 1', modelFileName: 'Numer_1.glb', type: 'TOP' },
         { name: 'Ozdoba Boczna', modelFileName: 'custom.glb', type: 'SIDE' },
-        { name: 'czekoladowa ozdoba', modelFileName: 'chocolate_kiss.glb', type: 'TOP' },
+        { name: 'Czekoladowa ozdoba', modelFileName: 'chocolate_kiss.glb', type: 'BOTH' },
         { name: 'Trawa', modelFileName: 'trawa.glb', type: 'SIDE' }
       ];
       this.decorations = decorationsFromApi;
@@ -43,10 +44,14 @@ export class DecorationsService {
   public async addDecorationFromModel(
     identifier: string,
     scene: THREE.Scene,
-    cakeBase: THREE.Mesh,
+    cakeBase: THREE.Object3D | null,
     objects: THREE.Object3D[]
   ): Promise<THREE.Object3D | undefined> {
     if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    if (!cakeBase) {
       return;
     }
 
@@ -74,18 +79,27 @@ export class DecorationsService {
       }
 
       decoration.userData['decorationType'] = decoInfo.type;
+      decoration.userData['isDecoration'] = true;
       decoration.userData['modelFileName'] = decoInfo.modelFileName;
       decoration.userData['isSnapped'] = false;
 
+      const metadata = cakeBase.userData['metadata'] as CakeMetadata | undefined;
+      const worldScale = cakeBase.getWorldScale(new THREE.Vector3());
+      const topHeight = metadata
+        ? metadata.totalHeight * worldScale.y
+        : cakeBase.position.y + 2;
+
       decoration.position.set(
         (Math.random() - 0.5) * 5,
-        cakeBase.position.y + (cakeBase.geometry as THREE.CylinderGeometry).parameters.height * cakeBase.scale.y + 2 + Math.random(),
+        topHeight + 2 + Math.random(),
         (Math.random() - 0.5) * 5
       );
 
       scene.add(decoration);
-      const meshes = (decoration.userData['clickableMeshes'] as THREE.Mesh[]) ?? [];
-      objects.push(...meshes);
+
+      if (!objects.includes(decoration)) {
+        objects.push(decoration);
+      }
 
       this.transformControlsService.attachObject(decoration);
       return decoration;

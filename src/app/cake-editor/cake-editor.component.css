@@ -1,10 +1,60 @@
 .editor-container {
-    display: flex;
-    height: 100vh;
-  }
-  
-  .canvas-container {
-    flex-grow: 1;
-    background: #fff;
-  }
+  display: flex;
+  height: 100vh;
+  position: relative;
+}
+
+.canvas-container {
+  flex-grow: 1;
+  background: #fff;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: #1f1f1f;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  min-width: 180px;
+}
+
+.context-menu button {
+  background: transparent;
+  border: none;
+  color: #f3f3f3;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.context-menu button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.context-menu__separator {
+  height: 1px;
+  margin: 6px 0;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.status-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: rgba(31, 31, 31, 0.92);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  font-size: 0.95rem;
+  pointer-events: none;
+  z-index: 900;
+}
   

@@ -5,4 +5,5 @@ export interface ClosestPointInfo {
   normal: THREE.Vector3;      // Normalna do powierzchni w tym punkcie (w lokalnych koordynatach tortu)
   distance: number;           // Odległość od oryginalnego punktu do najbliższego punktu na torcie
   surfaceType: 'TOP' | 'SIDE' | 'NONE'; // Typ powierzchni, na której znaleziono najbliższy punkt
+  layerIndex: number;         // Indeks warstwy, na której znajduje się punkt
 }
