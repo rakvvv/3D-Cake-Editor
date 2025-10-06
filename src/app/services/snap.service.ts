@@ -20,6 +20,7 @@ export interface SnapInfoSnapshot {
   normal: [number, number, number];
   offset: number;
   roll: number;
+  rotation?: [number, number, number, number];
 }
 
 interface SnapUserData extends SnapInfoSnapshot {}
@@ -36,6 +37,7 @@ export class SnapService {
   private readonly attachmentTolerance = 0.75;
 
   private cakeBase: THREE.Object3D | null = null;
+  private readonly identityRotation: [number, number, number, number] = [0, 0, 0, 1];
 
   public snapDecorationToCake(object: THREE.Object3D): {
     success: boolean;
@@ -99,6 +101,7 @@ export class SnapService {
       normal: localNormal.toArray(),
       offset: offsetDistance,
       roll: 0,
+      rotation: [...this.identityRotation],
     });
 
     return {
@@ -145,6 +148,7 @@ export class SnapService {
           normal: closest.normal.clone().normalize().toArray(),
           offset: info.offset,
           roll: 0,
+          rotation: [...this.identityRotation],
         };
         this.writeSnapInfo(object, updatedInfo);
         this.enforceSnappedPosition(object);
@@ -442,7 +446,14 @@ export class SnapService {
       normal: projection.normal.clone().normalize().toArray(),
     };
     this.writeSnapInfo(object, updatedInfo);
-    this.applyOrientationForSurface(object, worldNormal, snapInfo.surfaceType, updatedInfo.roll ?? 0);
+    const relativeRotation = this.getRelativeQuaternion(updatedInfo, projection.normal.clone());
+    this.applyOrientationForSurface(
+      object,
+      worldNormal,
+      snapInfo.surfaceType,
+      updatedInfo.roll ?? 0,
+      relativeRotation,
+    );
     object.updateMatrixWorld(true);
   }
 
@@ -476,15 +487,30 @@ export class SnapService {
   ): { success: boolean; message: string } {
     const snapInfo = this.readSnapInfo(object);
     if (snapInfo && object.userData['isSnapped'] && this.cakeBase) {
+      const localNormal = new THREE.Vector3().fromArray(snapInfo.normal).normalize();
+      const rotation = this.getRelativeQuaternion(snapInfo, localNormal.clone());
+      const axis = snapInfo.surfaceType === 'SIDE'
+        ? localNormal.clone().normalize()
+        : new THREE.Vector3(0, 1, 0);
+      const delta = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+      const combined = rotation.clone().multiply(delta).normalize();
+      const roll = this.computeRollFromQuaternion(combined, snapInfo.surfaceType, localNormal.clone());
+
       const updatedInfo: SnapUserData = {
         ...snapInfo,
-        roll: this.normalizeRoll((snapInfo.roll ?? 0) + angle),
+        roll,
+        rotation: this.serializeQuaternion(combined),
       };
       this.writeSnapInfo(object, updatedInfo);
 
-      const normal = new THREE.Vector3().fromArray(updatedInfo.normal).normalize();
-      const worldNormal = this.getWorldNormal(normal.clone());
-      this.applyOrientationForSurface(object, worldNormal, updatedInfo.surfaceType, updatedInfo.roll);
+      const worldNormal = this.getWorldNormal(localNormal.clone());
+      this.applyOrientationForSurface(
+        object,
+        worldNormal,
+        updatedInfo.surfaceType,
+        updatedInfo.roll,
+        combined,
+      );
       object.updateMatrixWorld(true);
       this.enforceSnappedPosition(object);
 
@@ -518,12 +544,19 @@ export class SnapService {
     const updatedInfo: SnapUserData = {
       ...snapInfo,
       roll: 0,
+      rotation: [...this.identityRotation],
     };
     this.writeSnapInfo(object, updatedInfo);
 
     const normal = new THREE.Vector3().fromArray(updatedInfo.normal).normalize();
     const worldNormal = this.getWorldNormal(normal.clone());
-    this.applyOrientationForSurface(object, worldNormal, updatedInfo.surfaceType, 0);
+    this.applyOrientationForSurface(
+      object,
+      worldNormal,
+      updatedInfo.surfaceType,
+      0,
+      new THREE.Quaternion(),
+    );
     object.updateMatrixWorld(true);
     this.enforceSnappedPosition(object);
   }
@@ -548,35 +581,19 @@ export class SnapService {
     const worldNormal = this.getWorldNormal(localNormal.clone());
     const baseQuaternion = this.buildOrientationQuaternion(worldNormal, normalizedInfo.surfaceType);
     const currentQuaternion = object.getWorldQuaternion(new THREE.Quaternion());
-    const relative = baseQuaternion.clone().invert().multiply(currentQuaternion);
+    const relative = baseQuaternion.clone().invert().multiply(currentQuaternion).normalize();
 
-    const sinHalf = Math.sqrt(relative.x * relative.x + relative.y * relative.y + relative.z * relative.z);
-
-    if (sinHalf < 1e-6) {
-      const updatedInfo: SnapUserData = { ...normalizedInfo, roll: 0 };
-      this.writeSnapInfo(object, updatedInfo);
-      this.applyOrientationForSurface(object, worldNormal, updatedInfo.surfaceType, 0);
-      this.enforceSnappedPosition(object);
-      return;
-    }
-
-    let angle = 2 * Math.atan2(sinHalf, relative.w);
-    const axis = new THREE.Vector3(relative.x, relative.y, relative.z).normalize();
-    const allowedAxis = normalizedInfo.surfaceType === 'SIDE'
-      ? worldNormal.clone().normalize()
-      : new THREE.Vector3(0, 1, 0);
-
-    if (axis.dot(allowedAxis) < 0) {
-      angle = -angle;
-    }
+    const roll = this.computeRollFromQuaternion(relative, normalizedInfo.surfaceType, localNormal.clone());
+    const rotationArray = this.serializeQuaternion(relative);
 
     const updatedInfo: SnapUserData = {
       ...normalizedInfo,
-      roll: this.normalizeRoll(angle),
+      roll,
+      rotation: rotationArray,
     };
 
     this.writeSnapInfo(object, updatedInfo);
-    this.applyOrientationForSurface(object, worldNormal, updatedInfo.surfaceType, updatedInfo.roll);
+    this.applyOrientationForSurface(object, worldNormal, updatedInfo.surfaceType, roll, relative);
     object.updateMatrixWorld(true);
     this.enforceSnappedPosition(object);
   }
@@ -599,6 +616,7 @@ export class SnapService {
         info: {
           ...info,
           normal: [...info.normal] as [number, number, number],
+          rotation: info.rotation ? [...info.rotation] as [number, number, number, number] : undefined,
         },
       });
     }
@@ -637,6 +655,7 @@ export class SnapService {
     object.userData['snapInfo'] = {
       ...info,
       normal: [...info.normal] as [number, number, number],
+      rotation: info.rotation ? [...info.rotation] as [number, number, number, number] : undefined,
     };
   }
 
@@ -646,7 +665,7 @@ export class SnapService {
       return null;
     }
 
-    const { layerIndex, surfaceType, normal, offset, roll } = data as Partial<SnapUserData>;
+    const { layerIndex, surfaceType, normal, offset, roll, rotation } = data as Partial<SnapUserData>;
     if (
       typeof layerIndex !== 'number' ||
       (surfaceType !== 'TOP' && surfaceType !== 'SIDE') ||
@@ -663,6 +682,9 @@ export class SnapService {
       normal: [normal[0], normal[1], normal[2]],
       offset,
       roll: typeof roll === 'number' ? roll : 0,
+      rotation: Array.isArray(rotation) && rotation.length === 4
+        ? [rotation[0], rotation[1], rotation[2], rotation[3]]
+        : undefined,
     };
   }
 
@@ -681,10 +703,6 @@ export class SnapService {
     );
   }
 
-  private normalizeRoll(angle: number): number {
-    return THREE.MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
-  }
-
   private clampLayerIndex(index: number, metadata: CakeMetadata): number {
     const totalLayers = metadata.layerDimensions.length;
     if (totalLayers <= 0) {
@@ -695,19 +713,113 @@ export class SnapService {
     return THREE.MathUtils.clamp(Math.round(index), 0, maxIndex);
   }
 
+  private normalizeRoll(angle: number): number {
+    return THREE.MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
+  }
+
   private normalizeSnapInfo(info: SnapUserData, metadata: CakeMetadata): SnapUserData {
     const layerIndex = this.clampLayerIndex(info.layerIndex, metadata);
     const normal = new THREE.Vector3().fromArray(info.normal).normalize();
     const offset = Math.max(0, info.offset);
-    const roll = this.normalizeRoll(info.roll ?? 0);
+    const surfaceType = info.surfaceType;
+
+    const { quaternion, roll } = this.sanitizeRotation(info, surfaceType, normal.clone());
 
     return {
       layerIndex,
-      surfaceType: info.surfaceType,
+      surfaceType,
       normal: normal.toArray() as [number, number, number],
       offset,
       roll,
+      rotation: this.serializeQuaternion(quaternion),
     };
+  }
+
+  private sanitizeRotation(
+    info: SnapUserData,
+    surfaceType: 'TOP' | 'SIDE',
+    normal: THREE.Vector3,
+  ): { quaternion: THREE.Quaternion; roll: number } {
+    let quaternion: THREE.Quaternion | null = null;
+
+    if (info.rotation && info.rotation.length === 4) {
+      const candidate = new THREE.Quaternion(info.rotation[0], info.rotation[1], info.rotation[2], info.rotation[3]);
+      if (
+        candidate.lengthSq() > 1e-10 &&
+        Number.isFinite(candidate.x) &&
+        Number.isFinite(candidate.y) &&
+        Number.isFinite(candidate.z) &&
+        Number.isFinite(candidate.w)
+      ) {
+        quaternion = candidate.normalize();
+      }
+    }
+
+    if (!quaternion) {
+      const axis = surfaceType === 'SIDE' ? normal.clone().normalize() : new THREE.Vector3(0, 1, 0);
+      const roll = this.normalizeRoll(info.roll ?? 0);
+      return {
+        quaternion: new THREE.Quaternion().setFromAxisAngle(axis, roll),
+        roll,
+      };
+    }
+
+    const roll = this.computeRollFromQuaternion(quaternion, surfaceType, normal.clone());
+    return { quaternion, roll };
+  }
+
+  private serializeQuaternion(quaternion: THREE.Quaternion): [number, number, number, number] {
+    const normalized = quaternion.clone().normalize();
+    return [normalized.x, normalized.y, normalized.z, normalized.w];
+  }
+
+  private getRelativeQuaternion(info: SnapUserData, localNormal: THREE.Vector3): THREE.Quaternion {
+    if (info.rotation && info.rotation.length === 4) {
+      const candidate = new THREE.Quaternion(info.rotation[0], info.rotation[1], info.rotation[2], info.rotation[3]);
+      if (candidate.lengthSq() > 1e-10) {
+        return candidate.normalize();
+      }
+    }
+
+    const axis = info.surfaceType === 'SIDE' ? localNormal.clone().normalize() : new THREE.Vector3(0, 1, 0);
+    const roll = this.normalizeRoll(info.roll ?? 0);
+    return new THREE.Quaternion().setFromAxisAngle(axis, roll);
+  }
+
+  private computeRollFromQuaternion(
+    quaternion: THREE.Quaternion,
+    surfaceType: 'TOP' | 'SIDE',
+    localNormal: THREE.Vector3,
+  ): number {
+    const normalized = quaternion.clone().normalize();
+    const sinHalf = Math.sqrt(normalized.x * normalized.x + normalized.y * normalized.y + normalized.z * normalized.z);
+
+    if (sinHalf < 1e-6) {
+      return 0;
+    }
+
+    const angle = 2 * Math.atan2(sinHalf, normalized.w);
+    if (!Number.isFinite(angle)) {
+      return 0;
+    }
+
+    const axis = sinHalf < 1e-6
+      ? surfaceType === 'SIDE'
+        ? localNormal.clone().normalize()
+        : new THREE.Vector3(0, 1, 0)
+      : new THREE.Vector3(normalized.x, normalized.y, normalized.z).normalize();
+
+    const allowedAxis = surfaceType === 'SIDE'
+      ? localNormal.clone().normalize()
+      : new THREE.Vector3(0, 1, 0);
+
+    const projection = THREE.MathUtils.clamp(axis.dot(allowedAxis), -1, 1);
+    if (Math.abs(projection) < 1e-6) {
+      return 0;
+    }
+
+    const signedAngle = angle * projection;
+    return this.normalizeRoll(signedAngle);
   }
 
   private buildOrientationQuaternion(
@@ -828,13 +940,21 @@ export class SnapService {
     surfaceWorldNormal: THREE.Vector3,
     surfaceType: 'TOP' | 'SIDE' | 'NONE',
     roll = 0,
+    relativeRotation?: THREE.Quaternion,
   ): void {
     if (surfaceType === 'NONE') {
       return;
     }
 
-    const quaternion = this.buildOrientationQuaternion(surfaceWorldNormal.clone(), surfaceType);
-    object.quaternion.copy(quaternion);
+    const baseQuaternion = this.buildOrientationQuaternion(surfaceWorldNormal.clone(), surfaceType);
+
+    if (relativeRotation) {
+      const combined = baseQuaternion.clone().multiply(relativeRotation.clone().normalize());
+      object.quaternion.copy(combined);
+      return;
+    }
+
+    object.quaternion.copy(baseQuaternion);
 
     if (Math.abs(roll) > 1e-6) {
       const rollAxis = surfaceType === 'SIDE'
@@ -873,7 +993,7 @@ export class SnapService {
       return 0.2;
     }
 
-    return Math.max(0.02, -minProjection + 0.01);
+    return Math.max(0.005, -minProjection + 0.002);
   }
 
   private getWorldNormal(normalLocal: THREE.Vector3): THREE.Vector3 {
