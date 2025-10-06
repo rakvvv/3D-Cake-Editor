@@ -402,7 +402,7 @@ export class SnapService {
         return ['TOP', 'SIDE'];
     }
 
-    return null;
+    return ['TOP', 'SIDE'];
   }
 
   public enforceSnappedPosition(object: THREE.Object3D): void {
@@ -781,10 +781,6 @@ export class SnapService {
       if (candidate.lengthSq() > 1e-10) {
         return candidate.normalize();
       }
-      const basePoint = new THREE.Vector3(horizontal.x, layer.top, horizontal.z);
-      const normal = new THREE.Vector3(0, 1, 0);
-      const position = basePoint.add(normal.clone().multiplyScalar(offset));
-      return { position, normal };
     }
 
     const axis = info.surfaceType === 'SIDE' ? localNormal.clone().normalize() : new THREE.Vector3(0, 1, 0);
