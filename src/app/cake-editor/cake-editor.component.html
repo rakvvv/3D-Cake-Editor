@@ -26,6 +26,16 @@
   >
     <button type="button" (click)="onContextSnapToCake()">Przyczep do tortu</button>
     <button type="button" (click)="onContextDetachFromCake()">Odczep od tortu</button>
+    <button type="button" (click)="onContextDeleteDecoration()">Usuń</button>
+    <div class="context-menu__separator" aria-hidden="true"></div>
+    <button type="button" (click)="onContextCopyDecoration()">Kopiuj</button>
+    <button
+      type="button"
+      (click)="onContextPasteDecoration()"
+      [disabled]="!sceneService.hasCopiedDecoration()"
+    >
+      Wklej
+    </button>
     <div class="context-menu__separator" aria-hidden="true"></div>
     <div class="context-menu__item context-menu__item--submenu">
       <button type="button" class="context-menu__submenu-trigger">

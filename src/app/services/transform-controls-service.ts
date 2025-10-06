@@ -20,6 +20,8 @@ export class TransformControlsService {
     orbit: OrbitControls,
     boxHelperUpdateCallback?: () => void,
     removeDecorationCallback?: (object: THREE.Object3D) => void,
+    copyDecorationCallback?: () => void,
+    pasteDecorationCallback?: () => void,
   ): void {
     this.transformManager.init(
       scene,
@@ -28,6 +30,8 @@ export class TransformControlsService {
       orbit,
       boxHelperUpdateCallback,
       removeDecorationCallback,
+      copyDecorationCallback,
+      pasteDecorationCallback,
     );
   }
 

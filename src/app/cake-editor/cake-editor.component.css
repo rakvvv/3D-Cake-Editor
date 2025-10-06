@@ -37,6 +37,15 @@
   background: rgba(255, 255, 255, 0.15);
 }
 
+.context-menu button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.context-menu button:disabled:hover {
+  background: transparent;
+}
+
 .context-menu__item {
   position: relative;
 }

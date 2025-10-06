@@ -217,6 +217,24 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.showStatus(result.message);
   }
 
+  onContextDeleteDecoration(): void {
+    this.hideContextMenu();
+    const result = this.sceneService.deleteSelectedDecoration();
+    this.showStatus(result.message);
+  }
+
+  onContextCopyDecoration(): void {
+    this.hideContextMenu();
+    const result = this.sceneService.copySelectedDecoration();
+    this.showStatus(result.message);
+  }
+
+  onContextPasteDecoration(): void {
+    this.hideContextMenu();
+    const result = this.sceneService.pasteDecoration();
+    this.showStatus(result.message);
+  }
+
   onContextResetOrientation(): void {
     this.hideContextMenu();
     const result = this.sceneService.resetSelectedDecorationOrientation();

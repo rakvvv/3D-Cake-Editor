@@ -76,7 +76,6 @@ export class SnapService {
     const surfaceWorldPosition = this.cakeBase.localToWorld(surfaceLocalPoint.clone());
     const surfaceWorldNormal = this.getWorldNormal(closest.normal.clone());
 
-    this.applyOrientationForSurface(object, surfaceWorldNormal, closest.surfaceType, 0);
     object.updateMatrixWorld(true);
 
     const offset = this.computeOffsetDistance(object, surfaceWorldNormal);
@@ -103,6 +102,8 @@ export class SnapService {
       roll: 0,
       rotation: [...this.identityRotation],
     });
+
+    this.captureSnappedOrientation(object);
 
     return {
       success: true,

@@ -12,8 +12,17 @@ import { PaintService } from './paint.service';
 import { ExportService } from './export.service';
 import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.factory';
 import { TextFactory } from '../factories/text.factory';
-import { SnapService, SnappedDecorationState } from './snap.service';
+import { SnapService, SnappedDecorationState, SnapInfoSnapshot } from './snap.service';
 import { DecorationValidationIssue } from '../models/decoration-validation';
+
+interface DecorationClipboardEntry {
+  template: THREE.Object3D;
+  worldPosition: THREE.Vector3;
+  worldQuaternion: THREE.Quaternion;
+  localScale: THREE.Vector3;
+  snapInfo: SnapInfoSnapshot | null;
+  pasteCount: number;
+}
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
@@ -29,6 +38,7 @@ export class ThreeSceneService {
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private boxHelper: THREE.BoxHelper | null = null;
+  private clipboard: DecorationClipboardEntry | null = null;
 
 
 
@@ -68,6 +78,8 @@ export class ThreeSceneService {
       this.sceneInitService.orbit,
       () => this.updateBoxHelper(),
       (object) => this.removeDecoration(object),
+      () => this.copySelectedDecoration(),
+      () => this.pasteDecoration(),
     );
 
     const grid = new THREE.GridHelper(50, 50);
@@ -449,6 +461,99 @@ export class ThreeSceneService {
     });
   }
 
+  public deleteSelectedDecoration(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    this.transformControlsService.deselectObject();
+    this.removeDecoration(selected);
+    this.hideBoxHelper();
+
+    return { success: true, message: 'Dekoracja została usunięta.' };
+  }
+
+  public copySelectedDecoration(): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const template = this.duplicateDecoration(selected);
+    const worldPosition = selected.getWorldPosition(new THREE.Vector3());
+    const worldQuaternion = selected.getWorldQuaternion(new THREE.Quaternion());
+    const localScale = selected.scale.clone();
+
+    const snappedStates = this.snapService.captureSnappedDecorations([selected]);
+    const snapInfo = snappedStates.length > 0 ? this.cloneSnapInfo(snappedStates[0].info) : null;
+
+    this.clipboard = {
+      template,
+      worldPosition,
+      worldQuaternion,
+      localScale,
+      snapInfo,
+      pasteCount: 0,
+    };
+
+    return {
+      success: true,
+      message: 'Dekoracja skopiowana. Użyj Wklej, aby utworzyć kopię.',
+    };
+  }
+
+  public pasteDecoration(): { success: boolean; message: string } {
+    if (!this.clipboard) {
+      return { success: false, message: 'Najpierw skopiuj dekorację.' };
+    }
+
+    const { template, worldPosition, worldQuaternion, localScale, snapInfo, pasteCount } = this.clipboard;
+
+    if (snapInfo && !this.cakeBase) {
+      return {
+        success: false,
+        message: 'Brak tortu – nie można wkleić przyczepionej dekoracji.',
+      };
+    }
+
+    const instance = this.duplicateDecoration(template);
+    instance.scale.copy(localScale);
+
+    this.scene.add(instance);
+    this.objects.push(instance);
+
+    if (snapInfo && this.cakeBase) {
+      const adjustedInfo = this.cloneSnapInfo(snapInfo);
+      adjustedInfo.offset = Math.max(0, adjustedInfo.offset + (pasteCount + 1) * 0.01);
+      this.snapService.restoreSnappedDecorations([
+        { object: instance, info: adjustedInfo },
+      ]);
+    } else {
+      const offset = this.computePasteOffset(pasteCount + 1);
+      const finalPosition = worldPosition.clone().add(offset);
+      instance.position.copy(finalPosition);
+      instance.quaternion.copy(worldQuaternion);
+      instance.userData['isSnapped'] = false;
+      instance.updateMatrixWorld(true);
+    }
+
+    instance.updateMatrixWorld(true);
+
+    this.transformControlsService.attachObject(instance);
+    this.showBoxHelperFor(instance);
+    this.clipboard.pasteCount += 1;
+
+    return {
+      success: true,
+      message: 'Skopiowana dekoracja została wklejona.',
+    };
+  }
+
+  public hasCopiedDecoration(): boolean {
+    return this.clipboard !== null;
+  }
+
   public validateDecorations(): DecorationValidationIssue[] {
     const decorations = this.collectDecorationRoots();
     return this.snapService.validateDecorations(decorations);
@@ -648,6 +753,59 @@ export class ThreeSceneService {
       default:
         return 'tort';
     }
+  }
+
+  private duplicateDecoration(object: THREE.Object3D): THREE.Object3D {
+    const clone = object.clone(true);
+    const meshes: THREE.Mesh[] = [];
+
+    clone.traverse((node) => {
+      node.userData = { ...node.userData };
+
+      if ((node as THREE.Mesh).isMesh) {
+        const mesh = node as THREE.Mesh;
+
+        if (mesh.geometry) {
+          mesh.geometry = mesh.geometry.clone();
+        }
+
+        const originalMaterial = mesh.material;
+        if (Array.isArray(originalMaterial)) {
+          mesh.material = originalMaterial.map((mat) => mat.clone()) as THREE.Material[];
+        } else if (originalMaterial) {
+          mesh.material = originalMaterial.clone();
+        }
+
+        meshes.push(mesh);
+      }
+    });
+
+    if (meshes.length) {
+      clone.userData['clickableMeshes'] = meshes;
+    }
+
+    delete clone.userData['snapInfo'];
+    clone.userData['isSnapped'] = false;
+
+    return clone;
+  }
+
+  private cloneSnapInfo(info: SnapInfoSnapshot): SnapInfoSnapshot {
+    return {
+      layerIndex: info.layerIndex,
+      surfaceType: info.surfaceType,
+      normal: [info.normal[0], info.normal[1], info.normal[2]],
+      offset: info.offset,
+      roll: info.roll,
+      rotation: info.rotation
+        ? [info.rotation[0], info.rotation[1], info.rotation[2], info.rotation[3]]
+        : undefined,
+    };
+  }
+
+  private computePasteOffset(step: number): THREE.Vector3 {
+    const distance = 0.5;
+    return new THREE.Vector3(distance * step, 0, distance * step);
   }
 
   private disposeObjectResources(object: THREE.Object3D): void {
