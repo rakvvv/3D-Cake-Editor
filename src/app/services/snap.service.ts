@@ -43,8 +43,9 @@ export class SnapService {
     }
 
     const epsilon = 1e-3;
+    const offsetTolerance = this.cakeSurfaceOffset + epsilon;
     for (const layer of layers) {
-      if (y >= layer.bottom - epsilon && y <= layer.top + epsilon) {
+      if (y >= layer.bottom - offsetTolerance && y <= layer.top + offsetTolerance) {
         return layer;
       }
     }
@@ -144,31 +145,78 @@ export class SnapService {
     const overallTop = topLayer?.top ?? halfHeight;
 
     if (selectedObject.userData['decorationType'] === 'TOP') {
+      const activeLayer = this.findLayerForY(scaledLayers, currentLocalPos.y) ?? topLayer;
+      const activeLayerIndex = activeLayer ? scaledLayers.indexOf(activeLayer) : -1;
+      const layerAbove = activeLayerIndex >= 0 ? scaledLayers[activeLayerIndex + 1] : undefined;
+      const activeTop = activeLayer?.top ?? topLayer?.top ?? halfHeight;
+
       if (metadata.shape === 'cylinder') {
-        const cakeRadius = topLayer?.radius ?? (metadata.maxRadius ?? metadata.radius ?? 1) * scale.x;
+        const fallbackRadius = metadata.maxRadius ?? metadata.radius ?? 1;
+        const cakeRadius = activeLayer?.radius ?? fallbackRadius * scale.x;
         const distanceToCenter = Math.sqrt(currentLocalPos.x * currentLocalPos.x + currentLocalPos.z * currentLocalPos.z);
 
-        if (distanceToCenter > cakeRadius) {
+        let minAllowedRadius = 0;
+        if (layerAbove?.radius !== undefined) {
+          minAllowedRadius = Math.min(
+            cakeRadius,
+            Math.max(0, layerAbove.radius + this.cakeSurfaceOffset),
+          );
+        }
+
+        if (distanceToCenter > cakeRadius && distanceToCenter > 0) {
           const scaleFactor = cakeRadius / distanceToCenter;
           currentLocalPos.x *= scaleFactor;
           currentLocalPos.z *= scaleFactor;
+        } else if (distanceToCenter < minAllowedRadius) {
+          const targetRadius = minAllowedRadius;
+          if (distanceToCenter > 1e-5) {
+            const scaleFactor = targetRadius / distanceToCenter;
+            currentLocalPos.x *= scaleFactor;
+            currentLocalPos.z *= scaleFactor;
+          } else {
+            currentLocalPos.set(targetRadius, currentLocalPos.y, 0);
+          }
         }
 
         currentLocalPos.y = THREE.MathUtils.clamp(
           currentLocalPos.y,
-          (topLayer?.top ?? halfHeight) - maxPenetrationDepth,
-          (topLayer?.top ?? halfHeight) + maxLiftOffDistance,
+          activeTop - maxPenetrationDepth,
+          activeTop + maxLiftOffDistance,
         );
       } else {
-        const halfWidth = topLayer?.halfWidth ?? ((metadata.width ?? 1) / 2) * scale.x;
-        const halfDepth = topLayer?.halfDepth ?? ((metadata.depth ?? 1) / 2) * scale.z;
+        const halfWidth = activeLayer?.halfWidth ?? ((metadata.width ?? 1) / 2) * scale.x;
+        const halfDepth = activeLayer?.halfDepth ?? ((metadata.depth ?? 1) / 2) * scale.z;
+        const innerHalfWidth = layerAbove?.halfWidth ?? 0;
+        const innerHalfDepth = layerAbove?.halfDepth ?? 0;
 
         currentLocalPos.x = THREE.MathUtils.clamp(currentLocalPos.x, -halfWidth, halfWidth);
         currentLocalPos.z = THREE.MathUtils.clamp(currentLocalPos.z, -halfDepth, halfDepth);
+
+        if (layerAbove) {
+          const absX = Math.abs(currentLocalPos.x);
+          const absZ = Math.abs(currentLocalPos.z);
+          const insideInnerX = absX < innerHalfWidth - this.cakeSurfaceOffset;
+          const insideInnerZ = absZ < innerHalfDepth - this.cakeSurfaceOffset;
+
+          if (insideInnerX && insideInnerZ) {
+            const distanceToInnerX = innerHalfWidth - absX;
+            const distanceToInnerZ = innerHalfDepth - absZ;
+            if (distanceToInnerX <= distanceToInnerZ) {
+              const sign = absX < 1e-5 ? 1 : Math.sign(currentLocalPos.x);
+              currentLocalPos.x = sign * (innerHalfWidth + this.cakeSurfaceOffset);
+              currentLocalPos.x = THREE.MathUtils.clamp(currentLocalPos.x, -halfWidth, halfWidth);
+            } else {
+              const sign = absZ < 1e-5 ? 1 : Math.sign(currentLocalPos.z);
+              currentLocalPos.z = sign * (innerHalfDepth + this.cakeSurfaceOffset);
+              currentLocalPos.z = THREE.MathUtils.clamp(currentLocalPos.z, -halfDepth, halfDepth);
+            }
+          }
+        }
+
         currentLocalPos.y = THREE.MathUtils.clamp(
           currentLocalPos.y,
-          (topLayer?.top ?? halfHeight) - maxPenetrationDepth,
-          (topLayer?.top ?? halfHeight) + maxLiftOffDistance,
+          activeTop - maxPenetrationDepth,
+          activeTop + maxLiftOffDistance,
         );
       }
     } else {
@@ -482,7 +530,7 @@ export class SnapService {
 
     if (decorationType === 'SIDE') {
       const objectsOriginalQuaternion = object.quaternion.clone();
-      const baseNormal = new THREE.Vector3(targetLocalPosition.x, 0, targetLocalPosition.z).normalize();
+      const baseNormal = normal.clone().normalize();
       if (baseNormal.lengthSq() === 0) {
         baseNormal.set(1, 0, 0);
       }
