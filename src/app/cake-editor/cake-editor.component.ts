@@ -4,7 +4,7 @@ import {CakeSidebarComponent} from '../cake-sidebar/cake-sidebar.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
 import {PaintService} from '../services/paint.service';
-import { TransformControlsService } from '../services/transform-controls-service';
+import {TransformControlsService} from '../services/transform-controls-service';
 import {CakeOptions} from '../models/cake.options';
 import {DecorationValidationIssue} from '../models/decoration-validation';
 
@@ -36,6 +36,9 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   public contextMenuVisible = false;
   public contextMenuX = 0;
   public contextMenuY = 0;
+  public contextMenuHasSelection = false;
+  public contextMenuCanSnap = false;
+  public contextMenuCanDetach = false;
 
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
@@ -241,6 +244,18 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.showStatus(result.message);
   }
 
+  onContextDeselectDecoration(): void {
+    this.hideContextMenu();
+    const deselected = this.sceneService.deselectDecoration();
+    this.showStatus(deselected ? 'Zaznaczenie wyczyszczone.' : 'Brak zaznaczonej dekoracji.');
+  }
+
+  onContextResetCamera(): void {
+    this.hideContextMenu();
+    this.sceneService.resetCameraView();
+    this.showStatus('Widok kamery został przywrócony.');
+  }
+
   private initializeScene() {
     if (isPlatformBrowser(this.platformId)) {
       this.sceneService.init(this.container.nativeElement, this.options);
@@ -297,11 +312,10 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
     this.sceneService.selectDecorationAt(event.clientX, event.clientY);
     const selected = this.sceneService.getSelectedDecoration();
-
-    if (!selected) {
-      this.showStatus('Kliknij lewym przyciskiem, aby zaznaczyć dekorację.');
-      return;
-    }
+    const isSnapped = this.sceneService.isSelectedDecorationSnapped();
+    this.contextMenuHasSelection = !!selected;
+    this.contextMenuCanSnap = !!selected && !isSnapped;
+    this.contextMenuCanDetach = !!selected && isSnapped;
 
     this.contextMenuVisible = true;
     this.contextMenuX = event.clientX;
@@ -310,6 +324,9 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
   private hideContextMenu(): void {
     this.contextMenuVisible = false;
+    this.contextMenuHasSelection = false;
+    this.contextMenuCanSnap = false;
+    this.contextMenuCanDetach = false;
   }
 
   private showStatus(message: string): void {

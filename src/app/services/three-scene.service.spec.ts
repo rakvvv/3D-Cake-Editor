@@ -113,4 +113,44 @@ describe('ThreeSceneService', () => {
       expect(sceneInit.scene.children).toContain(selectedAfterPaste);
     }
   });
+
+  it('deselects selected decoration and reports status', () => {
+    const transformStub = TestBed.inject(TransformControlsService) as unknown as TransformControlsServiceStub;
+    const decoration = new THREE.Object3D();
+    transformStub.setSelectedObject(decoration);
+
+    expect(service.deselectDecoration()).toBeTrue();
+    expect(transformStub.getSelectedObject()).toBeNull();
+    expect(service.deselectDecoration()).toBeFalse();
+  });
+
+  it('detects snapped selection state', () => {
+    const transformStub = TestBed.inject(TransformControlsService) as unknown as TransformControlsServiceStub;
+    const cakeBase = new THREE.Group();
+    const decoration = new THREE.Object3D();
+    cakeBase.add(decoration);
+
+    service.cakeBase = cakeBase;
+    transformStub.setSelectedObject(decoration);
+
+    expect(service.isSelectedDecorationSnapped()).toBeTrue();
+
+    cakeBase.remove(decoration);
+    const freeDecoration = new THREE.Object3D();
+    transformStub.setSelectedObject(freeDecoration);
+
+    expect(service.isSelectedDecorationSnapped()).toBeFalse();
+
+    freeDecoration.userData['isSnapped'] = true;
+    expect(service.isSelectedDecorationSnapped()).toBeTrue();
+  });
+
+  it('delegates camera reset to scene init service', () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    spyOn(sceneInit, 'resetCameraView');
+
+    service.resetCameraView();
+
+    expect(sceneInit.resetCameraView).toHaveBeenCalled();
+  });
 });

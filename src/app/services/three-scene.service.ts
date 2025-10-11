@@ -563,8 +563,32 @@ export class ThreeSceneService {
     return this.handleInteraction(clientX, clientY, true);
   }
 
+  public isSelectedDecorationSnapped(): boolean {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected || !this.cakeBase) {
+      return false;
+    }
+
+    return selected.parent === this.cakeBase || selected.userData['isSnapped'] === true;
+  }
+
   public getSelectedDecoration(): THREE.Object3D | null {
     return this.transformControlsService.getSelectedObject();
+  }
+
+  public deselectDecoration(): boolean {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return false;
+    }
+
+    this.transformControlsService.deselectObject();
+    this.hideBoxHelper();
+    return true;
+  }
+
+  public resetCameraView(): void {
+    this.sceneInitService.resetCameraView();
   }
 
   public snapSelectedDecorationToCake(): { success: boolean; message: string } {

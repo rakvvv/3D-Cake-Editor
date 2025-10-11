@@ -54,6 +54,11 @@
   padding-right: 6px;
 }
 
+.context-menu__item--inactive {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
 .context-menu__item--submenu::after {
   content: '';
   position: absolute;

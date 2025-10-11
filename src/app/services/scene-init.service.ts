@@ -8,6 +8,8 @@ export class SceneInitService {
   public camera!: THREE.PerspectiveCamera;
   public renderer!: THREE.WebGLRenderer;
   public orbit!: OrbitControls;
+  private initialCameraPosition = new THREE.Vector3();
+  private initialOrbitTarget = new THREE.Vector3();
 
   public init(container: HTMLElement): void {
     this.scene = new THREE.Scene();
@@ -19,11 +21,13 @@ export class SceneInitService {
 
     this.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
     this.camera.position.set(-10, 30, 30);
+    this.initialCameraPosition.copy(this.camera.position);
 
     this.orbit = new OrbitControls(this.camera, this.renderer.domElement);
     this.orbit.enablePan = false;
     this.orbit.minDistance = 10;
     this.orbit.maxDistance = 50;
+    this.initialOrbitTarget.copy(this.orbit.target);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.8);
     this.scene.add(ambient);
@@ -44,5 +48,16 @@ export class SceneInitService {
     requestAnimationFrame(() => this.animate());
     this.orbit.update();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  public resetCameraView(): void {
+    if (!this.camera || !this.orbit) {
+      return;
+    }
+
+    this.camera.position.copy(this.initialCameraPosition);
+    this.camera.lookAt(this.initialOrbitTarget);
+    this.orbit.target.copy(this.initialOrbitTarget);
+    this.orbit.update();
   }
 }
