@@ -46,7 +46,7 @@ export class SelectionService {
   public removeSelectedObject(
     scene: THREE.Scene,
     cakeBase: THREE.Object3D | null,
-    detachCallback: (object: THREE.Object3D) => void,
+    removeCallback: ((object: THREE.Object3D, scene: THREE.Scene, cakeBase: THREE.Object3D | null) => void) | null,
     transformControls: TransformControls,
     boxHelperCallback?: (() => void) | null,
   ): void {
@@ -56,11 +56,16 @@ export class SelectionService {
 
     const objectToRemove = this.selectedObject;
 
-    if (objectToRemove.parent === cakeBase) {
-      detachCallback(objectToRemove);
+    if (removeCallback) {
+      removeCallback(objectToRemove, scene, cakeBase);
+    } else {
+      if (objectToRemove.parent === cakeBase && cakeBase) {
+        cakeBase.remove(objectToRemove);
+      }
+
+      scene.remove(objectToRemove);
     }
 
-    scene.remove(objectToRemove);
     transformControls.detach();
     this.selectedObject = null;
 

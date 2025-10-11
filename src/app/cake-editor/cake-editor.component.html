@@ -24,26 +24,68 @@
     [style.left.px]="contextMenuX"
     [style.top.px]="contextMenuY"
   >
-    <button type="button" (click)="onContextSnapToCake()">Przyczep do tortu</button>
-    <button type="button" (click)="onContextDetachFromCake()">Odczep od tortu</button>
+    <button type="button" (click)="onContextResetCamera()">Resetuj widok kamery</button>
+    <button type="button" (click)="onContextDeselectDecoration()" [disabled]="!contextMenuHasSelection">
+      Odznacz dekorację
+    </button>
     <div class="context-menu__separator" aria-hidden="true"></div>
-    <div class="context-menu__item context-menu__item--submenu">
-      <button type="button" class="context-menu__submenu-trigger">
+    <button type="button" (click)="onContextSnapToCake()" [disabled]="!contextMenuCanSnap">Przyczep do tortu</button>
+    <button type="button" (click)="onContextDetachFromCake()" [disabled]="!contextMenuCanDetach">
+      Odczep od tortu
+    </button>
+    <button type="button" (click)="onContextDeleteDecoration()" [disabled]="!contextMenuHasSelection">
+      Usuń
+    </button>
+    <div class="context-menu__separator" aria-hidden="true"></div>
+    <button type="button" (click)="onContextCopyDecoration()" [disabled]="!contextMenuHasSelection">
+      Kopiuj
+    </button>
+    <button
+      type="button"
+      (click)="onContextPasteDecoration()"
+      [disabled]="!sceneService.hasCopiedDecoration()"
+    >
+      Wklej
+    </button>
+    <div class="context-menu__separator" aria-hidden="true"></div>
+    <div
+      class="context-menu__item context-menu__item--submenu"
+      [class.context-menu__item--inactive]="!contextMenuHasSelection"
+    >
+      <button type="button" class="context-menu__submenu-trigger" [disabled]="!contextMenuHasSelection">
         Orientacja
         <span aria-hidden="true" class="context-menu__submenu-arrow">▶</span>
       </button>
       <div class="context-menu__submenu" role="menu">
-        <button type="button" (click)="onContextAlignToSurface()">Wyrównaj do powierzchni</button>
+        <button type="button" (click)="onContextAlignToSurface()" [disabled]="!contextMenuHasSelection">
+          Wyrównaj do powierzchni
+        </button>
         <div class="context-menu__submenu-grid">
-          <button type="button" (click)="onContextRotateQuarter(1)">Obróć 90° w prawo</button>
-          <button type="button" (click)="onContextRotateQuarter(-1)">Obróć 90° w lewo</button>
-          <button type="button" (click)="onContextRotateDegrees(45)">Obróć 45° w prawo</button>
-          <button type="button" (click)="onContextRotateDegrees(-45)">Obróć 45° w lewo</button>
-          <button type="button" (click)="onContextRotateDegrees(30)">Obróć 30° w prawo</button>
-          <button type="button" (click)="onContextRotateDegrees(-30)">Obróć 30° w lewo</button>
+          <button type="button" (click)="onContextRotateQuarter(1)" [disabled]="!contextMenuHasSelection">
+            Obróć 90° w prawo
+          </button>
+          <button type="button" (click)="onContextRotateQuarter(-1)" [disabled]="!contextMenuHasSelection">
+            Obróć 90° w lewo
+          </button>
+          <button type="button" (click)="onContextRotateDegrees(45)" [disabled]="!contextMenuHasSelection">
+            Obróć 45° w prawo
+          </button>
+          <button type="button" (click)="onContextRotateDegrees(-45)" [disabled]="!contextMenuHasSelection">
+            Obróć 45° w lewo
+          </button>
+          <button type="button" (click)="onContextRotateDegrees(30)" [disabled]="!contextMenuHasSelection">
+            Obróć 30° w prawo
+          </button>
+          <button type="button" (click)="onContextRotateDegrees(-30)" [disabled]="!contextMenuHasSelection">
+            Obróć 30° w lewo
+          </button>
         </div>
-        <button type="button" (click)="onContextRotateHalf()">Obróć 180°</button>
-        <button type="button" (click)="onContextResetOrientation()">Ustaw pionowo</button>
+        <button type="button" (click)="onContextRotateHalf()" [disabled]="!contextMenuHasSelection">
+          Obróć 180°
+        </button>
+        <button type="button" (click)="onContextResetOrientation()" [disabled]="!contextMenuHasSelection">
+          Ustaw pionowo
+        </button>
       </div>
     </div>
   </div>

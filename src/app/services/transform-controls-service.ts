@@ -19,8 +19,20 @@ export class TransformControlsService {
     renderer: THREE.WebGLRenderer,
     orbit: OrbitControls,
     boxHelperUpdateCallback?: () => void,
+    removeDecorationCallback?: (object: THREE.Object3D) => void,
+    copyDecorationCallback?: () => void,
+    pasteDecorationCallback?: () => void,
   ): void {
-    this.transformManager.init(scene, camera, renderer, orbit, boxHelperUpdateCallback);
+    this.transformManager.init(
+      scene,
+      camera,
+      renderer,
+      orbit,
+      boxHelperUpdateCallback,
+      removeDecorationCallback,
+      copyDecorationCallback,
+      pasteDecorationCallback,
+    );
   }
 
   public updateCakeSize(size: number): void {

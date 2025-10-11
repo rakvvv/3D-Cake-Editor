@@ -16,6 +16,9 @@ export class TransformManagerService {
   private renderer!: THREE.WebGLRenderer;
   private orbit!: OrbitControls;
   private boxHelperCallback: (() => void) | null = null;
+  private removeDecorationCallback: ((object: THREE.Object3D) => void) | null = null;
+  private copyDecorationCallback: (() => void) | null = null;
+  private pasteDecorationCallback: (() => void) | null = null;
   private cakeSize = 1;
   private readonly isBrowser: boolean;
 
@@ -33,6 +36,9 @@ export class TransformManagerService {
     renderer: THREE.WebGLRenderer,
     orbit: OrbitControls,
     boxHelperUpdateCallback?: () => void,
+    removeDecorationCallback?: (object: THREE.Object3D) => void,
+    copyDecorationCallback?: () => void,
+    pasteDecorationCallback?: () => void,
   ): void {
     if (!this.isBrowser) {
       return;
@@ -43,6 +49,9 @@ export class TransformManagerService {
     this.renderer = renderer;
     this.orbit = orbit;
     this.boxHelperCallback = boxHelperUpdateCallback || null;
+    this.removeDecorationCallback = removeDecorationCallback || null;
+    this.copyDecorationCallback = copyDecorationCallback || null;
+    this.pasteDecorationCallback = pasteDecorationCallback || null;
 
     this.orbit.addEventListener('change', this.renderScene);
 
@@ -114,6 +123,9 @@ export class TransformManagerService {
     this.transformControls.dispose();
     this.selectionService.clearSelection();
     this.boxHelperCallback = null;
+    this.removeDecorationCallback = null;
+    this.copyDecorationCallback = null;
+    this.pasteDecorationCallback = null;
   }
 
   private renderScene = () => {
@@ -163,15 +175,43 @@ export class TransformManagerService {
   private onKeyDown = (event: KeyboardEvent): void => {
     const selectedObject = this.selectionService.getSelectedObject();
 
+    if ((event.key === 'c' || event.key === 'C') && (event.ctrlKey || event.metaKey)) {
+      if (this.copyDecorationCallback && selectedObject) {
+        event.preventDefault();
+        this.copyDecorationCallback();
+      }
+      return;
+    }
+
+    if ((event.key === 'v' || event.key === 'V') && (event.ctrlKey || event.metaKey)) {
+      if (this.pasteDecorationCallback) {
+        event.preventDefault();
+        this.pasteDecorationCallback();
+      }
+      return;
+    }
+
     if (!selectedObject) {
       return;
     }
 
     if (event.key === 'Delete' || event.key === 'Backspace') {
+      const cakeBase = this.snapService.getCakeBase();
       this.selectionService.removeSelectedObject(
         this.scene,
-        null,
-        () => {},
+        cakeBase,
+        (object) => {
+          if (this.removeDecorationCallback) {
+            this.removeDecorationCallback(object);
+            return;
+          }
+
+          if (cakeBase && object.parent === cakeBase) {
+            this.scene.attach(object);
+          }
+
+          this.scene.remove(object);
+        },
         this.transformControls,
         this.boxHelperCallback,
       );
