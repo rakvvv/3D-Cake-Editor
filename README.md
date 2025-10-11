@@ -63,5 +63,5 @@ For more information on using the Angular CLI, including detailed command refere
 1. Uruchom aplikację lokalnie poleceniem `ng serve` i otwórz edytor tortu w przeglądarce.
 2. W panelu malowania wybierz tryb **Pisak**, ustaw kolor oraz rozmiar i grubość znacznika.
 3. Włącz miernik FPS w narzędziach deweloperskich przeglądarki (np. `Rendering > FPS meter` w Chrome) i upewnij się, że wartość utrzymuje się stabilnie podczas rysowania.
-4. Przytrzymaj lewy przycisk myszy na powierzchni tortu i płynnie poruszaj kursorem – powinna powstać ciągła linia bez widocznych przerw ani nagłych skoków liczby segmentów.
+4. Przytrzymaj lewy przycisk myszy na powierzchni tortu i płynnie poruszaj kursorem – kamera powinna pozostać nieruchoma, a linia pojawiać się bez zauważalnych spadków płynności.
 5. Zwolnij przycisk myszy; rysowanie powinno się zatrzymać natychmiast, a ponowne kliknięcie rozpocznie nowy odcinek bez nagromadzenia duplikatów.

@@ -85,4 +85,12 @@ export class SceneInitService {
     this.initialOrbitTarget.copy(this.orbit.target);
     this.orbit.update();
   }
+
+  public setOrbitEnabled(enabled: boolean): void {
+    if (!this.orbit) {
+      return;
+    }
+
+    this.orbit.enabled = enabled;
+  }
 }

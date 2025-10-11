@@ -100,7 +100,9 @@ export class ThreeSceneService {
       }
 
       if (this.paintService.paintMode && this.cakeBase) {
-        this.paintService.beginStroke();
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.paintService.beginStroke(rect);
+        this.sceneInitService.setOrbitEnabled(false);
         void this.paintService.handlePaint(
           event,
           this.renderer,
@@ -121,7 +123,7 @@ export class ThreeSceneService {
       }
 
       if (event.buttons !== undefined && (event.buttons & 1) === 0) {
-        this.paintService.endStroke();
+        this.stopPaintingStroke();
         return;
       }
 
@@ -136,9 +138,14 @@ export class ThreeSceneService {
       );
     });
 
-    const stopPainting = () => this.paintService.endStroke();
+    const stopPainting = () => this.stopPaintingStroke();
     container.addEventListener('mouseup', stopPainting);
     container.addEventListener('mouseleave', stopPainting);
+  }
+
+  private stopPaintingStroke(): void {
+    this.paintService.endStroke();
+    this.sceneInitService.setOrbitEnabled(true);
   }
 
   public updateCakeOptions(options: CakeOptions): void {

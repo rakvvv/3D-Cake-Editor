@@ -74,12 +74,34 @@ describe('PaintService', () => {
 
     spyOn(globalPerf, 'now').and.returnValues(100, 110, 220);
 
-    service.beginStroke();
-    await service.handlePaint(new MouseEvent('mousemove', { clientX: 100, clientY: 100, buttons: 1 }), renderer, camera, scene, cake, mouse, raycasterSpy);
-    const afterFirstStroke = scene.children.length;
+    service.beginStroke(renderer.domElement.getBoundingClientRect() as DOMRect);
+    await service.handlePaint(
+      new MouseEvent('mousemove', { clientX: 100, clientY: 100, buttons: 1 }),
+      renderer,
+      camera,
+      scene,
+      cake,
+      mouse,
+      raycasterSpy,
+    );
 
-    await service.handlePaint(new MouseEvent('mousemove', { clientX: 100, clientY: 100, buttons: 1 }), renderer, camera, scene, cake, mouse, raycasterSpy);
-    const afterSecondStroke = scene.children.length;
+    const strokeGroup = scene.children.find(
+      (child) => child instanceof THREE.Group && child.userData['isPaintStroke'],
+    ) as THREE.Group | undefined;
+
+    expect(strokeGroup).toBeDefined();
+    const afterFirstStroke = strokeGroup ? strokeGroup.children.length : 0;
+
+    await service.handlePaint(
+      new MouseEvent('mousemove', { clientX: 100, clientY: 100, buttons: 1 }),
+      renderer,
+      camera,
+      scene,
+      cake,
+      mouse,
+      raycasterSpy,
+    );
+    const afterSecondStroke = strokeGroup ? strokeGroup.children.length : 0;
 
     expect(afterSecondStroke).toBe(afterFirstStroke);
 
@@ -87,8 +109,16 @@ describe('PaintService', () => {
       { ...baseIntersection, point: new THREE.Vector3(0.06, 0.5, 0) } as THREE.Intersection,
     ]);
 
-    await service.handlePaint(new MouseEvent('mousemove', { clientX: 130, clientY: 100, buttons: 1 }), renderer, camera, scene, cake, mouse, raycasterSpy);
-    const afterThirdStroke = scene.children.length;
+    await service.handlePaint(
+      new MouseEvent('mousemove', { clientX: 130, clientY: 100, buttons: 1 }),
+      renderer,
+      camera,
+      scene,
+      cake,
+      mouse,
+      raycasterSpy,
+    );
+    const afterThirdStroke = strokeGroup ? strokeGroup.children.length : 0;
 
     expect(afterThirdStroke).toBeGreaterThan(afterSecondStroke);
   });

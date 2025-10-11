@@ -21,14 +21,19 @@ export class PaintService {
 
   private brushCache = new Map<string, THREE.Object3D>();
   private brushPromises = new Map<string, Promise<THREE.Object3D>>();
+  private brushSizes = new Map<string, THREE.Vector3>();
 
   private penMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
-  private penSphereGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-  private penCylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 12);
+  private penSphereGeometry = new THREE.SphereGeometry(0.5, 12, 8);
+  private penCylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
 
   private lastPaintPoint: THREE.Vector3 | null = null;
   private lastPaintNormal: THREE.Vector3 | null = null;
   private lastPaintTime = 0;
+  private paintCanvasRect: { left: number; top: number; width: number; height: number } | null = null;
+
+  private activePenStrokeGroup: THREE.Group | null = null;
+  private activePenEndCap: THREE.Mesh | null = null;
 
   public async handlePaint(
     event: MouseEvent,
@@ -43,7 +48,16 @@ export class PaintService {
       return;
     }
 
-    const rect = renderer.domElement.getBoundingClientRect();
+    const rect = this.paintCanvasRect ?? renderer.domElement.getBoundingClientRect();
+    if (!this.paintCanvasRect) {
+      this.paintCanvasRect = {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -86,17 +100,26 @@ export class PaintService {
     }
   }
 
-  public beginStroke(): void {
+  public beginStroke(rect: DOMRect): void {
     this.isPainting = true;
     this.lastPaintPoint = null;
     this.lastPaintNormal = null;
     this.lastPaintTime = 0;
+    this.paintCanvasRect = {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
   }
 
   public endStroke(): void {
     this.isPainting = false;
     this.lastPaintPoint = null;
     this.lastPaintNormal = null;
+    this.paintCanvasRect = null;
+    this.activePenStrokeGroup = null;
+    this.activePenEndCap = null;
   }
 
   public setPaintTool(tool: PaintTool): void {
@@ -123,11 +146,7 @@ export class PaintService {
 
   private async placeDecorationBrush(point: THREE.Vector3, normal: THREE.Vector3, scene: THREE.Scene): Promise<void> {
     const brushModel = await this.getBrushInstance(this.currentBrush);
-
-    const box = new THREE.Box3().setFromObject(brushModel);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    brushModel.position.sub(center);
+    const brushSize = this.getBrushSize(this.currentBrush, brushModel);
 
     brushModel.position.copy(point);
     const offset = normal.clone().multiplyScalar(0.005);
@@ -138,9 +157,7 @@ export class PaintService {
     brushModel.quaternion.copy(quaternion);
     brushModel.rotation.y = Math.random() * Math.PI * 2;
 
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const maxDim = Math.max(size.x, size.y, size.z);
+    const maxDim = Math.max(brushSize.x, brushSize.y, brushSize.z);
     if (maxDim > 0) {
       const scaleFactor = 0.5 / maxDim;
       brushModel.scale.setScalar(scaleFactor);
@@ -157,58 +174,43 @@ export class PaintService {
     previousNormal: THREE.Vector3 | null,
     scene: THREE.Scene,
   ): void {
+    const strokeGroup = this.ensureActivePenGroup(scene);
     const currentOffsetNormal = normal.clone().normalize();
     const currentPosition = point.clone().add(currentOffsetNormal.clone().multiplyScalar(this.penSurfaceOffset));
 
     if (!previousPoint) {
       const cap = this.createPenCap();
       cap.position.copy(currentPosition);
-      scene.add(cap);
+      cap.updateMatrix();
+      cap.matrixAutoUpdate = false;
+      strokeGroup.add(cap);
       return;
     }
 
     const startNormal = (previousNormal ?? normal).clone().normalize();
     const startPosition = previousPoint.clone().add(startNormal.clone().multiplyScalar(this.penSurfaceOffset));
 
-    const segmentVector = currentPosition.clone().sub(startPosition);
-    const totalDistance = segmentVector.length();
+    const delta = currentPosition.clone().sub(startPosition);
+    const length = delta.length();
 
-    if (totalDistance === 0) {
-      const cap = this.createPenCap();
-      cap.position.copy(currentPosition);
-      scene.add(cap);
+    if (length === 0) {
+      this.updatePenEndCap(currentPosition, strokeGroup);
       return;
     }
 
-    const maxSegmentLength = Math.max(this.penSize * 0.5, this.baseMinDistance);
-    const steps = Math.max(1, Math.ceil(totalDistance / maxSegmentLength));
-    const direction = segmentVector.clone().normalize();
+    const segment = this.createPenSegment(length);
+    const mid = startPosition.clone().add(currentPosition).multiplyScalar(0.5);
+    segment.position.copy(mid);
 
-    let segmentStart = startPosition.clone();
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      const segmentEnd = startPosition.clone().add(direction.clone().multiplyScalar(totalDistance * t));
-      const delta = segmentEnd.clone().sub(segmentStart);
-      const length = delta.length();
-      if (length === 0) {
-        continue;
-      }
+    const quaternion = new THREE.Quaternion();
+    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.clone().normalize());
+    segment.quaternion.copy(quaternion);
 
-      const segment = this.createPenSegment(length);
-      const mid = segmentStart.clone().add(segmentEnd).multiplyScalar(0.5);
-      segment.position.copy(mid);
+    segment.updateMatrix();
+    segment.matrixAutoUpdate = false;
 
-      const quaternion = new THREE.Quaternion();
-      quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.clone().normalize());
-      segment.quaternion.copy(quaternion);
-
-      scene.add(segment);
-      segmentStart = segmentEnd;
-    }
-
-    const cap = this.createPenCap();
-    cap.position.copy(currentPosition);
-    scene.add(cap);
+    strokeGroup.add(segment);
+    this.updatePenEndCap(currentPosition, strokeGroup);
   }
 
   private async getBrushInstance(brushId: string): Promise<THREE.Object3D> {
@@ -230,6 +232,7 @@ export class PaintService {
     const promise = DecorationFactory.loadDecorationModel(`/models/${brushId}`)
       .then((model) => {
         this.brushCache.set(brushId, model);
+        this.brushSizes.set(brushId, this.computeBrushSize(model));
         this.brushPromises.delete(brushId);
         return model;
       })
@@ -322,5 +325,44 @@ export class PaintService {
     }
 
     return this.baseMinDistance;
+  }
+
+  private ensureActivePenGroup(scene: THREE.Scene): THREE.Group {
+    if (!this.activePenStrokeGroup) {
+      this.activePenStrokeGroup = new THREE.Group();
+      this.activePenStrokeGroup.userData['isPaintStroke'] = true;
+      scene.add(this.activePenStrokeGroup);
+    }
+
+    return this.activePenStrokeGroup;
+  }
+
+  private updatePenEndCap(position: THREE.Vector3, strokeGroup: THREE.Group): void {
+    if (!this.activePenEndCap) {
+      this.activePenEndCap = this.createPenCap();
+      strokeGroup.add(this.activePenEndCap);
+    }
+
+    this.activePenEndCap.position.copy(position);
+    this.activePenEndCap.matrixAutoUpdate = false;
+    this.activePenEndCap.updateMatrix();
+  }
+
+  private getBrushSize(brushId: string, model: THREE.Object3D): THREE.Vector3 {
+    const cached = this.brushSizes.get(brushId);
+    if (cached) {
+      return cached;
+    }
+
+    const computed = this.computeBrushSize(model);
+    this.brushSizes.set(brushId, computed);
+    return computed;
+  }
+
+  private computeBrushSize(model: THREE.Object3D): THREE.Vector3 {
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    return size;
   }
 }
