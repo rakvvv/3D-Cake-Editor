@@ -129,6 +129,7 @@ export class ThreeSceneService {
 
     const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * options.cake_size : options.cake_size;
     this.transformControlsService.updateCakeSize(effectiveSize);
+    this.sceneInitService.updateOrbitForCake(effectiveSize);
   }
 
   private rebuildCake(): void {
@@ -155,6 +156,7 @@ export class ThreeSceneService {
     this.snapService.setCakeBase(cake);
     const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * this.options.cake_size : this.options.cake_size;
     this.transformControlsService.updateCakeSize(effectiveSize);
+    this.sceneInitService.updateOrbitForCake(effectiveSize);
 
     if (snappedState.length) {
       this.snapService.restoreSnappedDecorations(snappedState);
