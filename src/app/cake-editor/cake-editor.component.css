@@ -135,4 +135,31 @@
   pointer-events: none;
   z-index: 900;
 }
-  
+
+.view-controls {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 950;
+}
+
+.view-controls button {
+  border: none;
+  border-radius: 20px;
+  background: rgba(31, 31, 31, 0.85);
+  color: #fff;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.view-controls button:hover,
+.view-controls button:focus {
+  background: rgba(31, 31, 31, 0.95);
+  transform: translateY(-1px);
+}

@@ -18,6 +18,12 @@
   ></app-cake-sidebar>
   <div #canvasContainer class="canvas-container"></div>
 
+  <div class="view-controls">
+    <button type="button" (click)="onToolbarResetCamera()" title="Resetuj widok (klawisz R)">
+      Reset widoku
+    </button>
+  </div>
+
   <div
     *ngIf="contextMenuVisible"
     class="context-menu"

@@ -24,9 +24,13 @@ export class SceneInitService {
     this.initialCameraPosition.copy(this.camera.position);
 
     this.orbit = new OrbitControls(this.camera, this.renderer.domElement);
-    this.orbit.enablePan = false;
-    this.orbit.minDistance = 10;
-    this.orbit.maxDistance = 50;
+    this.orbit.enablePan = true;
+    this.orbit.enableDamping = true;
+    this.orbit.dampingFactor = 0.08;
+    this.orbit.minDistance = 4;
+    this.orbit.maxDistance = 150;
+    this.orbit.minPolarAngle = THREE.MathUtils.degToRad(10);
+    this.orbit.maxPolarAngle = THREE.MathUtils.degToRad(170);
     this.initialOrbitTarget.copy(this.orbit.target);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.8);
@@ -58,6 +62,27 @@ export class SceneInitService {
     this.camera.position.copy(this.initialCameraPosition);
     this.camera.lookAt(this.initialOrbitTarget);
     this.orbit.target.copy(this.initialOrbitTarget);
+    this.orbit.update();
+  }
+
+  public updateOrbitForCake(totalHeight: number): void {
+    if (!this.orbit || !this.camera) {
+      return;
+    }
+
+    const clampedHeight = Math.max(totalHeight, 0.5);
+    const targetY = clampedHeight / 2;
+    this.orbit.target.set(0, targetY, 0);
+    this.camera.lookAt(this.orbit.target);
+
+    const normalizedHeight = THREE.MathUtils.clamp(clampedHeight / 20, 0, 1);
+    const minAngleDeg = 15 - normalizedHeight * 10;
+    const maxAngleDeg = 165 + normalizedHeight * 10;
+
+    this.orbit.minPolarAngle = THREE.MathUtils.degToRad(minAngleDeg);
+    this.orbit.maxPolarAngle = THREE.MathUtils.degToRad(maxAngleDeg);
+
+    this.initialOrbitTarget.copy(this.orbit.target);
     this.orbit.update();
   }
 }

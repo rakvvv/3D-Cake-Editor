@@ -47,6 +47,12 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   private readonly handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       this.hideContextMenu();
+      return;
+    }
+
+    if (this.shouldHandleResetShortcut(event)) {
+      event.preventDefault();
+      this.resetCameraView();
     }
   };
 
@@ -252,8 +258,11 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
   onContextResetCamera(): void {
     this.hideContextMenu();
-    this.sceneService.resetCameraView();
-    this.showStatus('Widok kamery został przywrócony.');
+    this.resetCameraView();
+  }
+
+  onToolbarResetCamera(): void {
+    this.resetCameraView();
   }
 
   private initializeScene() {
@@ -327,6 +336,29 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.contextMenuHasSelection = false;
     this.contextMenuCanSnap = false;
     this.contextMenuCanDetach = false;
+  }
+
+  private resetCameraView(): void {
+    this.sceneService.resetCameraView();
+    this.showStatus('Widok kamery został przywrócony.');
+  }
+
+  private shouldHandleResetShortcut(event: KeyboardEvent): boolean {
+    if (event.key.toLowerCase() !== 'r' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return false;
+    }
+
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return true;
+    }
+
+    const tagName = target.tagName?.toLowerCase();
+    if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable) {
+      return false;
+    }
+
+    return true;
   }
 
   private showStatus(message: string): void {
