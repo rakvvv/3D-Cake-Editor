@@ -25,6 +25,21 @@ select {
   font-size: 0.9rem;
 }
 
+input[type='number'] {
+  padding: 6px;
+  font-size: 0.9rem;
+}
+
+input[type='color'] {
+  height: 32px;
+  padding: 2px;
+}
+
+.pen-settings {
+  display: grid;
+  gap: 8px;
+}
+
 button {
   width: 100%;
   padding: 8px;

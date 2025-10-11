@@ -95,23 +95,50 @@ export class ThreeSceneService {
     }
 
     container.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+
       if (this.paintService.paintMode && this.cakeBase) {
-        this.paintService.isPainting = true;
-        this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
+        this.paintService.beginStroke();
+        void this.paintService.handlePaint(
+          event,
+          this.renderer,
+          this.camera,
+          this.scene,
+          this.cakeBase,
+          this.mouse,
+          this.raycaster,
+        );
       } else {
         this.onClickDown(event);
       }
     });
 
     container.addEventListener('mousemove', (event) => {
-      if (this.paintService.isPainting && this.paintService.paintMode && this.cakeBase) {
-        this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
+      if (!this.paintService.paintMode || !this.paintService.isPainting || !this.cakeBase) {
+        return;
       }
+
+      if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+        this.paintService.endStroke();
+        return;
+      }
+
+      void this.paintService.handlePaint(
+        event,
+        this.renderer,
+        this.camera,
+        this.scene,
+        this.cakeBase,
+        this.mouse,
+        this.raycaster,
+      );
     });
 
-    container.addEventListener('mouseup', () => {
-      this.paintService.isPainting = false;
-    });
+    const stopPainting = () => this.paintService.endStroke();
+    container.addEventListener('mouseup', stopPainting);
+    container.addEventListener('mouseleave', stopPainting);
   }
 
   public updateCakeOptions(options: CakeOptions): void {

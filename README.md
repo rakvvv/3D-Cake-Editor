@@ -57,3 +57,11 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Manual validation: tryb pisaka
+
+1. Uruchom aplikację lokalnie poleceniem `ng serve` i otwórz edytor tortu w przeglądarce.
+2. W panelu malowania wybierz tryb **Pisak**, ustaw kolor oraz rozmiar i grubość znacznika.
+3. Włącz miernik FPS w narzędziach deweloperskich przeglądarki (np. `Rendering > FPS meter` w Chrome) i upewnij się, że wartość utrzymuje się stabilnie podczas rysowania.
+4. Przytrzymaj lewy przycisk myszy na powierzchni tortu i płynnie poruszaj kursorem – powinna powstać ciągła linia bez widocznych przerw ani nagłych skoków liczby segmentów.
+5. Zwolnij przycisk myszy; rysowanie powinno się zatrzymać natychmiast, a ponowne kliknięcie rozpocznie nowy odcinek bez nagromadzenia duplikatów.
