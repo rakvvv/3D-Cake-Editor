@@ -65,6 +65,10 @@ export class ThreeSceneService {
     return this.sceneInitService.renderer;
   }
 
+  public isOrbitBusy(): boolean {
+    return this.sceneInitService.isOrbitBusy();
+  }
+
   public init(container: HTMLElement, options: CakeOptions): void {
     if (!isPlatformBrowser(this.platformId)) {
       return;

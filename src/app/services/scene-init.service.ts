@@ -10,6 +10,8 @@ export class SceneInitService {
   public orbit!: OrbitControls;
   private initialCameraPosition = new THREE.Vector3();
   private initialOrbitTarget = new THREE.Vector3();
+  private orbitInteracting = false;
+  private lastOrbitInteractionTime = 0;
 
   public init(container: HTMLElement): void {
     this.scene = new THREE.Scene();
@@ -32,6 +34,23 @@ export class SceneInitService {
     this.orbit.minPolarAngle = THREE.MathUtils.degToRad(10);
     this.orbit.maxPolarAngle = THREE.MathUtils.degToRad(170);
     this.initialOrbitTarget.copy(this.orbit.target);
+
+    const markOrbitInteraction = () => {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      this.lastOrbitInteractionTime = now;
+    };
+
+    this.orbit.addEventListener('start', () => {
+      this.orbitInteracting = true;
+      markOrbitInteraction();
+    });
+    this.orbit.addEventListener('change', () => {
+      markOrbitInteraction();
+    });
+    this.orbit.addEventListener('end', () => {
+      this.orbitInteracting = false;
+      markOrbitInteraction();
+    });
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.8);
     this.scene.add(ambient);
@@ -92,5 +111,18 @@ export class SceneInitService {
     }
 
     this.orbit.enabled = enabled;
+  }
+
+  public isOrbitBusy(bufferMs = 200): boolean {
+    if (this.orbitInteracting) {
+      return true;
+    }
+
+    if (!this.lastOrbitInteractionTime) {
+      return false;
+    }
+
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    return now - this.lastOrbitInteractionTime < bufferMs;
   }
 }

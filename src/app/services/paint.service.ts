@@ -24,8 +24,8 @@ export class PaintService {
   private brushSizes = new Map<string, THREE.Vector3>();
 
   private penMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
-  private penSphereGeometry = new THREE.SphereGeometry(0.5, 12, 8);
-  private penCylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
+  private penSphereGeometry = new THREE.SphereGeometry(0.5, 32, 24);
+  private penCylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32, 1, false);
 
   private sceneRef: THREE.Scene | null = null;
   private undoStack: THREE.Object3D[] = [];
@@ -314,7 +314,8 @@ export class PaintService {
   private createPenCap(): THREE.Mesh {
     const material = this.getPenMaterial();
     const cap = new THREE.Mesh(this.penSphereGeometry, material);
-    cap.scale.setScalar(this.penSize);
+    const radius = this.getPenRadius();
+    cap.scale.setScalar(radius);
     cap.userData['isPaintStroke'] = true;
     cap.castShadow = true;
     cap.receiveShadow = true;
@@ -324,13 +325,18 @@ export class PaintService {
   private createPenSegment(length: number): THREE.Mesh {
     const material = this.getPenMaterial();
     const segment = new THREE.Mesh(this.penCylinderGeometry, material);
-    const safeLength = Math.max(length, this.penThickness * 0.25);
-    const overlap = this.penThickness * 0.5;
-    segment.scale.set(this.penThickness, safeLength + overlap, this.penThickness);
+    const safeLength = Math.max(length, this.penThickness * 0.15);
+    const overlap = Math.max(this.penThickness, this.penSize) * 0.9;
+    const radius = this.getPenRadius();
+    segment.scale.set(radius, safeLength + overlap, radius);
     segment.userData['isPaintStroke'] = true;
     segment.castShadow = true;
     segment.receiveShadow = true;
     return segment;
+  }
+
+  private getPenRadius(): number {
+    return Math.max(this.penThickness, this.penSize);
   }
 
   private getPenMaterial(): THREE.MeshStandardMaterial {
@@ -358,11 +364,11 @@ export class PaintService {
 
   private getMinDistanceThreshold(): number {
     if (this.paintTool === 'pen') {
-      const thicknessComponent = this.penThickness * 0.15;
-      const sizeComponent = this.penSize * 0.05;
+      const thicknessComponent = this.penThickness * 0.08;
+      const sizeComponent = this.penSize * 0.04;
       const dynamic = Math.max(thicknessComponent, sizeComponent);
-      const clamped = Math.min(this.baseMinDistance, dynamic);
-      return Math.max(0.002, clamped);
+      const clamped = Math.min(this.baseMinDistance * 0.6, dynamic);
+      return Math.max(0.0015, clamped);
     }
 
     return this.baseMinDistance;
