@@ -54,4 +54,12 @@
   <button type="button" (click)="togglePaintMode()">
     {{ paintService.paintMode ? 'Wyłącz rysowanie' : 'Włącz rysowanie' }}
   </button>
+  <div class="paint-actions">
+    <button type="button" (click)="undoLast()" [disabled]="!canUndo()">
+      Cofnij (Ctrl+Z)
+    </button>
+    <button type="button" (click)="redoLast()" [disabled]="!canRedo()">
+      Przywróć (Ctrl+Y)
+    </button>
+  </div>
 </section>

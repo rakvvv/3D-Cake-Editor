@@ -71,6 +71,7 @@ export class ThreeSceneService {
     }
     this.options = options;
     this.sceneInitService.init(container);
+    this.paintService.registerScene(this.scene);
     this.transformControlsService.init(
       this.scene,
       this.camera,
@@ -141,6 +142,31 @@ export class ThreeSceneService {
     const stopPainting = () => this.stopPaintingStroke();
     container.addEventListener('mouseup', stopPainting);
     container.addEventListener('mouseleave', stopPainting);
+    container.addEventListener('contextmenu', (event) => event.preventDefault());
+
+    const ownerDocument = container.ownerDocument ?? document;
+    ownerDocument.addEventListener('keydown', (event) => {
+      const ctrlOrMeta = event.ctrlKey || event.metaKey;
+      if (!ctrlOrMeta) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const wantsUndo = key === 'z' && !event.shiftKey;
+      const wantsRedo = key === 'y' || (key === 'z' && event.shiftKey);
+
+      if (wantsUndo) {
+        if (this.paintService.canUndo()) {
+          this.paintService.undo();
+          event.preventDefault();
+        }
+      } else if (wantsRedo) {
+        if (this.paintService.canRedo()) {
+          this.paintService.redo();
+          event.preventDefault();
+        }
+      }
+    });
   }
 
   private stopPaintingStroke(): void {

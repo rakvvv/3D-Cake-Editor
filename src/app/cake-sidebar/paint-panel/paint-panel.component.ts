@@ -79,4 +79,26 @@ export class PaintPanelComponent implements OnChanges {
       color: this.penColor,
     });
   }
+
+  undoLast(): void {
+    if (!this.paintService) {
+      return;
+    }
+    this.paintService.undo();
+  }
+
+  redoLast(): void {
+    if (!this.paintService) {
+      return;
+    }
+    this.paintService.redo();
+  }
+
+  canUndo(): boolean {
+    return this.paintService ? this.paintService.canUndo() : false;
+  }
+
+  canRedo(): boolean {
+    return this.paintService ? this.paintService.canRedo() : false;
+  }
 }

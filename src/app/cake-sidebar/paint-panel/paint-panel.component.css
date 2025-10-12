@@ -54,3 +54,14 @@ button {
 button:hover {
   background: #eee;
 }
+
+.paint-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.paint-actions button {
+  width: auto;
+  flex: 1 1 0;
+}

@@ -63,5 +63,7 @@ For more information on using the Angular CLI, including detailed command refere
 1. Uruchom aplikację lokalnie poleceniem `ng serve` i otwórz edytor tortu w przeglądarce.
 2. W panelu malowania wybierz tryb **Pisak**, ustaw kolor oraz rozmiar i grubość znacznika.
 3. Włącz miernik FPS w narzędziach deweloperskich przeglądarki (np. `Rendering > FPS meter` w Chrome) i upewnij się, że wartość utrzymuje się stabilnie podczas rysowania.
-4. Przytrzymaj lewy przycisk myszy na powierzchni tortu i płynnie poruszaj kursorem – kamera powinna pozostać nieruchoma, a linia pojawiać się bez zauważalnych spadków płynności.
-5. Zwolnij przycisk myszy; rysowanie powinno się zatrzymać natychmiast, a ponowne kliknięcie rozpocznie nowy odcinek bez nagromadzenia duplikatów.
+4. Przytrzymaj lewy przycisk myszy na powierzchni tortu i płynnie poruszaj kursorem – kamera powinna pozostać nieruchoma, a linia pojawiać się bez zauważalnych spadków płynności nawet przy dużej grubości pisaka.
+5. Puść przycisk i wciśnij ponownie w innym miejscu, aby upewnić się, że nowe segmenty łączą się bez widocznych przerw.
+6. W trybie dekoracji dodaj kilka ozdób 3D, a następnie użyj skrótów `Ctrl+Z` oraz `Ctrl+Shift+Z`/`Ctrl+Y`, żeby sprawdzić działanie cofania i przywracania zmian (opcjonalnie skorzystaj z przycisków w panelu).
+7. Zweryfikuj, że obrót kamery prawym przyciskiem myszy nie wywołuje menu kontekstowego na płótnie.

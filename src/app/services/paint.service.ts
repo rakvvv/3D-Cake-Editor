@@ -27,6 +27,10 @@ export class PaintService {
   private penSphereGeometry = new THREE.SphereGeometry(0.5, 12, 8);
   private penCylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
 
+  private sceneRef: THREE.Scene | null = null;
+  private undoStack: THREE.Object3D[] = [];
+  private redoStack: THREE.Object3D[] = [];
+
   private lastPaintPoint: THREE.Vector3 | null = null;
   private lastPaintNormal: THREE.Vector3 | null = null;
   private lastPaintTime = 0;
@@ -47,6 +51,8 @@ export class PaintService {
     if (!cakeBase || !this.paintMode) {
       return;
     }
+
+    this.sceneRef = scene;
 
     const rect = this.paintCanvasRect ?? renderer.domElement.getBoundingClientRect();
     if (!this.paintCanvasRect) {
@@ -118,6 +124,13 @@ export class PaintService {
     this.lastPaintPoint = null;
     this.lastPaintNormal = null;
     this.paintCanvasRect = null;
+    if (this.activePenStrokeGroup) {
+      if (this.activePenStrokeGroup.children.length) {
+        this.trackPaintAddition(this.activePenStrokeGroup);
+      } else if (this.sceneRef) {
+        this.sceneRef.remove(this.activePenStrokeGroup);
+      }
+    }
     this.activePenStrokeGroup = null;
     this.activePenEndCap = null;
   }
@@ -144,6 +157,38 @@ export class PaintService {
     }
   }
 
+  public registerScene(scene: THREE.Scene): void {
+    this.sceneRef = scene;
+  }
+
+  public undo(): void {
+    if (!this.sceneRef || !this.undoStack.length) {
+      return;
+    }
+
+    const lastObject = this.undoStack.pop()!;
+    this.sceneRef.remove(lastObject);
+    this.redoStack.push(lastObject);
+  }
+
+  public redo(): void {
+    if (!this.sceneRef || !this.redoStack.length) {
+      return;
+    }
+
+    const object = this.redoStack.pop()!;
+    this.sceneRef.add(object);
+    this.undoStack.push(object);
+  }
+
+  public canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  public canRedo(): boolean {
+    return this.redoStack.length > 0;
+  }
+
   private async placeDecorationBrush(point: THREE.Vector3, normal: THREE.Vector3, scene: THREE.Scene): Promise<void> {
     const brushModel = await this.getBrushInstance(this.currentBrush);
     const brushSize = this.getBrushSize(this.currentBrush, brushModel);
@@ -165,6 +210,8 @@ export class PaintService {
 
     scene.add(brushModel);
     brushModel.userData['isSnapped'] = true;
+    brushModel.userData['isPaintDecoration'] = true;
+    this.trackPaintAddition(brushModel);
   }
 
   private placePenStroke(
@@ -253,19 +300,7 @@ export class PaintService {
       node.userData = { ...node.userData };
 
       if ((node as THREE.Mesh).isMesh) {
-        const mesh = node as THREE.Mesh;
-        if (mesh.geometry) {
-          mesh.geometry = mesh.geometry.clone();
-        }
-
-        const originalMaterial = mesh.material;
-        if (Array.isArray(originalMaterial)) {
-          mesh.material = originalMaterial.map((mat) => mat.clone()) as THREE.Material[];
-        } else if (originalMaterial) {
-          mesh.material = originalMaterial.clone();
-        }
-
-        meshes.push(mesh);
+        meshes.push(node as THREE.Mesh);
       }
     });
 
@@ -289,7 +324,9 @@ export class PaintService {
   private createPenSegment(length: number): THREE.Mesh {
     const material = this.getPenMaterial();
     const segment = new THREE.Mesh(this.penCylinderGeometry, material);
-    segment.scale.set(this.penThickness, length, this.penThickness);
+    const safeLength = Math.max(length, this.penThickness * 0.25);
+    const overlap = this.penThickness * 0.5;
+    segment.scale.set(this.penThickness, safeLength + overlap, this.penThickness);
     segment.userData['isPaintStroke'] = true;
     segment.castShadow = true;
     segment.receiveShadow = true;
@@ -321,7 +358,11 @@ export class PaintService {
 
   private getMinDistanceThreshold(): number {
     if (this.paintTool === 'pen') {
-      return Math.max(this.penThickness * 0.6, this.baseMinDistance);
+      const thicknessComponent = this.penThickness * 0.15;
+      const sizeComponent = this.penSize * 0.05;
+      const dynamic = Math.max(thicknessComponent, sizeComponent);
+      const clamped = Math.min(this.baseMinDistance, dynamic);
+      return Math.max(0.002, clamped);
     }
 
     return this.baseMinDistance;
@@ -332,6 +373,7 @@ export class PaintService {
       this.activePenStrokeGroup = new THREE.Group();
       this.activePenStrokeGroup.userData['isPaintStroke'] = true;
       scene.add(this.activePenStrokeGroup);
+      this.redoStack = [];
     }
 
     return this.activePenStrokeGroup;
@@ -364,5 +406,10 @@ export class PaintService {
     const size = new THREE.Vector3();
     box.getSize(size);
     return size;
+  }
+
+  private trackPaintAddition(object: THREE.Object3D): void {
+    this.undoStack.push(object);
+    this.redoStack = [];
   }
 }
