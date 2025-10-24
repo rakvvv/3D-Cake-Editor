@@ -216,13 +216,91 @@ describe('PaintService', () => {
     const tubeGeometry = strokeMesh.geometry as THREE.TubeGeometry;
     expect(tubeGeometry.parameters.radius).toBeCloseTo(service.penSize, 6);
     expect(tubeGeometry.parameters.radialSegments).toBeGreaterThanOrEqual(16);
-    expect(tubeGeometry.parameters.tubularSegments).toBeGreaterThanOrEqual(12);
+    expect(tubeGeometry.parameters.tubularSegments).toBeGreaterThanOrEqual(18);
     expect((tubeGeometry.parameters.path as THREE.CatmullRomCurve3).type).toBe('centripetal');
 
     const capCount = group.children.filter(
       (child) => child instanceof THREE.Mesh && child.geometry.type === 'SphereGeometry',
     ).length;
     expect(capCount).toBe(2);
+  });
+
+  it('zwiększa zagęszczenie segmentów tuby przy długich pociągnięciach', async () => {
+    service.paintMode = true;
+    service.setPaintTool('pen');
+    service.penSize = 0.05;
+    service.penThickness = 0.02;
+
+    const element = document.createElement('canvas');
+    (element as any).getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 200,
+      height: 200,
+      right: 200,
+      bottom: 200,
+      x: 0,
+      y: 0,
+    });
+
+    const renderer = { domElement: element } as unknown as THREE.WebGLRenderer;
+    const camera = new THREE.PerspectiveCamera();
+    const scene = new THREE.Scene();
+    const cake = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    cake.updateMatrixWorld(true);
+    const mouse = new THREE.Vector2();
+
+    const baseIntersection = {
+      point: new THREE.Vector3(0, 0.5, 0),
+      face: { normal: new THREE.Vector3(0, 1, 0) },
+      object: cake,
+    } as unknown as THREE.Intersection;
+
+    const raycasterSpy = jasmine.createSpyObj<THREE.Raycaster>('Raycaster', ['setFromCamera', 'intersectObject']);
+    raycasterSpy.intersectObject.and.returnValue([baseIntersection]);
+
+    spyOn(globalPerf, 'now').and.returnValues(500, 520, 640);
+
+    service.beginStroke(renderer.domElement.getBoundingClientRect() as DOMRect);
+    await service.handlePaint(
+      new MouseEvent('mousemove', { clientX: 100, clientY: 100, buttons: 1 }),
+      renderer,
+      camera,
+      scene,
+      cake,
+      mouse,
+      raycasterSpy,
+    );
+
+    const strokeGroup = scene.children.find(
+      (child) => child instanceof THREE.Group && child.userData['isPaintStroke'],
+    ) as THREE.Group | undefined;
+    expect(strokeGroup).toBeDefined();
+
+    raycasterSpy.intersectObject.and.returnValue([
+      { ...baseIntersection, point: new THREE.Vector3(0.45, 0.5, 0) } as THREE.Intersection,
+    ]);
+
+    await service.handlePaint(
+      new MouseEvent('mousemove', { clientX: 180, clientY: 100, buttons: 1 }),
+      renderer,
+      camera,
+      scene,
+      cake,
+      mouse,
+      raycasterSpy,
+    );
+
+    const group = strokeGroup as THREE.Group;
+    const curveMesh = group.children.find(
+      (child) =>
+        child instanceof THREE.Mesh && child.userData['isPaintStroke'] && child.geometry.type !== 'SphereGeometry',
+    ) as THREE.Mesh | undefined;
+
+    expect(curveMesh).toBeDefined();
+    const tubeGeometry = (curveMesh as THREE.Mesh).geometry as THREE.TubeGeometry;
+    expect(tubeGeometry.parameters.tubularSegments).toBeGreaterThanOrEqual(36);
+    expect((tubeGeometry.parameters.path as THREE.CatmullRomCurve3).type).toBe('centripetal');
   });
 
   it('pozwala cofnąć i przywrócić dodane dekoracje 3D', async () => {

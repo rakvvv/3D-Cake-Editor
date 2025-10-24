@@ -64,7 +64,7 @@ For more information on using the Angular CLI, including detailed command refere
 2. W panelu malowania wybierz tryb **Pisak**, ustaw kolor oraz rozmiar i grubość znacznika.
 3. Włącz miernik FPS w narzędziach deweloperskich przeglądarki (np. `Rendering > FPS meter` w Chrome) i upewnij się, że wartość utrzymuje się stabilnie podczas rysowania.
 4. Przytrzymaj lewy przycisk myszy na powierzchni tortu i płynnie poruszaj kursorem – kamera powinna pozostać nieruchoma, a linia pojawiać się bez zauważalnych spadków płynności nawet przy dużej grubości pisaka.
-5. Zwiększ maksymalnie rozmiar i grubość pisaka, a następnie kontynuuj rysowanie: krawędzie powinny pozostać gładkie i zaokrąglone, bez wyraźnych „kiełbasek” między segmentami.
+5. Zwiększ maksymalnie rozmiar i grubość pisaka, a następnie poprowadź długą linię bez odrywania – krawędzie powinny pozostać gładkie i stabilne, bez deformacji lub ostrych załamań w trakcie rysowania.
 6. Puść przycisk i wciśnij ponownie w innym miejscu, aby upewnić się, że nowe fragmenty łączą się bez widocznych przerw.
-7. W trybie dekoracji dodaj kilka ozdób 3D, a następnie użyj skrótów `Ctrl+Z` oraz `Ctrl+Shift+Z`/`Ctrl+Y`, żeby sprawdzić działanie cofania i przywracania zmian (opcjonalnie skorzystaj z przycisków w panelu).
+7. W trybie dekoracji dodaj kilka ozdób 3D, obserwując brak dużych przycięć przy wstawianiu modeli, a następnie użyj skrótów `Ctrl+Z` oraz `Ctrl+Shift+Z`/`Ctrl+Y`, żeby sprawdzić działanie cofania i przywracania zmian (opcjonalnie skorzystaj z przycisków w panelu).
 8. Zweryfikuj, że obrót kamery prawym przyciskiem myszy nie wywołuje menu kontekstowego na płótnie.

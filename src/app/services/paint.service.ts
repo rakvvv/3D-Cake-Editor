@@ -18,7 +18,7 @@ export class PaintService {
   private readonly baseMinDistance = 0.02;
   private readonly baseMinTimeMs = 40;
   private readonly penSurfaceOffset = 0.003;
-  private readonly maxPenInterpolationSteps = 10;
+  private readonly maxPenInterpolationSteps = 24;
 
   private brushCache = new Map<string, THREE.Object3D>();
   private brushPromises = new Map<string, Promise<THREE.Object3D>>();
@@ -219,6 +219,9 @@ export class PaintService {
       brushModel.scale.setScalar(scaleFactor);
     }
 
+    brushModel.updateMatrixWorld(true);
+    brushModel.matrixAutoUpdate = false;
+
     scene.add(brushModel);
     brushModel.userData['isSnapped'] = true;
     brushModel.userData['isPaintDecoration'] = true;
@@ -362,8 +365,9 @@ export class PaintService {
     const workingPoints = this.buildExtendedStrokePoints();
     const radius = this.getPenRadius();
     const curve = new THREE.CatmullRomCurve3(workingPoints, false, 'centripetal', 0.5);
-    const baseSegments = Math.max(1, workingPoints.length - 1);
-    const tubularSegments = Math.min(256, Math.max(12, Math.ceil(baseSegments * 8)));
+    const strokeLength = this.computePolylineLength(workingPoints);
+    const minSegmentLength = Math.max(radius * 0.3, 0.01);
+    const tubularSegments = Math.min(512, Math.max(18, Math.ceil(strokeLength / minSegmentLength)));
     const radialSegments = Math.min(48, Math.max(16, Math.ceil(radius * 32)));
     const geometry = new THREE.TubeGeometry(curve, tubularSegments, radius, radialSegments, false);
     geometry.computeVertexNormals();
@@ -452,7 +456,7 @@ export class PaintService {
     distance: number,
   ): void {
     const radius = this.getPenRadius();
-    const minSpacing = Math.max(radius * 0.45, 0.004);
+    const minSpacing = Math.max(radius * 0.25, 0.0025);
     const steps = Math.min(this.maxPenInterpolationSteps, Math.floor(distance / minSpacing));
     if (!steps) {
       return;
@@ -489,6 +493,19 @@ export class PaintService {
     }
 
     return cloned;
+  }
+
+  private computePolylineLength(points: THREE.Vector3[]): number {
+    if (points.length < 2) {
+      return 0;
+    }
+
+    let length = 0;
+    for (let i = 1; i < points.length; i++) {
+      length += points[i - 1].distanceTo(points[i]);
+    }
+
+    return length;
   }
 
   private getBrushSize(brushId: string, model: THREE.Object3D): THREE.Vector3 {
