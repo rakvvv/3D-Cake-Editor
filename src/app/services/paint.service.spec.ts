@@ -90,7 +90,17 @@ describe('PaintService', () => {
     ) as THREE.Group | undefined;
 
     expect(strokeGroup).toBeDefined();
-    const afterFirstStroke = strokeGroup ? strokeGroup.children.length : 0;
+    const group = strokeGroup as THREE.Group;
+    const curveMesh = group.children.find(
+      (child) =>
+        child instanceof THREE.Mesh &&
+        child.userData['isPaintStroke'] &&
+        child.geometry.type !== 'SphereGeometry',
+    ) as THREE.Mesh | undefined;
+
+    expect(curveMesh).toBeDefined();
+    const strokeMesh = curveMesh as THREE.Mesh;
+    const initialGeometryId = strokeMesh.geometry.uuid;
 
     await service.handlePaint(
       new MouseEvent('mousemove', { clientX: 100, clientY: 100, buttons: 1 }),
@@ -101,9 +111,9 @@ describe('PaintService', () => {
       mouse,
       raycasterSpy,
     );
-    const afterSecondStroke = strokeGroup ? strokeGroup.children.length : 0;
+    const geometryAfterSkip = strokeMesh.geometry.uuid;
 
-    expect(afterSecondStroke).toBe(afterFirstStroke);
+    expect(geometryAfterSkip).toBe(initialGeometryId);
 
     raycasterSpy.intersectObject.and.returnValue([
       { ...baseIntersection, point: new THREE.Vector3(0.06, 0.5, 0) } as THREE.Intersection,
@@ -118,9 +128,9 @@ describe('PaintService', () => {
       mouse,
       raycasterSpy,
     );
-    const afterThirdStroke = strokeGroup ? strokeGroup.children.length : 0;
-
-    expect(afterThirdStroke).toBeGreaterThan(afterSecondStroke);
+    expect(strokeMesh.geometry.type).toBe('TubeGeometry');
+    expect(strokeMesh.visible).toBeTrue();
+    expect(strokeMesh.geometry.uuid).not.toBe(initialGeometryId);
   });
 
   it('utrzymuje ciągłą linię dla grubego pisaka przy niewielkich ruchach', async () => {
@@ -175,7 +185,17 @@ describe('PaintService', () => {
     ) as THREE.Group | undefined;
 
     expect(strokeGroup).toBeDefined();
-    const afterFirstStep = strokeGroup ? strokeGroup.children.length : 0;
+    const group = strokeGroup as THREE.Group;
+    const curveMesh = group.children.find(
+      (child) =>
+        child instanceof THREE.Mesh &&
+        child.userData['isPaintStroke'] &&
+        child.geometry.type !== 'SphereGeometry',
+    ) as THREE.Mesh | undefined;
+
+    expect(curveMesh).toBeDefined();
+    const strokeMesh = curveMesh as THREE.Mesh;
+    expect(strokeMesh.visible).toBeFalse();
 
     raycasterSpy.intersectObject.and.returnValue([
       { ...baseIntersection, point: new THREE.Vector3(0.018, 0.5, 0) } as THREE.Intersection,
@@ -191,8 +211,17 @@ describe('PaintService', () => {
       raycasterSpy,
     );
 
-    const afterSecondStep = strokeGroup ? strokeGroup.children.length : 0;
-    expect(afterSecondStep).toBeGreaterThan(afterFirstStep);
+    expect(strokeMesh.geometry.type).toBe('TubeGeometry');
+    expect(strokeMesh.visible).toBeTrue();
+    const tubeGeometry = strokeMesh.geometry as THREE.TubeGeometry;
+    expect(tubeGeometry.parameters.radius).toBeCloseTo(service.penSize, 6);
+    expect(tubeGeometry.parameters.radialSegments).toBeGreaterThanOrEqual(24);
+    expect(tubeGeometry.parameters.tubularSegments).toBeGreaterThanOrEqual(16);
+
+    const capCount = group.children.filter(
+      (child) => child instanceof THREE.Mesh && child.geometry.type === 'SphereGeometry',
+    ).length;
+    expect(capCount).toBe(2);
   });
 
   it('pozwala cofnąć i przywrócić dodane dekoracje 3D', async () => {

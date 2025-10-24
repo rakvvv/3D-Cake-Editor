@@ -146,7 +146,13 @@ export class ThreeSceneService {
     const stopPainting = () => this.stopPaintingStroke();
     container.addEventListener('mouseup', stopPainting);
     container.addEventListener('mouseleave', stopPainting);
-    container.addEventListener('contextmenu', (event) => event.preventDefault());
+    container.addEventListener('contextmenu', (event) => {
+      const painting = this.paintService.paintMode && this.paintService.isPainting;
+      const orbitActive = this.sceneInitService.isOrbitBusy(200);
+      if (painting || orbitActive) {
+        event.preventDefault();
+      }
+    });
 
     const ownerDocument = container.ownerDocument ?? document;
     ownerDocument.addEventListener('keydown', (event) => {

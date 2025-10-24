@@ -25,7 +25,6 @@ export class PaintService {
 
   private penMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
   private penSphereGeometry = new THREE.SphereGeometry(0.5, 32, 24);
-  private penCylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32, 1, false);
 
   private sceneRef: THREE.Scene | null = null;
   private undoStack: THREE.Object3D[] = [];
@@ -37,6 +36,9 @@ export class PaintService {
   private paintCanvasRect: { left: number; top: number; width: number; height: number } | null = null;
 
   private activePenStrokeGroup: THREE.Group | null = null;
+  private activePenStrokePoints: THREE.Vector3[] = [];
+  private activePenCurveMesh: THREE.Mesh | null = null;
+  private activePenStartCap: THREE.Mesh | null = null;
   private activePenEndCap: THREE.Mesh | null = null;
 
   public async handlePaint(
@@ -117,6 +119,11 @@ export class PaintService {
       width: rect.width,
       height: rect.height,
     };
+    this.activePenStrokePoints = [];
+    this.activePenStrokeGroup = null;
+    this.activePenCurveMesh = null;
+    this.activePenStartCap = null;
+    this.activePenEndCap = null;
   }
 
   public endStroke(): void {
@@ -132,6 +139,9 @@ export class PaintService {
       }
     }
     this.activePenStrokeGroup = null;
+    this.activePenStrokePoints = [];
+    this.activePenCurveMesh = null;
+    this.activePenStartCap = null;
     this.activePenEndCap = null;
   }
 
@@ -226,37 +236,32 @@ export class PaintService {
     const currentPosition = point.clone().add(currentOffsetNormal.clone().multiplyScalar(this.penSurfaceOffset));
 
     if (!previousPoint) {
-      const cap = this.createPenCap();
-      cap.position.copy(currentPosition);
-      cap.updateMatrix();
-      cap.matrixAutoUpdate = false;
-      strokeGroup.add(cap);
+      this.activePenStrokePoints = [currentPosition.clone()];
+      this.ensurePenStartCap(currentPosition, strokeGroup);
+      this.refreshPenCurve(strokeGroup);
+      this.updatePenEndCap(currentPosition, strokeGroup);
       return;
     }
 
     const startNormal = (previousNormal ?? normal).clone().normalize();
     const startPosition = previousPoint.clone().add(startNormal.clone().multiplyScalar(this.penSurfaceOffset));
 
-    const delta = currentPosition.clone().sub(startPosition);
-    const length = delta.length();
+    if (!this.activePenStrokePoints.length) {
+      this.activePenStrokePoints.push(startPosition.clone());
+    }
 
-    if (length === 0) {
+    if (this.activePenStrokePoints.length === 1) {
+      this.activePenStrokePoints[0] = startPosition.clone();
+    }
+
+    const lastPoint = this.activePenStrokePoints[this.activePenStrokePoints.length - 1];
+    if (lastPoint.distanceTo(currentPosition) === 0) {
       this.updatePenEndCap(currentPosition, strokeGroup);
       return;
     }
 
-    const segment = this.createPenSegment(length);
-    const mid = startPosition.clone().add(currentPosition).multiplyScalar(0.5);
-    segment.position.copy(mid);
-
-    const quaternion = new THREE.Quaternion();
-    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.clone().normalize());
-    segment.quaternion.copy(quaternion);
-
-    segment.updateMatrix();
-    segment.matrixAutoUpdate = false;
-
-    strokeGroup.add(segment);
+    this.activePenStrokePoints.push(currentPosition.clone());
+    this.refreshPenCurve(strokeGroup);
     this.updatePenEndCap(currentPosition, strokeGroup);
   }
 
@@ -322,17 +327,47 @@ export class PaintService {
     return cap;
   }
 
-  private createPenSegment(length: number): THREE.Mesh {
-    const material = this.getPenMaterial();
-    const segment = new THREE.Mesh(this.penCylinderGeometry, material);
-    const safeLength = Math.max(length, this.penThickness * 0.15);
-    const overlap = Math.max(this.penThickness, this.penSize) * 0.9;
+  private ensurePenStartCap(position: THREE.Vector3, strokeGroup: THREE.Group): void {
+    if (!this.activePenStartCap) {
+      this.activePenStartCap = this.createPenCap();
+      this.activePenStartCap.matrixAutoUpdate = false;
+      strokeGroup.add(this.activePenStartCap);
+    }
+
+    this.activePenStartCap.scale.setScalar(this.getPenRadius());
+    this.activePenStartCap.position.copy(position);
+    this.activePenStartCap.updateMatrix();
+  }
+
+  private refreshPenCurve(strokeGroup: THREE.Group): void {
+    if (!this.activePenCurveMesh) {
+      this.activePenCurveMesh = new THREE.Mesh(new THREE.BufferGeometry(), this.getPenMaterial());
+      this.activePenCurveMesh.userData['isPaintStroke'] = true;
+      this.activePenCurveMesh.castShadow = true;
+      this.activePenCurveMesh.receiveShadow = true;
+      this.activePenCurveMesh.matrixAutoUpdate = false;
+      strokeGroup.add(this.activePenCurveMesh);
+    } else {
+      this.activePenCurveMesh.material = this.getPenMaterial();
+    }
+
+    if (this.activePenStrokePoints.length < 2) {
+      this.activePenCurveMesh.visible = false;
+      return;
+    }
+
+    const curve = new THREE.CatmullRomCurve3(this.activePenStrokePoints, false, 'catmullrom', 0.5);
+    const tubularSegments = Math.max(16, this.activePenStrokePoints.length * 6);
     const radius = this.getPenRadius();
-    segment.scale.set(radius, safeLength + overlap, radius);
-    segment.userData['isPaintStroke'] = true;
-    segment.castShadow = true;
-    segment.receiveShadow = true;
-    return segment;
+    const radialSegments = Math.max(24, Math.ceil(radius * 64));
+    const geometry = new THREE.TubeGeometry(curve, tubularSegments, radius, radialSegments, false);
+
+    const previousGeometry = this.activePenCurveMesh.geometry;
+    this.activePenCurveMesh.geometry = geometry;
+    previousGeometry.dispose();
+
+    this.activePenCurveMesh.visible = true;
+    this.activePenCurveMesh.updateMatrix();
   }
 
   private getPenRadius(): number {
@@ -364,11 +399,10 @@ export class PaintService {
 
   private getMinDistanceThreshold(): number {
     if (this.paintTool === 'pen') {
-      const thicknessComponent = this.penThickness * 0.08;
-      const sizeComponent = this.penSize * 0.04;
-      const dynamic = Math.max(thicknessComponent, sizeComponent);
-      const clamped = Math.min(this.baseMinDistance * 0.6, dynamic);
-      return Math.max(0.0015, clamped);
+      const maxDimension = Math.max(this.penThickness, this.penSize);
+      const dynamic = maxDimension * 0.04;
+      const clamped = Math.min(this.baseMinDistance * 0.5, dynamic);
+      return Math.max(0.001, clamped);
     }
 
     return this.baseMinDistance;
@@ -380,6 +414,10 @@ export class PaintService {
       this.activePenStrokeGroup.userData['isPaintStroke'] = true;
       scene.add(this.activePenStrokeGroup);
       this.redoStack = [];
+      this.activePenStrokePoints = [];
+      this.activePenCurveMesh = null;
+      this.activePenStartCap = null;
+      this.activePenEndCap = null;
     }
 
     return this.activePenStrokeGroup;
@@ -388,11 +426,12 @@ export class PaintService {
   private updatePenEndCap(position: THREE.Vector3, strokeGroup: THREE.Group): void {
     if (!this.activePenEndCap) {
       this.activePenEndCap = this.createPenCap();
+      this.activePenEndCap.matrixAutoUpdate = false;
       strokeGroup.add(this.activePenEndCap);
     }
 
+    this.activePenEndCap.scale.setScalar(this.getPenRadius());
     this.activePenEndCap.position.copy(position);
-    this.activePenEndCap.matrixAutoUpdate = false;
     this.activePenEndCap.updateMatrix();
   }
 
