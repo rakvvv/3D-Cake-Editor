@@ -19,6 +19,8 @@ export class PaintService {
   private readonly baseMinTimeMs = 40;
   private readonly penSurfaceOffset = 0.003;
   private readonly maxPenInterpolationSteps = 24;
+  private readonly maxPenSmoothingIterations = 2;
+  private readonly maxSmoothedStrokePoints = 600;
 
   private brushCache = new Map<string, THREE.Object3D>();
   private brushPromises = new Map<string, Promise<THREE.Object3D>>();
@@ -156,11 +158,11 @@ export class PaintService {
 
   public updatePenSettings(settings: { size?: number; thickness?: number; color?: string }): void {
     if (settings.size !== undefined && settings.size > 0) {
-      this.penSize = settings.size;
+      this.penSize = Math.max(settings.size, 0.005);
     }
 
     if (settings.thickness !== undefined && settings.thickness > 0) {
-      this.penThickness = settings.thickness;
+      this.penThickness = Math.max(settings.thickness, 0.003);
     }
 
     if (settings.color) {
@@ -363,12 +365,12 @@ export class PaintService {
     }
 
     const workingPoints = this.buildExtendedStrokePoints();
-    const radius = this.getPenRadius();
+    const radius = this.getPenTubeRadius();
     const curve = new THREE.CatmullRomCurve3(workingPoints, false, 'centripetal', 0.5);
     const strokeLength = this.computePolylineLength(workingPoints);
-    const minSegmentLength = Math.max(radius * 0.3, 0.01);
+    const minSegmentLength = Math.max(radius * 0.2, 0.008);
     const tubularSegments = Math.min(512, Math.max(18, Math.ceil(strokeLength / minSegmentLength)));
-    const radialSegments = Math.min(48, Math.max(16, Math.ceil(radius * 32)));
+    const radialSegments = Math.min(64, Math.max(20, Math.ceil(radius * 40)));
     const geometry = new THREE.TubeGeometry(curve, tubularSegments, radius, radialSegments, false);
     geometry.computeVertexNormals();
 
@@ -380,8 +382,8 @@ export class PaintService {
     this.activePenCurveMesh.updateMatrix();
   }
 
-  private getPenRadius(): number {
-    return Math.max(this.penThickness, this.penSize);
+  private getPenTubeRadius(): number {
+    return Math.max(this.penThickness, 0.004);
   }
 
   private getPenMaterial(): THREE.MeshStandardMaterial {
@@ -409,8 +411,8 @@ export class PaintService {
 
   private getMinDistanceThreshold(): number {
     if (this.paintTool === 'pen') {
-      const maxDimension = Math.max(this.penThickness, this.penSize);
-      const dynamic = maxDimension * 0.04;
+      const thickness = this.getPenTubeRadius();
+      const dynamic = thickness * 0.25;
       const clamped = Math.min(this.baseMinDistance * 0.5, dynamic);
       return Math.max(0.001, clamped);
     }
@@ -447,7 +449,12 @@ export class PaintService {
   }
 
   private getPenCapScale(): number {
-    return this.getPenRadius() + this.penSurfaceOffset * 2;
+    const capRadius = this.getPenCapRadius() + this.penSurfaceOffset;
+    return capRadius * 2;
+  }
+
+  private getPenCapRadius(): number {
+    return Math.max(this.penSize, this.getPenTubeRadius());
   }
 
   private insertInterpolatedPenPoints(
@@ -455,8 +462,8 @@ export class PaintService {
     end: THREE.Vector3,
     distance: number,
   ): void {
-    const radius = this.getPenRadius();
-    const minSpacing = Math.max(radius * 0.25, 0.0025);
+    const radius = this.getPenTubeRadius();
+    const minSpacing = Math.max(radius * 0.15, 0.0015);
     const steps = Math.min(this.maxPenInterpolationSteps, Math.floor(distance / minSpacing));
     if (!steps) {
       return;
@@ -475,7 +482,7 @@ export class PaintService {
       return cloned;
     }
 
-    const radius = this.getPenRadius();
+    const radius = this.getPenTubeRadius();
     const first = cloned[0];
     const second = cloned[1];
     const startDirection = second.clone().sub(first);
@@ -492,7 +499,8 @@ export class PaintService {
       cloned.push(endExtension);
     }
 
-    return cloned;
+    const smoothed = this.smoothStrokePoints(cloned);
+    return smoothed;
   }
 
   private computePolylineLength(points: THREE.Vector3[]): number {
@@ -506,6 +514,32 @@ export class PaintService {
     }
 
     return length;
+  }
+
+  private smoothStrokePoints(points: THREE.Vector3[]): THREE.Vector3[] {
+    if (points.length < 3) {
+      return points;
+    }
+
+    let result = points.map((point) => point.clone());
+    for (let i = 0; i < this.maxPenSmoothingIterations; i++) {
+      if (result.length * 2 > this.maxSmoothedStrokePoints) {
+        break;
+      }
+
+      const next: THREE.Vector3[] = [result[0].clone()];
+      for (let j = 0; j < result.length - 1; j++) {
+        const current = result[j];
+        const following = result[j + 1];
+        const q = current.clone().multiplyScalar(0.75).add(following.clone().multiplyScalar(0.25));
+        const r = current.clone().multiplyScalar(0.25).add(following.clone().multiplyScalar(0.75));
+        next.push(q, r);
+      }
+      next.push(result[result.length - 1].clone());
+      result = next;
+    }
+
+    return result;
   }
 
   private getBrushSize(brushId: string, model: THREE.Object3D): THREE.Vector3 {
