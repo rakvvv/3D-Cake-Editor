@@ -215,8 +215,9 @@ describe('PaintService', () => {
     expect(strokeMesh.visible).toBeTrue();
     const tubeGeometry = strokeMesh.geometry as THREE.TubeGeometry;
     expect(tubeGeometry.parameters.radius).toBeCloseTo(service.penSize, 6);
-    expect(tubeGeometry.parameters.radialSegments).toBeGreaterThanOrEqual(24);
-    expect(tubeGeometry.parameters.tubularSegments).toBeGreaterThanOrEqual(16);
+    expect(tubeGeometry.parameters.radialSegments).toBeGreaterThanOrEqual(16);
+    expect(tubeGeometry.parameters.tubularSegments).toBeGreaterThanOrEqual(12);
+    expect((tubeGeometry.parameters.path as THREE.CatmullRomCurve3).type).toBe('centripetal');
 
     const capCount = group.children.filter(
       (child) => child instanceof THREE.Mesh && child.geometry.type === 'SphereGeometry',

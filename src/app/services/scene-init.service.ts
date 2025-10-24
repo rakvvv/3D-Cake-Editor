@@ -12,6 +12,7 @@ export class SceneInitService {
   private initialOrbitTarget = new THREE.Vector3();
   private orbitInteracting = false;
   private lastOrbitInteractionTime = 0;
+  private orbitChangedDuringInteraction = false;
 
   public init(container: HTMLElement): void {
     this.scene = new THREE.Scene();
@@ -35,21 +36,21 @@ export class SceneInitService {
     this.orbit.maxPolarAngle = THREE.MathUtils.degToRad(170);
     this.initialOrbitTarget.copy(this.orbit.target);
 
-    const markOrbitInteraction = () => {
-      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      this.lastOrbitInteractionTime = now;
-    };
-
     this.orbit.addEventListener('start', () => {
       this.orbitInteracting = true;
-      markOrbitInteraction();
+      this.orbitChangedDuringInteraction = false;
     });
     this.orbit.addEventListener('change', () => {
-      markOrbitInteraction();
+      this.orbitChangedDuringInteraction = true;
+      this.markOrbitInteraction();
     });
     this.orbit.addEventListener('end', () => {
       this.orbitInteracting = false;
-      markOrbitInteraction();
+      if (this.orbitChangedDuringInteraction) {
+        this.markOrbitInteraction();
+      } else {
+        this.lastOrbitInteractionTime = 0;
+      }
     });
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.8);
@@ -111,6 +112,11 @@ export class SceneInitService {
     }
 
     this.orbit.enabled = enabled;
+  }
+
+  private markOrbitInteraction(): void {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    this.lastOrbitInteractionTime = now;
   }
 
   public isOrbitBusy(bufferMs = 200): boolean {
