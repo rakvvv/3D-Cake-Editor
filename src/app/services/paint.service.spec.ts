@@ -225,10 +225,10 @@ describe('PaintService', () => {
     expect(spheres.length).toBeGreaterThanOrEqual(2);
 
     const largestSphereScale = Math.max(...spheres.map((mesh) => mesh.scale.x));
-    const jointCandidates = spheres.filter((mesh) => mesh.scale.x < largestSphereScale - 0.05);
+    const jointCandidates = spheres.filter((mesh) => mesh.scale.x < largestSphereScale * 0.75);
     expect(jointCandidates.length).toBeGreaterThan(0);
     jointCandidates.forEach((joint) => {
-      expect(joint.scale.x).toBeGreaterThan(service.penThickness * 0.5);
+      expect(joint.scale.x / 2).toBeGreaterThan(service.penThickness * 0.5 * 0.99);
       expect(joint.scale.x).toBeLessThan(largestSphereScale);
     });
   });
@@ -309,6 +309,80 @@ describe('PaintService', () => {
     spheres.forEach((cap) => {
       expect(cap.scale.x / 2).toBeGreaterThan(service.penThickness * 0.5 + 0.005);
     });
+  });
+
+  it('utrzymuje pisak odsunięty od pionowej powierzchni tortu', async () => {
+    service.paintMode = true;
+    service.setPaintTool('pen');
+    service.penSize = 0.05;
+    service.penThickness = 0.02;
+
+    const element = document.createElement('canvas');
+    (element as any).getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 200,
+      height: 200,
+      right: 200,
+      bottom: 200,
+      x: 0,
+      y: 0,
+    });
+
+    const renderer = { domElement: element } as unknown as THREE.WebGLRenderer;
+    const camera = new THREE.PerspectiveCamera();
+    const scene = new THREE.Scene();
+    const cake = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    cake.updateMatrixWorld(true);
+    const mouse = new THREE.Vector2();
+
+    const baseIntersection = {
+      point: new THREE.Vector3(0.5, 0.4, 0),
+      face: { normal: new THREE.Vector3(1, 0, 0) },
+      object: cake,
+    } as unknown as THREE.Intersection;
+
+    const raycasterSpy = jasmine.createSpyObj<THREE.Raycaster>('Raycaster', ['setFromCamera', 'intersectObject']);
+    raycasterSpy.intersectObject.and.returnValue([baseIntersection]);
+
+    spyOn(globalPerf, 'now').and.returnValues(400, 440, 480);
+
+    service.beginStroke(renderer.domElement.getBoundingClientRect() as DOMRect);
+    await service.handlePaint(
+      new MouseEvent('mousemove', { clientX: 100, clientY: 80, buttons: 1 }),
+      renderer,
+      camera,
+      scene,
+      cake,
+      mouse,
+      raycasterSpy,
+    );
+
+    raycasterSpy.intersectObject.and.returnValue([
+      { ...baseIntersection, point: new THREE.Vector3(0.5, 0.6, 0) } as THREE.Intersection,
+    ]);
+
+    await service.handlePaint(
+      new MouseEvent('mousemove', { clientX: 110, clientY: 60, buttons: 1 }),
+      renderer,
+      camera,
+      scene,
+      cake,
+      mouse,
+      raycasterSpy,
+    );
+
+    const strokeGroup = findStrokeGroup(scene);
+    expect(strokeGroup).toBeDefined();
+    const strokeMeshes = collectStrokeMeshes(strokeGroup!);
+    const cylinders = strokeMeshes.filter((mesh) => mesh.geometry.type === 'CylinderGeometry');
+    expect(cylinders.length).toBeGreaterThan(0);
+
+    const minCenterX = Math.min(...cylinders.map((mesh) => mesh.position.x));
+    const maxCenterX = Math.max(...cylinders.map((mesh) => mesh.position.x));
+
+    expect(minCenterX).toBeGreaterThan(0.5 + service.penThickness * 0.2);
+    expect(maxCenterX).toBeLessThan(0.5 + service.penThickness * 1.2);
   });
 
   it('skaluje liczbę segmentów cylindrycznych wraz z długością pociągnięcia', async () => {

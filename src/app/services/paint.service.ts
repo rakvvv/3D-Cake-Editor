@@ -242,7 +242,8 @@ export class PaintService {
   ): void {
     const strokeGroup = this.ensureActivePenGroup(scene);
     const currentOffsetNormal = normal.clone().normalize();
-    const currentPosition = point.clone().add(currentOffsetNormal.clone().multiplyScalar(this.penSurfaceOffset));
+    const strokeOffset = this.getPenStrokeOffset();
+    const currentPosition = point.clone().add(currentOffsetNormal.clone().multiplyScalar(strokeOffset));
 
     if (!previousPoint) {
       this.activePenStrokePoints = [currentPosition.clone()];
@@ -253,7 +254,7 @@ export class PaintService {
     }
 
     const startNormal = (previousNormal ?? normal).clone().normalize();
-    const startPosition = previousPoint.clone().add(startNormal.clone().multiplyScalar(this.penSurfaceOffset));
+    const startPosition = previousPoint.clone().add(startNormal.clone().multiplyScalar(strokeOffset));
 
     if (!this.activePenStrokePoints.length) {
       this.activePenStrokePoints.push(startPosition.clone());
@@ -350,6 +351,12 @@ export class PaintService {
     return Math.max(this.penThickness * 0.5, 0.004);
   }
 
+  private getPenStrokeOffset(): number {
+    const radius = this.getPenTubeRadius();
+    const inset = Math.min(radius * 0.2, 0.0015);
+    return Math.max(radius - inset, this.penSurfaceOffset);
+  }
+
   private getPenMaterial(): THREE.MeshStandardMaterial {
     const cached = this.penMaterialCache.get(this.penColor);
     if (cached) {
@@ -414,7 +421,7 @@ export class PaintService {
   }
 
   private getPenCapScale(): number {
-    const capRadius = this.getPenCapRadius() + this.penSurfaceOffset;
+    const capRadius = this.getPenCapRadius() + this.getPenStrokeOffset() * 0.5;
     return capRadius * 2;
   }
 
@@ -460,20 +467,26 @@ export class PaintService {
     }
 
     const radius = this.getPenTubeRadius();
+    const direction = end.clone().sub(start);
+    const unitDirection = direction.clone().normalize();
+    const overlap = Math.min(radius * 0.75, length * 0.49);
+    const adjustedStart = start.clone().sub(unitDirection.clone().multiplyScalar(overlap));
+    const adjustedEnd = end.clone().add(unitDirection.clone().multiplyScalar(overlap));
+    const adjustedLength = adjustedStart.distanceTo(adjustedEnd);
+
     const radialSegments = Math.min(48, Math.max(16, Math.round(radius * 200)));
-    const geometry = new THREE.CylinderGeometry(radius, radius, length, radialSegments, 1, false);
+    const geometry = new THREE.CylinderGeometry(radius, radius, adjustedLength, radialSegments, 1, false);
     const mesh = new THREE.Mesh(geometry, this.getPenMaterial());
     mesh.userData['isPaintStroke'] = true;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false;
 
-    const midpoint = start.clone().lerp(end, 0.5);
+    const midpoint = adjustedStart.clone().lerp(adjustedEnd, 0.5);
     mesh.position.copy(midpoint);
 
-    const direction = end.clone().sub(start).normalize();
-    if (direction.lengthSq() > 1e-6) {
-      const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+    if (unitDirection.lengthSq() > 1e-6) {
+      const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), unitDirection);
       mesh.quaternion.copy(quaternion);
     }
 
@@ -507,7 +520,8 @@ export class PaintService {
 
   private getPenJointScale(): number {
     const radius = this.getPenTubeRadius();
-    return radius * 2 + this.penSurfaceOffset * 2;
+    const padding = Math.min(radius * 0.1, 0.001);
+    return radius * 2 + padding;
   }
 
   private getBrushSize(brushId: string, model: THREE.Object3D): THREE.Vector3 {
