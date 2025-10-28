@@ -65,12 +65,17 @@ export class ThreeSceneService {
     return this.sceneInitService.renderer;
   }
 
+  public isOrbitBusy(): boolean {
+    return this.sceneInitService.isOrbitBusy();
+  }
+
   public init(container: HTMLElement, options: CakeOptions): void {
     if (!isPlatformBrowser(this.platformId)) {
       return;
     }
     this.options = options;
     this.sceneInitService.init(container);
+    this.paintService.registerScene(this.scene);
     this.transformControlsService.init(
       this.scene,
       this.camera,
@@ -95,23 +100,88 @@ export class ThreeSceneService {
     }
 
     container.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+
       if (this.paintService.paintMode && this.cakeBase) {
-        this.paintService.isPainting = true;
-        this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.paintService.beginStroke(rect);
+        this.sceneInitService.setOrbitEnabled(false);
+        void this.paintService.handlePaint(
+          event,
+          this.renderer,
+          this.camera,
+          this.scene,
+          this.cakeBase,
+          this.mouse,
+          this.raycaster,
+        );
       } else {
         this.onClickDown(event);
       }
     });
 
     container.addEventListener('mousemove', (event) => {
-      if (this.paintService.isPainting && this.paintService.paintMode && this.cakeBase) {
-        this.paintService.handlePaint(event, this.renderer, this.camera, this.scene, this.cakeBase, this.mouse, this.raycaster);
+      if (!this.paintService.paintMode || !this.paintService.isPainting || !this.cakeBase) {
+        return;
+      }
+
+      if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+        this.stopPaintingStroke();
+        return;
+      }
+
+      void this.paintService.handlePaint(
+        event,
+        this.renderer,
+        this.camera,
+        this.scene,
+        this.cakeBase,
+        this.mouse,
+        this.raycaster,
+      );
+    });
+
+    const stopPainting = () => this.stopPaintingStroke();
+    container.addEventListener('mouseup', stopPainting);
+    container.addEventListener('mouseleave', stopPainting);
+    container.addEventListener('contextmenu', (event) => {
+      const painting = this.paintService.paintMode && this.paintService.isPainting;
+      const orbitActive = this.sceneInitService.isOrbitBusy(200);
+      if (painting || orbitActive) {
+        event.preventDefault();
       }
     });
 
-    container.addEventListener('mouseup', () => {
-      this.paintService.isPainting = false;
+    const ownerDocument = container.ownerDocument ?? document;
+    ownerDocument.addEventListener('keydown', (event) => {
+      const ctrlOrMeta = event.ctrlKey || event.metaKey;
+      if (!ctrlOrMeta) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const wantsUndo = key === 'z' && !event.shiftKey;
+      const wantsRedo = key === 'y' || (key === 'z' && event.shiftKey);
+
+      if (wantsUndo) {
+        if (this.paintService.canUndo()) {
+          this.paintService.undo();
+          event.preventDefault();
+        }
+      } else if (wantsRedo) {
+        if (this.paintService.canRedo()) {
+          this.paintService.redo();
+          event.preventDefault();
+        }
+      }
     });
+  }
+
+  private stopPaintingStroke(): void {
+    this.paintService.endStroke();
+    this.sceneInitService.setOrbitEnabled(true);
   }
 
   public updateCakeOptions(options: CakeOptions): void {

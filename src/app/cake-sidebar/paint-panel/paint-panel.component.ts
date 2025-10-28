@@ -21,10 +21,22 @@ export class PaintPanelComponent implements OnChanges {
   ];
 
   selectedBrush = this.brushList[0].id;
+  paintTools: { id: 'decoration' | 'pen'; name: string }[] = [
+    { id: 'decoration', name: 'Dekoracje 3D' },
+    { id: 'pen', name: 'Pisak' },
+  ];
+  selectedTool: 'decoration' | 'pen' = 'decoration';
+  penSize = 0.05;
+  penThickness = 0.02;
+  penColor = '#ff4d6d';
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
       this.selectedBrush = this.paintService.currentBrush || this.brushList[0].id;
+      this.selectedTool = this.paintService.paintTool;
+      this.penSize = this.paintService.penSize;
+      this.penThickness = this.paintService.penThickness;
+      this.penColor = this.paintService.penColor;
     }
   }
 
@@ -40,7 +52,53 @@ export class PaintPanelComponent implements OnChanges {
     if (!this.paintService) {
       return;
     }
-    this.paintService.currentBrush = this.selectedBrush;
+    this.paintService.setPaintTool('decoration');
+    this.paintService.setCurrentBrush(this.selectedBrush);
     this.brushChange.emit(this.selectedBrush);
+  }
+
+  onToolChange(): void {
+    if (!this.paintService) {
+      return;
+    }
+    this.paintService.setPaintTool(this.selectedTool);
+    if (this.selectedTool === 'pen') {
+      this.onPenSettingsChange();
+    } else {
+      this.paintService.setCurrentBrush(this.selectedBrush);
+    }
+  }
+
+  onPenSettingsChange(): void {
+    if (!this.paintService) {
+      return;
+    }
+    this.paintService.updatePenSettings({
+      size: Number(this.penSize),
+      thickness: Number(this.penThickness),
+      color: this.penColor,
+    });
+  }
+
+  undoLast(): void {
+    if (!this.paintService) {
+      return;
+    }
+    this.paintService.undo();
+  }
+
+  redoLast(): void {
+    if (!this.paintService) {
+      return;
+    }
+    this.paintService.redo();
+  }
+
+  canUndo(): boolean {
+    return this.paintService ? this.paintService.canUndo() : false;
+  }
+
+  canRedo(): boolean {
+    return this.paintService ? this.paintService.canRedo() : false;
   }
 }

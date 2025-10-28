@@ -10,6 +10,9 @@ export class SceneInitService {
   public orbit!: OrbitControls;
   private initialCameraPosition = new THREE.Vector3();
   private initialOrbitTarget = new THREE.Vector3();
+  private orbitInteracting = false;
+  private lastOrbitInteractionTime = 0;
+  private orbitChangedDuringInteraction = false;
 
   public init(container: HTMLElement): void {
     this.scene = new THREE.Scene();
@@ -32,6 +35,23 @@ export class SceneInitService {
     this.orbit.minPolarAngle = THREE.MathUtils.degToRad(10);
     this.orbit.maxPolarAngle = THREE.MathUtils.degToRad(170);
     this.initialOrbitTarget.copy(this.orbit.target);
+
+    this.orbit.addEventListener('start', () => {
+      this.orbitInteracting = true;
+      this.orbitChangedDuringInteraction = false;
+    });
+    this.orbit.addEventListener('change', () => {
+      this.orbitChangedDuringInteraction = true;
+      this.markOrbitInteraction();
+    });
+    this.orbit.addEventListener('end', () => {
+      this.orbitInteracting = false;
+      if (this.orbitChangedDuringInteraction) {
+        this.markOrbitInteraction();
+      } else {
+        this.lastOrbitInteractionTime = 0;
+      }
+    });
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.8);
     this.scene.add(ambient);
@@ -84,5 +104,31 @@ export class SceneInitService {
 
     this.initialOrbitTarget.copy(this.orbit.target);
     this.orbit.update();
+  }
+
+  public setOrbitEnabled(enabled: boolean): void {
+    if (!this.orbit) {
+      return;
+    }
+
+    this.orbit.enabled = enabled;
+  }
+
+  private markOrbitInteraction(): void {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    this.lastOrbitInteractionTime = now;
+  }
+
+  public isOrbitBusy(bufferMs = 200): boolean {
+    if (this.orbitInteracting) {
+      return true;
+    }
+
+    if (!this.lastOrbitInteractionTime) {
+      return false;
+    }
+
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    return now - this.lastOrbitInteractionTime < bufferMs;
   }
 }

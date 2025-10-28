@@ -1,6 +1,15 @@
 <section class="panel">
   <h3>Narzędzie malowania</h3>
   <div class="option-group">
+    <label for="tool-select">Tryb malowania</label>
+    <select id="tool-select" [(ngModel)]="selectedTool" (change)="onToolChange()">
+      <option *ngFor="let tool of paintTools" [value]="tool.id">
+        {{ tool.name }}
+      </option>
+    </select>
+  </div>
+
+  <div class="option-group" *ngIf="selectedTool === 'decoration'">
     <label for="brush-select">Wybierz pędzel</label>
     <select id="brush-select" [(ngModel)]="selectedBrush" (change)="onBrushChange()">
       <option *ngFor="let brush of brushList" [value]="brush.id">
@@ -8,7 +17,50 @@
       </option>
     </select>
   </div>
+
+  <div class="pen-settings" *ngIf="selectedTool === 'pen'">
+    <div class="option-group">
+      <label for="pen-size">Rozmiar końcówki (m)</label>
+      <input
+        id="pen-size"
+        type="number"
+        step="0.01"
+        min="0.01"
+        [(ngModel)]="penSize"
+        (change)="onPenSettingsChange()"
+      />
+      <small>Zmienia tylko zaokrąglenie końcówek, linia zachowuje ustawioną grubość.</small>
+    </div>
+    <div class="option-group">
+      <label for="pen-thickness">Grubość linii (m)</label>
+      <input
+        id="pen-thickness"
+        type="number"
+        step="0.01"
+        min="0.005"
+        [(ngModel)]="penThickness"
+        (change)="onPenSettingsChange()"
+      />
+    </div>
+    <div class="option-group">
+      <label for="pen-color">Kolor</label>
+      <input
+        id="pen-color"
+        type="color"
+        [(ngModel)]="penColor"
+        (change)="onPenSettingsChange()"
+      />
+    </div>
+  </div>
   <button type="button" (click)="togglePaintMode()">
     {{ paintService.paintMode ? 'Wyłącz rysowanie' : 'Włącz rysowanie' }}
   </button>
+  <div class="paint-actions">
+    <button type="button" (click)="undoLast()" [disabled]="!canUndo()">
+      Cofnij (Ctrl+Z)
+    </button>
+    <button type="button" (click)="redoLast()" [disabled]="!canRedo()">
+      Przywróć (Ctrl+Y)
+    </button>
+  </div>
 </section>

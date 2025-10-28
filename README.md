@@ -57,3 +57,15 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Manual validation: tryb pisaka
+
+1. Uruchom aplikację lokalnie poleceniem `ng serve` i otwórz edytor tortu w przeglądarce.
+2. W panelu malowania wybierz tryb **Pisak**, ustaw kolor oraz rozmiar i grubość znacznika.
+3. Włącz miernik FPS w narzędziach deweloperskich przeglądarki (np. `Rendering > FPS meter` w Chrome) i upewnij się, że wartość utrzymuje się stabilnie podczas rysowania.
+4. Przytrzymaj lewy przycisk myszy na powierzchni tortu i płynnie poruszaj kursorem – kamera powinna pozostać nieruchoma, a linia pojawiać się bez zauważalnych spadków płynności nawet przy dużej grubości pisaka.
+5. Zwiększ maksymalnie grubość pisaka i poprowadź długą linię bez odrywania – krawędzie powinny pozostać gładkie i stabilne, bez deformacji lub ostrych załamań w trakcie rysowania.
+6. Zatrzymaj rysowanie i zmień jedynie rozmiar końcówki: nowe pociągnięcia powinny mieć tę samą grubość linii, ale pełniejsze, bardziej zaokrąglone końcówki.
+7. Puść przycisk i wciśnij ponownie w innym miejscu, aby upewnić się, że nowe fragmenty łączą się bez widocznych przerw.
+8. W trybie dekoracji dodaj kilka ozdób 3D, obserwując brak dużych przycięć przy wstawianiu modeli, a następnie użyj skrótów `Ctrl+Z` oraz `Ctrl+Shift+Z`/`Ctrl+Y`, żeby sprawdzić działanie cofania i przywracania zmian (opcjonalnie skorzystaj z przycisków w panelu).
+9. Zweryfikuj, że obrót kamery prawym przyciskiem myszy nie wywołuje menu kontekstowego na płótnie.

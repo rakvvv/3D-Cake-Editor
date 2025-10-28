@@ -317,6 +317,10 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
     event.preventDefault();
     event.stopPropagation();
+    if (this.sceneService.isOrbitBusy() || (this.paintService.paintMode && this.paintService.isPainting)) {
+      this.hideContextMenu();
+      return;
+    }
     this.hideContextMenu();
 
     this.sceneService.selectDecorationAt(event.clientX, event.clientY);

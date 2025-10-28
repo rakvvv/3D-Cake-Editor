@@ -20,9 +20,29 @@ h3 {
   margin: 10px 0;
 }
 
+.option-group small {
+  font-size: 0.75rem;
+  color: #666;
+}
+
 select {
   padding: 6px;
   font-size: 0.9rem;
+}
+
+input[type='number'] {
+  padding: 6px;
+  font-size: 0.9rem;
+}
+
+input[type='color'] {
+  height: 32px;
+  padding: 2px;
+}
+
+.pen-settings {
+  display: grid;
+  gap: 8px;
 }
 
 button {
@@ -38,4 +58,15 @@ button {
 
 button:hover {
   background: #eee;
+}
+
+.paint-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.paint-actions button {
+  width: auto;
+  flex: 1 1 0;
 }
