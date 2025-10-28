@@ -27,6 +27,16 @@ const collectStrokeMeshes = (group: THREE.Group): THREE.Mesh[] =>
     (child) => child instanceof THREE.Mesh && child.userData['isPaintStroke'],
   ) as THREE.Mesh[];
 
+const getStrokeCylinderLengths = (group: THREE.Group): number[] =>
+  group.children
+    .filter(
+      (child) =>
+        child instanceof THREE.Mesh &&
+        child.userData['isPaintStroke'] &&
+        child.geometry.type === 'CylinderGeometry',
+    )
+    .map((child) => (child as THREE.Mesh).scale.y);
+
 describe('PaintService', () => {
   let service: PaintService;
 
@@ -218,8 +228,10 @@ describe('PaintService', () => {
     const cylinders = strokeMeshes.filter((mesh) => mesh.geometry.type === 'CylinderGeometry');
     expect(cylinders.length).toBeGreaterThanOrEqual(2);
 
-    const firstCylinder = cylinders[0].geometry as THREE.CylinderGeometry;
-    expect(firstCylinder.parameters.radiusTop).toBeCloseTo(service.penThickness * 0.5, 6);
+    const firstCylinder = cylinders[0];
+    const firstCylinderGeometry = firstCylinder.geometry as THREE.CylinderGeometry;
+    const finalRadius = firstCylinderGeometry.parameters.radiusTop * firstCylinder.scale.x;
+    expect(finalRadius).toBeCloseTo(service.penThickness * 0.5, 6);
 
     const spheres = strokeMeshes.filter((mesh) => mesh.geometry.type === 'SphereGeometry');
     expect(spheres.length).toBeGreaterThanOrEqual(2);
@@ -301,7 +313,8 @@ describe('PaintService', () => {
     expect(cylinders.length).toBeGreaterThan(0);
     cylinders.forEach((mesh) => {
       const geometry = mesh.geometry as THREE.CylinderGeometry;
-      expect(geometry.parameters.radiusTop).toBeCloseTo(service.penThickness * 0.5, 6);
+      const renderedRadius = geometry.parameters.radiusTop * mesh.scale.x;
+      expect(renderedRadius).toBeCloseTo(service.penThickness * 0.5, 6);
     });
 
     const spheres = strokeMeshes.filter((mesh) => mesh.geometry.type === 'SphereGeometry');
@@ -427,7 +440,9 @@ describe('PaintService', () => {
 
     const renderRect = renderer.domElement.getBoundingClientRect() as DOMRect;
 
-    const buildStroke = async (offset: THREE.Vector3): Promise<number> => {
+    const buildStroke = async (
+      offset: THREE.Vector3,
+    ): Promise<{ count: number; maxLength: number }> => {
       scene.clear();
       service.beginStroke(renderRect);
       await service.handlePaint(
@@ -456,13 +471,18 @@ describe('PaintService', () => {
 
       const strokeGroup = findStrokeGroup(scene);
       expect(strokeGroup).toBeDefined();
-      return countStrokeMeshes(strokeGroup!, 'CylinderGeometry');
+      const count = countStrokeMeshes(strokeGroup!, 'CylinderGeometry');
+      const lengths = getStrokeCylinderLengths(strokeGroup!);
+      const maxLength = lengths.length ? Math.max(...lengths) : 0;
+      return { count, maxLength };
     };
 
-    const shortSegments = await buildStroke(new THREE.Vector3(0.05, 0.5, 0));
-    const longSegments = await buildStroke(new THREE.Vector3(0.45, 0.5, 0));
+    const shortStroke = await buildStroke(new THREE.Vector3(0.05, 0.5, 0));
+    const longStroke = await buildStroke(new THREE.Vector3(0.45, 0.5, 0));
 
-    expect(longSegments).toBeGreaterThan(shortSegments);
+    expect(shortStroke.maxLength).toBeGreaterThan(0);
+    expect(longStroke.count).toBeGreaterThan(0);
+    expect(longStroke.maxLength).toBeGreaterThan(shortStroke.maxLength * 1.5);
   });
 
   it('pozwala cofnąć i przywrócić dodane dekoracje 3D', async () => {

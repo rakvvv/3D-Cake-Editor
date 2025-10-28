@@ -25,6 +25,7 @@ export class PaintService {
   private penMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
   private penSphereGeometry = new THREE.SphereGeometry(0.5, 16, 12);
   private penJointGeometry = new THREE.SphereGeometry(0.5, 14, 10);
+  private penSegmentGeometryCache = new Map<number, THREE.CylinderGeometry>();
 
   private sceneRef: THREE.Scene | null = null;
   private undoStack: THREE.Object3D[] = [];
@@ -472,27 +473,80 @@ export class PaintService {
     const overlap = Math.min(radius * 0.75, length * 0.49);
     const adjustedStart = start.clone().sub(unitDirection.clone().multiplyScalar(overlap));
     const adjustedEnd = end.clone().add(unitDirection.clone().multiplyScalar(overlap));
-    const adjustedLength = adjustedStart.distanceTo(adjustedEnd);
+    if (this.tryExtendLastPenSegment(adjustedStart, adjustedEnd, unitDirection)) {
+      return;
+    }
 
-    const radialSegments = Math.min(48, Math.max(16, Math.round(radius * 200)));
-    const geometry = new THREE.CylinderGeometry(radius, radius, adjustedLength, radialSegments, 1, false);
+    const geometry = this.getPenSegmentGeometry();
     const mesh = new THREE.Mesh(geometry, this.getPenMaterial());
     mesh.userData['isPaintStroke'] = true;
+    mesh.userData['segmentStart'] = adjustedStart.clone();
+    mesh.userData['segmentEnd'] = adjustedEnd.clone();
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false;
+    this.updatePenSegmentTransform(mesh, adjustedStart, adjustedEnd);
+    strokeGroup.add(mesh);
+    this.activePenSegments.push(mesh);
+  }
 
-    const midpoint = adjustedStart.clone().lerp(adjustedEnd, 0.5);
-    mesh.position.copy(midpoint);
+  private tryExtendLastPenSegment(
+    start: THREE.Vector3,
+    end: THREE.Vector3,
+    direction: THREE.Vector3,
+  ): boolean {
+    if (!this.activePenSegments.length) {
+      return false;
+    }
 
-    if (unitDirection.lengthSq() > 1e-6) {
-      const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), unitDirection);
+    const lastMesh = this.activePenSegments[this.activePenSegments.length - 1];
+    const lastStart = (lastMesh.userData['segmentStart'] as THREE.Vector3 | undefined)?.clone();
+    const lastEnd = (lastMesh.userData['segmentEnd'] as THREE.Vector3 | undefined)?.clone();
+    if (!lastStart || !lastEnd) {
+      return false;
+    }
+
+    const lastDirection = lastEnd.clone().sub(lastStart);
+    if (lastDirection.lengthSq() <= 1e-6) {
+      return false;
+    }
+
+    const lastUnit = lastDirection.clone().normalize();
+    const angle = lastUnit.angleTo(direction);
+    if (angle > 0.05) {
+      return false;
+    }
+
+    const connectionGap = lastEnd.distanceTo(start);
+    if (connectionGap > this.getPenTubeRadius() * 0.75) {
+      return false;
+    }
+
+    lastMesh.userData['segmentEnd'] = end.clone();
+    this.updatePenSegmentTransform(lastMesh, lastStart, end);
+    return true;
+  }
+
+  private updatePenSegmentTransform(mesh: THREE.Mesh, start: THREE.Vector3, end: THREE.Vector3): void {
+    const radius = this.getPenTubeRadius();
+    const direction = end.clone().sub(start);
+    const length = direction.length();
+    if (length <= 1e-6) {
+      return;
+    }
+
+    mesh.userData['segmentStart'] = start.clone();
+    mesh.userData['segmentEnd'] = end.clone();
+    mesh.material = this.getPenMaterial();
+    mesh.scale.set(radius, length, radius);
+    mesh.position.copy(start.clone().lerp(end, 0.5));
+
+    if (direction.lengthSq() > 1e-6) {
+      const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
       mesh.quaternion.copy(quaternion);
     }
 
     mesh.updateMatrix();
-    strokeGroup.add(mesh);
-    this.activePenSegments.push(mesh);
   }
 
   private ensurePenJoint(position: THREE.Vector3, strokeGroup: THREE.Group): void {
@@ -522,6 +576,23 @@ export class PaintService {
     const radius = this.getPenTubeRadius();
     const padding = Math.min(radius * 0.1, 0.001);
     return radius * 2 + padding;
+  }
+
+  private getPenSegmentGeometry(): THREE.CylinderGeometry {
+    const radialSegments = this.getPenRadialSegments();
+    const cached = this.penSegmentGeometryCache.get(radialSegments);
+    if (cached) {
+      return cached;
+    }
+
+    const geometry = new THREE.CylinderGeometry(1, 1, 1, radialSegments, 1, false);
+    this.penSegmentGeometryCache.set(radialSegments, geometry);
+    return geometry;
+  }
+
+  private getPenRadialSegments(): number {
+    const radius = this.getPenTubeRadius();
+    return Math.min(48, Math.max(16, Math.round(radius * 200)));
   }
 
   private getBrushSize(brushId: string, model: THREE.Object3D): THREE.Vector3 {
