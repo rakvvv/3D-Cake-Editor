@@ -115,6 +115,11 @@ export class TransformManagerService {
       return;
     }
 
+    const selected = this.selectionService.getSelectedObject();
+    if (selected === object && this.transformControls) {
+      this.selectionService.deselectObject(this.transformControls, this.boxHelperCallback);
+    }
+
     if (this.removeDecorationCallback) {
       this.removeDecorationCallback(object);
       return;

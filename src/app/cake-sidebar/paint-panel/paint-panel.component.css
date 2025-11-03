@@ -31,14 +31,3 @@
   opacity: 0.45;
 }
 
-.paint-panel__eraser {
-  margin-bottom: var(--space-2, 8px);
-}
-
-.paint-panel__eraser-button {
-  width: 100%;
-}
-
-.paint-panel__eraser-button--active {
-  box-shadow: 0 0 0 2px var(--color-primary, #ff4d6d);
-}

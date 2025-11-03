@@ -11,6 +11,7 @@ export class PaintService {
   public currentBrush = 'trawa.glb';
   public isPainting = false;
   public paintTool: PaintTool = 'decoration';
+  private lastNonEraserTool: Exclude<PaintTool, 'eraser'> = 'decoration';
 
   public penSize = 0.05;
   public penThickness = 0.02;
@@ -163,6 +164,13 @@ export class PaintService {
 
   public setPaintTool(tool: PaintTool): void {
     this.paintTool = tool;
+    if (tool !== 'eraser') {
+      this.lastNonEraserTool = tool;
+    }
+  }
+
+  public getLastNonEraserTool(): Exclude<PaintTool, 'eraser'> {
+    return this.lastNonEraserTool;
   }
 
   public setCurrentBrush(brushId: string): void {
@@ -221,57 +229,64 @@ export class PaintService {
       return;
     }
 
-    const targetIntersection = hits.find((intersection) => this.isPaintRelatedObject(intersection.object));
+    const targetIntersection = hits.find((intersection) => this.findErasableRoot(intersection.object));
     if (!targetIntersection) {
       return;
     }
 
-    const paintObject = this.findPaintRootObject(targetIntersection.object);
-    if (!paintObject) {
+    const erasableObject = this.findErasableRoot(targetIntersection.object);
+    if (!erasableObject) {
       return;
     }
 
-    if (paintObject.userData['isPaintDecoration']) {
-      this.transformManager.removeDecorationObject(paintObject);
-    } else {
-      this.disposePaintStroke(paintObject);
-      if (paintObject.parent) {
-        paintObject.parent.remove(paintObject);
+    if (erasableObject.userData['isPaintStroke']) {
+      this.disposePaintStroke(erasableObject);
+      if (erasableObject.parent) {
+        erasableObject.parent.remove(erasableObject);
       }
+      this.removeFromHistory(erasableObject);
+      return;
     }
 
-    this.removeFromHistory(paintObject);
+    if (erasableObject.userData['isPaintDecoration'] || erasableObject.userData['isDecoration']) {
+      this.transformManager.removeDecorationObject(erasableObject);
+      this.removeFromHistory(erasableObject);
+    }
   }
 
-  private isPaintRelatedObject(object: THREE.Object3D | undefined): boolean {
+  private isErasableObject(object: THREE.Object3D | undefined): boolean {
     if (!object) {
       return false;
     }
 
-    return Boolean(object.userData['isPaintStroke'] || object.userData['isPaintDecoration']);
+    return Boolean(
+      object.userData['isPaintStroke'] ||
+        object.userData['isPaintDecoration'] ||
+        object.userData['isDecoration'],
+    );
   }
 
-  private findPaintRootObject(object: THREE.Object3D): THREE.Object3D | null {
+  private findErasableRoot(object: THREE.Object3D): THREE.Object3D | null {
     let current: THREE.Object3D | null = object;
-    let lastPaintObject: THREE.Object3D | null = null;
+    let lastMatch: THREE.Object3D | null = null;
 
     while (current) {
-      if (this.isPaintRelatedObject(current)) {
-        lastPaintObject = current;
+      if (this.isErasableObject(current)) {
+        lastMatch = current;
       }
       current = current.parent;
     }
 
-    return lastPaintObject;
+    return lastMatch;
   }
 
   private disposePaintStroke(object: THREE.Object3D): void {
-    const strokeRoot = object.userData['isPaintStroke'] ? object : this.findPaintRootObject(object);
-    if (!strokeRoot) {
+    const strokeRoot = object.userData['isPaintStroke'] ? object : this.findErasableRoot(object);
+    if (!strokeRoot || !strokeRoot.userData['isPaintStroke']) {
       return;
     }
 
-    strokeRoot.traverse((child) => {
+    strokeRoot.traverse((child: THREE.Object3D) => {
       const mesh = child as THREE.Mesh;
       if (!mesh.isMesh) {
         return;

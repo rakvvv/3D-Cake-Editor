@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { SimpleChange } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { PaintPanelComponent } from './paint-panel.component';
 import { PaintService } from '../../services/paint.service';
@@ -19,6 +20,7 @@ describe('PaintPanelComponent', () => {
         'redo',
         'canUndo',
         'canRedo',
+        'getLastNonEraserTool',
       ],
       {
         paintMode: false,
@@ -43,19 +45,15 @@ describe('PaintPanelComponent', () => {
     fixture.detectChanges();
   });
 
-  it('przełącza tryb gumki i wywołuje aktualizację usługi malowania', () => {
-    const eraserButton = fixture.debugElement.query(By.css('[data-testid="eraser-toggle"]'));
+  it('wyłącza przełącznik trybu malowania, gdy aktywna jest gumka', () => {
+    paintService.paintTool = 'eraser';
+    paintService.getLastNonEraserTool.and.returnValue('pen');
 
-    eraserButton.triggerEventHandler('click');
+    component.ngOnChanges({ paintService: new SimpleChange(null, paintService, true) });
     fixture.detectChanges();
 
-    expect(component.eraserMode).toBeTrue();
-    expect(paintService.setPaintTool).toHaveBeenCalledWith('eraser');
-
-    eraserButton.triggerEventHandler('click');
-    fixture.detectChanges();
-
-    expect(component.eraserMode).toBeFalse();
-    expect(paintService.setPaintTool).toHaveBeenCalledWith('decoration');
+    const toggleButton = fixture.debugElement.query(By.css('.paint-panel__toggle')).nativeElement as HTMLButtonElement;
+    expect(toggleButton.disabled).toBeTrue();
+    expect(component.selectedTool).toBe('pen');
   });
 });
