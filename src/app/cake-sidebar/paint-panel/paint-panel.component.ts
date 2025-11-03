@@ -26,6 +26,8 @@ export class PaintPanelComponent implements OnChanges {
     { id: 'pen', name: 'Pisak' },
   ];
   selectedTool: 'decoration' | 'pen' = 'decoration';
+  private lastNonEraserTool: 'decoration' | 'pen' = 'decoration';
+  eraserMode = false;
   penSize = 0.05;
   penThickness = 0.02;
   penColor = '#ff4d6d';
@@ -33,7 +35,14 @@ export class PaintPanelComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
       this.selectedBrush = this.paintService.currentBrush || this.brushList[0].id;
-      this.selectedTool = this.paintService.paintTool;
+      const activeTool = this.paintService.paintTool;
+      if (activeTool === 'pen' || activeTool === 'decoration') {
+        this.selectedTool = activeTool;
+        this.lastNonEraserTool = activeTool;
+        this.eraserMode = false;
+      } else {
+        this.eraserMode = true;
+      }
       this.penSize = this.paintService.penSize;
       this.penThickness = this.paintService.penThickness;
       this.penColor = this.paintService.penColor;
@@ -52,6 +61,7 @@ export class PaintPanelComponent implements OnChanges {
     if (!this.paintService) {
       return;
     }
+    this.eraserMode = false;
     this.paintService.setPaintTool('decoration');
     this.paintService.setCurrentBrush(this.selectedBrush);
     this.brushChange.emit(this.selectedBrush);
@@ -61,11 +71,32 @@ export class PaintPanelComponent implements OnChanges {
     if (!this.paintService) {
       return;
     }
+    this.lastNonEraserTool = this.selectedTool;
+    this.eraserMode = false;
     this.paintService.setPaintTool(this.selectedTool);
     if (this.selectedTool === 'pen') {
       this.onPenSettingsChange();
     } else {
       this.paintService.setCurrentBrush(this.selectedBrush);
+    }
+  }
+
+  toggleEraserMode(): void {
+    if (!this.paintService) {
+      return;
+    }
+
+    this.eraserMode = !this.eraserMode;
+    if (this.eraserMode) {
+      this.paintService.setPaintTool('eraser');
+    } else {
+      this.selectedTool = this.lastNonEraserTool;
+      this.paintService.setPaintTool(this.selectedTool);
+      if (this.selectedTool === 'pen') {
+        this.onPenSettingsChange();
+      } else {
+        this.paintService.setCurrentBrush(this.selectedBrush);
+      }
     }
   }
 

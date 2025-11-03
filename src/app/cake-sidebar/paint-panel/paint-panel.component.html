@@ -11,6 +11,7 @@
         class="sidebar-panel__select"
         [(ngModel)]="selectedTool"
         (change)="onToolChange()"
+        [disabled]="eraserMode"
       >
         <option *ngFor="let tool of paintTools" [value]="tool.id">
           {{ tool.name }}
@@ -18,7 +19,20 @@
       </select>
     </div>
 
-    <div class="sidebar-panel__control sidebar-panel__control--inline" *ngIf="selectedTool === 'decoration'">
+    <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__eraser">
+      <button
+        type="button"
+        class="sidebar-panel__button paint-panel__eraser-button"
+        [class.paint-panel__eraser-button--active]="eraserMode"
+        (click)="toggleEraserMode()"
+        [attr.aria-pressed]="eraserMode"
+        data-testid="eraser-toggle"
+      >
+        {{ eraserMode ? 'Wyłącz gumkę' : 'Włącz gumkę' }}
+      </button>
+    </div>
+
+    <div class="sidebar-panel__control sidebar-panel__control--inline" *ngIf="!eraserMode && selectedTool === 'decoration'">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="brush-select">Wybierz pędzel</label>
       <select
         id="brush-select"
@@ -32,7 +46,7 @@
       </select>
     </div>
 
-    <div class="paint-panel__pen-settings" *ngIf="selectedTool === 'pen'">
+    <div class="paint-panel__pen-settings" *ngIf="!eraserMode && selectedTool === 'pen'">
       <div class="sidebar-panel__control sidebar-panel__control--inline">
         <label class="sidebar-panel__label sidebar-panel__label--wrap" for="pen-size">Rozmiar końcówki (m)</label>
         <input
