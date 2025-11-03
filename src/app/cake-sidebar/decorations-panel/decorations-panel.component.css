@@ -2,154 +2,104 @@
   display: block;
 }
 
-.panel {
-  margin-bottom: 16px;
+.decorations-panel__filters {
+  display: grid;
+  gap: var(--space-2, 8px);
+  grid-template-columns: minmax(0, 1fr);
 }
 
-h3 {
-  margin-top: 0;
-  font-size: 1.1rem;
-  border-bottom: 1px solid #ccc;
-  padding-bottom: 4px;
-}
-
-.filters {
-  display: flex;
-  gap: 8px;
-  margin: 10px 0;
-}
-
-.filters input,
-.filters select {
-  flex: 1;
-  padding: 6px;
-  font-size: 0.9rem;
-}
-
-.filters select {
-  flex: 0 0 110px;
-}
-
-.decorations-list {
+.decorations-panel__list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
+  gap: var(--space-2, 8px);
+  padding-right: var(--space-1, 4px);
 }
 
-.decoration-card {
+.decorations-panel__card {
   display: flex;
+  width: 100%;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  gap: var(--space-3, 12px);
+  padding: var(--space-3, 12px);
+  border: 1px solid var(--color-border, #d8dce5);
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-surface, #ffffff);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
-.decoration-card:hover {
-  border-color: #aaa;
-  background: #f5f5f5;
+.decorations-panel__card:hover,
+.decorations-panel__card:focus-visible {
+  border-color: var(--color-accent, #f97316);
+  box-shadow: 0 6px 16px rgba(17, 20, 31, 0.08);
+  transform: translateY(-2px);
+  outline: none;
 }
 
-.thumbnail {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #ececec;
-  display: flex;
+.decorations-panel__thumbnail {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-background, #f3f4f8);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1rem;
+  color: var(--color-accent, #f97316);
 }
 
-.details {
+.decorations-panel__details {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   font-size: 0.85rem;
 }
 
-.name {
+.decorations-panel__name {
   font-weight: 600;
 }
 
-.type {
-  color: #666;
+.decorations-panel__type {
+  color: var(--color-text-muted, #5a6072);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.actions {
-  margin-top: 12px;
+.decorations-panel__actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-3, 12px);
 }
 
-button {
-  width: 100%;
-  padding: 8px;
-  font-size: 0.9rem;
-  background: #fff;
-  border: 1px solid #bbb;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-button:hover {
-  background: #eee;
-}
-
-.transform-group {
-  display: flex;
-  gap: 6px;
-}
-
-.transform-group button {
-  flex: 1;
-  margin: 0;
-}
-
-.validation-results {
-  margin-top: 12px;
+.decorations-panel__validation {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2, 8px);
 }
 
-.validation-results .message {
-  padding: 10px;
-  border-radius: 6px;
-  font-size: 0.9rem;
+.decorations-panel__validation .sidebar-panel__message {
   white-space: pre-line;
-  border: 1px solid transparent;
 }
 
-.validation-results .message--success {
-  background: #f2fbf2;
-  border-color: #8bd48b;
-  color: #276327;
-}
-
-.validation-results .message--warning {
-  background: #fff7f0;
-  border-color: #f5a463;
-  color: #8a3c07;
-}
-
-.validation-results .override-button {
-  align-self: flex-start;
-  background: #ff9552;
+.decorations-panel__override {
+  background: var(--color-accent, #f97316);
   color: #fff;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
+  border-color: transparent;
 }
 
-.validation-results .override-button:hover {
-  background: #f57d2b;
+.decorations-panel__override:hover,
+.decorations-panel__override:focus-visible {
+  background: #ea580c;
+  color: #fff;
+}
+
+@media (min-width: 780px) {
+  .decorations-panel__filters {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  }
 }

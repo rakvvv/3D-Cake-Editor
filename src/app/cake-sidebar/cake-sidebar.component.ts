@@ -7,6 +7,7 @@ import { DecorationsPanelComponent } from './decorations-panel/decorations-panel
 import { PaintPanelComponent } from './paint-panel/paint-panel.component';
 import { ExportPanelComponent } from './export-panel/export-panel.component';
 import { DecorationValidationIssue } from '../models/decoration-validation';
+type SidebarPanelKey = 'layers' | 'decorations' | 'paint' | 'export';
 
 @Component({
   selector: 'app-cake-sidebar',
@@ -32,6 +33,24 @@ export class CakeSidebarComponent {
   readonly exportGltf = output<void>();
   readonly screenshot = output<void>();
   readonly proceedDespiteWarnings = output<void>();
+
+  private activePanel: SidebarPanelKey | null = 'layers';
+
+  togglePanel(panel: SidebarPanelKey): void {
+    this.activePanel = this.activePanel === panel ? null : panel;
+  }
+
+  isExpanded(panel: SidebarPanelKey): boolean {
+    return this.activePanel === panel;
+  }
+
+  panelToggleId(panel: SidebarPanelKey): string {
+    return `sidebar-toggle-${panel}`;
+  }
+
+  panelRegionId(panel: SidebarPanelKey): string {
+    return `sidebar-panel-${panel}`;
+  }
 
   constructor(
     public readonly decorationsService: DecorationsService,

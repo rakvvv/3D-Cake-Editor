@@ -2,35 +2,14 @@
   display: block;
 }
 
-.panel {
-  margin-bottom: 16px;
+.export-panel .sidebar-panel__actions {
+  gap: var(--space-2, 8px);
 }
 
-h3 {
-  margin-top: 0;
-  font-size: 1.1rem;
-  border-bottom: 1px solid #ccc;
-  padding-bottom: 4px;
-}
-
-.button-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-button {
+.export-panel .sidebar-panel__button {
   width: 100%;
-  padding: 8px;
-  font-size: 0.9rem;
-  background: #fff;
-  border: 1px solid #bbb;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
 }
 
-button:hover {
-  background: #eee;
+.export-panel .sidebar-panel__button:last-child {
+  background: var(--color-background, #f3f4f8);
 }

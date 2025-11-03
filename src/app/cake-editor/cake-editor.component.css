@@ -1,12 +1,36 @@
 .editor-container {
-  display: flex;
-  height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(var(--sidebar-width-min), var(--sidebar-width-max)) 1fr;
+  grid-template-rows: 1fr;
+  height: 100dvh;
+  overflow: hidden;
   position: relative;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.editor-container > app-cake-sidebar {
+  grid-row: 1;
+  grid-column: 1;
+  height: 100%;
+  min-width: 0;
+}
+
+.editor-stage {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  background: var(--color-stage);
 }
 
 .canvas-container {
-  flex-grow: 1;
-  background: #fff;
+  position: relative;
+  height: 100%;
+  width: 100%;
+  background: var(--color-stage);
+  overflow: hidden;
 }
 
 .context-menu { 
@@ -158,8 +182,45 @@
   transition: background 0.2s, transform 0.2s;
 }
 
+.editor-stage .view-controls {
+  grid-column: 2;
+}
+
 .view-controls button:hover,
 .view-controls button:focus {
   background: rgba(31, 31, 31, 0.95);
   transform: translateY(-1px);
+}
+
+@media (max-width: 1180px) {
+  .editor-container {
+    grid-template-columns: minmax(var(--sidebar-width-min), clamp(240px, 32vw, var(--sidebar-width-max))) 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .editor-container {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .editor-container > app-cake-sidebar {
+    grid-column: 1;
+    grid-row: 1;
+    max-height: 45dvh;
+  }
+
+  .editor-stage {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .status-banner {
+    bottom: 16px;
+  }
+
+  .view-controls {
+    right: 16px;
+    bottom: 16px;
+  }
 }

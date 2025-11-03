@@ -1,30 +1,147 @@
 <div class="sidebar">
-  <app-layers-panel
-    (cakeOptionsChange)="cakeOptionsChange.emit($event)"
-  ></app-layers-panel>
+  <header class="sidebar__header">
+    <h2 class="sidebar__title">Edytor tortu</h2>
+    <p class="sidebar__subtitle">Konfiguracja, dekoracje i eksport</p>
+  </header>
 
-  <app-decorations-panel
-    [decorationsService]="decorationsService"
-    [validationSummary]="validationSummary"
-    [validationIssues]="validationIssues"
-    [pendingActionLabel]="pendingValidationLabel"
-    (addDecoration)="addDecorationEvent.emit($event)"
-    (validateDecorations)="validateDecorations.emit()"
-    (transformModeChange)="transformModeChange.emit($event)"
-    (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
-  ></app-decorations-panel>
+  <div class="sidebar__content" tabindex="-1">
+    <section
+      class="sidebar__section"
+      [class.sidebar__section--expanded]="isExpanded('layers')"
+    >
+      <button
+        type="button"
+        class="sidebar__toggle"
+        (click)="togglePanel('layers')"
+        [attr.aria-expanded]="isExpanded('layers')"
+        [attr.aria-controls]="panelRegionId('layers')"
+        [id]="panelToggleId('layers')"
+      >
+        <span class="sidebar__toggle-label">Podstawy</span>
+        <span aria-hidden="true" class="sidebar__toggle-icon"></span>
+      </button>
 
-  <app-paint-panel
-    [paintService]="paintService"
-    (paintModeChange)="paintModeChange.emit($event)"
-    (brushChange)="brushChange.emit($event)"
-  ></app-paint-panel>
+      <div
+        class="sidebar__panel-wrapper"
+        [class.sidebar__panel-wrapper--expanded]="isExpanded('layers')"
+        role="region"
+        [attr.aria-labelledby]="panelToggleId('layers')"
+        [id]="panelRegionId('layers')"
+        [attr.aria-hidden]="!isExpanded('layers')"
+      >
+        <div class="sidebar__panel">
+          <app-layers-panel (cakeOptionsChange)="cakeOptionsChange.emit($event)"></app-layers-panel>
+        </div>
+      </div>
+    </section>
 
-  <app-export-panel
-    (saveScene)="saveSceneEvent.emit()"
-    (exportObj)="exportObj.emit()"
-    (exportStl)="exportStl.emit()"
-    (exportGltf)="exportGltf.emit()"
-    (screenshot)="screenshot.emit()"
-  ></app-export-panel>
+    <section
+      class="sidebar__section"
+      [class.sidebar__section--expanded]="isExpanded('decorations')"
+    >
+      <button
+        type="button"
+        class="sidebar__toggle"
+        (click)="togglePanel('decorations')"
+        [attr.aria-expanded]="isExpanded('decorations')"
+        [attr.aria-controls]="panelRegionId('decorations')"
+        [id]="panelToggleId('decorations')"
+      >
+        <span class="sidebar__toggle-label">Dekoracje</span>
+        <span aria-hidden="true" class="sidebar__toggle-icon"></span>
+      </button>
+
+      <div
+        class="sidebar__panel-wrapper"
+        [class.sidebar__panel-wrapper--expanded]="isExpanded('decorations')"
+        role="region"
+        [attr.aria-labelledby]="panelToggleId('decorations')"
+        [id]="panelRegionId('decorations')"
+        [attr.aria-hidden]="!isExpanded('decorations')"
+      >
+        <div class="sidebar__panel">
+          <app-decorations-panel
+            [decorationsService]="decorationsService"
+            [validationSummary]="validationSummary"
+            [validationIssues]="validationIssues"
+            [pendingActionLabel]="pendingValidationLabel"
+            (addDecoration)="addDecorationEvent.emit($event)"
+            (validateDecorations)="validateDecorations.emit()"
+            (transformModeChange)="transformModeChange.emit($event)"
+            (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
+          ></app-decorations-panel>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="sidebar__section"
+      [class.sidebar__section--expanded]="isExpanded('paint')"
+    >
+      <button
+        type="button"
+        class="sidebar__toggle"
+        (click)="togglePanel('paint')"
+        [attr.aria-expanded]="isExpanded('paint')"
+        [attr.aria-controls]="panelRegionId('paint')"
+        [id]="panelToggleId('paint')"
+      >
+        <span class="sidebar__toggle-label">Malowanie</span>
+        <span aria-hidden="true" class="sidebar__toggle-icon"></span>
+      </button>
+
+      <div
+        class="sidebar__panel-wrapper"
+        [class.sidebar__panel-wrapper--expanded]="isExpanded('paint')"
+        role="region"
+        [attr.aria-labelledby]="panelToggleId('paint')"
+        [id]="panelRegionId('paint')"
+        [attr.aria-hidden]="!isExpanded('paint')"
+      >
+        <div class="sidebar__panel">
+          <app-paint-panel
+            [paintService]="paintService"
+            (paintModeChange)="paintModeChange.emit($event)"
+            (brushChange)="brushChange.emit($event)"
+          ></app-paint-panel>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="sidebar__section"
+      [class.sidebar__section--expanded]="isExpanded('export')"
+    >
+      <button
+        type="button"
+        class="sidebar__toggle"
+        (click)="togglePanel('export')"
+        [attr.aria-expanded]="isExpanded('export')"
+        [attr.aria-controls]="panelRegionId('export')"
+        [id]="panelToggleId('export')"
+      >
+        <span class="sidebar__toggle-label">Eksport</span>
+        <span aria-hidden="true" class="sidebar__toggle-icon"></span>
+      </button>
+
+      <div
+        class="sidebar__panel-wrapper"
+        [class.sidebar__panel-wrapper--expanded]="isExpanded('export')"
+        role="region"
+        [attr.aria-labelledby]="panelToggleId('export')"
+        [id]="panelRegionId('export')"
+        [attr.aria-hidden]="!isExpanded('export')"
+      >
+        <div class="sidebar__panel">
+          <app-export-panel
+            (saveScene)="saveSceneEvent.emit()"
+            (exportObj)="exportObj.emit()"
+            (exportStl)="exportStl.emit()"
+            (exportGltf)="exportGltf.emit()"
+            (screenshot)="screenshot.emit()"
+          ></app-export-panel>
+        </div>
+      </div>
+    </section>
+  </div>
 </div>
