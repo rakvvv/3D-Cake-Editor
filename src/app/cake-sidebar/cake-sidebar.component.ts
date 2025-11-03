@@ -1,4 +1,4 @@
-import { Component, Input, output } from '@angular/core';
+import { Component, ElementRef, Input, ViewChild, output } from '@angular/core';
 import { DecorationsService } from '../services/decorations.service';
 import { PaintService } from '../services/paint.service';
 import { CakeOptions } from '../models/cake.options';
@@ -20,6 +20,12 @@ export class CakeSidebarComponent {
   @Input() validationIssues: DecorationValidationIssue[] = [];
   @Input() pendingValidationLabel: string | null = null;
 
+  @ViewChild('scrollContainer') private scrollContainer?: ElementRef<HTMLElement>;
+  @ViewChild('layersPanel', { read: ElementRef }) private layersPanel?: ElementRef<HTMLElement>;
+  @ViewChild('decorationsPanel', { read: ElementRef }) private decorationsPanel?: ElementRef<HTMLElement>;
+  @ViewChild('paintPanel', { read: ElementRef }) private paintPanel?: ElementRef<HTMLElement>;
+  @ViewChild('exportPanel', { read: ElementRef }) private exportPanel?: ElementRef<HTMLElement>;
+
   readonly addDecorationEvent = output<string>();
   readonly saveSceneEvent = output<void>();
   readonly validateDecorations = output<void>();
@@ -37,4 +43,28 @@ export class CakeSidebarComponent {
     public readonly decorationsService: DecorationsService,
     public readonly paintService: PaintService,
   ) {}
+
+  scrollToPanel(panel: 'layers' | 'decorations' | 'paint' | 'export'): void {
+    const target =
+      panel === 'layers'
+        ? this.layersPanel
+        : panel === 'decorations'
+        ? this.decorationsPanel
+        : panel === 'paint'
+        ? this.paintPanel
+        : this.exportPanel;
+
+    if (!target?.nativeElement) {
+      return;
+    }
+
+    target.nativeElement.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+
+    if (this.scrollContainer?.nativeElement) {
+      this.scrollContainer.nativeElement.focus({ preventScroll: true });
+    }
+  }
 }

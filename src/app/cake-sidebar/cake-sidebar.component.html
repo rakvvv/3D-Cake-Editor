@@ -4,12 +4,29 @@
     <p class="sidebar__subtitle">Konfiguracja, dekoracje i eksport</p>
   </header>
 
-  <div class="sidebar__content">
+  <nav class="sidebar__nav" aria-label="Sekcje narzędzi">
+    <button type="button" class="sidebar__nav-button" (click)="scrollToPanel('layers')">
+      Podstawy
+    </button>
+    <button type="button" class="sidebar__nav-button" (click)="scrollToPanel('decorations')">
+      Dekoracje
+    </button>
+    <button type="button" class="sidebar__nav-button" (click)="scrollToPanel('paint')">
+      Malowanie
+    </button>
+    <button type="button" class="sidebar__nav-button" (click)="scrollToPanel('export')">
+      Eksport
+    </button>
+  </nav>
+
+  <div class="sidebar__content" #scrollContainer tabindex="-1">
     <app-layers-panel
+      #layersPanel
       (cakeOptionsChange)="cakeOptionsChange.emit($event)"
     ></app-layers-panel>
 
     <app-decorations-panel
+      #decorationsPanel
       [decorationsService]="decorationsService"
       [validationSummary]="validationSummary"
       [validationIssues]="validationIssues"
@@ -21,12 +38,14 @@
     ></app-decorations-panel>
 
     <app-paint-panel
+      #paintPanel
       [paintService]="paintService"
       (paintModeChange)="paintModeChange.emit($event)"
       (brushChange)="brushChange.emit($event)"
     ></app-paint-panel>
 
     <app-export-panel
+      #exportPanel
       (saveScene)="saveSceneEvent.emit()"
       (exportObj)="exportObj.emit()"
       (exportStl)="exportStl.emit()"
