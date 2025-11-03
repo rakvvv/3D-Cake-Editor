@@ -17,7 +17,6 @@
         </option>
       </select>
     </div>
-
     <div class="sidebar-panel__control sidebar-panel__control--inline" *ngIf="selectedTool === 'decoration'">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="brush-select">Wybierz pędzel</label>
       <select
@@ -72,7 +71,12 @@
       </div>
     </div>
 
-    <button type="button" class="sidebar-panel__button paint-panel__toggle" (click)="togglePaintMode()">
+    <button
+      type="button"
+      class="sidebar-panel__button paint-panel__toggle"
+      (click)="togglePaintMode()"
+      [disabled]="paintService.paintTool === 'eraser'"
+    >
       {{ paintService.paintMode ? 'Wyłącz rysowanie' : 'Włącz rysowanie' }}
     </button>
     <div class="sidebar-panel__actions sidebar-panel__actions--compact paint-panel__actions">

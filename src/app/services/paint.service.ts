@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
+import { TransformManagerService } from './transform-manager.service';
 
-type PaintTool = 'decoration' | 'pen';
+type PaintTool = 'decoration' | 'pen' | 'eraser';
 
 @Injectable({ providedIn: 'root' })
 export class PaintService {
@@ -10,6 +11,7 @@ export class PaintService {
   public currentBrush = 'trawa.glb';
   public isPainting = false;
   public paintTool: PaintTool = 'decoration';
+  private lastNonEraserTool: Exclude<PaintTool, 'eraser'> = 'decoration';
 
   public penSize = 0.05;
   public penThickness = 0.02;
@@ -44,6 +46,8 @@ export class PaintService {
   private activePenStartCap: THREE.Mesh | null = null;
   private activePenEndCap: THREE.Mesh | null = null;
 
+  constructor(private readonly transformManager: TransformManagerService) {}
+
   public async handlePaint(
     event: MouseEvent,
     renderer: THREE.WebGLRenderer,
@@ -76,6 +80,12 @@ export class PaintService {
     const intersects = raycaster.intersectObject(cakeBase, true);
 
     if (intersects.length === 0) {
+      return;
+    }
+
+    if (this.paintTool === 'eraser') {
+      this.performErase(raycaster, scene);
+      this.resetPaintTracking();
       return;
     }
 
@@ -154,6 +164,13 @@ export class PaintService {
 
   public setPaintTool(tool: PaintTool): void {
     this.paintTool = tool;
+    if (tool !== 'eraser') {
+      this.lastNonEraserTool = tool;
+    }
+  }
+
+  public getLastNonEraserTool(): Exclude<PaintTool, 'eraser'> {
+    return this.lastNonEraserTool;
   }
 
   public setCurrentBrush(brushId: string): void {
@@ -204,6 +221,138 @@ export class PaintService {
 
   public canRedo(): boolean {
     return this.redoStack.length > 0;
+  }
+
+  private performErase(raycaster: THREE.Raycaster, scene: THREE.Scene): void {
+    const hits = raycaster.intersectObjects(scene.children, true);
+    if (!hits.length) {
+      return;
+    }
+
+    const targetIntersection = hits.find((intersection) => this.findErasableRoot(intersection.object));
+    if (!targetIntersection) {
+      return;
+    }
+
+    const erasableObject = this.findErasableRoot(targetIntersection.object);
+    if (!erasableObject) {
+      return;
+    }
+
+    if (erasableObject.userData['isPaintStroke']) {
+      this.disposePaintStroke(erasableObject);
+      if (erasableObject.parent) {
+        erasableObject.parent.remove(erasableObject);
+      }
+      this.removeFromHistory(erasableObject);
+      return;
+    }
+
+    if (erasableObject.userData['isPaintDecoration'] || erasableObject.userData['isDecoration']) {
+      this.transformManager.removeDecorationObject(erasableObject);
+      this.removeFromHistory(erasableObject);
+    }
+  }
+
+  private isErasableObject(object: THREE.Object3D | undefined): boolean {
+    if (!object) {
+      return false;
+    }
+
+    return Boolean(
+      object.userData['isPaintStroke'] ||
+        object.userData['isPaintDecoration'] ||
+        object.userData['isDecoration'],
+    );
+  }
+
+  private findErasableRoot(object: THREE.Object3D): THREE.Object3D | null {
+    let current: THREE.Object3D | null = object;
+    let lastMatch: THREE.Object3D | null = null;
+
+    while (current) {
+      if (this.isErasableObject(current)) {
+        lastMatch = current;
+      }
+      current = current.parent;
+    }
+
+    return lastMatch;
+  }
+
+  private disposePaintStroke(object: THREE.Object3D): void {
+    const strokeRoot = object.userData['isPaintStroke'] ? object : this.findErasableRoot(object);
+    if (!strokeRoot || !strokeRoot.userData['isPaintStroke']) {
+      return;
+    }
+
+    strokeRoot.traverse((child: THREE.Object3D) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) {
+        return;
+      }
+
+      const geometry = mesh.geometry as THREE.BufferGeometry | undefined;
+      if (geometry && !this.isCachedPenGeometry(geometry)) {
+        geometry.dispose();
+      }
+
+      const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      if (Array.isArray(material)) {
+        material.forEach((mat) => {
+          if (mat && !this.isCachedPenMaterial(mat)) {
+            mat.dispose();
+          }
+        });
+      } else if (material && !this.isCachedPenMaterial(material)) {
+        material.dispose();
+      }
+    });
+  }
+
+  private isCachedPenGeometry(geometry: THREE.BufferGeometry): boolean {
+    if (geometry === this.penSphereGeometry || geometry === this.penJointGeometry) {
+      return true;
+    }
+
+    for (const cachedGeometry of this.penSegmentGeometryCache.values()) {
+      if (geometry === cachedGeometry) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private isCachedPenMaterial(material: THREE.Material): boolean {
+    for (const cachedMaterial of this.penMaterialCache.values()) {
+      if (material === cachedMaterial) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private removeFromHistory(object: THREE.Object3D): void {
+    this.undoStack = this.undoStack.filter((entry) => entry !== object);
+    this.redoStack = this.redoStack.filter((entry) => entry !== object);
+
+    if (this.activePenStrokeGroup === object) {
+      this.activePenStrokeGroup = null;
+      this.activePenStrokePoints = [];
+      this.activePenSegments = [];
+      this.activePenJoints = [];
+      this.activePenStartCap = null;
+      this.activePenEndCap = null;
+      this.lastPenDirection = null;
+    }
+  }
+
+  private resetPaintTracking(): void {
+    this.lastPaintPoint = null;
+    this.lastPaintNormal = null;
+    this.lastPaintTime = 0;
   }
 
   private async placeDecorationBrush(point: THREE.Vector3, normal: THREE.Vector3, scene: THREE.Scene): Promise<void> {

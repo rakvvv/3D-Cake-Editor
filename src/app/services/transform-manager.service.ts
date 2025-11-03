@@ -110,6 +110,33 @@ export class TransformManagerService {
     return this.transformControls || null;
   }
 
+  public removeDecorationObject(object: THREE.Object3D): void {
+    if (!object) {
+      return;
+    }
+
+    const selected = this.selectionService.getSelectedObject();
+    if (selected === object && this.transformControls) {
+      this.selectionService.deselectObject(this.transformControls, this.boxHelperCallback);
+    }
+
+    if (this.removeDecorationCallback) {
+      this.removeDecorationCallback(object);
+      return;
+    }
+
+    if (!this.scene) {
+      return;
+    }
+
+    const cakeBase = this.snapService.getCakeBase();
+    if (cakeBase && object.parent === cakeBase) {
+      this.scene.attach(object);
+    }
+
+    this.scene.remove(object);
+  }
+
   public dispose(): void {
     if (!this.isBrowser || !this.transformControls) {
       return;

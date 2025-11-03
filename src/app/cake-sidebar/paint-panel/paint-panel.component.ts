@@ -33,7 +33,9 @@ export class PaintPanelComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
       this.selectedBrush = this.paintService.currentBrush || this.brushList[0].id;
-      this.selectedTool = this.paintService.paintTool;
+      const activeTool = this.paintService.paintTool;
+      this.selectedTool =
+        activeTool === 'eraser' ? this.paintService.getLastNonEraserTool() : activeTool;
       this.penSize = this.paintService.penSize;
       this.penThickness = this.paintService.penThickness;
       this.penColor = this.paintService.penColor;
