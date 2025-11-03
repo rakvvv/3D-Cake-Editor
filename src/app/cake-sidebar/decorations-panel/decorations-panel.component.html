@@ -1,51 +1,74 @@
-<section class="panel">
-  <h3>Dekoracje</h3>
-  <div class="filters">
-    <input
-      type="search"
-      placeholder="Szukaj dekoracji"
-      [(ngModel)]="filterText"
-    />
-    <select [(ngModel)]="filterType">
-      <option value="ALL">Wszystkie</option>
-      <option value="TOP">Górne</option>
-      <option value="SIDE">Boczne</option>
-      <option value="BOTH">Uniwersalne</option>
-    </select>
-  </div>
-  <div class="decorations-list">
-    <div
-      class="decoration-card"
-      *ngFor="let decoration of filteredDecorations"
-      (click)="onAddDecoration(decoration.modelFileName)"
-    >
-      <div class="thumbnail" aria-hidden="true">{{ decoration.name[0] }}</div>
-      <div class="details">
-        <span class="name">{{ decoration.name }}</span>
-        <span class="type">{{ displayTypeLabel(decoration.type) }}</span>
+<section class="sidebar-panel decorations-panel">
+  <header class="sidebar-panel__header">
+    <h3 class="sidebar-panel__title">Dekoracje</h3>
+    <p class="sidebar-panel__subtitle">Dodaj elementy na tort</p>
+  </header>
+  <div class="sidebar-panel__body">
+    <div class="decorations-panel__filters">
+      <input
+        class="sidebar-panel__input decorations-panel__search"
+        type="search"
+        placeholder="Szukaj dekoracji"
+        [(ngModel)]="filterText"
+      />
+      <select class="sidebar-panel__select decorations-panel__type" [(ngModel)]="filterType">
+        <option value="ALL">Wszystkie</option>
+        <option value="TOP">Górne</option>
+        <option value="SIDE">Boczne</option>
+        <option value="BOTH">Uniwersalne</option>
+      </select>
+    </div>
+
+    <div class="sidebar-panel__scroll">
+      <div class="decorations-panel__list" role="list">
+        <button
+          type="button"
+          class="decorations-panel__card"
+          *ngFor="let decoration of filteredDecorations"
+          (click)="onAddDecoration(decoration.modelFileName)"
+        >
+          <span class="decorations-panel__thumbnail" aria-hidden="true">{{ decoration.name[0] }}</span>
+          <span class="decorations-panel__details">
+            <span class="decorations-panel__name">{{ decoration.name }}</span>
+            <span class="decorations-panel__type">{{ displayTypeLabel(decoration.type) }}</span>
+          </span>
+        </button>
       </div>
     </div>
-  </div>
-  <div class="actions">
-    <button type="button" (click)="onValidateDecorations()">Sprawdź dekoracje</button>
-    <div class="transform-group">
-      <button type="button" (click)="setTransformMode('translate')">Przesuń</button>
-      <button type="button" (click)="setTransformMode('rotate')">Obróć</button>
-      <button type="button" (click)="setTransformMode('scale')">Skaluj</button>
-    </div>
-  </div>
 
-  <div class="validation-results" *ngIf="validationSummary as summary">
-    <p class="message" [class.message--warning]="hasValidationIssues" [class.message--success]="!hasValidationIssues">
-      {{ summary }}
-    </p>
-    <button
-      type="button"
-      *ngIf="hasValidationIssues && pendingActionLabel"
-      class="override-button"
-      (click)="proceedDespiteWarnings.emit()"
-    >
-      Kontynuuj: {{ pendingActionLabel }}
-    </button>
+    <div class="decorations-panel__actions">
+      <button type="button" class="sidebar-panel__button" (click)="onValidateDecorations()">
+        Sprawdź dekoracje
+      </button>
+      <div class="sidebar-panel__actions sidebar-panel__actions--compact">
+        <button type="button" class="sidebar-panel__button" (click)="setTransformMode('translate')">
+          Przesuń
+        </button>
+        <button type="button" class="sidebar-panel__button" (click)="setTransformMode('rotate')">
+          Obróć
+        </button>
+        <button type="button" class="sidebar-panel__button" (click)="setTransformMode('scale')">
+          Skaluj
+        </button>
+      </div>
+    </div>
+
+    <div class="decorations-panel__validation" *ngIf="validationSummary as summary">
+      <p
+        class="sidebar-panel__message"
+        [class.sidebar-panel__message--warning]="hasValidationIssues"
+        [class.sidebar-panel__message--success]="!hasValidationIssues"
+      >
+        {{ summary }}
+      </p>
+      <button
+        type="button"
+        *ngIf="hasValidationIssues && pendingActionLabel"
+        class="sidebar-panel__button decorations-panel__override"
+        (click)="proceedDespiteWarnings.emit()"
+      >
+        Kontynuuj: {{ pendingActionLabel }}
+      </button>
+    </div>
   </div>
 </section>

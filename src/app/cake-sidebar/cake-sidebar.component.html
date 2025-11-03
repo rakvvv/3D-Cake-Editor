@@ -1,30 +1,37 @@
 <div class="sidebar">
-  <app-layers-panel
-    (cakeOptionsChange)="cakeOptionsChange.emit($event)"
-  ></app-layers-panel>
+  <header class="sidebar__header">
+    <h2 class="sidebar__title">Edytor tortu</h2>
+    <p class="sidebar__subtitle">Konfiguracja, dekoracje i eksport</p>
+  </header>
 
-  <app-decorations-panel
-    [decorationsService]="decorationsService"
-    [validationSummary]="validationSummary"
-    [validationIssues]="validationIssues"
-    [pendingActionLabel]="pendingValidationLabel"
-    (addDecoration)="addDecorationEvent.emit($event)"
-    (validateDecorations)="validateDecorations.emit()"
-    (transformModeChange)="transformModeChange.emit($event)"
-    (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
-  ></app-decorations-panel>
+  <div class="sidebar__content">
+    <app-layers-panel
+      (cakeOptionsChange)="cakeOptionsChange.emit($event)"
+    ></app-layers-panel>
 
-  <app-paint-panel
-    [paintService]="paintService"
-    (paintModeChange)="paintModeChange.emit($event)"
-    (brushChange)="brushChange.emit($event)"
-  ></app-paint-panel>
+    <app-decorations-panel
+      [decorationsService]="decorationsService"
+      [validationSummary]="validationSummary"
+      [validationIssues]="validationIssues"
+      [pendingActionLabel]="pendingValidationLabel"
+      (addDecoration)="addDecorationEvent.emit($event)"
+      (validateDecorations)="validateDecorations.emit()"
+      (transformModeChange)="transformModeChange.emit($event)"
+      (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
+    ></app-decorations-panel>
 
-  <app-export-panel
-    (saveScene)="saveSceneEvent.emit()"
-    (exportObj)="exportObj.emit()"
-    (exportStl)="exportStl.emit()"
-    (exportGltf)="exportGltf.emit()"
-    (screenshot)="screenshot.emit()"
-  ></app-export-panel>
+    <app-paint-panel
+      [paintService]="paintService"
+      (paintModeChange)="paintModeChange.emit($event)"
+      (brushChange)="brushChange.emit($event)"
+    ></app-paint-panel>
+
+    <app-export-panel
+      (saveScene)="saveSceneEvent.emit()"
+      (exportObj)="exportObj.emit()"
+      (exportStl)="exportStl.emit()"
+      (exportGltf)="exportGltf.emit()"
+      (screenshot)="screenshot.emit()"
+    ></app-export-panel>
+  </div>
 </div>
