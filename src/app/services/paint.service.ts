@@ -75,6 +75,7 @@ export class PaintService {
   private textureLoader = new THREE.TextureLoader();
   private textureCache = new Map<string, THREE.Texture>();
   private texturePromises = new Map<string, Promise<THREE.Texture>>();
+  private singleChannelFormat: THREE.PixelFormat | null = null;
 
   private sceneRef: THREE.Scene | null = null;
   private undoStack: THREE.Object3D[] = [];
@@ -692,7 +693,8 @@ export class PaintService {
         (texture) => {
           texture.wrapS = THREE.RepeatWrapping;
           texture.wrapT = THREE.RepeatWrapping;
-          texture.colorSpace = THREE.LinearSRGBColorSpace;
+          texture.colorSpace = THREE.NoColorSpace;
+          texture.format = this.getSingleChannelTextureFormat();
           this.textureCache.set(cacheKey, texture);
           this.texturePromises.delete(cacheKey);
           resolve(texture);
@@ -737,7 +739,7 @@ export class PaintService {
       }
     }
 
-    const format = THREE.RedFormat;
+    const format = this.getSingleChannelTextureFormat();
     const texture = new THREE.DataTexture(data, size, size, format);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
@@ -745,6 +747,30 @@ export class PaintService {
     texture.colorSpace = THREE.NoColorSpace;
     texture.needsUpdate = true;
     return texture;
+  }
+
+  private getSingleChannelTextureFormat(): THREE.PixelFormat {
+    if (this.singleChannelFormat) {
+      return this.singleChannelFormat;
+    }
+
+    if (typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas');
+      const gl2 = canvas.getContext?.('webgl2');
+      if (gl2) {
+        this.singleChannelFormat = THREE.RedFormat;
+        return this.singleChannelFormat;
+      }
+
+      const gl = canvas.getContext?.('webgl') ?? canvas.getContext?.('experimental-webgl');
+      if (gl) {
+        this.singleChannelFormat = THREE.LuminanceFormat;
+        return this.singleChannelFormat;
+      }
+    }
+
+    this.singleChannelFormat = THREE.RedFormat;
+    return this.singleChannelFormat;
   }
 
   private createSeededRandom(seed: string): () => number {
@@ -794,6 +820,7 @@ export class PaintService {
         height,
         base.format as THREE.PixelFormat,
       );
+      merged.type = base.type;
       merged.wrapS = base.wrapS;
       merged.wrapT = base.wrapT;
       merged.generateMipmaps = false;

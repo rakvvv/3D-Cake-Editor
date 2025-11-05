@@ -109,7 +109,8 @@ describe('PaintService', () => {
     expect(material.alphaMap).toBeDefined();
     expect(material.roughnessMap).toBeDefined();
     expect(material.alphaMap).toBeInstanceOf(THREE.DataTexture);
-    expect((material.alphaMap as THREE.DataTexture).format).toBe(THREE.RedFormat);
+    const alphaFormat = (material.alphaMap as THREE.DataTexture).format;
+    expect(alphaFormat === THREE.RedFormat || alphaFormat === THREE.LuminanceFormat).toBeTrue();
 
     const nextInstance = await (service as any).getBrushInstance(brushId);
     const nextMesh = nextInstance.children[0] as THREE.Mesh;
