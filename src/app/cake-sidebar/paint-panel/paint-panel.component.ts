@@ -3,6 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PaintService } from '../../services/paint.service';
 
+type BrushType = 'model' | 'procedural';
+
+interface BrushOption {
+  id: string;
+  name: string;
+  type: BrushType;
+}
+
 @Component({
   selector: 'app-paint-panel',
   standalone: true,
@@ -15,9 +23,12 @@ export class PaintPanelComponent implements OnChanges {
   @Output() paintModeChange = new EventEmitter<boolean>();
   @Output() brushChange = new EventEmitter<string>();
 
-  brushList: { id: string; name: string }[] = [
-    { id: 'trawa.glb', name: 'Trawa' },
-    { id: 'chocolate_kiss.glb', name: 'Stożek' },
+  brushList: BrushOption[] = [
+    { id: 'trawa.glb', name: 'Trawa', type: 'model' },
+    { id: 'chocolate_kiss.glb', name: 'Stożek', type: 'model' },
+    { id: 'procedural:smear-vanilla', name: 'Smuga wanilii', type: 'procedural' },
+    { id: 'procedural:smear-confetti', name: 'Smuga konfetti', type: 'procedural' },
+    { id: 'procedural:smear-cocoa', name: 'Smuga kakao', type: 'procedural' },
   ];
 
   selectedBrush = this.brushList[0].id;
@@ -29,6 +40,9 @@ export class PaintPanelComponent implements OnChanges {
   penSize = 0.05;
   penThickness = 0.02;
   penColor = '#ff4d6d';
+  sprinkleTextureOptions: { id: string; name: string }[] = [];
+  proceduralBrushColors: Record<string, string> = {};
+  proceduralBrushSprinkles: Record<string, string> = {};
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
@@ -39,6 +53,8 @@ export class PaintPanelComponent implements OnChanges {
       this.penSize = this.paintService.penSize;
       this.penThickness = this.paintService.penThickness;
       this.penColor = this.paintService.penColor;
+      this.sprinkleTextureOptions = this.paintService.getSprinkleTextureOptions();
+      this.syncProceduralBrushSettings();
     }
   }
 
@@ -56,6 +72,9 @@ export class PaintPanelComponent implements OnChanges {
     }
     this.paintService.setPaintTool('decoration');
     this.paintService.setCurrentBrush(this.selectedBrush);
+    if (this.isProceduralBrush(this.selectedBrush)) {
+      this.applyProceduralBrushSettings(this.selectedBrush);
+    }
     this.brushChange.emit(this.selectedBrush);
   }
 
@@ -68,7 +87,24 @@ export class PaintPanelComponent implements OnChanges {
       this.onPenSettingsChange();
     } else {
       this.paintService.setCurrentBrush(this.selectedBrush);
+      if (this.isProceduralBrush(this.selectedBrush)) {
+        this.applyProceduralBrushSettings(this.selectedBrush);
+      }
     }
+  }
+
+  onProceduralColorChange(): void {
+    if (!this.paintService || !this.isProceduralBrush(this.selectedBrush)) {
+      return;
+    }
+    this.applyProceduralBrushSettings(this.selectedBrush);
+  }
+
+  onProceduralSprinkleChange(): void {
+    if (!this.paintService || !this.isProceduralBrush(this.selectedBrush)) {
+      return;
+    }
+    this.applyProceduralBrushSettings(this.selectedBrush);
   }
 
   onPenSettingsChange(): void {
@@ -102,5 +138,32 @@ export class PaintPanelComponent implements OnChanges {
 
   canRedo(): boolean {
     return this.paintService ? this.paintService.canRedo() : false;
+  }
+
+  isProceduralBrush(brushId: string): boolean {
+    return this.paintService ? this.paintService.isProceduralBrush(brushId) : false;
+  }
+
+  private syncProceduralBrushSettings(): void {
+    if (!this.paintService) {
+      return;
+    }
+    for (const brush of this.brushList.filter((option) => option.type === 'procedural')) {
+      const config = this.paintService.getProceduralBrushConfig(brush.id);
+      this.proceduralBrushColors[brush.id] = config.color;
+      this.proceduralBrushSprinkles[brush.id] = config.sprinkleTextureId ?? 'none';
+    }
+  }
+
+  private applyProceduralBrushSettings(brushId: string): void {
+    if (!this.paintService) {
+      return;
+    }
+    const color = this.proceduralBrushColors[brushId] ?? '#ffffff';
+    const sprinkle = this.proceduralBrushSprinkles[brushId] ?? 'none';
+    this.paintService.updateProceduralBrushSettings(brushId, {
+      color,
+      sprinkleTextureId: sprinkle,
+    });
   }
 }

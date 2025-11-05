@@ -88,6 +88,41 @@ describe('PaintService', () => {
     expect(firstInstance).not.toBe(secondInstance);
   });
 
+  it('tworzy proceduralny pędzel smugi i współdzieli materiał', async () => {
+    const brushId = 'procedural:smear-vanilla';
+    const instance = await (service as any).getBrushInstance(brushId);
+    const mesh = instance.children[0] as THREE.Mesh;
+    expect(mesh.geometry.type).toBe('PlaneGeometry');
+
+    const material = mesh.material as THREE.MeshStandardMaterial;
+    expect(material.transparent).toBeTrue();
+    expect(material.alphaMap).toBeDefined();
+    expect(material.roughnessMap).toBeDefined();
+
+    const nextInstance = await (service as any).getBrushInstance(brushId);
+    const nextMesh = nextInstance.children[0] as THREE.Mesh;
+    expect(nextMesh.material).toBe(material);
+    expect((nextMesh.material as THREE.MeshStandardMaterial).alphaMap).toBe(material.alphaMap);
+  });
+
+  it('zapisuje konfigurację proceduralnego pędzla wraz z teksturą posypki', async () => {
+    const brushId = 'procedural:smear-confetti';
+    service.updateProceduralBrushSettings(brushId, {
+      color: '#ffffff',
+      sprinkleTextureId: 'confetti',
+    });
+
+    const config = service.getProceduralBrushConfig(brushId);
+    expect(config.sprinkleTextureId).toBe('confetti');
+    expect(config.color).toBe('#ffffff');
+
+    const instance = await (service as any).getBrushInstance(brushId);
+    const mesh = instance.children[0] as THREE.Mesh;
+    const material = mesh.material as THREE.MeshStandardMaterial;
+    expect(material.alphaMap).toBeDefined();
+    expect(material.roughnessMap).toBeDefined();
+  });
+
   it('skips dense pen updates while tracking continuous strokes', async () => {
     service.paintMode = true;
     service.setPaintTool('pen');

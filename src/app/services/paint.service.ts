@@ -5,6 +5,21 @@ import { TransformManagerService } from './transform-manager.service';
 
 type PaintTool = 'decoration' | 'pen' | 'eraser';
 
+interface ProceduralBrushConfig {
+  color: string;
+  sprinkleTextureId: string | null;
+}
+
+type SprinkleTextureStyle = 'base' | 'confetti' | 'cocoa';
+
+interface SprinkleTextureDefinition {
+  id: string;
+  name: string;
+  alphaMap?: string;
+  roughnessMap?: string;
+  style?: SprinkleTextureStyle;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PaintService {
   public paintMode = false;
@@ -20,14 +35,46 @@ export class PaintService {
   private readonly baseMinDistance = 0.02;
   private readonly baseMinTimeMs = 40;
   private readonly penSurfaceOffset = 0.003;
+  private readonly proceduralBrushPrefix = 'procedural:';
   private brushCache = new Map<string, THREE.Object3D>();
   private brushPromises = new Map<string, Promise<THREE.Object3D>>();
   private brushSizes = new Map<string, THREE.Vector3>();
 
+  private readonly baseSmearMask: SprinkleTextureDefinition = {
+    id: 'smear-mask',
+    name: 'Maska smugi',
+    style: 'base',
+  };
+
+  private readonly sprinkleTextures: SprinkleTextureDefinition[] = [
+    { id: 'none', name: 'Bez posypki', style: 'base' },
+    {
+      id: 'confetti',
+      name: 'Kolorowe konfetti',
+      style: 'confetti',
+    },
+    {
+      id: 'cocoa',
+      name: 'Wiórki czekoladowe',
+      style: 'cocoa',
+    },
+  ];
+
+  private readonly proceduralBrushDefaults: Record<string, ProceduralBrushConfig> = {
+    'procedural:smear-vanilla': { color: '#f6d5c2', sprinkleTextureId: 'none' },
+    'procedural:smear-confetti': { color: '#ffe8ef', sprinkleTextureId: 'confetti' },
+    'procedural:smear-cocoa': { color: '#6b3e2a', sprinkleTextureId: 'cocoa' },
+  };
+
   private penMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
+  private proceduralMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
+  private proceduralBrushSettings = new Map<string, ProceduralBrushConfig>();
   private penSphereGeometry = new THREE.SphereGeometry(0.5, 16, 12);
   private penJointGeometry = new THREE.SphereGeometry(0.5, 14, 10);
   private penSegmentGeometryCache = new Map<number, THREE.CylinderGeometry>();
+  private textureLoader = new THREE.TextureLoader();
+  private textureCache = new Map<string, THREE.Texture>();
+  private texturePromises = new Map<string, Promise<THREE.Texture>>();
 
   private sceneRef: THREE.Scene | null = null;
   private undoStack: THREE.Object3D[] = [];
@@ -175,6 +222,35 @@ export class PaintService {
 
   public setCurrentBrush(brushId: string): void {
     this.currentBrush = brushId;
+    if (this.isProceduralBrush(brushId)) {
+      this.ensureProceduralBrushConfig(brushId);
+    }
+  }
+
+  public isProceduralBrush(brushId: string): boolean {
+    return brushId.startsWith(this.proceduralBrushPrefix);
+  }
+
+  public getSprinkleTextureOptions(): { id: string; name: string }[] {
+    return this.sprinkleTextures.map(({ id, name }) => ({ id, name }));
+  }
+
+  public getProceduralBrushConfig(brushId: string): ProceduralBrushConfig {
+    const config = this.ensureProceduralBrushConfig(brushId);
+    return { ...config };
+  }
+
+  public updateProceduralBrushSettings(
+    brushId: string,
+    updates: Partial<ProceduralBrushConfig>,
+  ): ProceduralBrushConfig {
+    const current = this.ensureProceduralBrushConfig(brushId);
+    const merged: ProceduralBrushConfig = {
+      ...current,
+      ...updates,
+    };
+    this.proceduralBrushSettings.set(brushId, merged);
+    return { ...merged };
   }
 
   public updatePenSettings(settings: { size?: number; thickness?: number; color?: string }): void {
@@ -424,6 +500,10 @@ export class PaintService {
   }
 
   private async getBrushInstance(brushId: string): Promise<THREE.Object3D> {
+    if (this.isProceduralBrush(brushId)) {
+      return this.createProceduralBrushInstance(brushId);
+    }
+
     const template = await this.loadBrushTemplate(brushId);
     return this.cloneBrush(template);
   }
@@ -472,6 +552,285 @@ export class PaintService {
     }
 
     return clone;
+  }
+
+  private async createProceduralBrushInstance(brushId: string): Promise<THREE.Object3D> {
+    const config = this.ensureProceduralBrushConfig(brushId);
+    const geometry = this.buildSmearGeometry();
+    const material = await this.getProceduralMaterial(brushId, config);
+
+    const smearMesh = new THREE.Mesh(geometry, material);
+    smearMesh.castShadow = true;
+    smearMesh.receiveShadow = true;
+    smearMesh.userData['isPaintDecoration'] = true;
+
+    const group = new THREE.Group();
+    group.add(smearMesh);
+    group.userData['clickableMeshes'] = [smearMesh];
+
+    const size = this.computeBrushSize(group);
+    this.brushSizes.set(brushId, size);
+
+    return group;
+  }
+
+  private buildSmearGeometry(): THREE.BufferGeometry {
+    const width = 1.2;
+    const height = 0.8;
+    const segments = 32;
+    const geometry = new THREE.PlaneGeometry(width, height, segments, segments);
+    const positions = geometry.getAttribute('position') as THREE.BufferAttribute;
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i);
+      const y = positions.getY(i);
+      const normX = x / halfWidth;
+      const normY = y / halfHeight;
+      const edgeFactor = Math.max(Math.abs(normX), Math.abs(normY));
+
+      if (edgeFactor > 0.75) {
+        const angle = Math.atan2(normY, normX || 0.0001);
+        const strength = 0.18 + Math.random() * 0.08;
+        const attenuation = Math.min(1, (edgeFactor - 0.75) / 0.25);
+        const offsetX = Math.cos(angle) * strength * attenuation * halfWidth * 0.3;
+        const offsetY = Math.sin(angle) * strength * attenuation * halfHeight * 0.35;
+        positions.setXY(i, x - offsetX, y - offsetY);
+      }
+
+      const radiusFalloff = Math.sqrt(normX * normX + normY * normY);
+      const heightNoise = (Math.random() - 0.5) * 0.05 * (1 - Math.min(1, radiusFalloff ** 1.2));
+      positions.setZ(i, heightNoise);
+    }
+
+    positions.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.rotateX(-Math.PI / 2);
+
+    return geometry;
+  }
+
+  private async getProceduralMaterial(
+    brushId: string,
+    config: ProceduralBrushConfig,
+  ): Promise<THREE.MeshStandardMaterial> {
+    const sprinkleKey = config.sprinkleTextureId ?? 'none';
+    const cacheKey = `${brushId}|${config.color}|${sprinkleKey}`;
+    const cached = this.proceduralMaterialCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(config.color),
+      roughness: 0.62,
+      metalness: 0.04,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+
+    const baseAlpha = await this.loadMaskTexture(this.baseSmearMask, 'alpha');
+    material.alphaMap = baseAlpha;
+    material.alphaTest = 0.03;
+
+    if (sprinkleKey !== 'none') {
+      const sprinkle = this.getSprinkleTextureDefinition(sprinkleKey);
+      if (sprinkle) {
+        material.alphaMap = await this.loadMaskTexture(sprinkle, 'alpha');
+        material.roughnessMap = await this.loadMaskTexture(sprinkle, 'roughness');
+      }
+    } else {
+      material.roughnessMap = await this.loadMaskTexture(this.baseSmearMask, 'roughness');
+    }
+
+    material.needsUpdate = true;
+    this.proceduralMaterialCache.set(cacheKey, material);
+    return material;
+  }
+
+  private async loadMaskTexture(
+    definition: SprinkleTextureDefinition,
+    kind: 'alpha' | 'roughness',
+  ): Promise<THREE.Texture> {
+    const cacheKey = `${definition.id}:${kind}`;
+    const cached = this.textureCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const inFlight = this.texturePromises.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const resourcePath = kind === 'alpha' ? definition.alphaMap : definition.roughnessMap;
+
+    if (!resourcePath || typeof document === 'undefined') {
+      const fallback = this.createFallbackTexture(definition, kind);
+      this.textureCache.set(cacheKey, fallback);
+      return fallback;
+    }
+
+    const promise = new Promise<THREE.Texture>((resolve, reject) => {
+      this.textureLoader.load(
+        resourcePath,
+        (texture) => {
+          texture.wrapS = THREE.RepeatWrapping;
+          texture.wrapT = THREE.RepeatWrapping;
+          texture.colorSpace = THREE.LinearSRGBColorSpace;
+          this.textureCache.set(cacheKey, texture);
+          this.texturePromises.delete(cacheKey);
+          resolve(texture);
+        },
+        undefined,
+        (error) => {
+          this.texturePromises.delete(cacheKey);
+          reject(error);
+        },
+      );
+    }).catch(() => {
+      const fallback = this.createFallbackTexture(definition, kind);
+      this.textureCache.set(cacheKey, fallback);
+      return fallback;
+    });
+
+    this.texturePromises.set(cacheKey, promise);
+    return promise;
+  }
+
+  private createFallbackTexture(
+    definition: SprinkleTextureDefinition,
+    kind: 'alpha' | 'roughness',
+  ): THREE.DataTexture {
+    const size = kind === 'alpha' ? 64 : 48;
+    const data = new Uint8Array(size * size);
+    const random = this.createSeededRandom(`${definition.id}:${kind}`);
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const nx = (x / (size - 1)) * 2 - 1;
+        const ny = (y / (size - 1)) * 2 - 1;
+        let value: number;
+
+        if (kind === 'alpha') {
+          value = this.sampleProceduralAlpha(nx, ny, definition.style ?? 'base', random);
+        } else {
+          value = this.sampleProceduralRoughness(nx, ny, definition.style ?? 'base', random);
+        }
+
+        data[y * size + x] = value;
+      }
+    }
+
+    const texture = new THREE.DataTexture(data, size, size, THREE.RedFormat);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.generateMipmaps = false;
+    texture.colorSpace = THREE.LinearSRGBColorSpace;
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  private createSeededRandom(seed: string): () => number {
+    let h = 2166136261 ^ seed.length;
+    for (let i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+
+    return () => {
+      h += 0x6d2b79f5;
+      let t = Math.imul(h ^ (h >>> 15), 1 | h);
+      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  private sampleProceduralAlpha(
+    nx: number,
+    ny: number,
+    style: SprinkleTextureStyle,
+    random: () => number,
+  ): number {
+    const radius = Math.sqrt(nx * nx * 0.9 + ny * ny * 1.1);
+    const falloff = Math.max(0, 1 - radius ** 2.1);
+    const fringe = Math.max(0, 1 - Math.pow(Math.max(radius - 0.55, 0) * 3.2, 1.5));
+    let variation = 0;
+
+    switch (style) {
+      case 'confetti': {
+        variation = (random() - 0.5) * 0.35;
+        if (random() > 0.92) {
+          variation += 0.55 * random();
+        }
+        break;
+      }
+      case 'cocoa': {
+        const wave = Math.sin(nx * 6.5 + ny * 3.1 + random() * Math.PI);
+        variation = wave * 0.2 + (random() - 0.5) * 0.18;
+        break;
+      }
+      default: {
+        variation = (random() - 0.5) * 0.22;
+      }
+    }
+
+    const alpha = Math.max(0, Math.min(1, falloff * (0.85 + variation * fringe)));
+    return Math.round(alpha * 255);
+  }
+
+  private sampleProceduralRoughness(
+    nx: number,
+    ny: number,
+    style: SprinkleTextureStyle,
+    random: () => number,
+  ): number {
+    let base = 0.55 + (random() - 0.5) * 0.1;
+
+    switch (style) {
+      case 'confetti': {
+        if (random() > 0.88) {
+          base += 0.25;
+        }
+        base += Math.sin((nx + ny) * 7) * 0.08;
+        break;
+      }
+      case 'cocoa': {
+        base += Math.sin(nx * 8 + random() * 2) * 0.18;
+        base += (random() - 0.5) * 0.25;
+        break;
+      }
+      default: {
+        base += Math.sin((nx * 2.5 + ny * 3.1) * Math.PI) * 0.05;
+      }
+    }
+
+    const clamped = Math.max(0.08, Math.min(1, base));
+    return Math.round(clamped * 255);
+  }
+
+  private getSprinkleTextureDefinition(id: string): SprinkleTextureDefinition | undefined {
+    if (id === this.baseSmearMask.id) {
+      return this.baseSmearMask;
+    }
+    return this.sprinkleTextures.find((definition) => definition.id === id);
+  }
+
+  private ensureProceduralBrushConfig(brushId: string): ProceduralBrushConfig {
+    const existing = this.proceduralBrushSettings.get(brushId);
+    if (existing) {
+      return existing;
+    }
+
+    const defaults = this.proceduralBrushDefaults[brushId] ?? {
+      color: '#ffffff',
+      sprinkleTextureId: 'none',
+    };
+    const config: ProceduralBrushConfig = { ...defaults };
+    this.proceduralBrushSettings.set(brushId, config);
+    return config;
   }
 
   private createPenCap(): THREE.Mesh {

@@ -21,6 +21,10 @@ describe('PaintPanelComponent', () => {
         'canUndo',
         'canRedo',
         'getLastNonEraserTool',
+        'getSprinkleTextureOptions',
+        'isProceduralBrush',
+        'getProceduralBrushConfig',
+        'updateProceduralBrushSettings',
       ],
       {
         paintMode: false,
@@ -34,6 +38,21 @@ describe('PaintPanelComponent', () => {
 
     paintService.canUndo.and.returnValue(false);
     paintService.canRedo.and.returnValue(false);
+    paintService.getSprinkleTextureOptions.and.returnValue([
+      { id: 'none', name: 'Bez posypki' },
+      { id: 'confetti', name: 'Konfetti' },
+      { id: 'cocoa', name: 'Kakao' },
+    ]);
+    paintService.isProceduralBrush.and.callFake((id: string) => id.startsWith('procedural:'));
+    paintService.getProceduralBrushConfig.and.callFake((id: string) => {
+      if (id === 'procedural:smear-confetti') {
+        return { color: '#ffe8ef', sprinkleTextureId: 'confetti' };
+      }
+      if (id === 'procedural:smear-cocoa') {
+        return { color: '#6b3e2a', sprinkleTextureId: 'cocoa' };
+      }
+      return { color: '#f6d5c2', sprinkleTextureId: 'none' };
+    });
 
     await TestBed.configureTestingModule({
       imports: [PaintPanelComponent],
@@ -55,5 +74,19 @@ describe('PaintPanelComponent', () => {
     const toggleButton = fixture.debugElement.query(By.css('.paint-panel__toggle')).nativeElement as HTMLButtonElement;
     expect(toggleButton.disabled).toBeTrue();
     expect(component.selectedTool).toBe('pen');
+  });
+
+  it('aktualizuje ustawienia proceduralnego pędzla przy zmianie koloru', () => {
+    component.selectedBrush = 'procedural:smear-vanilla';
+    component.ngOnChanges({ paintService: new SimpleChange(null, paintService, true) });
+    fixture.detectChanges();
+
+    component.proceduralBrushColors['procedural:smear-vanilla'] = '#ffffff';
+    component.onProceduralColorChange();
+
+    expect(paintService.updateProceduralBrushSettings).toHaveBeenCalledWith(
+      'procedural:smear-vanilla',
+      jasmine.objectContaining({ color: '#ffffff' }),
+    );
   });
 });
