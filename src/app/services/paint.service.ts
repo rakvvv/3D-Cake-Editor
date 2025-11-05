@@ -566,7 +566,7 @@ export class PaintService {
     const smearMesh = new THREE.Mesh(geometry, material);
     smearMesh.castShadow = true;
     smearMesh.receiveShadow = true;
-    smearMesh.renderOrder = 5;
+    smearMesh.renderOrder = 10;
     smearMesh.userData['isPaintDecoration'] = true;
 
     const group = new THREE.Group();
@@ -633,9 +633,13 @@ export class PaintService {
       metalness: 0.04,
       transparent: true,
       depthWrite: false,
-      depthTest: false,
+      depthTest: true,
       side: THREE.DoubleSide,
     });
+
+    material.polygonOffset = true;
+    material.polygonOffsetFactor = -2;
+    material.polygonOffsetUnits = -0.5;
 
     const sprinkle = this.getSprinkleTextureDefinition(sprinkleKey);
     const baseAlpha = await this.loadTextureResource(SMEAR_BASE_ALPHA_PATH, 'alpha');
@@ -661,7 +665,7 @@ export class PaintService {
   }
 
   private getBrushSurfaceOffset(brushId: string): number {
-    return this.isProceduralBrush(brushId) ? 0.012 : 0.005;
+    return this.isProceduralBrush(brushId) ? 0.02 : 0.005;
   }
 
   private async loadTextureResource(

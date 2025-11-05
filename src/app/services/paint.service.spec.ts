@@ -150,6 +150,11 @@ describe('PaintService', () => {
     expect(material.roughnessMap).toBeDefined();
     expect(material.alphaMap).toBeInstanceOf(THREE.DataTexture);
     expect((material.alphaMap as THREE.DataTexture).format).toBe(THREE.RedFormat);
+    expect(material.depthWrite).toBeFalse();
+    expect(material.depthTest).toBeTrue();
+    expect(material.polygonOffset).toBeTrue();
+    expect(material.polygonOffsetFactor).toBeCloseTo(-2, 6);
+    expect(material.polygonOffsetUnits).toBeCloseTo(-0.5, 6);
     expect(material.alphaTest).toBeCloseTo(0.005, 6);
     expect(getCenterPixelValue(material.alphaMap)).toBe(192);
     expect(getCenterPixelValue(material.roughnessMap)).toBe(164);
@@ -195,7 +200,7 @@ describe('PaintService', () => {
     const modelOffset = (service as any).getBrushSurfaceOffset('trawa.glb');
 
     expect(proceduralOffset).toBeGreaterThan(modelOffset);
-    expect(proceduralOffset).toBeCloseTo(0.012, 6);
+    expect(proceduralOffset).toBeCloseTo(0.02, 6);
     expect(modelOffset).toBeCloseTo(0.005, 6);
   });
 
