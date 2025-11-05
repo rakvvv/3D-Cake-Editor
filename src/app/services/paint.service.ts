@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
 
+const SMEAR_TEXTURE_BASE_PATH = 'assets/textures/smears';
+const SPRINKLE_TEXTURE_BASE_PATH = 'assets/textures/sprinkles';
+
 type PaintTool = 'decoration' | 'pen' | 'eraser';
 
 interface ProceduralBrushConfig {
@@ -10,14 +13,11 @@ interface ProceduralBrushConfig {
   sprinkleTextureId: string | null;
 }
 
-type SprinkleTextureStyle = 'base' | 'confetti' | 'cocoa';
-
 interface SprinkleTextureDefinition {
   id: string;
   name: string;
-  alphaMap?: string;
-  roughnessMap?: string;
-  style?: SprinkleTextureStyle;
+  alphaMap: string;
+  roughnessMap: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -40,23 +40,24 @@ export class PaintService {
   private brushPromises = new Map<string, Promise<THREE.Object3D>>();
   private brushSizes = new Map<string, THREE.Vector3>();
 
-  private readonly baseSmearMask: SprinkleTextureDefinition = {
-    id: 'smear-mask',
-    name: 'Maska smugi',
-    style: 'base',
-  };
-
   private readonly sprinkleTextures: SprinkleTextureDefinition[] = [
-    { id: 'none', name: 'Bez posypki', style: 'base' },
+    {
+      id: 'none',
+      name: 'Gładka smuga',
+      alphaMap: `${SMEAR_TEXTURE_BASE_PATH}/smear-base-alpha.png`,
+      roughnessMap: `${SMEAR_TEXTURE_BASE_PATH}/smear-base-roughness.png`,
+    },
     {
       id: 'confetti',
       name: 'Kolorowe konfetti',
-      style: 'confetti',
+      alphaMap: `${SPRINKLE_TEXTURE_BASE_PATH}/confetti-alpha.png`,
+      roughnessMap: `${SPRINKLE_TEXTURE_BASE_PATH}/confetti-roughness.png`,
     },
     {
       id: 'cocoa',
       name: 'Wiórki czekoladowe',
-      style: 'cocoa',
+      alphaMap: `${SPRINKLE_TEXTURE_BASE_PATH}/cocoa-alpha.png`,
+      roughnessMap: `${SPRINKLE_TEXTURE_BASE_PATH}/cocoa-roughness.png`,
     },
   ];
 
@@ -75,7 +76,6 @@ export class PaintService {
   private textureLoader = new THREE.TextureLoader();
   private textureCache = new Map<string, THREE.Texture>();
   private texturePromises = new Map<string, Promise<THREE.Texture>>();
-  private singleChannelFormat: THREE.PixelFormat | null = null;
 
   private sceneRef: THREE.Scene | null = null;
   private undoStack: THREE.Object3D[] = [];
@@ -632,31 +632,17 @@ export class PaintService {
       side: THREE.DoubleSide,
     });
 
-    const baseAlpha = await this.loadMaskTexture(this.baseSmearMask, 'alpha');
-    const baseRoughness = await this.loadMaskTexture(this.baseSmearMask, 'roughness');
+    const sprinkle = this.getSprinkleTextureDefinition(sprinkleKey);
+    const alphaMap = await this.loadTextureResource(sprinkle.alphaMap, 'alpha');
+    const roughnessMap = await this.loadTextureResource(sprinkle.roughnessMap, 'roughness');
 
-    material.alphaTest = 0.03;
+    if (alphaMap) {
+      material.alphaMap = alphaMap;
+      material.alphaTest = 0.03;
+    }
 
-    if (sprinkleKey !== 'none') {
-      const sprinkle = this.getSprinkleTextureDefinition(sprinkleKey);
-      if (sprinkle) {
-        const sprinkleAlpha = await this.loadMaskTexture(sprinkle, 'alpha');
-        const sprinkleRoughness = await this.loadMaskTexture(sprinkle, 'roughness');
-        material.alphaMap = this.mergeProceduralTextures(baseAlpha, sprinkleAlpha, (base, overlay) =>
-          Math.min(255, Math.max(base, overlay)),
-        );
-        material.roughnessMap = this.mergeProceduralTextures(baseRoughness, sprinkleRoughness, (
-          base,
-          overlay,
-        ) => Math.min(255, Math.round(base * 0.55 + overlay * 0.75)),
-        );
-      } else {
-        material.alphaMap = baseAlpha;
-        material.roughnessMap = baseRoughness;
-      }
-    } else {
-      material.alphaMap = baseAlpha;
-      material.roughnessMap = baseRoughness;
+    if (roughnessMap) {
+      material.roughnessMap = roughnessMap;
     }
 
     material.needsUpdate = true;
@@ -664,11 +650,15 @@ export class PaintService {
     return material;
   }
 
-  private async loadMaskTexture(
-    definition: SprinkleTextureDefinition,
-    kind: 'alpha' | 'roughness',
+  private async loadTextureResource(
+    resourcePath: string | undefined,
+    usage: 'alpha' | 'roughness',
   ): Promise<THREE.Texture> {
-    const cacheKey = `${definition.id}:${kind}`;
+    if (!resourcePath) {
+      return this.createPlaceholderTexture(usage);
+    }
+
+    const cacheKey = `${usage}:${resourcePath}`;
     const cached = this.textureCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -679,227 +669,60 @@ export class PaintService {
       return inFlight;
     }
 
-    const resourcePath = kind === 'alpha' ? definition.alphaMap : definition.roughnessMap;
-
-    if (!resourcePath || typeof document === 'undefined') {
-      const fallback = this.createFallbackTexture(definition, kind);
-      this.textureCache.set(cacheKey, fallback);
-      return fallback;
-    }
-
-    const promise = new Promise<THREE.Texture>((resolve, reject) => {
+    const promise = new Promise<THREE.Texture>((resolve) => {
       this.textureLoader.load(
         resourcePath,
         (texture) => {
-          texture.wrapS = THREE.RepeatWrapping;
-          texture.wrapT = THREE.RepeatWrapping;
-          texture.colorSpace = THREE.NoColorSpace;
-          texture.format = this.getSingleChannelTextureFormat();
+          this.configureMaskTexture(texture, usage);
           this.textureCache.set(cacheKey, texture);
           this.texturePromises.delete(cacheKey);
           resolve(texture);
         },
         undefined,
-        (error) => {
+        () => {
+          console.warn(`PaintService: nie udało się wczytać tekstury ${resourcePath}`);
           this.texturePromises.delete(cacheKey);
-          reject(error);
+          const fallback = this.createPlaceholderTexture(usage);
+          this.textureCache.set(cacheKey, fallback);
+          resolve(fallback);
         },
       );
-    }).catch(() => {
-      const fallback = this.createFallbackTexture(definition, kind);
-      this.textureCache.set(cacheKey, fallback);
-      return fallback;
     });
 
     this.texturePromises.set(cacheKey, promise);
     return promise;
   }
 
-  private createFallbackTexture(
-    definition: SprinkleTextureDefinition,
-    kind: 'alpha' | 'roughness',
-  ): THREE.DataTexture {
-    const size = kind === 'alpha' ? 64 : 48;
-    const data = new Uint8Array(size * size);
-    const random = this.createSeededRandom(`${definition.id}:${kind}`);
-
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const nx = (x / (size - 1)) * 2 - 1;
-        const ny = (y / (size - 1)) * 2 - 1;
-        let value: number;
-
-        if (kind === 'alpha') {
-          value = this.sampleProceduralAlpha(nx, ny, definition.style ?? 'base', random);
-        } else {
-          value = this.sampleProceduralRoughness(nx, ny, definition.style ?? 'base', random);
-        }
-
-        data[y * size + x] = value;
-      }
-    }
-
-    const format = this.getSingleChannelTextureFormat();
-    const texture = new THREE.DataTexture(data, size, size, format);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.generateMipmaps = false;
+  private configureMaskTexture(texture: THREE.Texture, usage: 'alpha' | 'roughness'): void {
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
     texture.colorSpace = THREE.NoColorSpace;
+    if (texture instanceof THREE.DataTexture) {
+      texture.format = THREE.RedFormat;
+      texture.generateMipmaps = false;
+    }
+    texture.needsUpdate = true;
+  }
+
+  private createPlaceholderTexture(usage: 'alpha' | 'roughness'): THREE.DataTexture {
+    const value = usage === 'alpha' ? 255 : 204;
+    const data = new Uint8Array([value]);
+    const texture = new THREE.DataTexture(data, 1, 1, THREE.RedFormat);
+    texture.colorSpace = THREE.NoColorSpace;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
     texture.needsUpdate = true;
     return texture;
   }
 
-  private getSingleChannelTextureFormat(): THREE.PixelFormat {
-    if (this.singleChannelFormat) {
-      return this.singleChannelFormat;
-    }
-
-    if (typeof document !== 'undefined') {
-      const canvas = document.createElement('canvas');
-      const gl2 = canvas.getContext?.('webgl2');
-      if (gl2) {
-        this.singleChannelFormat = THREE.RedFormat;
-        return this.singleChannelFormat;
-      }
-
-      const gl = canvas.getContext?.('webgl') ?? canvas.getContext?.('experimental-webgl');
-      if (gl) {
-        this.singleChannelFormat = THREE.LuminanceFormat;
-        return this.singleChannelFormat;
-      }
-    }
-
-    this.singleChannelFormat = THREE.RedFormat;
-    return this.singleChannelFormat;
-  }
-
-  private createSeededRandom(seed: string): () => number {
-    let h = 2166136261 ^ seed.length;
-    for (let i = 0; i < seed.length; i++) {
-      h ^= seed.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-
-    return () => {
-      h += 0x6d2b79f5;
-      let t = Math.imul(h ^ (h >>> 15), 1 | h);
-      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  private mergeProceduralTextures(
-    base: THREE.Texture,
-    overlay: THREE.Texture,
-    mixer: (base: number, overlay: number) => number,
-  ): THREE.Texture {
-    if (base instanceof THREE.DataTexture && overlay instanceof THREE.DataTexture) {
-      const baseImage = base.image as { data: Uint8Array; width: number; height: number };
-      const overlayImage = overlay.image as { data: Uint8Array; width: number; height: number };
-
-      const width = baseImage.width;
-      const height = baseImage.height;
-      const result = new Uint8Array(width * height);
-
-      const heightDenominator = height > 1 ? height - 1 : 1;
-      const widthDenominator = width > 1 ? width - 1 : 1;
-
-      for (let y = 0; y < height; y++) {
-        const oy = Math.floor((y / heightDenominator) * (overlayImage.height - 1));
-        for (let x = 0; x < width; x++) {
-          const ox = Math.floor((x / widthDenominator) * (overlayImage.width - 1));
-          const baseValue = baseImage.data[y * width + x];
-          const overlayValue = overlayImage.data[oy * overlayImage.width + ox];
-          result[y * width + x] = mixer(baseValue, overlayValue);
-        }
-      }
-
-      const merged = new THREE.DataTexture(
-        result,
-        width,
-        height,
-        base.format as THREE.PixelFormat,
-      );
-      merged.type = base.type;
-      merged.wrapS = base.wrapS;
-      merged.wrapT = base.wrapT;
-      merged.generateMipmaps = false;
-      merged.colorSpace = THREE.NoColorSpace;
-      merged.needsUpdate = true;
-      return merged;
-    }
-
-    return base;
-  }
-
-  private sampleProceduralAlpha(
-    nx: number,
-    ny: number,
-    style: SprinkleTextureStyle,
-    random: () => number,
-  ): number {
-    const radius = Math.sqrt(nx * nx * 0.9 + ny * ny * 1.1);
-    const falloff = Math.max(0, 1 - radius ** 2.1);
-    const fringe = Math.max(0, 1 - Math.pow(Math.max(radius - 0.55, 0) * 3.2, 1.5));
-    let variation = 0;
-
-    switch (style) {
-      case 'confetti': {
-        variation = (random() - 0.5) * 0.35;
-        if (random() > 0.92) {
-          variation += 0.55 * random();
-        }
-        break;
-      }
-      case 'cocoa': {
-        const wave = Math.sin(nx * 6.5 + ny * 3.1 + random() * Math.PI);
-        variation = wave * 0.2 + (random() - 0.5) * 0.18;
-        break;
-      }
-      default: {
-        variation = (random() - 0.5) * 0.22;
-      }
-    }
-
-    const alpha = Math.max(0, Math.min(1, falloff * (0.85 + variation * fringe)));
-    return Math.round(alpha * 255);
-  }
-
-  private sampleProceduralRoughness(
-    nx: number,
-    ny: number,
-    style: SprinkleTextureStyle,
-    random: () => number,
-  ): number {
-    let base = 0.55 + (random() - 0.5) * 0.1;
-
-    switch (style) {
-      case 'confetti': {
-        if (random() > 0.88) {
-          base += 0.25;
-        }
-        base += Math.sin((nx + ny) * 7) * 0.08;
-        break;
-      }
-      case 'cocoa': {
-        base += Math.sin(nx * 8 + random() * 2) * 0.18;
-        base += (random() - 0.5) * 0.25;
-        break;
-      }
-      default: {
-        base += Math.sin((nx * 2.5 + ny * 3.1) * Math.PI) * 0.05;
-      }
-    }
-
-    const clamped = Math.max(0.08, Math.min(1, base));
-    return Math.round(clamped * 255);
-  }
-
-  private getSprinkleTextureDefinition(id: string): SprinkleTextureDefinition | undefined {
-    if (id === this.baseSmearMask.id) {
-      return this.baseSmearMask;
-    }
-    return this.sprinkleTextures.find((definition) => definition.id === id);
+  private getSprinkleTextureDefinition(id: string): SprinkleTextureDefinition {
+    const match = this.sprinkleTextures.find((definition) => definition.id === id);
+    return match ?? this.sprinkleTextures[0];
   }
 
   private ensureProceduralBrushConfig(brushId: string): ProceduralBrushConfig {
