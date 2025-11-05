@@ -632,17 +632,30 @@ export class PaintService {
     });
 
     const baseAlpha = await this.loadMaskTexture(this.baseSmearMask, 'alpha');
-    material.alphaMap = baseAlpha;
+    const baseRoughness = await this.loadMaskTexture(this.baseSmearMask, 'roughness');
+
     material.alphaTest = 0.03;
 
     if (sprinkleKey !== 'none') {
       const sprinkle = this.getSprinkleTextureDefinition(sprinkleKey);
       if (sprinkle) {
-        material.alphaMap = await this.loadMaskTexture(sprinkle, 'alpha');
-        material.roughnessMap = await this.loadMaskTexture(sprinkle, 'roughness');
+        const sprinkleAlpha = await this.loadMaskTexture(sprinkle, 'alpha');
+        const sprinkleRoughness = await this.loadMaskTexture(sprinkle, 'roughness');
+        material.alphaMap = this.mergeProceduralTextures(baseAlpha, sprinkleAlpha, (base, overlay) =>
+          Math.min(255, Math.max(base, overlay)),
+        );
+        material.roughnessMap = this.mergeProceduralTextures(baseRoughness, sprinkleRoughness, (
+          base,
+          overlay,
+        ) => Math.min(255, Math.round(base * 0.55 + overlay * 0.75)),
+        );
+      } else {
+        material.alphaMap = baseAlpha;
+        material.roughnessMap = baseRoughness;
       }
     } else {
-      material.roughnessMap = await this.loadMaskTexture(this.baseSmearMask, 'roughness');
+      material.alphaMap = baseAlpha;
+      material.roughnessMap = baseRoughness;
     }
 
     material.needsUpdate = true;
@@ -724,11 +737,12 @@ export class PaintService {
       }
     }
 
-    const texture = new THREE.DataTexture(data, size, size, THREE.RedFormat);
+    const format = kind === 'alpha' ? THREE.AlphaFormat : THREE.RedFormat;
+    const texture = new THREE.DataTexture(data, size, size, format);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     texture.generateMipmaps = false;
-    texture.colorSpace = THREE.LinearSRGBColorSpace;
+    texture.colorSpace = THREE.NoColorSpace;
     texture.needsUpdate = true;
     return texture;
   }
@@ -746,6 +760,49 @@ export class PaintService {
       t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
+  }
+
+  private mergeProceduralTextures(
+    base: THREE.Texture,
+    overlay: THREE.Texture,
+    mixer: (base: number, overlay: number) => number,
+  ): THREE.Texture {
+    if (base instanceof THREE.DataTexture && overlay instanceof THREE.DataTexture) {
+      const baseImage = base.image as { data: Uint8Array; width: number; height: number };
+      const overlayImage = overlay.image as { data: Uint8Array; width: number; height: number };
+
+      const width = baseImage.width;
+      const height = baseImage.height;
+      const result = new Uint8Array(width * height);
+
+      const heightDenominator = height > 1 ? height - 1 : 1;
+      const widthDenominator = width > 1 ? width - 1 : 1;
+
+      for (let y = 0; y < height; y++) {
+        const oy = Math.floor((y / heightDenominator) * (overlayImage.height - 1));
+        for (let x = 0; x < width; x++) {
+          const ox = Math.floor((x / widthDenominator) * (overlayImage.width - 1));
+          const baseValue = baseImage.data[y * width + x];
+          const overlayValue = overlayImage.data[oy * overlayImage.width + ox];
+          result[y * width + x] = mixer(baseValue, overlayValue);
+        }
+      }
+
+      const merged = new THREE.DataTexture(
+        result,
+        width,
+        height,
+        base.format as THREE.PixelFormat,
+      );
+      merged.wrapS = base.wrapS;
+      merged.wrapT = base.wrapT;
+      merged.generateMipmaps = false;
+      merged.colorSpace = THREE.NoColorSpace;
+      merged.needsUpdate = true;
+      return merged;
+    }
+
+    return base;
   }
 
   private sampleProceduralAlpha(

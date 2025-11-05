@@ -38,6 +38,16 @@ const getStrokeCylinderLengths = (group: THREE.Group): number[] =>
     )
     .map((child) => (child as THREE.Mesh).scale.y);
 
+const getCenterPixelValue = (texture: THREE.Texture | null | undefined): number => {
+  if (!(texture instanceof THREE.DataTexture)) {
+    return 0;
+  }
+  const image = texture.image as { data: Uint8Array; width: number; height: number };
+  const cx = Math.floor(image.width / 2);
+  const cy = Math.floor(image.height / 2);
+  return image.data[cy * image.width + cx];
+};
+
 describe('PaintService', () => {
   let service: PaintService;
   let transformManager: jasmine.SpyObj<TransformManagerService>;
@@ -98,6 +108,8 @@ describe('PaintService', () => {
     expect(material.transparent).toBeTrue();
     expect(material.alphaMap).toBeDefined();
     expect(material.roughnessMap).toBeDefined();
+    expect(material.alphaMap).toBeInstanceOf(THREE.DataTexture);
+    expect((material.alphaMap as THREE.DataTexture).format).toBe(THREE.AlphaFormat);
 
     const nextInstance = await (service as any).getBrushInstance(brushId);
     const nextMesh = nextInstance.children[0] as THREE.Mesh;
@@ -121,6 +133,23 @@ describe('PaintService', () => {
     const material = mesh.material as THREE.MeshStandardMaterial;
     expect(material.alphaMap).toBeDefined();
     expect(material.roughnessMap).toBeDefined();
+    expect(getCenterPixelValue(material.alphaMap)).toBeGreaterThan(0);
+  });
+
+  it('nakłada posypkę na bazową maskę smugi', async () => {
+    const baseInstance = await (service as any).getBrushInstance('procedural:smear-vanilla');
+    const baseMaterial = (baseInstance.children[0] as THREE.Mesh)
+      .material as THREE.MeshStandardMaterial;
+    const baseCenter = getCenterPixelValue(baseMaterial.alphaMap);
+
+    service.updateProceduralBrushSettings('procedural:smear-confetti', {
+      sprinkleTextureId: 'confetti',
+    });
+    const sprinkleInstance = await (service as any).getBrushInstance('procedural:smear-confetti');
+    const sprinkleMaterial = (sprinkleInstance.children[0] as THREE.Mesh)
+      .material as THREE.MeshStandardMaterial;
+
+    expect(getCenterPixelValue(sprinkleMaterial.alphaMap)).toBeGreaterThanOrEqual(baseCenter);
   });
 
   it('skips dense pen updates while tracking continuous strokes', async () => {
