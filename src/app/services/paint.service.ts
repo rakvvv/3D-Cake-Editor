@@ -437,7 +437,8 @@ export class PaintService {
     const brushSize = this.getBrushSize(this.currentBrush, brushModel);
 
     brushModel.position.copy(point);
-    const offset = normal.clone().multiplyScalar(0.005);
+    const offsetAmount = this.getBrushSurfaceOffset(this.currentBrush);
+    const offset = normal.clone().multiplyScalar(offsetAmount);
     brushModel.position.add(offset);
 
     const quaternion = new THREE.Quaternion();
@@ -451,10 +452,9 @@ export class PaintService {
       brushModel.scale.setScalar(scaleFactor);
     }
 
+    scene.add(brushModel);
     brushModel.updateMatrixWorld(true);
     brushModel.matrixAutoUpdate = false;
-
-    scene.add(brushModel);
     brushModel.userData['isSnapped'] = true;
     brushModel.userData['isPaintDecoration'] = true;
     this.trackPaintAddition(brushModel);
@@ -563,6 +563,7 @@ export class PaintService {
     const smearMesh = new THREE.Mesh(geometry, material);
     smearMesh.castShadow = true;
     smearMesh.receiveShadow = true;
+    smearMesh.renderOrder = 5;
     smearMesh.userData['isPaintDecoration'] = true;
 
     const group = new THREE.Group();
@@ -638,7 +639,7 @@ export class PaintService {
 
     if (alphaMap) {
       material.alphaMap = alphaMap;
-      material.alphaTest = 0.03;
+      material.alphaTest = 0.005;
     }
 
     if (roughnessMap) {
@@ -648,6 +649,10 @@ export class PaintService {
     material.needsUpdate = true;
     this.proceduralMaterialCache.set(cacheKey, material);
     return material;
+  }
+
+  private getBrushSurfaceOffset(brushId: string): number {
+    return this.isProceduralBrush(brushId) ? 0.012 : 0.005;
   }
 
   private async loadTextureResource(

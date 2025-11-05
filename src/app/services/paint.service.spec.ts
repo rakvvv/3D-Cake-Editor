@@ -150,6 +150,7 @@ describe('PaintService', () => {
     expect(material.roughnessMap).toBeDefined();
     expect(material.alphaMap).toBeInstanceOf(THREE.DataTexture);
     expect((material.alphaMap as THREE.DataTexture).format).toBe(THREE.RedFormat);
+    expect(material.alphaTest).toBeCloseTo(0.005, 6);
     expect(getCenterPixelValue(material.alphaMap)).toBe(192);
     expect(getCenterPixelValue(material.roughnessMap)).toBe(164);
     const requestedResources = textureLoadSpy.calls.allArgs().map((args) => args[0]);
@@ -182,6 +183,15 @@ describe('PaintService', () => {
     expect(getCenterPixelValue(material.roughnessMap)).toBe(150);
     const requestedResources = textureLoadSpy.calls.allArgs().map((args) => args[0]);
     expect(requestedResources).toEqual([CONFETTI_ALPHA, CONFETTI_ROUGHNESS]);
+  });
+
+  it('stosuje większy offset dla proceduralnych smug', () => {
+    const proceduralOffset = (service as any).getBrushSurfaceOffset('procedural:smear-vanilla');
+    const modelOffset = (service as any).getBrushSurfaceOffset('trawa.glb');
+
+    expect(proceduralOffset).toBeGreaterThan(modelOffset);
+    expect(proceduralOffset).toBeCloseTo(0.012, 6);
+    expect(modelOffset).toBeCloseTo(0.005, 6);
   });
 
   it('nakłada posypkę na bazową maskę smugi', async () => {
