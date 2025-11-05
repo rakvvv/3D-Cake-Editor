@@ -180,9 +180,14 @@ describe('PaintService', () => {
     expect(material.alphaMap).toBeDefined();
     expect(material.roughnessMap).toBeDefined();
     expect(getCenterPixelValue(material.alphaMap)).toBe(230);
-    expect(getCenterPixelValue(material.roughnessMap)).toBe(150);
+    expect(getCenterPixelValue(material.roughnessMap)).toBe(164);
     const requestedResources = textureLoadSpy.calls.allArgs().map((args) => args[0]);
-    expect(requestedResources).toEqual([CONFETTI_ALPHA, CONFETTI_ROUGHNESS]);
+    expect(requestedResources).toEqual([
+      SMEAR_BASE_ALPHA,
+      SMEAR_BASE_ROUGHNESS,
+      CONFETTI_ALPHA,
+      CONFETTI_ROUGHNESS,
+    ]);
   });
 
   it('stosuje większy offset dla proceduralnych smug', () => {
