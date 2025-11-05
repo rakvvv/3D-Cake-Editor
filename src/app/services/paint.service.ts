@@ -737,7 +737,7 @@ export class PaintService {
       }
     }
 
-    const format = kind === 'alpha' ? THREE.AlphaFormat : THREE.RedFormat;
+    const format = THREE.RedFormat;
     const texture = new THREE.DataTexture(data, size, size, format);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
