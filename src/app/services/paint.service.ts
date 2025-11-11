@@ -79,6 +79,7 @@ export class PaintService {
   private textureCache = new Map<string, THREE.DataTexture>();
   private texturePromises = new Map<string, Promise<THREE.DataTexture>>();
   private combinedMaskCache = new Map<string, THREE.DataTexture>();
+  private readonly maskTextureFormat: THREE.PixelFormat = this.detectMaskTextureFormat();
 
   private sceneRef: THREE.Scene | null = null;
   private undoStack: THREE.Object3D[] = [];
@@ -726,7 +727,7 @@ export class PaintService {
   }
 
   private finalizeMaskTexture(texture: THREE.DataTexture): THREE.DataTexture {
-    texture.format = THREE.RedFormat;
+    texture.format = this.maskTextureFormat;
     texture.colorSpace = THREE.NoColorSpace;
     texture.wrapS = THREE.ClampToEdgeWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -748,7 +749,7 @@ export class PaintService {
 
     if (source.data instanceof Uint8Array && typeof source.width === 'number' && typeof source.height === 'number') {
       const channel = this.extractChannelData(source.data, source.width, source.height);
-      return new THREE.DataTexture(channel, source.width, source.height, THREE.RedFormat);
+      return new THREE.DataTexture(channel, source.width, source.height, this.maskTextureFormat);
     }
 
     if (typeof document === 'undefined') {
@@ -790,7 +791,7 @@ export class PaintService {
       }
     }
 
-    return new THREE.DataTexture(channel, dimensions.width, dimensions.height, THREE.RedFormat);
+    return new THREE.DataTexture(channel, dimensions.width, dimensions.height, this.maskTextureFormat);
   }
 
   private extractChannelData(data: Uint8Array, width: number, height: number): Uint8Array {
@@ -859,7 +860,7 @@ export class PaintService {
     }
 
     const mergedTexture = this.finalizeMaskTexture(
-      new THREE.DataTexture(merged, baseImage.width, baseImage.height, THREE.RedFormat),
+      new THREE.DataTexture(merged, baseImage.width, baseImage.height, this.maskTextureFormat),
     );
     this.combinedMaskCache.set(cacheKey, mergedTexture);
     return mergedTexture;
@@ -868,8 +869,29 @@ export class PaintService {
   private createPlaceholderTexture(usage: 'alpha' | 'roughness'): THREE.DataTexture {
     const value = usage === 'alpha' ? 255 : 204;
     const data = new Uint8Array([value]);
-    const texture = new THREE.DataTexture(data, 1, 1, THREE.RedFormat);
+    const texture = new THREE.DataTexture(data, 1, 1, this.maskTextureFormat);
     return this.finalizeMaskTexture(texture);
+  }
+
+  private detectMaskTextureFormat(): THREE.PixelFormat {
+    if (typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas');
+      const gl2 = canvas.getContext('webgl2');
+      if (gl2) {
+        canvas.width = 0;
+        canvas.height = 0;
+        return THREE.RedFormat;
+      }
+
+      const gl = canvas.getContext('webgl') ?? canvas.getContext('experimental-webgl');
+      canvas.width = 0;
+      canvas.height = 0;
+      if (gl) {
+        return THREE.LuminanceFormat;
+      }
+    }
+
+    return THREE.LuminanceFormat;
   }
 
   private getSprinkleTextureDefinition(id: string): SprinkleTextureDefinition {

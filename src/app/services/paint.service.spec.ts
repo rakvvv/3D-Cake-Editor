@@ -48,6 +48,16 @@ const getCenterPixelValue = (texture: THREE.Texture | null | undefined): number 
   return image.data[cy * image.width + cx];
 };
 
+const expectValidMaskFormat = (texture: THREE.Texture | null | undefined): void => {
+  if (!(texture instanceof THREE.DataTexture)) {
+    fail('Expected DataTexture');
+    return;
+  }
+  const format = texture.format as THREE.PixelFormat;
+  const isSupported = format === THREE.RedFormat || format === THREE.LuminanceFormat;
+  expect(isSupported).withContext(`Unexpected mask format: ${format}`).toBeTrue();
+};
+
 const SMEAR_BASE_ALPHA = 'assets/textures/smears/smear-base-alpha.png';
 const SMEAR_BASE_ROUGHNESS = 'assets/textures/smears/smear-base-roughness.png';
 const CONFETTI_ALPHA = 'assets/textures/sprinkles/confetti-alpha.png';
@@ -149,7 +159,7 @@ describe('PaintService', () => {
     expect(material.alphaMap).toBeDefined();
     expect(material.roughnessMap).toBeDefined();
     expect(material.alphaMap).toBeInstanceOf(THREE.DataTexture);
-    expect((material.alphaMap as THREE.DataTexture).format).toBe(THREE.RedFormat);
+    expectValidMaskFormat(material.alphaMap);
     expect(material.depthWrite).toBeFalse();
     expect(material.depthTest).toBeTrue();
     expect(material.polygonOffset).toBeTrue();
