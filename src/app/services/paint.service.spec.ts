@@ -38,14 +38,63 @@ const getStrokeCylinderLengths = (group: THREE.Group): number[] =>
     )
     .map((child) => (child as THREE.Mesh).scale.y);
 
+const getCenterPixelValue = (texture: THREE.Texture | null | undefined): number => {
+  if (!(texture instanceof THREE.DataTexture)) {
+    return 0;
+  }
+  const image = texture.image as { data: Uint8Array; width: number; height: number };
+  const cx = Math.floor(image.width / 2);
+  const cy = Math.floor(image.height / 2);
+  return image.data[cy * image.width + cx];
+};
+
+const SMEAR_BASE_ALPHA = 'assets/textures/smears/smear-base-alpha.png';
+const SMEAR_BASE_ROUGHNESS = 'assets/textures/smears/smear-base-roughness.png';
+const CONFETTI_ALPHA = 'assets/textures/sprinkles/confetti-alpha.png';
+const CONFETTI_ROUGHNESS = 'assets/textures/sprinkles/confetti-roughness.png';
+const COCOA_ALPHA = 'assets/textures/sprinkles/cocoa-alpha.png';
+const COCOA_ROUGHNESS = 'assets/textures/sprinkles/cocoa-roughness.png';
+
+const buildMaskTexture = (value: number): THREE.DataTexture => {
+  const size = 4;
+  const data = new Uint8Array(size * size).fill(value);
+  const texture = new THREE.DataTexture(data, size, size, THREE.RedFormat);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.needsUpdate = true;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  return texture;
+};
+
 describe('PaintService', () => {
   let service: PaintService;
   let transformManager: jasmine.SpyObj<TransformManagerService>;
+  let textureLoadSpy: jasmine.Spy;
+  let maskTextures: Record<string, THREE.DataTexture>;
 
   beforeEach(() => {
     const transformManagerSpy = jasmine.createSpyObj<TransformManagerService>('TransformManagerService', [
       'removeDecorationObject',
     ]);
+    maskTextures = {
+      [SMEAR_BASE_ALPHA]: buildMaskTexture(192),
+      [SMEAR_BASE_ROUGHNESS]: buildMaskTexture(164),
+      [CONFETTI_ALPHA]: buildMaskTexture(230),
+      [CONFETTI_ROUGHNESS]: buildMaskTexture(150),
+      [COCOA_ALPHA]: buildMaskTexture(210),
+      [COCOA_ROUGHNESS]: buildMaskTexture(140),
+    };
+
+    textureLoadSpy = spyOn(THREE.TextureLoader.prototype, 'load').and.callFake((
+      url: string,
+      onLoad?: (texture: THREE.Texture) => void,
+    ) => {
+      const texture = maskTextures[url] ?? buildMaskTexture(128);
+      onLoad?.(texture);
+      return texture;
+    });
+
     TestBed.configureTestingModule({
       providers: [
         PaintService,
@@ -86,6 +135,91 @@ describe('PaintService', () => {
 
     expect(loadSpy).toHaveBeenCalledTimes(1);
     expect(firstInstance).not.toBe(secondInstance);
+  });
+
+  it('tworzy proceduralny pędzel smugi i współdzieli materiał', async () => {
+    textureLoadSpy.calls.reset();
+    const brushId = 'procedural:smear-vanilla';
+    const instance = await (service as any).getBrushInstance(brushId);
+    const mesh = instance.children[0] as THREE.Mesh;
+    expect(mesh.geometry.type).toBe('PlaneGeometry');
+
+    const material = mesh.material as THREE.MeshStandardMaterial;
+    expect(material.transparent).toBeTrue();
+    expect(material.alphaMap).toBeDefined();
+    expect(material.roughnessMap).toBeDefined();
+    expect(material.alphaMap).toBeInstanceOf(THREE.DataTexture);
+    expect((material.alphaMap as THREE.DataTexture).format).toBe(THREE.RedFormat);
+    expect(material.depthWrite).toBeFalse();
+    expect(material.depthTest).toBeTrue();
+    expect(material.polygonOffset).toBeTrue();
+    expect(material.polygonOffsetFactor).toBeCloseTo(-2, 6);
+    expect(material.polygonOffsetUnits).toBeCloseTo(-0.5, 6);
+    expect(material.alphaTest).toBeCloseTo(0.005, 6);
+    expect(getCenterPixelValue(material.alphaMap)).toBe(192);
+    expect(getCenterPixelValue(material.roughnessMap)).toBe(164);
+    const requestedResources = textureLoadSpy.calls.allArgs().map((args) => args[0]);
+    expect(requestedResources).toEqual([SMEAR_BASE_ALPHA, SMEAR_BASE_ROUGHNESS]);
+
+    const nextInstance = await (service as any).getBrushInstance(brushId);
+    const nextMesh = nextInstance.children[0] as THREE.Mesh;
+    expect(nextMesh.material).toBe(material);
+    expect((nextMesh.material as THREE.MeshStandardMaterial).alphaMap).toBe(material.alphaMap);
+  });
+
+  it('zapisuje konfigurację proceduralnego pędzla wraz z teksturą posypki', async () => {
+    textureLoadSpy.calls.reset();
+    const brushId = 'procedural:smear-confetti';
+    service.updateProceduralBrushSettings(brushId, {
+      color: '#ffffff',
+      sprinkleTextureId: 'confetti',
+    });
+
+    const config = service.getProceduralBrushConfig(brushId);
+    expect(config.sprinkleTextureId).toBe('confetti');
+    expect(config.color).toBe('#ffffff');
+
+    const instance = await (service as any).getBrushInstance(brushId);
+    const mesh = instance.children[0] as THREE.Mesh;
+    const material = mesh.material as THREE.MeshStandardMaterial;
+    expect(material.alphaMap).toBeDefined();
+    expect(material.roughnessMap).toBeDefined();
+    expect(getCenterPixelValue(material.alphaMap)).toBe(230);
+    expect(getCenterPixelValue(material.roughnessMap)).toBe(164);
+    const requestedResources = textureLoadSpy.calls.allArgs().map((args) => args[0]);
+    expect(requestedResources).toEqual([
+      SMEAR_BASE_ALPHA,
+      SMEAR_BASE_ROUGHNESS,
+      CONFETTI_ALPHA,
+      CONFETTI_ROUGHNESS,
+    ]);
+  });
+
+  it('stosuje większy offset dla proceduralnych smug', () => {
+    const proceduralOffset = (service as any).getBrushSurfaceOffset('procedural:smear-vanilla');
+    const modelOffset = (service as any).getBrushSurfaceOffset('trawa.glb');
+
+    expect(proceduralOffset).toBeGreaterThan(modelOffset);
+    expect(proceduralOffset).toBeCloseTo(0.02, 6);
+    expect(modelOffset).toBeCloseTo(0.005, 6);
+  });
+
+  it('nakłada posypkę na bazową maskę smugi', async () => {
+    textureLoadSpy.calls.reset();
+    const baseInstance = await (service as any).getBrushInstance('procedural:smear-vanilla');
+    const baseMaterial = (baseInstance.children[0] as THREE.Mesh)
+      .material as THREE.MeshStandardMaterial;
+    const baseCenter = getCenterPixelValue(baseMaterial.alphaMap);
+
+    service.updateProceduralBrushSettings('procedural:smear-confetti', {
+      sprinkleTextureId: 'confetti',
+    });
+    const sprinkleInstance = await (service as any).getBrushInstance('procedural:smear-confetti');
+    const sprinkleMaterial = (sprinkleInstance.children[0] as THREE.Mesh)
+      .material as THREE.MeshStandardMaterial;
+
+    expect(getCenterPixelValue(sprinkleMaterial.alphaMap)).toBe(230);
+    expect(getCenterPixelValue(sprinkleMaterial.alphaMap)).toBeGreaterThan(baseCenter);
   });
 
   it('skips dense pen updates while tracking continuous strokes', async () => {
