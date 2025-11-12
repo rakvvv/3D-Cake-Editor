@@ -442,13 +442,23 @@ export class PaintService {
 
     brushModel.position.copy(point);
     const offsetAmount = this.getBrushSurfaceOffset(this.currentBrush);
-    const offset = normal.clone().multiplyScalar(offsetAmount);
+    const normalizedNormal = normal.clone().normalize();
+    if (normalizedNormal.lengthSq() === 0) {
+      normalizedNormal.set(0, 1, 0);
+    }
+    const offset = normalizedNormal.clone().multiplyScalar(offsetAmount);
     brushModel.position.add(offset);
 
-    const quaternion = new THREE.Quaternion();
-    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal.clone());
-    brushModel.quaternion.copy(quaternion);
-    brushModel.rotation.y = Math.random() * Math.PI * 2;
+    const alignQuaternion = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      normalizedNormal,
+    );
+    const spinQuaternion = new THREE.Quaternion().setFromAxisAngle(
+      normalizedNormal,
+      Math.random() * Math.PI * 2,
+    );
+    brushModel.quaternion.copy(alignQuaternion);
+    brushModel.quaternion.premultiply(spinQuaternion);
 
     const maxDim = Math.max(brushSize.x, brushSize.y, brushSize.z);
     if (maxDim > 0) {
@@ -747,8 +757,12 @@ export class PaintService {
       return null;
     }
 
-    if (source.data instanceof Uint8Array && typeof source.width === 'number' && typeof source.height === 'number') {
-      const channel = this.extractChannelData(source.data, source.width, source.height);
+    if (
+      source.data instanceof Uint8Array &&
+      typeof source.width === 'number' &&
+      typeof source.height === 'number'
+    ) {
+      const channel = this.extractChannelData(source.data, source.width, source.height, usage);
       return new THREE.DataTexture(channel, source.width, source.height, this.maskTextureFormat);
     }
 
@@ -779,22 +793,32 @@ export class PaintService {
     const channel = new Uint8Array(dimensions.width * dimensions.height);
     let total = 0;
     for (let i = 0, srcIndex = 0; i < channel.length; i++, srcIndex += 4) {
-      const value = imageData.data[srcIndex];
+      let value: number;
+      if (usage === 'alpha') {
+        value = imageData.data[Math.min(srcIndex + 3, imageData.data.length - 1)];
+      } else {
+        const r = imageData.data[srcIndex];
+        const g = imageData.data[Math.min(srcIndex + 1, imageData.data.length - 1)];
+        const b = imageData.data[Math.min(srcIndex + 2, imageData.data.length - 1)];
+        value = Math.round((r + g + b) / 3);
+      }
       channel[i] = value;
       total += value;
     }
 
-    if (usage === 'alpha') {
-      const average = total / channel.length;
-      if (average < 6) {
-        return this.createPlaceholderTexture('alpha');
-      }
+    if (usage === 'alpha' && total === 0) {
+      return this.createPlaceholderTexture('alpha');
     }
 
     return new THREE.DataTexture(channel, dimensions.width, dimensions.height, this.maskTextureFormat);
   }
 
-  private extractChannelData(data: Uint8Array, width: number, height: number): Uint8Array {
+  private extractChannelData(
+    data: Uint8Array,
+    width: number,
+    height: number,
+    usage: 'alpha' | 'roughness',
+  ): Uint8Array {
     if (data.length === width * height) {
       return new Uint8Array(data);
     }
@@ -803,7 +827,16 @@ export class PaintService {
     const stride = Math.max(1, Math.floor(data.length / channel.length));
     for (let i = 0, srcIndex = 0; i < channel.length; i++, srcIndex += stride) {
       const clampedIndex = Math.min(srcIndex, data.length - 1);
-      channel[i] = data[clampedIndex];
+      if (usage === 'alpha' && stride >= 4) {
+        channel[i] = data[Math.min(clampedIndex + 3, data.length - 1)];
+      } else if (stride >= 3) {
+        const r = data[clampedIndex];
+        const g = data[Math.min(clampedIndex + 1, data.length - 1)];
+        const b = data[Math.min(clampedIndex + 2, data.length - 1)];
+        channel[i] = Math.round((r + g + b) / 3);
+      } else {
+        channel[i] = data[clampedIndex];
+      }
     }
     return channel;
   }
