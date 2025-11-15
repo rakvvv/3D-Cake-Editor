@@ -30,6 +30,7 @@ export class LayersPanelComponent {
   readonly availableFonts = [
     { label: 'Helvetiker', value: 'helvetiker' },
     { label: 'Optimer', value: 'optimer' },
+    { label: 'Frosting', value: 'frosting'},
   ];
 
   onLayersChanged(newCount: number): void {

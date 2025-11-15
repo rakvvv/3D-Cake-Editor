@@ -38,6 +38,7 @@ export class ThreeSceneService {
   private readonly fontUrls: Record<string, string> = {
     helvetiker: '/fonts/helvetiker_regular.typeface.json',
     optimer: '/fonts/optimer_regular.typeface.json',
+    frosting: '/fonts/frosting_font.typeface.json',
   };
   private readonly candyPalette = [
     0xffa6d6,
