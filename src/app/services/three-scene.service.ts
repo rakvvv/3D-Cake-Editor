@@ -390,7 +390,9 @@ export class ThreeSceneService {
     config: { position: 'top' | 'side'; offset: number; font: string },
   ): Promise<void> {
     const normalizedText = text ?? '';
-    if (!normalizedText.trim().length) {
+    const lines = this.extractTextLines(normalizedText);
+    const hasVisibleCharacters = lines.some((line) => line.trim().length > 0);
+    if (!hasVisibleCharacters) {
       this.removeCakeText();
       return;
     }
@@ -535,6 +537,22 @@ export class ThreeSceneService {
     return group;
   }
 
+  private extractTextLines(value: string): string[] {
+    const rawLines = value.split(/\r?\n/);
+    if (!rawLines.length) {
+      return [''];
+    }
+    let endIndex = rawLines.length - 1;
+    while (endIndex > 0 && !rawLines[endIndex].trim().length) {
+      endIndex--;
+    }
+    return rawLines.slice(0, endIndex + 1);
+  }
+
+  private getLineHeight(size: number): number {
+    return size * 1.25;
+  }
+
   private computeGlyphAdvance(font: Font, character: string, size: number): number {
     const glyphs = font?.data?.glyphs ?? {};
     const directGlyph = glyphs[character];
@@ -558,6 +576,7 @@ export class ThreeSceneService {
     }
     return Math.max(box.max.x - box.min.x, fallback * 0.25);
   }
+
 
   private disposeTextObject(object: THREE.Object3D): void {
     const materials = new Set<THREE.Material>();

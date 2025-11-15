@@ -94,14 +94,15 @@
 
     <div class="sidebar-panel__control sidebar-panel__control--inline">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-text-value">Tekst napisu</label>
-      <input
+      <textarea
         id="cake-text-value"
-        class="sidebar-panel__input"
-        type="text"
+        class="sidebar-panel__input sidebar-panel__textarea"
+        rows="3"
         [(ngModel)]="cakeTextValue"
         (ngModelChange)="updateCakeOptions()"
         [disabled]="!cakeText"
-      />
+      placeholder="Np. Ola&#10;20 lat"
+      ></textarea>
     </div>
 
     <ng-container *ngIf="cakeText">
