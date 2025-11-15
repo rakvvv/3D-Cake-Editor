@@ -174,6 +174,7 @@ describe('ThreeSceneService', () => {
       cake_text_position: 'top',
       cake_text_offset: 0,
       cake_text_font: 'optimer',
+      cake_text_depth: 0.1,
       layers: 1,
       shape: 'cylinder',
       layerSizes: [1],
@@ -194,7 +195,7 @@ describe('ThreeSceneService', () => {
     const sceneInit = TestBed.inject(SceneInitService);
     (sceneInit as any).scene = new THREE.Scene();
     spyOn<any>(service, 'loadFont').and.returnValue(Promise.resolve({} as Font));
-    spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+    const textFactorySpy = spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
       new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
     ));
 
@@ -219,6 +220,7 @@ describe('ThreeSceneService', () => {
       cake_text_position: 'side',
       cake_text_offset: 0.25,
       cake_text_font: 'helvetiker',
+      cake_text_depth: 0.1,
       layers: 1,
       shape: 'cylinder',
       layerSizes: [1],
@@ -244,7 +246,7 @@ describe('ThreeSceneService', () => {
     const sceneInit = TestBed.inject(SceneInitService);
     (sceneInit as any).scene = new THREE.Scene();
     spyOn<any>(service, 'loadFont').and.returnValue(Promise.resolve({} as Font));
-    spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+    const textFactorySpy = spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
       new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
     ));
 
@@ -269,6 +271,7 @@ describe('ThreeSceneService', () => {
       cake_text_position: 'side',
       cake_text_offset: 0,
       cake_text_font: 'helvetiker',
+      cake_text_depth: 0.1,
       layers: 1,
       shape: 'cylinder',
       layerSizes: [1],
@@ -294,9 +297,10 @@ describe('ThreeSceneService', () => {
     }
 
     const distance = Math.sqrt(letterMesh.position.x ** 2 + letterMesh.position.z ** 2);
-    const expectedDistance = Math.max(1 - 0.1 + 0.01, 0.2);
+    const expectedDistance = Math.max(1 + 0.1 / 2 - 0.01, 0.2);
     expect(letterMesh.rotation.y).toBeCloseTo(0, 3);
     expect(distance).toBeCloseTo(expectedDistance, 3);
+    expect(textFactorySpy.calls.first()?.args[2].verticalAlign).toBe('baseline');
   }));
 
   it('lays the top text flat on the cake surface', fakeAsync(() => {
@@ -315,6 +319,7 @@ describe('ThreeSceneService', () => {
       cake_text_position: 'top',
       cake_text_offset: 0,
       cake_text_font: 'helvetiker',
+      cake_text_depth: 0.1,
       layers: 1,
       shape: 'cylinder',
       layerSizes: [1],
@@ -339,29 +344,32 @@ describe('ThreeSceneService', () => {
     expect(textMesh.position.y).toBeCloseTo(2 + 0.1 / 2 + 0.001, 5);
   }));
 
-  it('measures glyph width from geometry when curving text', () => {
-    const font = {} as Font;
-    const geometries = [
-      new THREE.BoxGeometry(0.5, 0.2, 0.1),
-      new THREE.BoxGeometry(0.8, 0.2, 0.1),
-    ];
-    geometries[0].translate(0.25, 0, 0);
-    geometries[1].translate(0.4, 0, 0);
-
+  it('uses glyph advance metrics to space curved text evenly', () => {
+    const material = new THREE.MeshBasicMaterial();
     spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
-      new THREE.Mesh(geometries.shift() ?? new THREE.BoxGeometry(0.5, 0.2, 0.1), new THREE.MeshBasicMaterial())
+      new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.1), material)
     ));
 
-    const measureSpy = spyOn<any>(service, 'measureTextWidth').and.callThrough();
-    const material = new THREE.MeshBasicMaterial();
-    const group = (service as any).createCurvedTextGroup(font, 'AB', 1, 0.1, 1, material);
+    const font = {
+      data: {
+        glyphs: {
+          A: { ha: 200 },
+          B: { ha: 800 },
+        },
+        resolution: 1000,
+      }
+    } as unknown as Font;
 
-    expect(measureSpy).toHaveBeenCalledTimes(2);
+    const radius = 2;
+    const group = (service as any).createCurvedTextGroup(font, 'AB', 1, 0.1, radius, material);
+
     const meshes = group.children as THREE.Mesh[];
     expect(meshes.length).toBe(2);
     const [first, second] = meshes;
-    expect(first.position.x).toBeLessThan(second.position.x);
-    const arcDelta = Math.abs(Math.atan2(second.position.x, second.position.z) - Math.atan2(first.position.x, first.position.z));
-    expect(arcDelta).toBeGreaterThan(0.1);
+    const firstAngle = Math.atan2(first.position.x, first.position.z);
+    const secondAngle = Math.atan2(second.position.x, second.position.z);
+    const actualArc = Math.abs(secondAngle - firstAngle) * radius;
+    const expectedSpacing = 0.1 + 0.05 + 0.4; // half of first glyph + spacing + half of second glyph
+    expect(actualArc).toBeCloseTo(expectedSpacing, 2);
   });
 });

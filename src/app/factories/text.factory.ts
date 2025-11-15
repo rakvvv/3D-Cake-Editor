@@ -9,6 +9,7 @@ export interface TextMeshOptions {
   material?: THREE.MeshPhongMaterialParameters | THREE.Material;
   center?: boolean;
   align?: 'center' | 'left';
+  verticalAlign?: 'center' | 'baseline';
   bevelEnabled?: boolean;
   bevelThickness?: number;
   bevelSize?: number;
@@ -32,7 +33,9 @@ export class TextFactory {
       geometry.computeBoundingBox();
       if (geometry.boundingBox) {
         const { min, max } = geometry.boundingBox;
-        const offsetY = -((min.y + max.y) / 2);
+        const offsetY = options.verticalAlign === 'baseline'
+          ? -min.y
+          : -((min.y + max.y) / 2);
         const offsetZ = -((min.z + max.z) / 2);
         geometry.translate(-min.x, offsetY, offsetZ);
       }
@@ -43,7 +46,9 @@ export class TextFactory {
       if (geometry.boundingBox) {
         const { min, max } = geometry.boundingBox;
         const offsetX = -((min.x + max.x) / 2);
-        const offsetY = -((min.y + max.y) / 2);
+        const offsetY = options.verticalAlign === 'baseline'
+          ? -min.y
+          : -((min.y + max.y) / 2);
         const offsetZ = -((min.z + max.z) / 2);
         geometry.translate(offsetX, offsetY, offsetZ);
       }

@@ -26,6 +26,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     cake_text_position: 'top',
     cake_text_offset: 0,
     cake_text_font: 'helvetiker',
+    cake_text_depth: 0.1,
     layers: 1,
     shape: 'cylinder',
     layerSizes: [1],

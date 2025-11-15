@@ -23,6 +23,7 @@ export class LayersPanelComponent {
   cakeTextPosition: 'top' | 'side' = 'top';
   cakeTextOffset = 0;
   cakeTextFont = 'helvetiker';
+  cakeTextDepth = 0.1;
   cakeLayers = 1;
   cakeShape: 'cylinder' | 'cuboid' = 'cylinder';
   cakeLayerSizes: number[] = [1];
@@ -78,6 +79,7 @@ export class LayersPanelComponent {
       cake_text_position: this.cakeTextPosition,
       cake_text_offset: this.cakeTextOffset,
       cake_text_font: this.cakeTextFont,
+      cake_text_depth: this.cakeTextDepth,
       layers: this.cakeLayers,
       shape: this.cakeShape,
       layerSizes: [...this.cakeLayerSizes],

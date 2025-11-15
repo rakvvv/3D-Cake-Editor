@@ -105,7 +105,7 @@ export class ThreeSceneService {
 
     if (this.options.cake_text) {
       const textSize = this.getCakeHorizontalSize() * 0.2;
-      const textDepth = 0.1;
+      const textDepth = this.getTextDepth();
       const textHeight = this.getCakeTopHeight();
       const textConfig = this.resolveTextConfig(this.options);
       void this.loadAndAddText(this.options.cake_text_value, textSize, textHeight, textDepth, textConfig);
@@ -202,7 +202,7 @@ export class ThreeSceneService {
 
     if (options.cake_text) {
       const textSize = this.getCakeHorizontalSize() * 0.2;
-      const textDepth = 0.1;
+      const textDepth = this.getTextDepth(options);
       const textHeight = this.getCakeTopHeight();
       const textConfig = this.resolveTextConfig(options);
       void this.loadAndAddText(options.cake_text_value, textSize, textHeight, textDepth, textConfig);
@@ -336,6 +336,12 @@ export class ThreeSceneService {
     return (Math.min(width, depth) / 2) * scale;
   }
 
+  private getTextDepth(options?: CakeOptions): number {
+    const source = options ?? this.options;
+    const requested = source.cake_text_depth ?? 0.1;
+    return THREE.MathUtils.clamp(requested, 0.05, 0.35);
+  }
+
   private resolveTextConfig(options: CakeOptions): {
     position: 'top' | 'side';
     offset: number;
@@ -404,9 +410,10 @@ export class ThreeSceneService {
       ? THREE.MathUtils.clamp(1 + normalizedOffset, 0.5, 1.5)
       : 1;
     const clearance = 0.01;
+    const sideRadius = Math.max(baseRadius + depth / 2 - clearance, 0.2);
     const radius = config.position === 'top'
       ? Math.max(baseRadius * radiusMultiplier, 0.2)
-      : Math.max(baseRadius - depth + clearance, 0.2);
+      : sideRadius;
 
     const candyMaterial = this.createCandyMaterial(normalizedText);
     const textObject = config.position === 'top'
@@ -469,13 +476,17 @@ export class ThreeSceneService {
     }
 
     const characters = Array.from(text);
-    const letterSpacing = Math.max(size * 0.08, 0.03);
+    const advances = characters.map((character) => this.computeGlyphAdvance(font, character, size));
+    const averageAdvance = advances.length
+      ? advances.reduce((sum, advance) => sum + advance, 0) / advances.length
+      : size * 0.5;
+    const letterSpacing = Math.max(size * 0.04, averageAdvance * 0.1);
     const radiusSafe = Math.max(radius, 0.2);
 
-    const letters = characters.map((character) => {
+    const letters = characters.map((character, index) => {
+      const advance = advances[index];
       if (!character.trim().length) {
-        const width = size * 0.55;
-        return { mesh: null as THREE.Mesh | null, width };
+        return { mesh: null as THREE.Mesh | null, width: advance };
       }
 
       const mesh = TextFactory.createTextMesh(font, character, {
@@ -484,14 +495,15 @@ export class ThreeSceneService {
         curveSegments: 12,
         center: false,
         align: 'left',
+        verticalAlign: 'baseline',
         material,
         bevelEnabled: true,
         bevelSize: Math.max(size * 0.03, 0.008),
         bevelThickness: Math.max(depth * 0.4, 0.01),
         bevelSegments: 3,
       });
-      const width = this.measureTextWidth(mesh.geometry as THREE.BufferGeometry, size * 0.6);
-      return { mesh, width };
+      const width = advance || this.measureTextWidth(mesh.geometry as THREE.BufferGeometry, size * 0.6);
+      return { mesh, width: Math.max(width, size * 0.2) };
     });
 
     const totalArcLength = letters.reduce((length, letter, index) => {
@@ -517,6 +529,21 @@ export class ThreeSceneService {
     });
 
     return group;
+  }
+
+  private computeGlyphAdvance(font: Font, character: string, size: number): number {
+    const glyphs = font?.data?.glyphs ?? {};
+    const directGlyph = glyphs[character];
+    const codeGlyph = glyphs[character.charCodeAt(0)];
+    const fallbackGlyph = glyphs[' '] ?? glyphs[32];
+    const glyph = directGlyph ?? codeGlyph ?? fallbackGlyph;
+    const resolution = font?.data?.resolution ?? 1000;
+    const baseAdvance = glyph?.ha ?? resolution * 0.5;
+    const advance = (baseAdvance / resolution) * size;
+    if (!isFinite(advance) || advance <= 0) {
+      return size * (character.trim().length ? 0.5 : 0.4);
+    }
+    return advance;
   }
 
   private measureTextWidth(geometry: THREE.BufferGeometry, fallback: number): number {
