@@ -397,7 +397,10 @@ export class ThreeSceneService {
     const radiusMultiplier = config.position === 'top'
       ? THREE.MathUtils.clamp(1 + normalizedOffset, 0.5, 1.5)
       : 1;
-    const radius = Math.max(baseRadius * radiusMultiplier + (config.position === 'side' ? depth * 2 : 0), 0.2);
+    const clearance = 0.01;
+    const radius = config.position === 'top'
+      ? Math.max(baseRadius * radiusMultiplier, 0.2)
+      : Math.max(baseRadius - depth + clearance, 0.2);
 
     const textObject = this.createCurvedTextGroup(font, normalizedText, size, depth, radius);
     textObject.userData['isCakeText'] = true;
@@ -458,7 +461,7 @@ export class ThreeSceneService {
           0,
           Math.cos(angle) * radiusSafe,
         );
-        letter.mesh.rotation.y = angle + Math.PI;
+        letter.mesh.rotation.y = angle;
         group.add(letter.mesh);
       }
       cursor += letter.width + (index < letters.length - 1 ? letterSpacing : 0);

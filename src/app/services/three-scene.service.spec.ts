@@ -239,4 +239,63 @@ describe('ThreeSceneService', () => {
       expect(textMesh.position.y).toBeCloseTo(expectedHeight + offset, 3);
     }
   }));
+
+  it('orients side text outwards and keeps it close to the cake surface', fakeAsync(() => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    (sceneInit as any).scene = new THREE.Scene();
+    spyOn<any>(service, 'loadFont').and.returnValue(Promise.resolve({} as Font));
+    spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+      new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+    ));
+
+    const metadata: CakeMetadata = {
+      shape: 'cylinder',
+      layers: 1,
+      layerHeight: 2,
+      totalHeight: 2,
+      layerSizes: [1],
+      layerDimensions: [
+        { index: 0, size: 1, height: 2, topY: 1, bottomY: -1, radius: 1 },
+      ],
+      radius: 1,
+    };
+
+    (service as any).cakeMetadata = metadata;
+    (service as any).options = {
+      cake_size: 1,
+      cake_color: '#fff000',
+      cake_text: true,
+      cake_text_value: 'A',
+      cake_text_position: 'side',
+      cake_text_offset: 0,
+      cake_text_font: 'helvetiker',
+      layers: 1,
+      shape: 'cylinder',
+      layerSizes: [1],
+    };
+
+    (service as any).loadAndAddText('A', 1, 2, 0.1, {
+      position: 'side',
+      offset: 0,
+      font: 'helvetiker',
+    });
+    tick();
+
+    const textMesh = (service as any).textMesh as THREE.Group | null;
+    expect(textMesh).toBeTruthy();
+    if (!textMesh) {
+      return;
+    }
+
+    const letterMesh = textMesh.children.find((child) => (child as THREE.Mesh).isMesh) as THREE.Mesh | undefined;
+    expect(letterMesh).toBeDefined();
+    if (!letterMesh) {
+      return;
+    }
+
+    const distance = Math.sqrt(letterMesh.position.x ** 2 + letterMesh.position.z ** 2);
+    const expectedDistance = Math.max(1 - 0.1 + 0.01, 0.2);
+    expect(letterMesh.rotation.y).toBeCloseTo(0, 3);
+    expect(distance).toBeCloseTo(expectedDistance, 3);
+  }));
 });
