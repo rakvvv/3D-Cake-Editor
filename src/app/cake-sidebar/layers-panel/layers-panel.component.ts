@@ -20,9 +20,16 @@ export class LayersPanelComponent {
   cakeColor = '#ffea00';
   cakeText = false;
   cakeTextValue = 'Urodziny';
+  cakeTextPosition: 'top' | 'side' = 'top';
+  cakeTextOffset = 0;
+  cakeTextFont = 'helvetiker';
   cakeLayers = 1;
   cakeShape: 'cylinder' | 'cuboid' = 'cylinder';
   cakeLayerSizes: number[] = [1];
+  readonly availableFonts = [
+    { label: 'Helvetiker', value: 'helvetiker' },
+    { label: 'Optimer', value: 'optimer' },
+  ];
 
   onLayersChanged(newCount: number): void {
     const targetCount = Math.max(1, Math.min(5, Math.round(Number(newCount))));
@@ -68,6 +75,9 @@ export class LayersPanelComponent {
       cake_color: this.cakeColor,
       cake_text: this.cakeText,
       cake_text_value: this.cakeTextValue,
+      cake_text_position: this.cakeTextPosition,
+      cake_text_offset: this.cakeTextOffset,
+      cake_text_font: this.cakeTextFont,
       layers: this.cakeLayers,
       shape: this.cakeShape,
       layerSizes: [...this.cakeLayerSizes],

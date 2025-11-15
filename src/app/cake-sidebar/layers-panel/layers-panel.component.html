@@ -99,9 +99,53 @@
         class="sidebar-panel__input"
         type="text"
         [(ngModel)]="cakeTextValue"
-        (change)="updateCakeOptions()"
+        (ngModelChange)="updateCakeOptions()"
         [disabled]="!cakeText"
       />
     </div>
+
+    <ng-container *ngIf="cakeText">
+      <div class="sidebar-panel__control sidebar-panel__control--inline">
+        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-text-position">Pozycja napisu</label>
+        <select
+          id="cake-text-position"
+          class="sidebar-panel__select"
+          [(ngModel)]="cakeTextPosition"
+          (ngModelChange)="updateCakeOptions()"
+        >
+          <option value="top">Góra tortu</option>
+          <option value="side">Bok tortu</option>
+        </select>
+      </div>
+
+      <div class="sidebar-panel__control sidebar-panel__control--range">
+        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-text-offset">
+          Offset napisu
+          <span class="sidebar-panel__value">{{ cakeTextOffset | number: '1.1-2' }}</span>
+        </label>
+        <input
+          id="cake-text-offset"
+          class="sidebar-panel__range"
+          type="range"
+          min="-0.5"
+          max="0.5"
+          step="0.05"
+          [(ngModel)]="cakeTextOffset"
+          (ngModelChange)="updateCakeOptions()"
+        />
+      </div>
+
+      <div class="sidebar-panel__control sidebar-panel__control--inline">
+        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-text-font">Czcionka</label>
+        <select
+          id="cake-text-font"
+          class="sidebar-panel__select"
+          [(ngModel)]="cakeTextFont"
+          (ngModelChange)="updateCakeOptions()"
+        >
+          <option *ngFor="let font of availableFonts" [ngValue]="font.value">{{ font.label }}</option>
+        </select>
+      </div>
+    </ng-container>
   </div>
 </section>

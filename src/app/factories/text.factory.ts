@@ -7,6 +7,7 @@ export interface TextMeshOptions {
   depth: number;
   curveSegments?: number;
   material?: THREE.MeshPhongMaterialParameters;
+  center?: boolean;
 }
 
 export class TextFactory {
@@ -17,7 +18,9 @@ export class TextFactory {
       depth: options.depth,
       curveSegments: options.curveSegments ?? 12,
     });
-    geometry.center();
+    if (options.center ?? true) {
+      geometry.center();
+    }
 
     const materialParams = options.material ?? { color: 0xff0000 };
     const material = new THREE.MeshPhongMaterial(materialParams);
