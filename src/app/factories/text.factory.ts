@@ -34,7 +34,7 @@ export class TextFactory {
       if (geometry.boundingBox) {
         const { min, max } = geometry.boundingBox;
         const offsetY = options.verticalAlign === 'baseline'
-          ? -min.y
+          ? 0
           : -((min.y + max.y) / 2);
         const offsetZ = -((min.z + max.z) / 2);
         geometry.translate(-min.x, offsetY, offsetZ);
@@ -47,7 +47,7 @@ export class TextFactory {
         const { min, max } = geometry.boundingBox;
         const offsetX = -((min.x + max.x) / 2);
         const offsetY = options.verticalAlign === 'baseline'
-          ? -min.y
+          ? 0
           : -((min.y + max.y) / 2);
         const offsetZ = -((min.z + max.z) / 2);
         geometry.translate(offsetX, offsetY, offsetZ);

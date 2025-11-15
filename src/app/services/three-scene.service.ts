@@ -339,7 +339,7 @@ export class ThreeSceneService {
   private getTextDepth(options?: CakeOptions): number {
     const source = options ?? this.options;
     const requested = source.cake_text_depth ?? 0.1;
-    return THREE.MathUtils.clamp(requested, 0.05, 0.35);
+    return THREE.MathUtils.clamp(requested, 0.01, 0.35);
   }
 
   private resolveTextConfig(options: CakeOptions): {
@@ -480,7 +480,7 @@ export class ThreeSceneService {
     const averageAdvance = advances.length
       ? advances.reduce((sum, advance) => sum + advance, 0) / advances.length
       : size * 0.5;
-    const letterSpacing = Math.max(size * 0.04, averageAdvance * 0.1);
+    const letterSpacing = Math.max(size * 0.08, averageAdvance * 0.18);
     const radiusSafe = Math.max(radius, 0.2);
 
     const letters = characters.map((character, index) => {
@@ -503,7 +503,10 @@ export class ThreeSceneService {
         bevelSegments: 3,
       });
       const width = advance || this.measureTextWidth(mesh.geometry as THREE.BufferGeometry, size * 0.6);
-      return { mesh, width: Math.max(width, size * 0.2) };
+      const normalizedWidth = Math.max(width, size * 0.2);
+      const bufferGeometry = mesh.geometry as THREE.BufferGeometry;
+      bufferGeometry.translate(-normalizedWidth / 2, 0, 0);
+      return { mesh, width: normalizedWidth };
     });
 
     const totalArcLength = letters.reduce((length, letter, index) => {

@@ -369,7 +369,32 @@ describe('ThreeSceneService', () => {
     const firstAngle = Math.atan2(first.position.x, first.position.z);
     const secondAngle = Math.atan2(second.position.x, second.position.z);
     const actualArc = Math.abs(secondAngle - firstAngle) * radius;
-    const expectedSpacing = 0.1 + 0.05 + 0.4; // half of first glyph + spacing + half of second glyph
+    const expectedSpacing = 0.1 + 0.1 + 0.4; // half of first glyph + spacing + half of second glyph
     expect(actualArc).toBeCloseTo(expectedSpacing, 2);
+  });
+
+  it('keeps baseline descenders below the alignment line on curved text', () => {
+    const material = new THREE.MeshBasicMaterial();
+    spyOn(TextFactory, 'createTextMesh').and.callFake(() => {
+      const geometry = new THREE.BoxGeometry(0.4, 0.6, 0.1);
+      geometry.translate(0, -0.2, 0);
+      const mesh = new THREE.Mesh(geometry, material);
+      return mesh;
+    });
+
+    const font = {
+      data: {
+        glyphs: {
+          y: { ha: 300 },
+        },
+        resolution: 1000,
+      }
+    } as unknown as Font;
+
+    const group = (service as any).createCurvedTextGroup(font, 'y', 1, 0.1, 1, material);
+    const mesh = group.children[0] as THREE.Mesh;
+    const geometry = mesh.geometry as THREE.BufferGeometry;
+    geometry.computeBoundingBox();
+    expect(geometry.boundingBox?.min.y ?? 0).toBeLessThan(0);
   });
 });
