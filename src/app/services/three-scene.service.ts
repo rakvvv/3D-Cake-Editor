@@ -32,8 +32,20 @@ export class ThreeSceneService {
   public cakeBase: THREE.Group | null = null;
   private cakeLayers: THREE.Mesh[] = [];
   private cakeMetadata: CakeMetadata | null = null;
-  private textMesh: THREE.Mesh | null = null;
-  private font: Font | null = null;
+  private textMesh: THREE.Object3D | null = null;
+  private readonly fontCache = new Map<string, Font>();
+  private readonly fontLoader = new FontLoader();
+  private readonly fontUrls: Record<string, string> = {
+    helvetiker: '/fonts/helvetiker_regular.typeface.json',
+    optimer: '/fonts/optimer_regular.typeface.json',
+    frosting: '/fonts/frosting_font.typeface.json',
+  };
+  private readonly candyPalette = [
+    0xffa6d6,
+    0xffd3a3,
+    0x9ee7ff,
+    0xc0ffc7,
+  ];
   private options!: CakeOptions;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
@@ -94,9 +106,10 @@ export class ThreeSceneService {
 
     if (this.options.cake_text) {
       const textSize = this.getCakeHorizontalSize() * 0.2;
-      const textDepth = 0.1;
+      const textDepth = this.getTextDepth();
       const textHeight = this.getCakeTopHeight();
-      this.loadAndAddText(this.options.cake_text_value, textSize, textHeight, textDepth);
+      const textConfig = this.resolveTextConfig(this.options);
+      void this.loadAndAddText(this.options.cake_text_value, textSize, textHeight, textDepth, textConfig);
     }
 
     container.addEventListener('mousedown', (event) => {
@@ -190,9 +203,10 @@ export class ThreeSceneService {
 
     if (options.cake_text) {
       const textSize = this.getCakeHorizontalSize() * 0.2;
-      const textDepth = 0.1;
+      const textDepth = this.getTextDepth(options);
       const textHeight = this.getCakeTopHeight();
-      this.loadAndAddText(options.cake_text_value, textSize, textHeight, textDepth);
+      const textConfig = this.resolveTextConfig(options);
+      void this.loadAndAddText(options.cake_text_value, textSize, textHeight, textDepth, textConfig);
     } else {
       this.removeCakeText();
     }
@@ -301,8 +315,7 @@ export class ThreeSceneService {
     }
 
     this.scene.remove(this.textMesh);
-    this.textMesh.geometry.dispose();
-    (this.textMesh.material as THREE.Material).dispose();
+    this.disposeTextObject(this.textMesh);
     this.textMesh = null;
   }
 
@@ -324,43 +337,293 @@ export class ThreeSceneService {
     return (Math.min(width, depth) / 2) * scale;
   }
 
-  private async loadFont(): Promise<void> {
-    if (this.font) return;
-    return new Promise((resolve, reject) => {
-      const loader = new FontLoader();
-      loader.load(
-        '/fonts/helvetiker_regular.typeface.json',
+  private getTextDepth(options?: CakeOptions): number {
+    const source = options ?? this.options;
+    const requested = source.cake_text_depth ?? 0.1;
+    return THREE.MathUtils.clamp(requested, 0.01, 0.35);
+  }
+
+  private resolveTextConfig(options: CakeOptions): {
+    position: 'top' | 'side';
+    offset: number;
+    font: string;
+  } {
+    return {
+      position: options.cake_text_position ?? 'top',
+      offset: options.cake_text_offset ?? 0,
+      font: options.cake_text_font ?? 'helvetiker',
+    };
+  }
+
+  private async loadFont(fontKey: string): Promise<Font> {
+    const cached = this.fontCache.get(fontKey);
+    if (cached) {
+      return cached;
+    }
+
+    const url = this.fontUrls[fontKey];
+    if (!url) {
+      throw new Error(`Font mapping for "${fontKey}" not found.`);
+    }
+
+    return await new Promise<Font>((resolve, reject) => {
+      this.fontLoader.load(
+        url,
         (font) => {
-          this.font = font;
-          console.log('Font załadowany', font);
-          resolve();
+          this.fontCache.set(fontKey, font);
+          resolve(font);
         },
         undefined,
         (err) => {
-          console.error('Błąd ładowania czcionki:', err);
+          console.error(`Błąd ładowania czcionki ${fontKey}:`, err);
           reject(err);
         }
       );
     });
   }
 
-  private async loadAndAddText(text: string, size: number, height: number, depth: number): Promise<void> {
-    if (!this.font) {
-      await this.loadFont();
-    }
-    if (!this.font) {
-      console.error('Font nie został załadowany');
+  private async loadAndAddText(
+    text: string,
+    size: number,
+    height: number,
+    depth: number,
+    config: { position: 'top' | 'side'; offset: number; font: string },
+  ): Promise<void> {
+    const normalizedText = text ?? '';
+    const lines = this.extractTextLines(normalizedText);
+    const hasVisibleCharacters = lines.some((line) => line.trim().length > 0);
+    if (!hasVisibleCharacters) {
+      this.removeCakeText();
       return;
     }
-    const newTextMesh = TextFactory.createTextMesh(this.font, text, {
+
+    let font: Font;
+    try {
+      font = await this.loadFont(config.font);
+    } catch (error) {
+      console.error('Nie udało się załadować czcionki dla napisu.', error);
+      return;
+    }
+
+    this.removeCakeText();
+
+    const baseRadius = Math.max(this.getCakeHorizontalSize(), 0.3);
+    const normalizedOffset = THREE.MathUtils.clamp(config.offset, -0.5, 0.5);
+    const radiusMultiplier = config.position === 'top'
+      ? THREE.MathUtils.clamp(1 + normalizedOffset, 0.5, 1.5)
+      : 1;
+    const clearance = 0.01;
+    const sideRadius = Math.max(baseRadius + depth / 2 - clearance, 0.2);
+    const radius = config.position === 'top'
+      ? Math.max(baseRadius * radiusMultiplier, 0.2)
+      : sideRadius;
+
+    const candyMaterial = this.createCandyMaterial(normalizedText);
+    const textObject = config.position === 'top'
+      ? this.createFlatTextGroup(font, normalizedText, size, depth, candyMaterial)
+      : this.createCurvedTextGroup(font, normalizedText, size, depth, radius, candyMaterial);
+    textObject.userData['isCakeText'] = true;
+
+    if (config.position === 'top') {
+      const lift = depth / 2 + 0.001;
+      textObject.position.set(0, height + lift, 0);
+      textObject.rotation.x = -Math.PI / 2;
+    } else {
+      const totalHeight = this.getCakeTopHeight();
+      const halfHeight = totalHeight / 2;
+      textObject.position.set(0, halfHeight + normalizedOffset * halfHeight, 0);
+    }
+
+    this.scene.add(textObject);
+    this.textMesh = textObject;
+  }
+
+  private createFlatTextGroup(
+    font: Font,
+    text: string,
+    size: number,
+    depth: number,
+    material: THREE.Material,
+  ): THREE.Group {
+    const group = new THREE.Group();
+    if (!text) {
+      return group;
+    }
+
+    const mesh = TextFactory.createTextMesh(font, text, {
       size,
       depth,
-      curveSegments: 12,
+      curveSegments: 16,
+      center: true,
+      material,
+      bevelEnabled: true,
+      bevelThickness: Math.max(depth * 0.6, 0.015),
+      bevelSize: Math.max(size * 0.04, 0.01),
+      bevelSegments: 5,
     });
-    newTextMesh.position.set(0, height + 0.02, 0);
-    newTextMesh.rotation.x = -0.5 * Math.PI;
-    this.scene.add(newTextMesh);
-    this.textMesh = newTextMesh;
+    group.add(mesh);
+    return group;
+  }
+
+  private createCurvedTextGroup(
+    font: Font,
+    text: string,
+    size: number,
+    depth: number,
+    radius: number,
+    material: THREE.Material,
+  ): THREE.Group {
+    const group = new THREE.Group();
+    if (!text) {
+      return group;
+    }
+
+    const characters = Array.from(text);
+    const advances = characters.map((character) => this.computeGlyphAdvance(font, character, size));
+    const averageAdvance = advances.length
+      ? advances.reduce((sum, advance) => sum + advance, 0) / advances.length
+      : size * 0.5;
+    const letterSpacing = Math.max(size * 0.08, averageAdvance * 0.18);
+    const radiusSafe = Math.max(radius, 0.2);
+
+    const letters = characters.map((character, index) => {
+      const advance = advances[index];
+      if (!character.trim().length) {
+        return { mesh: null as THREE.Mesh | null, width: advance };
+      }
+
+      const mesh = TextFactory.createTextMesh(font, character, {
+        size,
+        depth,
+        curveSegments: 12,
+        center: false,
+        align: 'left',
+        verticalAlign: 'baseline',
+        material,
+        bevelEnabled: true,
+        bevelSize: Math.max(size * 0.03, 0.008),
+        bevelThickness: Math.max(depth * 0.4, 0.01),
+        bevelSegments: 3,
+      });
+      const width = advance || this.measureTextWidth(mesh.geometry as THREE.BufferGeometry, size * 0.6);
+      const normalizedWidth = Math.max(width, size * 0.2);
+      const bufferGeometry = mesh.geometry as THREE.BufferGeometry;
+      bufferGeometry.translate(-normalizedWidth / 2, 0, 0);
+      return { mesh, width: normalizedWidth };
+    });
+
+    const totalArcLength = letters.reduce((length, letter, index) => {
+      const spacing = index < letters.length - 1 ? letterSpacing : 0;
+      return length + letter.width + spacing;
+    }, 0);
+    const startArc = -totalArcLength / 2;
+
+    let cursor = startArc;
+    letters.forEach((letter, index) => {
+      const centerArc = cursor + letter.width / 2;
+      const angle = radiusSafe > 0 ? centerArc / radiusSafe : 0;
+      if (letter.mesh) {
+        letter.mesh.position.set(
+          Math.sin(angle) * radiusSafe,
+          0,
+          Math.cos(angle) * radiusSafe,
+        );
+        letter.mesh.rotation.y = angle;
+        group.add(letter.mesh);
+      }
+      cursor += letter.width + (index < letters.length - 1 ? letterSpacing : 0);
+    });
+
+    return group;
+  }
+
+  private extractTextLines(value: string): string[] {
+    const rawLines = value.split(/\r?\n/);
+    if (!rawLines.length) {
+      return [''];
+    }
+    let endIndex = rawLines.length - 1;
+    while (endIndex > 0 && !rawLines[endIndex].trim().length) {
+      endIndex--;
+    }
+    return rawLines.slice(0, endIndex + 1);
+  }
+
+  private getLineHeight(size: number): number {
+    return size * 1.25;
+  }
+
+  private computeGlyphAdvance(font: Font, character: string, size: number): number {
+    const glyphs = font?.data?.glyphs ?? {};
+    const directGlyph = glyphs[character];
+    const codeGlyph = glyphs[character.charCodeAt(0)];
+    const fallbackGlyph = glyphs[' '] ?? glyphs[32];
+    const glyph = directGlyph ?? codeGlyph ?? fallbackGlyph;
+    const resolution = font?.data?.resolution ?? 1000;
+    const baseAdvance = glyph?.ha ?? resolution * 0.5;
+    const advance = (baseAdvance / resolution) * size;
+    if (!isFinite(advance) || advance <= 0) {
+      return size * (character.trim().length ? 0.5 : 0.4);
+    }
+    return advance;
+  }
+
+  private measureTextWidth(geometry: THREE.BufferGeometry, fallback: number): number {
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    if (!box) {
+      return fallback;
+    }
+    return Math.max(box.max.x - box.min.x, fallback * 0.25);
+  }
+
+
+  private disposeTextObject(object: THREE.Object3D): void {
+    const materials = new Set<THREE.Material>();
+    object.traverse((node) => {
+      const mesh = node as THREE.Mesh;
+      if (!mesh.isMesh) {
+        return;
+      }
+      const geometry = mesh.geometry as THREE.BufferGeometry | undefined;
+      geometry?.dispose();
+      const material = mesh.material;
+      if (Array.isArray(material)) {
+        material.forEach((mat) => materials.add(mat));
+      } else if (material) {
+        materials.add(material);
+      }
+    });
+    materials.forEach((material) => material.dispose());
+  }
+
+  private createCandyMaterial(seedText: string): THREE.MeshPhysicalMaterial {
+    const paletteIndex = this.pickCandyPaletteIndex(seedText);
+    const paletteColor = new THREE.Color(this.candyPalette[paletteIndex]);
+    const cakeColor = new THREE.Color(this.options?.cake_color ?? '#ffffff');
+    const baseColor = paletteColor.clone().lerp(cakeColor, 0.15);
+    const faceColor = baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.3);
+    const material = new THREE.MeshPhysicalMaterial({
+      color: faceColor,
+      roughness: 0.35,
+      metalness: 0.05,
+      clearcoat: 0.2,
+      clearcoatRoughness: 0.6,
+    });
+    material.emissive.copy(baseColor.clone().multiplyScalar(0.2));
+    material.emissiveIntensity = 0.35;
+    material.sheen = 0.5;
+    material.sheenColor = faceColor.clone().lerp(new THREE.Color('#fff5fb'), 0.4);
+    material.sheenRoughness = 0.25;
+    return material;
+  }
+
+  private pickCandyPaletteIndex(seedText: string): number {
+    if (!seedText.length) {
+      return 0;
+    }
+    const seed = seedText.split('').reduce((acc, char, index) => acc + char.charCodeAt(0) * (index + 1), 0);
+    return Math.abs(seed) % this.candyPalette.length;
   }
   // TODO zapisanie sceny lokalnie
   public getSceneConfiguration(): any {

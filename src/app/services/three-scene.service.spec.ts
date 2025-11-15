@@ -1,7 +1,8 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 
 import * as THREE from 'three';
+import { Font } from 'three/examples/jsm/loaders/FontLoader.js';
 
 import { ThreeSceneService } from './three-scene.service';
 import { TransformControlsService } from './transform-controls-service';
@@ -10,6 +11,8 @@ import { DecorationsService } from './decorations.service';
 import { PaintService } from './paint.service';
 import { ExportService } from './export.service';
 import { SnapService } from './snap.service';
+import { TextFactory } from '../factories/text.factory';
+import { CakeMetadata } from '../factories/three-objects.factory';
 
 class TransformControlsServiceStub {
   private selected: THREE.Object3D | null = null;
@@ -152,5 +155,246 @@ describe('ThreeSceneService', () => {
     service.resetCameraView();
 
     expect(sceneInit.resetCameraView).toHaveBeenCalled();
+  });
+
+  it('uses the configured font when creating cake text', fakeAsync(() => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    (sceneInit as any).scene = new THREE.Scene();
+    const mockFont = {} as Font;
+    const loadFontSpy = spyOn<any>(service, 'loadFont').and.returnValue(Promise.resolve(mockFont));
+    const textFactorySpy = spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+      new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+    ));
+
+    (service as any).options = {
+      cake_size: 1,
+      cake_color: '#fff000',
+      cake_text: true,
+      cake_text_value: 'Hi',
+      cake_text_position: 'top',
+      cake_text_offset: 0,
+      cake_text_font: 'optimer',
+      cake_text_depth: 0.1,
+      layers: 1,
+      shape: 'cylinder',
+      layerSizes: [1],
+    };
+
+    (service as any).loadAndAddText('Hi', 1, 1, 0.1, {
+      position: 'top',
+      offset: 0,
+      font: 'optimer',
+    });
+    tick();
+
+    expect(loadFontSpy).toHaveBeenCalledWith('optimer');
+    expect(textFactorySpy.calls.first()?.args[0]).toBe(mockFont);
+  }));
+
+  it('positions text along the cake side with offset', fakeAsync(() => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    (sceneInit as any).scene = new THREE.Scene();
+    spyOn<any>(service, 'loadFont').and.returnValue(Promise.resolve({} as Font));
+    const textFactorySpy = spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+      new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+    ));
+
+    const metadata: CakeMetadata = {
+      shape: 'cylinder',
+      layers: 1,
+      layerHeight: 2,
+      totalHeight: 2,
+      layerSizes: [1],
+      layerDimensions: [
+        { index: 0, size: 1, height: 2, topY: 1, bottomY: -1, radius: 1 },
+      ],
+      radius: 1,
+    };
+
+    (service as any).cakeMetadata = metadata;
+    (service as any).options = {
+      cake_size: 1,
+      cake_color: '#fff000',
+      cake_text: true,
+      cake_text_value: 'OK',
+      cake_text_position: 'side',
+      cake_text_offset: 0.25,
+      cake_text_font: 'helvetiker',
+      cake_text_depth: 0.1,
+      layers: 1,
+      shape: 'cylinder',
+      layerSizes: [1],
+    };
+
+    (service as any).loadAndAddText('OK', 1, 2, 0.1, {
+      position: 'side',
+      offset: 0.25,
+      font: 'helvetiker',
+    });
+    tick();
+
+    const textMesh = (service as any).textMesh as THREE.Object3D | null;
+    expect(textMesh).toBeTruthy();
+    if (textMesh) {
+      const expectedHeight = (service as any).getCakeTopHeight() / 2;
+      const offset = 0.25 * expectedHeight;
+      expect(textMesh.position.y).toBeCloseTo(expectedHeight + offset, 3);
+    }
+  }));
+
+  it('orients side text outwards and keeps it close to the cake surface', fakeAsync(() => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    (sceneInit as any).scene = new THREE.Scene();
+    spyOn<any>(service, 'loadFont').and.returnValue(Promise.resolve({} as Font));
+    const textFactorySpy = spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+      new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+    ));
+
+    const metadata: CakeMetadata = {
+      shape: 'cylinder',
+      layers: 1,
+      layerHeight: 2,
+      totalHeight: 2,
+      layerSizes: [1],
+      layerDimensions: [
+        { index: 0, size: 1, height: 2, topY: 1, bottomY: -1, radius: 1 },
+      ],
+      radius: 1,
+    };
+
+    (service as any).cakeMetadata = metadata;
+    (service as any).options = {
+      cake_size: 1,
+      cake_color: '#fff000',
+      cake_text: true,
+      cake_text_value: 'A',
+      cake_text_position: 'side',
+      cake_text_offset: 0,
+      cake_text_font: 'helvetiker',
+      cake_text_depth: 0.1,
+      layers: 1,
+      shape: 'cylinder',
+      layerSizes: [1],
+    };
+
+    (service as any).loadAndAddText('A', 1, 2, 0.1, {
+      position: 'side',
+      offset: 0,
+      font: 'helvetiker',
+    });
+    tick();
+
+    const textMesh = (service as any).textMesh as THREE.Group | null;
+    expect(textMesh).toBeTruthy();
+    if (!textMesh) {
+      return;
+    }
+
+    const letterMesh = textMesh.children.find((child) => (child as THREE.Mesh).isMesh) as THREE.Mesh | undefined;
+    expect(letterMesh).toBeDefined();
+    if (!letterMesh) {
+      return;
+    }
+
+    const distance = Math.sqrt(letterMesh.position.x ** 2 + letterMesh.position.z ** 2);
+    const expectedDistance = Math.max(1 + 0.1 / 2 - 0.01, 0.2);
+    expect(letterMesh.rotation.y).toBeCloseTo(0, 3);
+    expect(distance).toBeCloseTo(expectedDistance, 3);
+    expect(textFactorySpy.calls.first()?.args[2].verticalAlign).toBe('baseline');
+  }));
+
+  it('lays the top text flat on the cake surface', fakeAsync(() => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    (sceneInit as any).scene = new THREE.Scene();
+    spyOn<any>(service, 'loadFont').and.returnValue(Promise.resolve({} as Font));
+    const textFactorySpy = spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+      new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+    ));
+
+    (service as any).options = {
+      cake_size: 1,
+      cake_color: '#fff000',
+      cake_text: true,
+      cake_text_value: 'TOP',
+      cake_text_position: 'top',
+      cake_text_offset: 0,
+      cake_text_font: 'helvetiker',
+      cake_text_depth: 0.1,
+      layers: 1,
+      shape: 'cylinder',
+      layerSizes: [1],
+    };
+
+    (service as any).loadAndAddText('TOP', 1, 2, 0.1, {
+      position: 'top',
+      offset: 0,
+      font: 'helvetiker',
+    });
+    tick();
+
+    const textMesh = (service as any).textMesh as THREE.Group | null;
+    expect(textMesh).toBeTruthy();
+    if (!textMesh) {
+      return;
+    }
+
+    expect(textFactorySpy).toHaveBeenCalledTimes(1);
+    expect(textMesh.children.length).toBe(1);
+    expect(textMesh.rotation.x).toBeCloseTo(-Math.PI / 2, 5);
+    expect(textMesh.position.y).toBeCloseTo(2 + 0.1 / 2 + 0.001, 5);
+  }));
+
+  it('uses glyph advance metrics to space curved text evenly', () => {
+    const material = new THREE.MeshBasicMaterial();
+    spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+      new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.1), material)
+    ));
+
+    const font = {
+      data: {
+        glyphs: {
+          A: { ha: 200 },
+          B: { ha: 800 },
+        },
+        resolution: 1000,
+      }
+    } as unknown as Font;
+
+    const radius = 2;
+    const group = (service as any).createCurvedTextGroup(font, 'AB', 1, 0.1, radius, material);
+
+    const meshes = group.children as THREE.Mesh[];
+    expect(meshes.length).toBe(2);
+    const [first, second] = meshes;
+    const firstAngle = Math.atan2(first.position.x, first.position.z);
+    const secondAngle = Math.atan2(second.position.x, second.position.z);
+    const actualArc = Math.abs(secondAngle - firstAngle) * radius;
+    const expectedSpacing = 0.1 + 0.1 + 0.4; // half of first glyph + spacing + half of second glyph
+    expect(actualArc).toBeCloseTo(expectedSpacing, 2);
+  });
+
+  it('keeps baseline descenders below the alignment line on curved text', () => {
+    const material = new THREE.MeshBasicMaterial();
+    spyOn(TextFactory, 'createTextMesh').and.callFake(() => {
+      const geometry = new THREE.BoxGeometry(0.4, 0.6, 0.1);
+      geometry.translate(0, -0.2, 0);
+      const mesh = new THREE.Mesh(geometry, material);
+      return mesh;
+    });
+
+    const font = {
+      data: {
+        glyphs: {
+          y: { ha: 300 },
+        },
+        resolution: 1000,
+      }
+    } as unknown as Font;
+
+    const group = (service as any).createCurvedTextGroup(font, 'y', 1, 0.1, 1, material);
+    const mesh = group.children[0] as THREE.Mesh;
+    const geometry = mesh.geometry as THREE.BufferGeometry;
+    geometry.computeBoundingBox();
+    expect(geometry.boundingBox?.min.y ?? 0).toBeLessThan(0);
   });
 });

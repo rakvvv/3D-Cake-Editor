@@ -3,6 +3,10 @@ export interface CakeOptions {
   cake_color: string;
   cake_text: boolean;
   cake_text_value: string;
+  cake_text_position: 'top' | 'side';
+  cake_text_offset: number;
+  cake_text_font: string;
+  cake_text_depth: number;
   layers: number;
   shape: 'cylinder' | 'cuboid';
   layerSizes: number[];
