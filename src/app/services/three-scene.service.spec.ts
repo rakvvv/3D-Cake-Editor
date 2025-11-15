@@ -339,38 +339,29 @@ describe('ThreeSceneService', () => {
     expect(textMesh.position.y).toBeCloseTo(2 + 0.1 / 2 + 0.001, 5);
   }));
 
-  it('derives glyph advance from font data when curving text', () => {
-    const font = {
-      data: {
-        resolution: 1000,
-        glyphs: {
-          A: { ha: 900 },
-          B: { ha: 450 },
-          ' ': { ha: 300 },
-        },
-      }
-    } as unknown as Font;
+  it('measures glyph width from geometry when curving text', () => {
+    const font = {} as Font;
+    const geometries = [
+      new THREE.BoxGeometry(0.5, 0.2, 0.1),
+      new THREE.BoxGeometry(0.8, 0.2, 0.1),
+    ];
+    geometries[0].translate(0.25, 0, 0);
+    geometries[1].translate(0.4, 0, 0);
 
-    const textFactorySpy = spyOn(TextFactory, 'createTextMesh').and.callFake((_, character: string) => {
-      const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
-      mesh.name = character;
-      return mesh;
-    });
+    spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+      new THREE.Mesh(geometries.shift() ?? new THREE.BoxGeometry(0.5, 0.2, 0.1), new THREE.MeshBasicMaterial())
+    ));
 
-    const getGlyphAdvanceSpy = spyOn<any>(service, 'getGlyphAdvance').and.callThrough();
-    const group = (service as any).createCurvedTextGroup(font, 'AB', 1, 0.1, 1);
+    const measureSpy = spyOn<any>(service, 'measureTextWidth').and.callThrough();
+    const material = new THREE.MeshBasicMaterial();
+    const group = (service as any).createCurvedTextGroup(font, 'AB', 1, 0.1, 1, material);
 
-    expect(textFactorySpy).toHaveBeenCalledTimes(2);
-    expect(getGlyphAdvanceSpy).toHaveBeenCalledWith(font, 'A', 1, jasmine.any(Number));
-    expect(getGlyphAdvanceSpy).toHaveBeenCalledWith(font, 'B', 1, jasmine.any(Number));
-
+    expect(measureSpy).toHaveBeenCalledTimes(2);
     const meshes = group.children as THREE.Mesh[];
     expect(meshes.length).toBe(2);
-    const [meshA, meshB] = meshes;
-    expect(meshA.position.x).toBeLessThan(meshB.position.x);
-    const arcA = Math.atan2(meshA.position.x, meshA.position.z);
-    const arcB = Math.atan2(meshB.position.x, meshB.position.z);
-    expect(Math.abs(arcB - arcA)).toBeGreaterThan(0.2);
+    const [first, second] = meshes;
+    expect(first.position.x).toBeLessThan(second.position.x);
+    const arcDelta = Math.abs(Math.atan2(second.position.x, second.position.z) - Math.atan2(first.position.x, first.position.z));
+    expect(arcDelta).toBeGreaterThan(0.1);
   });
 });

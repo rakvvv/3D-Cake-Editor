@@ -39,6 +39,12 @@ export class ThreeSceneService {
     helvetiker: '/fonts/helvetiker_regular.typeface.json',
     optimer: '/fonts/optimer_regular.typeface.json',
   };
+  private readonly candyPalette = [
+    0xffa6d6,
+    0xffd3a3,
+    0x9ee7ff,
+    0xc0ffc7,
+  ];
   private options!: CakeOptions;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
@@ -369,8 +375,6 @@ export class ThreeSceneService {
     });
   }
 
-  private readonly textMaterial: THREE.MeshPhongMaterialParameters = { color: 0x2f1f1f, shininess: 60 };
-
   private async loadAndAddText(
     text: string,
     size: number,
@@ -404,9 +408,10 @@ export class ThreeSceneService {
       ? Math.max(baseRadius * radiusMultiplier, 0.2)
       : Math.max(baseRadius - depth + clearance, 0.2);
 
+    const candyMaterial = this.createCandyMaterial(normalizedText);
     const textObject = config.position === 'top'
-      ? this.createFlatTextGroup(font, normalizedText, size, depth)
-      : this.createCurvedTextGroup(font, normalizedText, size, depth, radius);
+      ? this.createFlatTextGroup(font, normalizedText, size, depth, candyMaterial)
+      : this.createCurvedTextGroup(font, normalizedText, size, depth, radius, candyMaterial);
     textObject.userData['isCakeText'] = true;
 
     if (config.position === 'top') {
@@ -423,7 +428,13 @@ export class ThreeSceneService {
     this.textMesh = textObject;
   }
 
-  private createFlatTextGroup(font: Font, text: string, size: number, depth: number): THREE.Group {
+  private createFlatTextGroup(
+    font: Font,
+    text: string,
+    size: number,
+    depth: number,
+    material: THREE.Material,
+  ): THREE.Group {
     const group = new THREE.Group();
     if (!text) {
       return group;
@@ -432,27 +443,38 @@ export class ThreeSceneService {
     const mesh = TextFactory.createTextMesh(font, text, {
       size,
       depth,
-      curveSegments: 12,
+      curveSegments: 16,
       center: true,
-      material: this.textMaterial,
+      material,
+      bevelEnabled: true,
+      bevelThickness: Math.max(depth * 0.6, 0.015),
+      bevelSize: Math.max(size * 0.04, 0.01),
+      bevelSegments: 5,
     });
     group.add(mesh);
     return group;
   }
 
-  private createCurvedTextGroup(font: Font, text: string, size: number, depth: number, radius: number): THREE.Group {
+  private createCurvedTextGroup(
+    font: Font,
+    text: string,
+    size: number,
+    depth: number,
+    radius: number,
+    material: THREE.Material,
+  ): THREE.Group {
     const group = new THREE.Group();
     if (!text) {
       return group;
     }
 
     const characters = Array.from(text);
-    const letterSpacing = Math.max(size * 0.15, 0.04);
+    const letterSpacing = Math.max(size * 0.08, 0.03);
     const radiusSafe = Math.max(radius, 0.2);
 
     const letters = characters.map((character) => {
-      if (character.trim().length === 0) {
-        const width = this.getGlyphAdvance(font, ' ', size, size * 0.5);
+      if (!character.trim().length) {
+        const width = size * 0.55;
         return { mesh: null as THREE.Mesh | null, width };
       }
 
@@ -461,9 +483,14 @@ export class ThreeSceneService {
         depth,
         curveSegments: 12,
         center: false,
-        material: this.textMaterial,
+        align: 'left',
+        material,
+        bevelEnabled: true,
+        bevelSize: Math.max(size * 0.03, 0.008),
+        bevelThickness: Math.max(depth * 0.4, 0.01),
+        bevelSegments: 3,
       });
-      const width = this.getGlyphAdvance(font, character, size, size * 0.6);
+      const width = this.measureTextWidth(mesh.geometry as THREE.BufferGeometry, size * 0.6);
       return { mesh, width };
     });
 
@@ -492,20 +519,17 @@ export class ThreeSceneService {
     return group;
   }
 
-  private getGlyphAdvance(font: Font, character: string, size: number, fallback: number): number {
-    const data = (font as any)?.data;
-    const glyphs = data?.glyphs ?? {};
-    const glyph = glyphs[character] ?? glyphs[character.toUpperCase()] ?? glyphs[character.toLowerCase()];
-    const ha = typeof glyph?.ha === 'number' ? glyph.ha : null;
-    if (!ha) {
+  private measureTextWidth(geometry: THREE.BufferGeometry, fallback: number): number {
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    if (!box) {
       return fallback;
     }
-    const resolution = data?.resolution ?? 1000;
-    const scale = size / resolution;
-    return Math.max(ha * scale, fallback * 0.3);
+    return Math.max(box.max.x - box.min.x, fallback * 0.25);
   }
 
   private disposeTextObject(object: THREE.Object3D): void {
+    const materials = new Set<THREE.Material>();
     object.traverse((node) => {
       const mesh = node as THREE.Mesh;
       if (!mesh.isMesh) {
@@ -515,11 +539,41 @@ export class ThreeSceneService {
       geometry?.dispose();
       const material = mesh.material;
       if (Array.isArray(material)) {
-        material.forEach((mat) => mat.dispose());
+        material.forEach((mat) => materials.add(mat));
       } else if (material) {
-        material.dispose();
+        materials.add(material);
       }
     });
+    materials.forEach((material) => material.dispose());
+  }
+
+  private createCandyMaterial(seedText: string): THREE.MeshPhysicalMaterial {
+    const paletteIndex = this.pickCandyPaletteIndex(seedText);
+    const paletteColor = new THREE.Color(this.candyPalette[paletteIndex]);
+    const cakeColor = new THREE.Color(this.options?.cake_color ?? '#ffffff');
+    const baseColor = paletteColor.clone().lerp(cakeColor, 0.15);
+    const faceColor = baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.3);
+    const material = new THREE.MeshPhysicalMaterial({
+      color: faceColor,
+      roughness: 0.35,
+      metalness: 0.05,
+      clearcoat: 0.2,
+      clearcoatRoughness: 0.6,
+    });
+    material.emissive.copy(baseColor.clone().multiplyScalar(0.2));
+    material.emissiveIntensity = 0.35;
+    material.sheen = 0.5;
+    material.sheenColor = faceColor.clone().lerp(new THREE.Color('#fff5fb'), 0.4);
+    material.sheenRoughness = 0.25;
+    return material;
+  }
+
+  private pickCandyPaletteIndex(seedText: string): number {
+    if (!seedText.length) {
+      return 0;
+    }
+    const seed = seedText.split('').reduce((acc, char, index) => acc + char.charCodeAt(0) * (index + 1), 0);
+    return Math.abs(seed) % this.candyPalette.length;
   }
   // TODO zapisanie sceny lokalnie
   public getSceneConfiguration(): any {

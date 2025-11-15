@@ -35,43 +35,115 @@ export interface CakeCreationResult {
 }
 
 export class ThreeObjectsFactory {
-  private static textureLoader = new THREE.TextureLoader();
-  private static colorMap: THREE.Texture | null = null;
-  private static bumpMap: THREE.Texture | null = null;
-  private static roughnessMap: THREE.Texture | null = null;
-
-  private static ensureTexturesLoaded(): void {
-    if (this.colorMap && this.bumpMap && this.roughnessMap) {
-      return;
-    }
-
-    this.colorMap = this.textureLoader.load('/assets/textures/cake_color.jpg');
-    this.bumpMap = this.textureLoader.load('/assets/textures/cake_bump.jpg');
-    this.roughnessMap = this.textureLoader.load('/assets/textures/cake_roughness.jpg');
-
-    [this.colorMap, this.bumpMap, this.roughnessMap].forEach((texture) => {
-      if (!texture) {
-        return;
-      }
-      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(2, 2);
-    });
-  }
+  private static frostingCache = new Map<string, THREE.Texture>();
 
   private static createCakeMaterial(color: string): THREE.MeshStandardMaterial {
-    this.ensureTexturesLoaded();
-
+    const frostingTexture = this.getFrostingTexture(color);
+    const highlightColor = new THREE.Color(color).lerp(new THREE.Color('#fff7fb'), 0.35);
     const material = new THREE.MeshStandardMaterial({
-      map: this.colorMap ?? undefined,
-      bumpMap: this.bumpMap ?? undefined,
-      bumpScale: 0.1,
-      roughnessMap: this.roughnessMap ?? undefined,
-      roughness: 0.7,
-      metalness: 0.0,
+      map: frostingTexture,
+      bumpMap: frostingTexture,
+      bumpScale: 0.05,
+      roughnessMap: frostingTexture,
+      roughness: 0.4,
+      metalness: 0.05,
     });
 
-    material.color = new THREE.Color(color);
+    material.color.copy(highlightColor);
+    material.emissive.copy(new THREE.Color(color).multiplyScalar(0.12));
+    material.emissiveIntensity = 0.4;
     return material;
+  }
+
+  private static getFrostingTexture(color: string): THREE.Texture {
+    const key = color.toLowerCase();
+    const cached = this.frostingCache.get(key);
+    if (cached) {
+      return cached;
+    }
+
+    const tint = new THREE.Color(color);
+    const texture = typeof document !== 'undefined'
+      ? this.createCanvasFrostingTexture(tint)
+      : this.createDataFrostingTexture(tint);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1.4, 0.9);
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    this.frostingCache.set(key, texture);
+    return texture;
+  }
+
+  private static createCanvasFrostingTexture(color: THREE.Color): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 256;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Canvas rendering context not available.');
+    }
+
+    const pastel = color.clone().lerp(new THREE.Color('#fff5f9'), 0.65);
+    context.fillStyle = `#${pastel.getHexString()}`;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    const accent = color.clone().lerp(new THREE.Color('#ffd4ec'), 0.4);
+    context.strokeStyle = `rgba(${Math.round(accent.r * 255)}, ${Math.round(accent.g * 255)}, ${Math.round(accent.b * 255)}, 0.35)`;
+    context.lineWidth = 14;
+    for (let ring = 0; ring < 5; ring++) {
+      context.beginPath();
+      const radius = 30 + ring * 18;
+      context.arc(canvas.width / 2, canvas.height / 2, radius, ring * 0.7, Math.PI * 2);
+      context.stroke();
+    }
+
+    const sprinkleColors = [
+      accent.clone().lerp(new THREE.Color('#ffffff'), 0.6),
+      accent.clone().lerp(new THREE.Color('#ffd4a3'), 0.5),
+      accent.clone().lerp(new THREE.Color('#c8ffe0'), 0.4),
+    ];
+    for (let sprinkle = 0; sprinkle < 70; sprinkle++) {
+      const angle = (sprinkle * 137.5 * Math.PI) / 180;
+      const radius = 50 + (sprinkle % 40);
+      const x = canvas.width / 2 + Math.cos(angle) * radius;
+      const y = canvas.height / 2 + Math.sin(angle * 0.8) * radius * 0.6;
+      context.save();
+      context.translate(x, y);
+      context.rotate(angle);
+      const sprinkleColor = sprinkleColors[sprinkle % sprinkleColors.length];
+      context.fillStyle = `#${sprinkleColor.getHexString()}`;
+      context.fillRect(-2, -6, 4, 12);
+      context.restore();
+    }
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  private static createDataFrostingTexture(color: THREE.Color): THREE.DataTexture {
+    const size = 128;
+    const data = new Uint8Array(size * size * 4);
+    const pastel = color.clone().lerp(new THREE.Color('#fff7fa'), 0.6);
+    const accent = color.clone().lerp(new THREE.Color('#ffd6ed'), 0.35);
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const u = x / size - 0.5;
+        const v = y / size - 0.5;
+        const angle = Math.atan2(v, u);
+        const radial = Math.sqrt(u * u + v * v);
+        const swirl = Math.sin(angle * 6 + radial * 18);
+        const mix = 0.5 + swirl * 0.25;
+        const colorMix = pastel.clone().lerp(accent, mix);
+        const index = (y * size + x) * 4;
+        data[index] = Math.round(colorMix.r * 255);
+        data[index + 1] = Math.round(colorMix.g * 255);
+        data[index + 2] = Math.round(colorMix.b * 255);
+        data[index + 3] = 255;
+      }
+    }
+
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+    texture.needsUpdate = true;
+    return texture;
   }
 
   public static createCake(options: CakeOptions): CakeCreationResult {
