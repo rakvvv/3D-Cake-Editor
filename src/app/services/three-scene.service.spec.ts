@@ -298,4 +298,79 @@ describe('ThreeSceneService', () => {
     expect(letterMesh.rotation.y).toBeCloseTo(0, 3);
     expect(distance).toBeCloseTo(expectedDistance, 3);
   }));
+
+  it('lays the top text flat on the cake surface', fakeAsync(() => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    (sceneInit as any).scene = new THREE.Scene();
+    spyOn<any>(service, 'loadFont').and.returnValue(Promise.resolve({} as Font));
+    const textFactorySpy = spyOn(TextFactory, 'createTextMesh').and.callFake(() => (
+      new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+    ));
+
+    (service as any).options = {
+      cake_size: 1,
+      cake_color: '#fff000',
+      cake_text: true,
+      cake_text_value: 'TOP',
+      cake_text_position: 'top',
+      cake_text_offset: 0,
+      cake_text_font: 'helvetiker',
+      layers: 1,
+      shape: 'cylinder',
+      layerSizes: [1],
+    };
+
+    (service as any).loadAndAddText('TOP', 1, 2, 0.1, {
+      position: 'top',
+      offset: 0,
+      font: 'helvetiker',
+    });
+    tick();
+
+    const textMesh = (service as any).textMesh as THREE.Group | null;
+    expect(textMesh).toBeTruthy();
+    if (!textMesh) {
+      return;
+    }
+
+    expect(textFactorySpy).toHaveBeenCalledTimes(1);
+    expect(textMesh.children.length).toBe(1);
+    expect(textMesh.rotation.x).toBeCloseTo(-Math.PI / 2, 5);
+    expect(textMesh.position.y).toBeCloseTo(2 + 0.1 / 2 + 0.001, 5);
+  }));
+
+  it('derives glyph advance from font data when curving text', () => {
+    const font = {
+      data: {
+        resolution: 1000,
+        glyphs: {
+          A: { ha: 900 },
+          B: { ha: 450 },
+          ' ': { ha: 300 },
+        },
+      }
+    } as unknown as Font;
+
+    const textFactorySpy = spyOn(TextFactory, 'createTextMesh').and.callFake((_, character: string) => {
+      const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+      mesh.name = character;
+      return mesh;
+    });
+
+    const getGlyphAdvanceSpy = spyOn<any>(service, 'getGlyphAdvance').and.callThrough();
+    const group = (service as any).createCurvedTextGroup(font, 'AB', 1, 0.1, 1);
+
+    expect(textFactorySpy).toHaveBeenCalledTimes(2);
+    expect(getGlyphAdvanceSpy).toHaveBeenCalledWith(font, 'A', 1, jasmine.any(Number));
+    expect(getGlyphAdvanceSpy).toHaveBeenCalledWith(font, 'B', 1, jasmine.any(Number));
+
+    const meshes = group.children as THREE.Mesh[];
+    expect(meshes.length).toBe(2);
+    const [meshA, meshB] = meshes;
+    expect(meshA.position.x).toBeLessThan(meshB.position.x);
+    const arcA = Math.atan2(meshA.position.x, meshA.position.z);
+    const arcB = Math.atan2(meshB.position.x, meshB.position.z);
+    expect(Math.abs(arcB - arcA)).toBeGreaterThan(0.2);
+  });
 });

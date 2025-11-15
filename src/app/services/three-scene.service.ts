@@ -369,6 +369,8 @@ export class ThreeSceneService {
     });
   }
 
+  private readonly textMaterial: THREE.MeshPhongMaterialParameters = { color: 0x2f1f1f, shininess: 60 };
+
   private async loadAndAddText(
     text: string,
     size: number,
@@ -402,11 +404,14 @@ export class ThreeSceneService {
       ? Math.max(baseRadius * radiusMultiplier, 0.2)
       : Math.max(baseRadius - depth + clearance, 0.2);
 
-    const textObject = this.createCurvedTextGroup(font, normalizedText, size, depth, radius);
+    const textObject = config.position === 'top'
+      ? this.createFlatTextGroup(font, normalizedText, size, depth)
+      : this.createCurvedTextGroup(font, normalizedText, size, depth, radius);
     textObject.userData['isCakeText'] = true;
 
     if (config.position === 'top') {
-      textObject.position.set(0, height + 0.02, 0);
+      const lift = depth / 2 + 0.001;
+      textObject.position.set(0, height + lift, 0);
       textObject.rotation.x = -Math.PI / 2;
     } else {
       const totalHeight = this.getCakeTopHeight();
@@ -418,6 +423,23 @@ export class ThreeSceneService {
     this.textMesh = textObject;
   }
 
+  private createFlatTextGroup(font: Font, text: string, size: number, depth: number): THREE.Group {
+    const group = new THREE.Group();
+    if (!text) {
+      return group;
+    }
+
+    const mesh = TextFactory.createTextMesh(font, text, {
+      size,
+      depth,
+      curveSegments: 12,
+      center: true,
+      material: this.textMaterial,
+    });
+    group.add(mesh);
+    return group;
+  }
+
   private createCurvedTextGroup(font: Font, text: string, size: number, depth: number, radius: number): THREE.Group {
     const group = new THREE.Group();
     if (!text) {
@@ -425,13 +447,13 @@ export class ThreeSceneService {
     }
 
     const characters = Array.from(text);
-    const letterSpacing = Math.max(size * 0.2, 0.05);
-    const spaceWidth = size * 0.6;
+    const letterSpacing = Math.max(size * 0.15, 0.04);
     const radiusSafe = Math.max(radius, 0.2);
 
     const letters = characters.map((character) => {
       if (character.trim().length === 0) {
-        return { mesh: null as THREE.Mesh | null, width: spaceWidth };
+        const width = this.getGlyphAdvance(font, ' ', size, size * 0.5);
+        return { mesh: null as THREE.Mesh | null, width };
       }
 
       const mesh = TextFactory.createTextMesh(font, character, {
@@ -439,9 +461,9 @@ export class ThreeSceneService {
         depth,
         curveSegments: 12,
         center: false,
-        material: { color: 0x2f1f1f, shininess: 60 },
+        material: this.textMaterial,
       });
-      const width = this.getMeshWidth(mesh, size * 0.6);
+      const width = this.getGlyphAdvance(font, character, size, size * 0.6);
       return { mesh, width };
     });
 
@@ -470,14 +492,17 @@ export class ThreeSceneService {
     return group;
   }
 
-  private getMeshWidth(mesh: THREE.Mesh, fallback: number): number {
-    const geometry = mesh.geometry as THREE.BufferGeometry;
-    geometry.computeBoundingBox();
-    const bbox = geometry.boundingBox;
-    if (!bbox) {
+  private getGlyphAdvance(font: Font, character: string, size: number, fallback: number): number {
+    const data = (font as any)?.data;
+    const glyphs = data?.glyphs ?? {};
+    const glyph = glyphs[character] ?? glyphs[character.toUpperCase()] ?? glyphs[character.toLowerCase()];
+    const ha = typeof glyph?.ha === 'number' ? glyph.ha : null;
+    if (!ha) {
       return fallback;
     }
-    return bbox.max.x - bbox.min.x;
+    const resolution = data?.resolution ?? 1000;
+    const scale = size / resolution;
+    return Math.max(ha * scale, fallback * 0.3);
   }
 
   private disposeTextObject(object: THREE.Object3D): void {
