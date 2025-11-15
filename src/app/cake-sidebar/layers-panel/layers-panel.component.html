@@ -32,6 +32,66 @@
       />
     </div>
 
+    <div class="sidebar-panel__control sidebar-panel__control--toggle">
+      <label class="sidebar-panel__checkbox" for="cake-glaze-enabled">
+        <input
+          id="cake-glaze-enabled"
+          type="checkbox"
+          [(ngModel)]="glazeEnabled"
+          (change)="updateCakeOptions()"
+        />
+        Polewa na wierzchu
+      </label>
+    </div>
+
+    <div class="sidebar-panel__control sidebar-panel__control--inline">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-glaze-color">Kolor polewy</label>
+      <input
+        id="cake-glaze-color"
+        class="sidebar-panel__input"
+        type="color"
+        [(ngModel)]="glazeColor"
+        (change)="updateCakeOptions()"
+        [disabled]="!glazeEnabled"
+      />
+    </div>
+
+    <div class="sidebar-panel__control sidebar-panel__control--range">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-glaze-thickness">
+        Grubość polewy
+        <span class="sidebar-panel__value">{{ glazeThickness | number: '1.2-2' }}m</span>
+      </label>
+      <input
+        id="cake-glaze-thickness"
+        class="sidebar-panel__range"
+        type="range"
+        min="0.05"
+        max="0.8"
+        step="0.01"
+        [(ngModel)]="glazeThickness"
+        (ngModelChange)="updateCakeOptions()"
+        [disabled]="!glazeEnabled"
+      />
+    </div>
+
+    <div class="sidebar-panel__control sidebar-panel__control--range">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-glaze-drip">
+        Długość zacieków
+        <span class="sidebar-panel__value">{{ glazeDripLength | number: '1.2-2' }}m</span>
+      </label>
+      <input
+        id="cake-glaze-drip"
+        class="sidebar-panel__range"
+        type="range"
+        min="0"
+        max="1.5"
+        step="0.05"
+        [(ngModel)]="glazeDripLength"
+        (ngModelChange)="updateCakeOptions()"
+        [disabled]="!glazeEnabled"
+      />
+    </div>
+
     <div class="sidebar-panel__control sidebar-panel__control--range">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-layers">
         Liczba pięter

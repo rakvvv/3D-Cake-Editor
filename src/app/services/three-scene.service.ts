@@ -273,6 +273,17 @@ export class ThreeSceneService {
       material.dispose();
     }
 
+    const glazeMesh = this.cakeBase.userData['glaze'] as THREE.Mesh | null;
+    if (glazeMesh) {
+      glazeMesh.geometry.dispose();
+      const glazeMaterial = glazeMesh.material;
+      if (Array.isArray(glazeMaterial)) {
+        glazeMaterial.forEach((mat) => mat.dispose());
+      } else {
+        glazeMaterial.dispose();
+      }
+    }
+
     this.cakeBase = null;
     this.cakeLayers = [];
     this.cakeMetadata = null;

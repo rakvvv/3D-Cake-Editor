@@ -69,3 +69,10 @@ For more information on using the Angular CLI, including detailed command refere
 7. Puść przycisk i wciśnij ponownie w innym miejscu, aby upewnić się, że nowe fragmenty łączą się bez widocznych przerw.
 8. W trybie dekoracji dodaj kilka ozdób 3D, obserwując brak dużych przycięć przy wstawianiu modeli, a następnie użyj skrótów `Ctrl+Z` oraz `Ctrl+Shift+Z`/`Ctrl+Y`, żeby sprawdzić działanie cofania i przywracania zmian (opcjonalnie skorzystaj z przycisków w panelu).
 9. Zweryfikuj, że obrót kamery prawym przyciskiem myszy nie wywołuje menu kontekstowego na płótnie.
+
+## Manual regression plan: polewa
+
+1. Uruchom `ng serve` i otwórz edytor pod `http://localhost:4200/`.
+2. W panelu „Opcje tortu” włącz i wyłącz polewę – upewnij się, że połyskliwy materiał znika/pojawia się na górnym piętrze oraz reaguje na zmianę koloru.
+3. Ustaw minimalną grubość i długość zacieków, a następnie maksymalną – obserwuj, czy wysokość kopuły oraz zasięg zacieków odpowiadają wartościom suwaków.
+4. Przy maksymalnych zaciekach wykonaj zrzut ekranu tortu (z widoku izometrycznego), który posłuży jako referencja wizualna przy kolejnych wydaniach.
