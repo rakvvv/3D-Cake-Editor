@@ -225,41 +225,63 @@ export class ThreeObjectsFactory {
       return null;
     }
 
-    const segments = 64;
+    const segments = 96;
     const topY = metadata.totalHeight / 2;
     const topPositions: number[] = [];
     const rimPositions: number[] = [];
+    const skirtPositions: number[] = [];
     const dripPositions: number[] = [];
     const indices: number[] = [];
+    const rimNoise = this.smoothNoise(this.buildNoiseSequence(segments, 3.1), 2);
+    const dripNoise = this.smoothNoise(this.buildNoiseSequence(segments, 4.2, 0.7), 2);
+    const thicknessNoise = this.smoothNoise(this.buildNoiseSequence(segments, 6.0, 1.3), 1);
 
     for (let i = 0; i < segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
       const baseNormal = new THREE.Vector2(Math.cos(angle), Math.sin(angle));
-      const radiusNoise = (this.sampleNoise(angle * 3.1) - 0.5) * radius * 0.12;
-      const dripNoise = this.sampleNoise(angle * 5.3 + 1.2);
-      const rimRadius = radius + radiusNoise;
-      const dripOffset = Math.max(dripLength * (0.4 + dripNoise * 0.6), 0);
-      const outwardDrip = radius * 0.05 + dripNoise * radius * 0.08;
+      const rimRadiusOffset = (rimNoise[i] - 0.5) * radius * 0.08 + radius * 0.035;
+      const rimRadius = Math.max(radius + radius * 0.02, radius + rimRadiusOffset);
+      const dripProfile = dripNoise[i];
+      const dripOffset = Math.max(dripLength * (0.35 + dripProfile * 0.65), 0);
+      const outwardDrip = radius * (0.04 + dripProfile * 0.08);
+      const crownExtra = thicknessNoise[i] * radius * 0.025;
 
-      const topRadius = rimRadius + radius * 0.05;
+      const topRadius = rimRadius + radius * 0.03 + crownExtra;
+      const skirtRadius = rimRadius + outwardDrip * 0.45;
       const dripRadius = rimRadius + outwardDrip;
+
+      const topYOffset = thickness * (0.75 + thicknessNoise[i] * 0.15);
+      const rimYOffset = Math.min(thickness * 0.45, 0.07);
+      const skirtYOffset = Math.min(thickness * 0.15, 0.03);
 
       const topX = baseNormal.x * topRadius;
       const topZ = baseNormal.y * topRadius;
       const rimX = baseNormal.x * rimRadius;
       const rimZ = baseNormal.y * rimRadius;
+      const skirtX = baseNormal.x * skirtRadius;
+      const skirtZ = baseNormal.y * skirtRadius;
       const dripX = baseNormal.x * dripRadius;
       const dripZ = baseNormal.y * dripRadius;
 
-      topPositions.push(topX, topY + thickness, topZ);
-      rimPositions.push(rimX, topY, rimZ);
+      topPositions.push(topX, topY + topYOffset, topZ);
+      rimPositions.push(rimX, topY + rimYOffset, rimZ);
+      skirtPositions.push(skirtX, topY - skirtYOffset, skirtZ);
       dripPositions.push(dripX, topY - dripOffset, dripZ);
     }
 
-    const positions = [...topPositions, ...rimPositions, ...dripPositions, 0, topY + thickness, 0];
+    const positions = [
+      ...topPositions,
+      ...rimPositions,
+      ...skirtPositions,
+      ...dripPositions,
+      0,
+      topY + thickness,
+      0,
+    ];
     const topRingStart = 0;
     const rimRingStart = topPositions.length / 3;
-    const dripRingStart = rimRingStart + rimPositions.length / 3;
+    const skirtRingStart = rimRingStart + rimPositions.length / 3;
+    const dripRingStart = skirtRingStart + skirtPositions.length / 3;
     const centerIndex = positions.length / 3 - 1;
 
     for (let i = 0; i < segments; i++) {
@@ -268,19 +290,15 @@ export class ThreeObjectsFactory {
       const topNext = topRingStart + next;
       const rimCurrent = rimRingStart + i;
       const rimNext = rimRingStart + next;
+      const skirtCurrent = skirtRingStart + i;
+      const skirtNext = skirtRingStart + next;
       const dripCurrent = dripRingStart + i;
       const dripNext = dripRingStart + next;
 
-      // top cap
       indices.push(centerIndex, topNext, topCurrent);
-
-      // thickness walls
-      indices.push(topCurrent, rimCurrent, rimNext);
-      indices.push(topCurrent, rimNext, topNext);
-
-      // drip walls
-      indices.push(rimCurrent, dripCurrent, dripNext);
-      indices.push(rimCurrent, dripNext, rimNext);
+      this.pushQuad(indices, topCurrent, topNext, rimCurrent, rimNext);
+      this.pushQuad(indices, rimCurrent, rimNext, skirtCurrent, skirtNext);
+      this.pushQuad(indices, skirtCurrent, skirtNext, dripCurrent, dripNext);
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -302,56 +320,78 @@ export class ThreeObjectsFactory {
       return null;
     }
 
-    const segmentsPerSide = 16;
+    const segmentsPerSide = 20;
     const points = this.buildCuboidRingPoints(width, depth, segmentsPerSide);
     const totalSegments = points.length;
     const topY = metadata.totalHeight / 2;
     const topPositions: number[] = [];
     const rimPositions: number[] = [];
+    const skirtPositions: number[] = [];
     const dripPositions: number[] = [];
     const indices: number[] = [];
-    const dripMagnitude = Math.min(width, depth) * 0.15;
+    const minSize = Math.min(width, depth);
+    const rimNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.5), 2);
+    const dripNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 2.4, 0.4), 2);
 
     for (let i = 0; i < totalSegments; i++) {
-      const { x, z, normal, noiseBasis } = points[i];
-      const noise = this.sampleNoise(noiseBasis);
-      const offset = (noise - 0.5) * Math.min(width, depth) * 0.08;
-      const dripNoise = this.sampleNoise(noiseBasis * 1.73 + 0.5);
-      const dripAmount = Math.max(dripLength * (0.4 + dripNoise * 0.6), 0);
-      const outward = dripMagnitude * (0.3 + dripNoise * 0.7);
+      const { x, z, normal } = points[i];
+      const rimOffset = (rimNoise[i] - 0.5) * minSize * 0.05;
+      const outward = minSize * (0.05 + dripNoise[i] * 0.12);
+      const dripAmount = Math.max(dripLength * (0.35 + dripNoise[i] * 0.65), 0);
 
-      const topX = x + normal.x * (offset + 0.05 * Math.sign(normal.x));
-      const topZ = z + normal.y * (offset + 0.05 * Math.sign(normal.y));
-      const rimX = x + normal.x * offset;
-      const rimZ = z + normal.y * offset;
-      const dripX = x + normal.x * (offset * 0.5 + outward);
-      const dripZ = z + normal.y * (offset * 0.5 + outward);
+      const topOffset = rimOffset + minSize * 0.04;
+      const skirtOffset = rimOffset + outward * 0.4;
+      const dripOffset = rimOffset + outward;
 
-      topPositions.push(topX, topY + thickness, topZ);
-      rimPositions.push(rimX, topY, rimZ);
+      const topX = x + normal.x * topOffset;
+      const topZ = z + normal.y * topOffset;
+      const rimX = x + normal.x * rimOffset;
+      const rimZ = z + normal.y * rimOffset;
+      const skirtX = x + normal.x * skirtOffset;
+      const skirtZ = z + normal.y * skirtOffset;
+      const dripX = x + normal.x * dripOffset;
+      const dripZ = z + normal.y * dripOffset;
+
+      const topYOffset = thickness * 0.8;
+      const rimYOffset = Math.min(thickness * 0.45, 0.07);
+      const skirtYOffset = Math.min(thickness * 0.18, 0.03);
+
+      topPositions.push(topX, topY + topYOffset, topZ);
+      rimPositions.push(rimX, topY + rimYOffset, rimZ);
+      skirtPositions.push(skirtX, topY - skirtYOffset, skirtZ);
       dripPositions.push(dripX, topY - dripAmount, dripZ);
     }
 
-    const positions = [...topPositions, ...rimPositions, ...dripPositions, 0, topY + thickness, 0];
+    const positions = [
+      ...topPositions,
+      ...rimPositions,
+      ...skirtPositions,
+      ...dripPositions,
+      0,
+      topY + thickness,
+      0,
+    ];
     const topRingStart = 0;
     const rimRingStart = topPositions.length / 3;
-    const dripRingStart = rimRingStart + rimPositions.length / 3;
+    const skirtRingStart = rimRingStart + rimPositions.length / 3;
+    const dripRingStart = skirtRingStart + skirtPositions.length / 3;
     const centerIndex = positions.length / 3 - 1;
 
     for (let i = 0; i < totalSegments; i++) {
       const next = (i + 1) % totalSegments;
       const topCurrent = topRingStart + i;
       const rimCurrent = rimRingStart + i;
+      const skirtCurrent = skirtRingStart + i;
       const dripCurrent = dripRingStart + i;
       const topNext = topRingStart + next;
       const rimNext = rimRingStart + next;
+      const skirtNext = skirtRingStart + next;
       const dripNext = dripRingStart + next;
 
       indices.push(centerIndex, topNext, topCurrent);
-      indices.push(topCurrent, rimCurrent, rimNext);
-      indices.push(topCurrent, rimNext, topNext);
-      indices.push(rimCurrent, dripCurrent, dripNext);
-      indices.push(rimCurrent, dripNext, rimNext);
+      this.pushQuad(indices, topCurrent, topNext, rimCurrent, rimNext);
+      this.pushQuad(indices, rimCurrent, rimNext, skirtCurrent, skirtNext);
+      this.pushQuad(indices, skirtCurrent, skirtNext, dripCurrent, dripNext);
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -365,11 +405,10 @@ export class ThreeObjectsFactory {
     x: number;
     z: number;
     normal: THREE.Vector2;
-    noiseBasis: number;
   }> {
     const hx = width / 2;
     const hz = depth / 2;
-    const points: Array<{ x: number; z: number; normal: THREE.Vector2; noiseBasis: number }> = [];
+    const points: Array<{ x: number; z: number; normal: THREE.Vector2 }> = [];
     const sides: Array<{
       start: THREE.Vector2;
       end: THREE.Vector2;
@@ -381,7 +420,7 @@ export class ThreeObjectsFactory {
       { start: new THREE.Vector2(-hx, -hz), end: new THREE.Vector2(-hx, hz), normal: new THREE.Vector2(-1, 0) },
     ];
 
-    sides.forEach((side, sideIndex) => {
+    sides.forEach((side) => {
       for (let step = 0; step < segmentsPerSide; step++) {
         const t = (step + 0.5) / segmentsPerSide;
         const point = new THREE.Vector2().copy(side.end).sub(side.start).multiplyScalar(t).add(side.start);
@@ -389,7 +428,6 @@ export class ThreeObjectsFactory {
           x: point.x,
           z: point.y,
           normal: side.normal.clone(),
-          noiseBasis: sideIndex * segmentsPerSide + step,
         });
       }
     });
@@ -400,6 +438,30 @@ export class ThreeObjectsFactory {
   private static sampleNoise(value: number): number {
     const x = Math.sin(value * 12.9898) * 43758.5453;
     return x - Math.floor(x);
+  }
+
+  private static buildNoiseSequence(length: number, frequency: number, offset = 0): number[] {
+    return Array.from({ length }, (_, index) => this.sampleNoise(index * frequency + offset));
+  }
+
+  private static smoothNoise(values: number[], passes: number): number[] {
+    let current = [...values];
+    const total = values.length;
+    for (let pass = 0; pass < passes; pass++) {
+      const next = new Array(total).fill(0);
+      for (let index = 0; index < total; index++) {
+        const prev = current[(index - 1 + total) % total];
+        const nextValue = current[(index + 1) % total];
+        next[index] = (prev + current[index] + nextValue) / 3;
+      }
+      current = next;
+    }
+    return current;
+  }
+
+  private static pushQuad(indices: number[], aCurrent: number, aNext: number, bCurrent: number, bNext: number): void {
+    indices.push(aCurrent, bCurrent, bNext);
+    indices.push(aCurrent, bNext, aNext);
   }
 
   private static normalizeLayerSizes(targetLayers: number, provided: number[] | undefined): number[] {

@@ -64,4 +64,23 @@ describe('ThreeObjectsFactory', () => {
     expect(longBox.min.y).toBeLessThan(shortBox.min.y);
     expect(shortBox.max.y).toBeCloseTo(longBox.max.y, 1);
   });
+
+  it('prowadzi polewę nad górą tortu i pozwala jej miękko spływać po bokach', () => {
+    const result = ThreeObjectsFactory.createCake(
+      getOptions({ glaze_thickness: 0.25, glaze_drip_length: 0.8 })
+    );
+
+    expect(result.glaze).toBeTruthy();
+
+    const glazeBox = new THREE.Box3().setFromObject(result.glaze!);
+    const cakeTopY = result.metadata.layerDimensions[result.metadata.layerDimensions.length - 1]?.topY ?? 0;
+
+    expect(glazeBox.max.y).toBeGreaterThan(cakeTopY + 0.02);
+    expect(glazeBox.min.y).toBeLessThan(cakeTopY - 0.05);
+
+    const positionAttribute = result.glaze!.geometry.getAttribute('position');
+    expect(positionAttribute).toBeTruthy();
+    const vertexCount = (positionAttribute as THREE.BufferAttribute).count;
+    expect(vertexCount).toBeGreaterThan(300);
+  });
 });
