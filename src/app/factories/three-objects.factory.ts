@@ -242,69 +242,72 @@ export class ThreeObjectsFactory {
       return null;
     }
 
-    const segments = 128;
+    const segments = 144;
     const topY = metadata.totalHeight / 2;
     const topPositions: number[] = [];
     const rimPositions: number[] = [];
-    const skirtPositions: number[] = [];
+    const flowPositions: number[] = [];
     const dripPositions: number[] = [];
     const uvs: number[] = [];
     const indices: number[] = [];
-    const rimNoise = this.smoothNoise(this.buildNoiseSequence(segments, 2.8), 3);
-    const dripNoise = this.smoothNoise(this.buildNoiseSequence(segments, 4.2, 0.7), 3);
-    const thicknessNoise = this.smoothNoise(this.buildNoiseSequence(segments, 5.1, 1.3), 2);
+
+    const rimNoise = this.smoothNoise(this.buildNoiseSequence(segments, 2.1), 3);
+    const dripNoise = this.smoothNoise(this.buildNoiseSequence(segments, 3.3, 0.7), 3);
+    const domeNoise = this.smoothNoise(this.buildNoiseSequence(segments, 1.6, 0.2), 2);
+
+    const easedDripLength = Math.max(dripLength, 0.02);
 
     for (let i = 0; i < segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
       const baseNormal = new THREE.Vector2(Math.cos(angle), Math.sin(angle));
-      const rimRadiusOffset = (rimNoise[i] - 0.5) * radius * 0.045 + radius * 0.03;
-      const rimRadius = Math.max(radius + radius * 0.018, radius + rimRadiusOffset);
-      const dripProfile = dripNoise[i];
-      const dripOffset = Math.max(dripLength * (0.28 + dripProfile * 0.7), 0);
-      const outwardDrip = radius * (0.035 + dripProfile * 0.06);
-      const crownExtra = thicknessNoise[i] * radius * 0.018;
+      const rimProfile = 0.9 + rimNoise[i] * 0.2;
+      const dripProfile = 0.35 + dripNoise[i] * 0.65;
+      const domeProfile = 0.65 + domeNoise[i] * 0.35;
 
-      const eased = 0.5 - 0.5 * Math.cos((i / segments) * Math.PI * 2);
-      const topRadius = rimRadius + radius * 0.018 + crownExtra + eased * radius * 0.008;
-      const skirtRadius = rimRadius + outwardDrip * 0.42;
-      const dripRadius = rimRadius + outwardDrip;
+      const rimRadius = radius + thickness * (0.55 + rimProfile * 0.1);
+      const topRadius = rimRadius + thickness * 0.18;
+      const flowRadius = rimRadius + thickness * 0.22 + dripProfile * radius * 0.04;
+      const dripRadius = flowRadius + dripProfile * radius * 0.05;
 
-      const domeLift = thickness * 0.2;
-      const topYOffset = thickness * (0.92 + thicknessNoise[i] * 0.12) + domeLift;
-      const rimYOffset = Math.min(topYOffset * 0.55, 0.12);
-      const skirtYOffset = Math.min(thickness * 0.14, 0.04);
+      const domeLift = thickness * (0.55 + domeProfile * 0.35);
+      const rimYOffset = thickness * 0.32;
+      const flowYOffset = -thickness * 0.08;
+      const dripYOffset = -easedDripLength * (0.45 + dripProfile * 0.65);
+
+      const softenEdge = Math.pow(Math.sin((i / segments) * Math.PI), 2);
+      const topYOffset = domeLift + thickness * 0.08 * softenEdge;
 
       const topX = baseNormal.x * topRadius;
       const topZ = baseNormal.y * topRadius;
       const rimX = baseNormal.x * rimRadius;
       const rimZ = baseNormal.y * rimRadius;
-      const skirtX = baseNormal.x * skirtRadius;
-      const skirtZ = baseNormal.y * skirtRadius;
+      const flowX = baseNormal.x * flowRadius;
+      const flowZ = baseNormal.y * flowRadius;
       const dripX = baseNormal.x * dripRadius;
       const dripZ = baseNormal.y * dripRadius;
 
       topPositions.push(topX, topY + topYOffset, topZ);
       rimPositions.push(rimX, topY + rimYOffset, rimZ);
-      skirtPositions.push(skirtX, topY - skirtYOffset, skirtZ);
-      dripPositions.push(dripX, topY - dripOffset, dripZ);
+      flowPositions.push(flowX, topY + flowYOffset, flowZ);
+      dripPositions.push(dripX, topY + dripYOffset, dripZ);
 
       const u = i / segments;
-      uvs.push(u, 1.0, u, 0.82, u, 0.52, u, 0.0);
+      uvs.push(u, 1.0, u, 0.82, u, 0.55, u, 0.0);
     }
 
     const positions = [
       ...topPositions,
       ...rimPositions,
-      ...skirtPositions,
+      ...flowPositions,
       ...dripPositions,
       0,
-      topY + thickness,
+      topY + thickness * 0.9,
       0,
     ];
     const topRingStart = 0;
     const rimRingStart = topPositions.length / 3;
-    const skirtRingStart = rimRingStart + rimPositions.length / 3;
-    const dripRingStart = skirtRingStart + skirtPositions.length / 3;
+    const flowRingStart = rimRingStart + rimPositions.length / 3;
+    const dripRingStart = flowRingStart + flowPositions.length / 3;
     const centerIndex = positions.length / 3 - 1;
 
     for (let i = 0; i < segments; i++) {
@@ -313,15 +316,15 @@ export class ThreeObjectsFactory {
       const topNext = topRingStart + next;
       const rimCurrent = rimRingStart + i;
       const rimNext = rimRingStart + next;
-      const skirtCurrent = skirtRingStart + i;
-      const skirtNext = skirtRingStart + next;
+      const flowCurrent = flowRingStart + i;
+      const flowNext = flowRingStart + next;
       const dripCurrent = dripRingStart + i;
       const dripNext = dripRingStart + next;
 
       indices.push(centerIndex, topNext, topCurrent);
       this.pushQuad(indices, topCurrent, topNext, rimCurrent, rimNext);
-      this.pushQuad(indices, rimCurrent, rimNext, skirtCurrent, skirtNext);
-      this.pushQuad(indices, skirtCurrent, skirtNext, dripCurrent, dripNext);
+      this.pushQuad(indices, rimCurrent, rimNext, flowCurrent, flowNext);
+      this.pushQuad(indices, flowCurrent, flowNext, dripCurrent, dripNext);
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -344,82 +347,80 @@ export class ThreeObjectsFactory {
       return null;
     }
 
-    const segmentsPerSide = 20;
+    const segmentsPerSide = 24;
     const points = this.buildCuboidRingPoints(width, depth, segmentsPerSide);
     const totalSegments = points.length;
     const topY = metadata.totalHeight / 2;
     const topPositions: number[] = [];
     const rimPositions: number[] = [];
-    const skirtPositions: number[] = [];
+    const flowPositions: number[] = [];
     const dripPositions: number[] = [];
     const uvs: number[] = [];
     const indices: number[] = [];
     const minSize = Math.min(width, depth);
-    const rimNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.5), 3);
-    const dripNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 2.3, 0.4), 3);
+    const rimNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.35), 3);
+    const dripNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 2.1, 0.4), 3);
+    const domeNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.1, 0.7), 2);
 
     for (let i = 0; i < totalSegments; i++) {
       const { x, z, normal } = points[i];
-      const rimOffset = (rimNoise[i] - 0.5) * minSize * 0.04;
-      const outward = minSize * (0.045 + dripNoise[i] * 0.09);
-      const dripAmount = Math.max(dripLength * (0.32 + dripNoise[i] * 0.7), 0);
+      const rimProfile = 0.9 + rimNoise[i] * 0.25;
+      const dripProfile = 0.35 + dripNoise[i] * 0.75;
+      const domeProfile = 0.65 + domeNoise[i] * 0.35;
 
-      const topOffset = rimOffset + minSize * 0.05;
-      const skirtOffset = rimOffset + outward * 0.42;
-      const dripOffset = rimOffset + outward;
+      const outwardDrip = minSize * (0.045 + dripProfile * 0.065);
+      const rimRadius = outwardDrip * (0.8 + rimProfile * 0.35);
+      const flowRadius = rimRadius * 0.8 + outwardDrip * 0.45;
+      const dripRadius = outwardDrip + rimRadius * 0.4;
 
-      const topX = x + normal.x * topOffset;
-      const topZ = z + normal.y * topOffset;
-      const rimX = x + normal.x * rimOffset;
-      const rimZ = z + normal.y * rimOffset;
-      const skirtX = x + normal.x * skirtOffset;
-      const skirtZ = z + normal.y * skirtOffset;
-      const dripX = x + normal.x * dripOffset;
-      const dripZ = z + normal.y * dripOffset;
+      const crownLift = thickness * (0.58 + domeProfile * 0.42);
+      const rimYOffset = thickness * 0.3;
+      const flowYOffset = -thickness * 0.08;
+      const dripYOffset = -Math.max(dripLength, 0.02) * (0.4 + dripProfile * 0.65);
 
-      const topYOffset = thickness * 0.95 + minSize * 0.01;
-      const rimYOffset = Math.min(thickness * 0.55, 0.1);
-      const skirtYOffset = Math.min(thickness * 0.18, 0.04);
+      const rimPoint = new THREE.Vector2(x, z).add(normal.clone().multiplyScalar(rimRadius));
+      const flowPoint = new THREE.Vector2(x, z).add(normal.clone().multiplyScalar(flowRadius));
+      const dripPoint = new THREE.Vector2(x, z).add(normal.clone().multiplyScalar(dripRadius));
 
-      topPositions.push(topX, topY + topYOffset, topZ);
-      rimPositions.push(rimX, topY + rimYOffset, rimZ);
-      skirtPositions.push(skirtX, topY - skirtYOffset, skirtZ);
-      dripPositions.push(dripX, topY - dripAmount, dripZ);
+      topPositions.push(rimPoint.x, topY + crownLift, rimPoint.y);
+      rimPositions.push(rimPoint.x, topY + rimYOffset, rimPoint.y);
+      flowPositions.push(flowPoint.x, topY + flowYOffset, flowPoint.y);
+      dripPositions.push(dripPoint.x, topY + dripYOffset, dripPoint.y);
 
       const u = i / totalSegments;
-      uvs.push(u, 1.0, u, 0.82, u, 0.52, u, 0.0);
+      uvs.push(u, 1.0, u, 0.82, u, 0.55, u, 0.0);
     }
 
     const positions = [
       ...topPositions,
       ...rimPositions,
-      ...skirtPositions,
+      ...flowPositions,
       ...dripPositions,
       0,
-      topY + thickness,
+      topY + thickness * 0.9,
       0,
     ];
     const topRingStart = 0;
     const rimRingStart = topPositions.length / 3;
-    const skirtRingStart = rimRingStart + rimPositions.length / 3;
-    const dripRingStart = skirtRingStart + skirtPositions.length / 3;
+    const flowRingStart = rimRingStart + rimPositions.length / 3;
+    const dripRingStart = flowRingStart + flowPositions.length / 3;
     const centerIndex = positions.length / 3 - 1;
 
     for (let i = 0; i < totalSegments; i++) {
       const next = (i + 1) % totalSegments;
       const topCurrent = topRingStart + i;
       const rimCurrent = rimRingStart + i;
-      const skirtCurrent = skirtRingStart + i;
+      const flowCurrent = flowRingStart + i;
       const dripCurrent = dripRingStart + i;
       const topNext = topRingStart + next;
       const rimNext = rimRingStart + next;
-      const skirtNext = skirtRingStart + next;
+      const flowNext = flowRingStart + next;
       const dripNext = dripRingStart + next;
 
       indices.push(centerIndex, topNext, topCurrent);
       this.pushQuad(indices, topCurrent, topNext, rimCurrent, rimNext);
-      this.pushQuad(indices, rimCurrent, rimNext, skirtCurrent, skirtNext);
-      this.pushQuad(indices, skirtCurrent, skirtNext, dripCurrent, dripNext);
+      this.pushQuad(indices, rimCurrent, rimNext, flowCurrent, flowNext);
+      this.pushQuad(indices, flowCurrent, flowNext, dripCurrent, dripNext);
     }
 
     const geometry = new THREE.BufferGeometry();
