@@ -41,6 +41,8 @@ export class ThreeObjectsFactory {
   private static colorMap: THREE.Texture | null = null;
   private static bumpMap: THREE.Texture | null = null;
   private static roughnessMap: THREE.Texture | null = null;
+  private static glazeColorMap: THREE.Texture | null = null;
+  private static glazeNormalMap: THREE.Texture | null = null;
 
   private static ensureTexturesLoaded(): void {
     if (this.colorMap && this.bumpMap && this.roughnessMap) {
@@ -204,8 +206,23 @@ export class ThreeObjectsFactory {
   }
 
   private static createGlazeMaterial(color: string): THREE.MeshStandardMaterial {
+    if (!this.glazeColorMap) {
+      this.glazeColorMap = this.textureLoader.load('/assets/textures/Candy001_1K-JPG_Color.jpg');
+      this.glazeNormalMap = this.textureLoader.load('/assets/textures/Candy001_1K-JPG_NormalGL.jpg');
+
+      [this.glazeColorMap, this.glazeNormalMap].forEach((texture) => {
+        if (!texture) {
+          return;
+        }
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(2.5, 2.5);
+      });
+    }
+
     const material = new THREE.MeshStandardMaterial({
       color: new THREE.Color(color),
+      map: this.glazeColorMap ?? undefined,
+      normalMap: this.glazeNormalMap ?? undefined,
       roughness: 0.25,
       metalness: 0.15,
       envMapIntensity: 0.8,
@@ -225,34 +242,37 @@ export class ThreeObjectsFactory {
       return null;
     }
 
-    const segments = 96;
+    const segments = 128;
     const topY = metadata.totalHeight / 2;
     const topPositions: number[] = [];
     const rimPositions: number[] = [];
     const skirtPositions: number[] = [];
     const dripPositions: number[] = [];
+    const uvs: number[] = [];
     const indices: number[] = [];
-    const rimNoise = this.smoothNoise(this.buildNoiseSequence(segments, 3.1), 2);
-    const dripNoise = this.smoothNoise(this.buildNoiseSequence(segments, 4.2, 0.7), 2);
-    const thicknessNoise = this.smoothNoise(this.buildNoiseSequence(segments, 6.0, 1.3), 1);
+    const rimNoise = this.smoothNoise(this.buildNoiseSequence(segments, 2.8), 3);
+    const dripNoise = this.smoothNoise(this.buildNoiseSequence(segments, 4.2, 0.7), 3);
+    const thicknessNoise = this.smoothNoise(this.buildNoiseSequence(segments, 5.1, 1.3), 2);
 
     for (let i = 0; i < segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
       const baseNormal = new THREE.Vector2(Math.cos(angle), Math.sin(angle));
-      const rimRadiusOffset = (rimNoise[i] - 0.5) * radius * 0.08 + radius * 0.035;
-      const rimRadius = Math.max(radius + radius * 0.02, radius + rimRadiusOffset);
+      const rimRadiusOffset = (rimNoise[i] - 0.5) * radius * 0.045 + radius * 0.03;
+      const rimRadius = Math.max(radius + radius * 0.018, radius + rimRadiusOffset);
       const dripProfile = dripNoise[i];
-      const dripOffset = Math.max(dripLength * (0.35 + dripProfile * 0.65), 0);
-      const outwardDrip = radius * (0.04 + dripProfile * 0.08);
-      const crownExtra = thicknessNoise[i] * radius * 0.025;
+      const dripOffset = Math.max(dripLength * (0.28 + dripProfile * 0.7), 0);
+      const outwardDrip = radius * (0.035 + dripProfile * 0.06);
+      const crownExtra = thicknessNoise[i] * radius * 0.018;
 
-      const topRadius = rimRadius + radius * 0.03 + crownExtra;
-      const skirtRadius = rimRadius + outwardDrip * 0.45;
+      const eased = 0.5 - 0.5 * Math.cos((i / segments) * Math.PI * 2);
+      const topRadius = rimRadius + radius * 0.018 + crownExtra + eased * radius * 0.008;
+      const skirtRadius = rimRadius + outwardDrip * 0.42;
       const dripRadius = rimRadius + outwardDrip;
 
-      const topYOffset = thickness * (0.75 + thicknessNoise[i] * 0.15);
-      const rimYOffset = Math.min(thickness * 0.45, 0.07);
-      const skirtYOffset = Math.min(thickness * 0.15, 0.03);
+      const domeLift = thickness * 0.2;
+      const topYOffset = thickness * (0.92 + thicknessNoise[i] * 0.12) + domeLift;
+      const rimYOffset = Math.min(topYOffset * 0.55, 0.12);
+      const skirtYOffset = Math.min(thickness * 0.14, 0.04);
 
       const topX = baseNormal.x * topRadius;
       const topZ = baseNormal.y * topRadius;
@@ -267,6 +287,9 @@ export class ThreeObjectsFactory {
       rimPositions.push(rimX, topY + rimYOffset, rimZ);
       skirtPositions.push(skirtX, topY - skirtYOffset, skirtZ);
       dripPositions.push(dripX, topY - dripOffset, dripZ);
+
+      const u = i / segments;
+      uvs.push(u, 1.0, u, 0.82, u, 0.52, u, 0.0);
     }
 
     const positions = [
@@ -303,6 +326,7 @@ export class ThreeObjectsFactory {
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute([...uvs, 0.5, 0.5], 2));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     return geometry;
@@ -328,19 +352,20 @@ export class ThreeObjectsFactory {
     const rimPositions: number[] = [];
     const skirtPositions: number[] = [];
     const dripPositions: number[] = [];
+    const uvs: number[] = [];
     const indices: number[] = [];
     const minSize = Math.min(width, depth);
-    const rimNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.5), 2);
-    const dripNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 2.4, 0.4), 2);
+    const rimNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.5), 3);
+    const dripNoise = this.smoothNoise(this.buildNoiseSequence(totalSegments, 2.3, 0.4), 3);
 
     for (let i = 0; i < totalSegments; i++) {
       const { x, z, normal } = points[i];
-      const rimOffset = (rimNoise[i] - 0.5) * minSize * 0.05;
-      const outward = minSize * (0.05 + dripNoise[i] * 0.12);
-      const dripAmount = Math.max(dripLength * (0.35 + dripNoise[i] * 0.65), 0);
+      const rimOffset = (rimNoise[i] - 0.5) * minSize * 0.04;
+      const outward = minSize * (0.045 + dripNoise[i] * 0.09);
+      const dripAmount = Math.max(dripLength * (0.32 + dripNoise[i] * 0.7), 0);
 
-      const topOffset = rimOffset + minSize * 0.04;
-      const skirtOffset = rimOffset + outward * 0.4;
+      const topOffset = rimOffset + minSize * 0.05;
+      const skirtOffset = rimOffset + outward * 0.42;
       const dripOffset = rimOffset + outward;
 
       const topX = x + normal.x * topOffset;
@@ -352,14 +377,17 @@ export class ThreeObjectsFactory {
       const dripX = x + normal.x * dripOffset;
       const dripZ = z + normal.y * dripOffset;
 
-      const topYOffset = thickness * 0.8;
-      const rimYOffset = Math.min(thickness * 0.45, 0.07);
-      const skirtYOffset = Math.min(thickness * 0.18, 0.03);
+      const topYOffset = thickness * 0.95 + minSize * 0.01;
+      const rimYOffset = Math.min(thickness * 0.55, 0.1);
+      const skirtYOffset = Math.min(thickness * 0.18, 0.04);
 
       topPositions.push(topX, topY + topYOffset, topZ);
       rimPositions.push(rimX, topY + rimYOffset, rimZ);
       skirtPositions.push(skirtX, topY - skirtYOffset, skirtZ);
       dripPositions.push(dripX, topY - dripAmount, dripZ);
+
+      const u = i / totalSegments;
+      uvs.push(u, 1.0, u, 0.82, u, 0.52, u, 0.0);
     }
 
     const positions = [
@@ -396,6 +424,7 @@ export class ThreeObjectsFactory {
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute([...uvs, 0.5, 0.5], 2));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     return geometry;
