@@ -85,4 +85,43 @@ describe('ThreeObjectsFactory', () => {
     const vertexCount = (positionAttribute as THREE.BufferAttribute).count;
     expect(vertexCount).toBeGreaterThan(300);
   });
+
+  it('buduje nieregularne, oddzielone zacieki oraz gładką kopułę na górze', () => {
+    const result = ThreeObjectsFactory.createCake(
+      getOptions({ glaze_thickness: 0.22, glaze_drip_length: 1.0 })
+    );
+
+    expect(result.glaze).toBeTruthy();
+
+    const positions = Array.from(
+      (result.glaze!.geometry.getAttribute('position') as THREE.BufferAttribute).array as ArrayLike<number>
+    );
+    const totalVertices = positions.length / 3;
+    const segments = (totalVertices - 1) / 6;
+
+    const tipRingStart = segments * 5;
+    const tipY = positions
+      .slice(tipRingStart * 3, tipRingStart * 3 + segments * 3)
+      .filter((_, index) => index % 3 === 1);
+    const tipRange = Math.max(...tipY) - Math.min(...tipY);
+
+    const apexRingStart = 0;
+    const crownRingStart = segments;
+    const apexY = positions
+      .slice(apexRingStart * 3, apexRingStart * 3 + segments * 3)
+      .filter((_, index) => index % 3 === 1);
+    const crownY = positions
+      .slice(crownRingStart * 3, crownRingStart * 3 + segments * 3)
+      .filter((_, index) => index % 3 === 1);
+
+    const averageApexHeight = apexY.reduce((sum, value) => sum + value, 0) / apexY.length;
+    const averageCrownHeight = crownY.reduce((sum, value) => sum + value, 0) / crownY.length;
+
+    const hangingDrips = tipY.filter((value) => value < averageCrownHeight - 0.2).length;
+
+    expect(segments).toBeGreaterThan(100);
+    expect(tipRange).toBeGreaterThan(0.35);
+    expect(averageApexHeight - averageCrownHeight).toBeGreaterThan(0.05);
+    expect(hangingDrips / tipY.length).toBeGreaterThan(0.25);
+  });
 });

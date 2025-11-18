@@ -227,6 +227,7 @@ export class ThreeObjectsFactory {
       metalness: 0.15,
       envMapIntensity: 0.8,
     });
+    material.normalScale = new THREE.Vector2(0.8, 0.8);
     material.side = THREE.DoubleSide;
     return material;
   }
@@ -242,8 +243,9 @@ export class ThreeObjectsFactory {
       return null;
     }
 
-    const segments = 180;
+    const segments = 200;
     const topY = metadata.totalHeight / 2;
+    const apexPositions: number[] = [];
     const crownPositions: number[] = [];
     const shoulderPositions: number[] = [];
     const flowPositions: number[] = [];
@@ -254,6 +256,7 @@ export class ThreeObjectsFactory {
 
     const rimNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(segments, 2.2), 4));
     const dripNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(segments, 1.6, 0.7), 5));
+    const dripMask = this.buildDripMask(dripNoise, 0.52, 2.35, 2);
     const domeNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(segments, 1.1, 0.2), 3));
     const wobbleNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(segments, 0.6, 1.1), 3));
 
@@ -262,23 +265,28 @@ export class ThreeObjectsFactory {
     for (let i = 0; i < segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
       const baseNormal = new THREE.Vector2(Math.cos(angle), Math.sin(angle));
-      const rimProfile = 0.75 + rimNoise[i] * 0.45;
-      const dripProfile = 0.35 + Math.pow(dripNoise[i], 1.2) * 0.9;
-      const domeProfile = 0.7 + domeNoise[i] * 0.35;
-      const wobbleProfile = 0.4 + wobbleNoise[i] * 0.6;
+      const rimProfile = 0.7 + rimNoise[i] * 0.55;
+      const dripProfile = 0.22 + dripMask[i] * 0.95;
+      const domeProfile = 0.72 + domeNoise[i] * 0.38;
+      const wobbleProfile = 0.35 + wobbleNoise[i] * 0.65;
 
-      const rimRadius = radius + thickness * (0.45 + rimProfile * 0.35);
-      const crownRadius = rimRadius + thickness * (0.12 + rimProfile * 0.15);
-      const flowRadius = rimRadius + thickness * (0.25 + dripProfile * 0.4) + radius * 0.015 * dripProfile;
-      const bellyRadius = flowRadius + thickness * (0.35 + dripProfile * 0.55) + radius * 0.022 * dripProfile;
-      const tipRadius = flowRadius + thickness * (0.22 + dripProfile * 0.3) + radius * 0.012 * dripProfile;
+      const inwardRelax = 0.12 + (1 - dripMask[i]) * 0.32;
+      const rimRadius = radius + thickness * (0.35 + rimProfile * 0.32 - inwardRelax * 0.22);
+      const crownRadius = rimRadius + thickness * (0.18 + rimProfile * 0.16 - inwardRelax * 0.1);
+      const flowRadius = rimRadius + thickness * (0.18 + dripProfile * 0.45) + radius * 0.015 * dripProfile;
+      const bellyRadius = flowRadius + thickness * (0.22 + dripProfile * 0.75) + radius * 0.022 * dripProfile;
+      const tipRadius = flowRadius + thickness * (0.16 + dripProfile * 0.42) + radius * 0.012 * dripProfile;
 
+      const apexRadius = radius * 0.35 + thickness * 0.6;
       const crownYOffset = thickness * (0.82 + domeProfile * 0.35);
+      const apexYOffset = crownYOffset + thickness * 0.14;
       const shoulderYOffset = thickness * (0.52 + domeProfile * 0.2);
-      const flowYOffset = thickness * (0.08 - dripProfile * 0.12 - wobbleProfile * 0.04);
-      const bellyYOffset = -easedDripLength * (0.35 + dripProfile * 0.55);
-      const tipYOffset = -easedDripLength * (0.55 + dripProfile * 0.75);
+      const flowYOffset = thickness * (0.06 - dripProfile * 0.15 - wobbleProfile * 0.05);
+      const bellyYOffset = -easedDripLength * (0.2 + dripProfile * 0.85);
+      const tipYOffset = -easedDripLength * (0.38 + dripProfile * 1.05);
 
+      const apexX = baseNormal.x * apexRadius;
+      const apexZ = baseNormal.y * apexRadius;
       const crownX = baseNormal.x * crownRadius;
       const crownZ = baseNormal.y * crownRadius;
       const rimX = baseNormal.x * rimRadius;
@@ -290,6 +298,7 @@ export class ThreeObjectsFactory {
       const tipX = baseNormal.x * tipRadius;
       const tipZ = baseNormal.y * tipRadius;
 
+      apexPositions.push(apexX, topY + apexYOffset, apexZ);
       crownPositions.push(crownX, topY + crownYOffset, crownZ);
       shoulderPositions.push(rimX, topY + shoulderYOffset, rimZ);
       flowPositions.push(flowX, topY + flowYOffset, flowZ);
@@ -297,21 +306,23 @@ export class ThreeObjectsFactory {
       tipPositions.push(tipX, topY + tipYOffset, tipZ);
 
       const u = i / segments;
-      uvs.push(u, 1.0, u, 0.86, u, 0.6, u, 0.28, u, 0.0);
+      uvs.push(u, 1.1, u, 1.0, u, 0.86, u, 0.6, u, 0.28, u, 0.0);
     }
 
     const positions = [
+      ...apexPositions,
       ...crownPositions,
       ...shoulderPositions,
       ...flowPositions,
       ...bellyPositions,
       ...tipPositions,
       0,
-      topY + thickness * 0.95,
+      topY + thickness * 1.05,
       0,
     ];
-    const crownRingStart = 0;
-    const shoulderRingStart = crownPositions.length / 3;
+    const apexRingStart = 0;
+    const crownRingStart = apexRingStart + apexPositions.length / 3;
+    const shoulderRingStart = crownRingStart + crownPositions.length / 3;
     const flowRingStart = shoulderRingStart + shoulderPositions.length / 3;
     const bellyRingStart = flowRingStart + flowPositions.length / 3;
     const tipRingStart = bellyRingStart + bellyPositions.length / 3;
@@ -319,18 +330,21 @@ export class ThreeObjectsFactory {
 
     for (let i = 0; i < segments; i++) {
       const next = (i + 1) % segments;
+      const apexCurrent = apexRingStart + i;
       const crownCurrent = crownRingStart + i;
       const shoulderCurrent = shoulderRingStart + i;
       const flowCurrent = flowRingStart + i;
       const bellyCurrent = bellyRingStart + i;
       const tipCurrent = tipRingStart + i;
+      const apexNext = apexRingStart + next;
       const crownNext = crownRingStart + next;
       const shoulderNext = shoulderRingStart + next;
       const flowNext = flowRingStart + next;
       const bellyNext = bellyRingStart + next;
       const tipNext = tipRingStart + next;
 
-      indices.push(centerIndex, crownNext, crownCurrent);
+      indices.push(centerIndex, apexNext, apexCurrent);
+      this.pushQuad(indices, apexCurrent, apexNext, crownCurrent, crownNext);
       this.pushQuad(indices, crownCurrent, crownNext, shoulderCurrent, shoulderNext);
       this.pushQuad(indices, shoulderCurrent, shoulderNext, flowCurrent, flowNext);
       this.pushQuad(indices, flowCurrent, flowNext, bellyCurrent, bellyNext);
@@ -361,6 +375,7 @@ export class ThreeObjectsFactory {
     const points = this.buildCuboidRingPoints(width, depth, segmentsPerSide);
     const totalSegments = points.length;
     const topY = metadata.totalHeight / 2;
+    const apexPositions: number[] = [];
     const crownPositions: number[] = [];
     const shoulderPositions: number[] = [];
     const flowPositions: number[] = [];
@@ -371,34 +386,39 @@ export class ThreeObjectsFactory {
     const minSize = Math.min(width, depth);
     const rimNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.1), 4));
     const dripNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.6, 0.4), 5));
+    const dripMask = this.buildDripMask(dripNoise, 0.55, 2.25, 2);
     const domeNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(totalSegments, 0.95, 0.6), 3));
     const wobbleNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(totalSegments, 0.55, 0.9), 3));
 
     for (let i = 0; i < totalSegments; i++) {
       const { x, z, normal } = points[i];
-      const rimProfile = 0.72 + rimNoise[i] * 0.5;
-      const dripProfile = 0.35 + Math.pow(dripNoise[i], 1.15) * 0.95;
-      const domeProfile = 0.65 + domeNoise[i] * 0.45;
-      const wobbleProfile = 0.35 + wobbleNoise[i] * 0.65;
+      const rimProfile = 0.7 + rimNoise[i] * 0.55;
+      const dripProfile = 0.18 + dripMask[i] * 1.05;
+      const domeProfile = 0.64 + domeNoise[i] * 0.5;
+      const wobbleProfile = 0.32 + wobbleNoise[i] * 0.7;
 
-      const outwardDrip = minSize * (0.045 + dripProfile * 0.08);
-      const rimRadius = outwardDrip * (0.85 + rimProfile * 0.4);
-      const flowRadius = rimRadius * 0.85 + outwardDrip * (0.45 + wobbleProfile * 0.1);
-      const bellyRadius = outwardDrip + rimRadius * (0.55 + dripProfile * 0.35);
-      const tipRadius = flowRadius * 0.9 + outwardDrip * (0.5 + dripProfile * 0.25);
+      const outwardDrip = minSize * (0.04 + dripProfile * 0.09);
+      const inwardRelax = 0.08 + (1 - dripMask[i]) * 0.34;
+      const rimRadius = outwardDrip * (0.82 + rimProfile * 0.42 - inwardRelax * 0.28);
+      const flowRadius = rimRadius * 0.82 + outwardDrip * (0.46 + wobbleProfile * 0.12);
+      const bellyRadius = outwardDrip + rimRadius * (0.5 + dripProfile * 0.42);
+      const tipRadius = flowRadius * 0.92 + outwardDrip * (0.52 + dripProfile * 0.3);
 
-      const crownLift = thickness * (0.64 + domeProfile * 0.46);
-      const rimYOffset = thickness * (0.48 + domeProfile * 0.18);
-      const flowYOffset = thickness * (0.08 - dripProfile * 0.12 - wobbleProfile * 0.05);
-      const bellyYOffset = -Math.max(dripLength, 0.02) * (0.38 + dripProfile * 0.6);
-      const tipYOffset = -Math.max(dripLength, 0.02) * (0.58 + dripProfile * 0.78);
+      const apexPoint = new THREE.Vector2(x, z).multiplyScalar(0.55);
+      const crownLift = thickness * (0.7 + domeProfile * 0.48);
+      const apexLift = crownLift + thickness * 0.16;
+      const rimYOffset = thickness * (0.48 + domeProfile * 0.2);
+      const flowYOffset = thickness * (0.05 - dripProfile * 0.14 - wobbleProfile * 0.06);
+      const bellyYOffset = -Math.max(dripLength, 0.02) * (0.24 + dripProfile * 0.92);
+      const tipYOffset = -Math.max(dripLength, 0.02) * (0.42 + dripProfile * 1.05);
 
-      const crownPoint = new THREE.Vector2(x, z).add(normal.clone().multiplyScalar(rimRadius + thickness * 0.12));
+      const crownPoint = new THREE.Vector2(x, z).add(normal.clone().multiplyScalar(rimRadius + thickness * 0.14));
       const rimPoint = new THREE.Vector2(x, z).add(normal.clone().multiplyScalar(rimRadius));
       const flowPoint = new THREE.Vector2(x, z).add(normal.clone().multiplyScalar(flowRadius));
       const bellyPoint = new THREE.Vector2(x, z).add(normal.clone().multiplyScalar(bellyRadius));
       const tipPoint = new THREE.Vector2(x, z).add(normal.clone().multiplyScalar(tipRadius));
 
+      apexPositions.push(apexPoint.x, topY + apexLift, apexPoint.y);
       crownPositions.push(crownPoint.x, topY + crownLift, crownPoint.y);
       shoulderPositions.push(rimPoint.x, topY + rimYOffset, rimPoint.y);
       flowPositions.push(flowPoint.x, topY + flowYOffset, flowPoint.y);
@@ -406,10 +426,11 @@ export class ThreeObjectsFactory {
       tipPositions.push(tipPoint.x, topY + tipYOffset, tipPoint.y);
 
       const u = i / totalSegments;
-      uvs.push(u, 1.0, u, 0.86, u, 0.6, u, 0.28, u, 0.0);
+      uvs.push(u, 1.1, u, 1.0, u, 0.86, u, 0.6, u, 0.28, u, 0.0);
     }
 
     const positions = [
+      ...apexPositions,
       ...crownPositions,
       ...shoulderPositions,
       ...flowPositions,
@@ -419,8 +440,9 @@ export class ThreeObjectsFactory {
       topY + thickness * 0.9,
       0,
     ];
-    const crownRingStart = 0;
-    const rimRingStart = crownPositions.length / 3;
+    const apexRingStart = 0;
+    const crownRingStart = apexRingStart + apexPositions.length / 3;
+    const rimRingStart = crownRingStart + crownPositions.length / 3;
     const flowRingStart = rimRingStart + shoulderPositions.length / 3;
     const bellyRingStart = flowRingStart + flowPositions.length / 3;
     const tipRingStart = bellyRingStart + bellyPositions.length / 3;
@@ -428,18 +450,21 @@ export class ThreeObjectsFactory {
 
     for (let i = 0; i < totalSegments; i++) {
       const next = (i + 1) % totalSegments;
+      const apexCurrent = apexRingStart + i;
       const crownCurrent = crownRingStart + i;
       const rimCurrent = rimRingStart + i;
       const flowCurrent = flowRingStart + i;
       const bellyCurrent = bellyRingStart + i;
       const tipCurrent = tipRingStart + i;
+      const apexNext = apexRingStart + next;
       const crownNext = crownRingStart + next;
       const rimNext = rimRingStart + next;
       const flowNext = flowRingStart + next;
       const bellyNext = bellyRingStart + next;
       const tipNext = tipRingStart + next;
 
-      indices.push(centerIndex, crownNext, crownCurrent);
+      indices.push(centerIndex, apexNext, apexCurrent);
+      this.pushQuad(indices, apexCurrent, apexNext, crownCurrent, crownNext);
       this.pushQuad(indices, crownCurrent, crownNext, rimCurrent, rimNext);
       this.pushQuad(indices, rimCurrent, rimNext, flowCurrent, flowNext);
       this.pushQuad(indices, flowCurrent, flowNext, bellyCurrent, bellyNext);
@@ -517,6 +542,18 @@ export class ThreeObjectsFactory {
     const max = Math.max(...values);
     const range = Math.max(max - min, 1e-5);
     return values.map((value) => (value - min) / range);
+  }
+
+  private static buildDripMask(values: number[], threshold: number, exponent: number, smoothing: number): number[] {
+    const emphasized = values.map((value) => {
+      const normalized = Math.max(0, value - threshold) / Math.max(1 - threshold, 1e-5);
+      return Math.pow(normalized, exponent);
+    });
+    const softened = this.smoothNoise(emphasized, smoothing);
+    const min = Math.min(...softened);
+    const max = Math.max(...softened);
+    const range = Math.max(max - min, 1e-5);
+    return softened.map((value) => Math.max(0.08, (value - min) / range));
   }
 
   private static pushQuad(indices: number[], aCurrent: number, aNext: number, bCurrent: number, bNext: number): void {
