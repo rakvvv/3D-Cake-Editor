@@ -30,6 +30,10 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     layers: 1,
     shape: 'cylinder',
     layerSizes: [1],
+    glaze_enabled: true,
+    glaze_color: '#f99be6',
+    glaze_thickness: 0.1,
+    glaze_drip_length: 1.2 ,
   };
 
   public validationSummary: string | null = null;

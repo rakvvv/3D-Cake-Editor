@@ -27,6 +27,10 @@ export class LayersPanelComponent {
   cakeLayers = 1;
   cakeShape: 'cylinder' | 'cuboid' = 'cylinder';
   cakeLayerSizes: number[] = [1];
+  glazeEnabled = true;
+  glazeColor = '#f99be6';
+  glazeThickness = 0.2;
+  glazeDripLength = 0.5;
   readonly availableFonts = [
     { label: 'Helvetiker', value: 'helvetiker' },
     { label: 'Optimer', value: 'optimer' },
@@ -84,6 +88,10 @@ export class LayersPanelComponent {
       layers: this.cakeLayers,
       shape: this.cakeShape,
       layerSizes: [...this.cakeLayerSizes],
+      glaze_enabled: this.glazeEnabled,
+      glaze_color: this.glazeColor,
+      glaze_thickness: this.glazeThickness,
+      glaze_drip_length: this.glazeDripLength,
     });
   }
 }

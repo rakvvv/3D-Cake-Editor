@@ -255,10 +255,12 @@ export class ThreeSceneService {
 
     const children = [...this.cakeBase.children];
     children.forEach((child) => {
-      if (!child.userData['isCakeLayer']) {
-        this.scene.attach(child);
-        child.userData['isSnapped'] = false;
+      if (child.userData['isCakeLayer'] || child.userData['isCakeGlaze']) {
+        return;
       }
+
+      this.scene.attach(child);
+      child.userData['isSnapped'] = false;
     });
 
     this.scene.remove(this.cakeBase);
@@ -271,6 +273,20 @@ export class ThreeSceneService {
     const material = this.cakeBase.userData['material'] as THREE.Material | undefined;
     if (material) {
       material.dispose();
+    }
+
+    const glazeMesh = this.cakeBase.userData['glaze'] as THREE.Mesh | null;
+    if (glazeMesh) {
+      this.scene.remove(glazeMesh);
+    }
+    if (glazeMesh) {
+      glazeMesh.geometry.dispose();
+      const glazeMaterial = glazeMesh.material;
+      if (Array.isArray(glazeMaterial)) {
+        glazeMaterial.forEach((mat) => mat.dispose());
+      } else {
+        glazeMaterial.dispose();
+      }
     }
 
     this.cakeBase = null;

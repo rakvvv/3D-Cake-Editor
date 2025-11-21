@@ -10,4 +10,8 @@ export interface CakeOptions {
   layers: number;
   shape: 'cylinder' | 'cuboid';
   layerSizes: number[];
+  glaze_enabled: boolean;
+  glaze_color: string;
+  glaze_thickness: number;
+  glaze_drip_length: number;
 }
