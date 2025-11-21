@@ -203,10 +203,19 @@ export class ThreeObjectsFactory {
 
     const group = new THREE.Group();
     group.name = 'CakeGlaze';
+    group.userData['glazeMaterial'] = material;
 
-    const cakeRadius = (metadata.shape === 'cylinder')
-      ? (topLayer.radius ?? metadata.radius ?? 2)
-      : 2;
+    if (metadata.shape === 'cuboid') {
+      const cuboidGeometry = this.buildCuboidGlazeGeometry(topLayer, metadata, thickness, dripLength);
+      if (!cuboidGeometry) return null;
+
+      const cuboidMesh = new THREE.Mesh(cuboidGeometry, material);
+      group.add(cuboidMesh);
+
+      return group;
+    }
+
+    const cakeRadius = topLayer.radius ?? metadata.radius ?? 2;
 
     // 1. GÓRNA TAFLA (Czapa)
     // Musi wystawać poza tort (overhang), żeby sople spadały z "półki"
