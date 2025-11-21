@@ -275,24 +275,33 @@ export class ThreeSceneService {
       material.dispose();
     }
 
-    const glazeMesh = this.cakeBase.userData['glaze'] as THREE.Mesh | null;
-    if (glazeMesh) {
-      this.scene.remove(glazeMesh);
-    }
-    if (glazeMesh) {
-      glazeMesh.geometry.dispose();
-      const glazeMaterial = glazeMesh.material;
-      if (Array.isArray(glazeMaterial)) {
-        glazeMaterial.forEach((mat) => mat.dispose());
-      } else {
-        glazeMaterial.dispose();
-      }
+    const glazeObject = this.cakeBase.userData['glaze'] as THREE.Object3D | null;
+    if (glazeObject) {
+      this.scene.remove(glazeObject);
+      this.disposeGlazeObject(glazeObject);
     }
 
     this.cakeBase = null;
     this.cakeLayers = [];
     this.cakeMetadata = null;
     this.snapService.setCakeBase(null);
+  }
+
+  private disposeGlazeObject(object: THREE.Object3D): void {
+    object.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!(mesh as { isMesh?: boolean }).isMesh) {
+        return;
+      }
+
+      mesh.geometry?.dispose();
+      const material = mesh.material;
+      if (Array.isArray(material)) {
+        material.forEach((mat) => mat.dispose());
+      } else {
+        material?.dispose();
+      }
+    });
   }
 
   private applyCakeTransforms(): void {

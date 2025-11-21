@@ -204,12 +204,14 @@ export class ThreeObjectsFactory {
     const group = new THREE.Group();
     group.name = 'CakeGlaze';
     group.userData['glazeMaterial'] = material;
+    group.userData['isCakeGlaze'] = true;
 
     if (metadata.shape === 'cuboid') {
       const cuboidGeometry = this.buildCuboidGlazeGeometry(topLayer, metadata, thickness, dripLength);
       if (!cuboidGeometry) return null;
 
       const cuboidMesh = new THREE.Mesh(cuboidGeometry, material);
+      cuboidMesh.userData['isCakeGlaze'] = true;
       group.add(cuboidMesh);
 
       return group;
@@ -224,6 +226,7 @@ export class ThreeObjectsFactory {
 
     const topGeo = new THREE.CylinderGeometry(poolRadius, poolRadius, thickness * 0.7, 64);
     const topMesh = new THREE.Mesh(topGeo, material);
+    topMesh.userData['isCakeGlaze'] = true;
     topMesh.position.y = topLayer.topY + thickness * 0.35;
     group.add(topMesh);
 
@@ -244,6 +247,7 @@ export class ThreeObjectsFactory {
     rimGeo.computeVertexNormals();
 
     const rimMesh = new THREE.Mesh(rimGeo, material);
+    rimMesh.userData['isCakeGlaze'] = true;
     rimMesh.rotateX(Math.PI / 2);
     rimMesh.position.y = topLayer.topY + thickness * 0.35;
     group.add(rimMesh);
@@ -260,7 +264,10 @@ export class ThreeObjectsFactory {
       dripLength
     );
 
-    if (dripsGroup) group.add(dripsGroup);
+    if (dripsGroup) {
+      dripsGroup.traverse((child) => (child.userData['isCakeGlaze'] = true));
+      group.add(dripsGroup);
+    }
 
     return group;
   }
