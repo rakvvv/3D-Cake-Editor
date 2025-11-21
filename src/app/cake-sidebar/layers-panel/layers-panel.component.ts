@@ -31,6 +31,7 @@ export class LayersPanelComponent {
   glazeColor = '#f99be6';
   glazeThickness = 0.2;
   glazeDripLength = 0.5;
+  glazeSeed = 1;
   readonly availableFonts = [
     { label: 'Helvetiker', value: 'helvetiker' },
     { label: 'Optimer', value: 'optimer' },
@@ -92,6 +93,7 @@ export class LayersPanelComponent {
       glaze_color: this.glazeColor,
       glaze_thickness: this.glazeThickness,
       glaze_drip_length: this.glazeDripLength,
+      glaze_seed: this.glazeSeed,
     });
   }
 }

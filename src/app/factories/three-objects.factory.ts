@@ -199,6 +199,8 @@ export class ThreeObjectsFactory {
     const thickness = THREE.MathUtils.clamp(options.glaze_thickness ?? 0.25, 0.1, 1);
     // Skracamy domyślną długość, bo prosiłeś o krótsze
     const dripLength = THREE.MathUtils.clamp(options.glaze_drip_length ?? 1.5, 0.5, 5.0);
+    const glazeSeed = options.glaze_seed ?? 1;
+    const random = this.createRandomGenerator(glazeSeed);
     const material = this.createGlazeMaterial(options.glaze_color ?? '#ffffff');
 
     const group = new THREE.Group();
@@ -207,7 +209,7 @@ export class ThreeObjectsFactory {
     group.userData['isCakeGlaze'] = true;
 
     if (metadata.shape === 'cuboid') {
-      const cuboidGeometry = this.buildCuboidGlazeGeometry(topLayer, metadata, thickness, dripLength);
+      const cuboidGeometry = this.buildCuboidGlazeGeometry(topLayer, metadata, thickness, dripLength, random);
       if (!cuboidGeometry) return null;
 
       const cuboidMesh = new THREE.Mesh(cuboidGeometry, material);
@@ -261,7 +263,8 @@ export class ThreeObjectsFactory {
       cakeRadius,
       material,
       thickness,
-      dripLength
+      dripLength,
+      random
     );
 
     if (dripsGroup) {
@@ -277,7 +280,8 @@ export class ThreeObjectsFactory {
     cakeRadius: number,
     material: THREE.Material,
     baseThickness: number,
-    baseLength: number
+    baseLength: number,
+    random: () => number,
   ): THREE.Group {
     const group = new THREE.Group();
     const twoPi = Math.PI * 2;
@@ -285,7 +289,7 @@ export class ThreeObjectsFactory {
 
     while (angle < twoPi) {
       // ZMNIEJSZONE ODSTĘPY -> WIĘCEJ SOPLI
-      const gapNoise = Math.random();
+      const gapNoise = random();
       // Gap między 0.05 a 0.15 (wcześniej było dużo szerzej)
       const gap = 0.05 + gapNoise * 0.1 + (gapNoise > 0.9 ? 0.1 : 0.0);
 
@@ -295,12 +299,12 @@ export class ThreeObjectsFactory {
       if (angle > twoPi) break;
 
       // Krótsze i bardziej zróżnicowane sople
-      const isLong = Math.random() > 0.4;
+      const isLong = random() > 0.4;
 
       // Długość: Long (0.6 - 1.0 bazy), Short (0.2 - 0.4 bazy) -> małe kropelki
       const length = isLong
-        ? baseLength * (0.6 + Math.random() * 0.4)
-        : baseLength * (0.2 + Math.random() * 0.2);
+        ? baseLength * (0.6 + random() * 0.4)
+        : baseLength * (0.2 + random() * 0.2);
 
       // Cienka szyjka
       const neckThickness = baseThickness * 0.20;
@@ -323,7 +327,7 @@ export class ThreeObjectsFactory {
       const posAttribute = geometry.attributes['position'];
       const vertexCount = posAttribute.count;
 
-      const wobblePhase = Math.random() * 10;
+      const wobblePhase = random() * 10;
 
       for (let i = 0; i < vertexCount; i++) {
         const ix = i * 3;
@@ -425,7 +429,7 @@ export class ThreeObjectsFactory {
       mesh.lookAt(0, py, 0);
 
       // Losowy obrót na boki
-      mesh.rotateZ((Math.random() - 0.5) * 0.2);
+      mesh.rotateZ((random() - 0.5) * 0.2);
 
       group.add(mesh);
     }
@@ -466,6 +470,7 @@ export class ThreeObjectsFactory {
     metadata: CakeMetadata,
     thickness: number,
     dripLength: number,
+    random: () => number,
   ): THREE.BufferGeometry | null {
     const width = layer.width ?? metadata.width;
     const depth = layer.depth ?? metadata.depth;
@@ -486,11 +491,19 @@ export class ThreeObjectsFactory {
     const uvs: number[] = [];
     const indices: number[] = [];
     const minSize = Math.min(width, depth);
-    const rimNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.1), 4));
-    const dripNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.6, 0.4), 5));
+    const rimNoise = this.normalizeNoise(
+      this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.1, random()), 4)
+    );
+    const dripNoise = this.normalizeNoise(
+      this.smoothNoise(this.buildNoiseSequence(totalSegments, 1.6, 0.4 + random() * 0.6, random), 5)
+    );
     const dripMask = this.buildDripMask(dripNoise, 0.55, 2.25, 2);
-    const domeNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(totalSegments, 0.95, 0.6), 3));
-    const wobbleNoise = this.normalizeNoise(this.smoothNoise(this.buildNoiseSequence(totalSegments, 0.55, 0.9), 3));
+    const domeNoise = this.normalizeNoise(
+      this.smoothNoise(this.buildNoiseSequence(totalSegments, 0.95, 0.6 + random() * 0.4, random), 3)
+    );
+    const wobbleNoise = this.normalizeNoise(
+      this.smoothNoise(this.buildNoiseSequence(totalSegments, 0.55, 0.9 + random() * 0.4, random), 3)
+    );
 
     for (let i = 0; i < totalSegments; i++) {
       const { x, z, normal } = points[i];
@@ -615,13 +628,39 @@ export class ThreeObjectsFactory {
     return points;
   }
 
+  private static createRandomGenerator(seedValue: number | string): () => number {
+    let seed = typeof seedValue === 'number' ? Math.floor(seedValue) : this.hashSeed(seedValue);
+    seed = (seed ^ 0x6d2b79f5) >>> 0;
+
+    return () => {
+      seed = (seed + 0x6d2b79f5) >>> 0;
+      let t = seed ^ (seed >>> 15);
+      t = Math.imul(t | 1, t);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  private static hashSeed(seedText: string): number {
+    return seedText.split('').reduce((acc, char, index) => {
+      const code = char.charCodeAt(0) + index * 17;
+      return (acc ^ (code << (index % 8))) >>> 0;
+    }, 0x9e3779b9);
+  }
+
   private static sampleNoise(value: number): number {
     const x = Math.sin(value * 12.9898) * 43758.5453;
     return x - Math.floor(x);
   }
 
-  private static buildNoiseSequence(length: number, frequency: number, offset = 0): number[] {
-    return Array.from({ length }, (_, index) => this.sampleNoise(index * frequency + offset));
+  private static buildNoiseSequence(
+    length: number,
+    frequency: number,
+    offset = 0,
+    random?: () => number,
+  ): number[] {
+    const phaseOffset = offset + (random ? random() * 10 : 0);
+    return Array.from({ length }, (_, index) => this.sampleNoise(index * frequency + phaseOffset));
   }
 
   private static smoothNoise(values: number[], passes: number): number[] {

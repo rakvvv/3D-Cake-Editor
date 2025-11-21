@@ -56,6 +56,20 @@
       />
     </div>
 
+    <div class="sidebar-panel__control sidebar-panel__control--inline">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-glaze-seed">Seed polewy</label>
+      <input
+        id="cake-glaze-seed"
+        class="sidebar-panel__input"
+        type="number"
+        min="0"
+        step="1"
+        [(ngModel)]="glazeSeed"
+        (ngModelChange)="updateCakeOptions()"
+        [disabled]="!glazeEnabled"
+      />
+    </div>
+
     <div class="sidebar-panel__control sidebar-panel__control--range">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-glaze-thickness">
         Grubość polewy
