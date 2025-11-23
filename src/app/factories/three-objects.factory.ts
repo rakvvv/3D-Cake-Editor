@@ -477,6 +477,15 @@ export class ThreeObjectsFactory {
     return material;
   }
 
+  private static createRandomGenerator(seed: number): () => number {
+    let state = seed >>> 0;
+    return () => {
+      // Linear congruential generator for deterministic randomness
+      state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+  }
+
   // ========= CUBOID HELPERS =========
 
   private static buildCuboidGlaze(
