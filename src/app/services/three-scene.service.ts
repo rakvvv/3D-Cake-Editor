@@ -696,7 +696,7 @@ export class ThreeSceneService {
     return Math.abs(seed) % this.candyPalette.length;
   }
   // TODO zapisanie sceny lokalnie
-  public getSceneConfiguration(): any {
+  public getLocalSceneConfiguration(): any {
     return this.objects.map((obj, index) => ({
       id: index,
       position: obj.position.toArray()
