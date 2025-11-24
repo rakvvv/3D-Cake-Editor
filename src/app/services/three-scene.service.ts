@@ -253,9 +253,11 @@ export class ThreeSceneService {
       return;
     }
 
+    const waferObjects = this.cakeBase.children.filter((child) => child.userData['isCakeWafer']);
+
     const children = [...this.cakeBase.children];
     children.forEach((child) => {
-      if (child.userData['isCakeLayer'] || child.userData['isCakeGlaze']) {
+      if (child.userData['isCakeLayer'] || child.userData['isCakeGlaze'] || child.userData['isCakeWafer']) {
         return;
       }
 
@@ -281,6 +283,8 @@ export class ThreeSceneService {
       this.disposeGlazeObject(glazeObject);
     }
 
+    waferObjects.forEach((wafer) => this.disposeWaferObject(wafer));
+
     this.cakeBase = null;
     this.cakeLayers = [];
     this.cakeMetadata = null;
@@ -302,6 +306,33 @@ export class ThreeSceneService {
         material?.dispose();
       }
     });
+  }
+
+  private disposeWaferObject(object: THREE.Object3D): void {
+    const mesh = object as THREE.Mesh;
+    if (!(mesh as { isMesh?: boolean }).isMesh) {
+      return;
+    }
+
+    mesh.geometry?.dispose();
+    const material = mesh.material;
+    if (Array.isArray(material)) {
+      material.forEach((mat) => this.disposeWaferMaterial(mat));
+    } else {
+      this.disposeWaferMaterial(material);
+    }
+  }
+
+  private disposeWaferMaterial(material: THREE.Material | null | undefined): void {
+    if (!material) {
+      return;
+    }
+
+    const typed = material as THREE.MeshStandardMaterial;
+    typed.map?.dispose();
+    typed.alphaMap?.dispose();
+    typed.roughnessMap?.dispose();
+    material.dispose();
   }
 
   private applyCakeTransforms(): void {

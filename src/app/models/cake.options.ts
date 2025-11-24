@@ -15,4 +15,6 @@ export interface CakeOptions {
   glaze_thickness: number;
   glaze_drip_length: number;
   glaze_seed: number;
+  wafer_texture_url: string | null;
+  wafer_scale: number;
 }

@@ -34,6 +34,8 @@ export interface CakeCreationResult {
   metadata: CakeMetadata;
   glaze?: THREE.Group;
   glazeMaterial?: THREE.MeshStandardMaterial;
+  wafer?: THREE.Mesh;
+  waferMaterial?: THREE.MeshStandardMaterial;
 }
 
 export class ThreeObjectsFactory {
@@ -165,6 +167,8 @@ export class ThreeObjectsFactory {
       }
     }
 
+    const wafer = this.createWafer(metadata, options);
+
     // ========= GLAZE =========
 
     const glaze = this.createGlaze(metadata, options);
@@ -172,10 +176,15 @@ export class ThreeObjectsFactory {
       cake.add(glaze);
     }
 
+    if (wafer) {
+      cake.add(wafer);
+    }
+
     cake.userData['metadata'] = metadata;
     cake.userData['material'] = material;
     cake.userData['layers'] = layers;
     cake.userData['glaze'] = glaze ?? null;
+    cake.userData['wafer'] = wafer ?? null;
 
     return {
       cake,
@@ -184,7 +193,55 @@ export class ThreeObjectsFactory {
       metadata,
       glaze: glaze ?? undefined,
       glazeMaterial: glaze ? (glaze.userData['glazeMaterial'] as THREE.MeshStandardMaterial) : undefined,
+      wafer: wafer ?? undefined,
+      waferMaterial: wafer ? (wafer.userData['waferMaterial'] as THREE.MeshStandardMaterial) : undefined,
     };
+  }
+
+  private static createWafer(metadata: CakeMetadata, options: CakeOptions): THREE.Mesh | null {
+    if (!options.wafer_texture_url) {
+      return null;
+    }
+
+    const topLayer = metadata.layerDimensions[metadata.layerDimensions.length - 1];
+    if (!topLayer) {
+      return null;
+    }
+
+    const texture = this.textureLoader.load(options.wafer_texture_url);
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    const material = new THREE.MeshStandardMaterial({
+      map: texture,
+      alphaMap: texture,
+      transparent: true,
+      side: THREE.DoubleSide,
+      roughness: 0.75,
+      metalness: 0.05,
+    });
+
+    const scale = THREE.MathUtils.clamp(options.wafer_scale ?? 1, 0.4, 2.5);
+    let geometry: THREE.BufferGeometry;
+
+    if (metadata.shape === 'cylinder') {
+      const radius = (topLayer.radius ?? metadata.radius ?? 2) * scale;
+      geometry = new THREE.CircleGeometry(radius, 64);
+    } else {
+      const width = (topLayer.width ?? metadata.width ?? 2) * scale;
+      const depth = (topLayer.depth ?? metadata.depth ?? 2) * scale;
+      geometry = new THREE.PlaneGeometry(width, depth);
+    }
+
+    const wafer = new THREE.Mesh(geometry, material);
+    wafer.name = 'CakeWafer';
+    wafer.userData['isCakeWafer'] = true;
+    wafer.userData['waferMaterial'] = material;
+    wafer.userData['waferTexture'] = texture;
+    wafer.rotation.x = -Math.PI / 2;
+    wafer.position.y = topLayer.topY + 0.02;
+
+    return wafer;
   }
 
   // ========= GLAZE CREATION =========

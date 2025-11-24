@@ -20,6 +20,8 @@ describe('ThreeObjectsFactory', () => {
     glaze_thickness: 0.2,
     glaze_drip_length: 0.4,
     glaze_seed: 1,
+    wafer_texture_url: null,
+    wafer_scale: 1,
   };
 
   const getOptions = (overrides: Partial<CakeOptions> = {}): CakeOptions => ({
@@ -48,6 +50,26 @@ describe('ThreeObjectsFactory', () => {
     const result = ThreeObjectsFactory.createCake(getOptions());
     expect(result.glaze).toBeTruthy();
     expect(result.cake.children.some((child) => child.name === 'CakeGlaze')).toBeTrue();
+  });
+
+  it('nakłada opłatek z mapą alfa i skalowaniem', () => {
+    const result = ThreeObjectsFactory.createCake(
+      getOptions({ wafer_texture_url: 'blob:wafer', wafer_scale: 1.25 })
+    );
+
+    const wafer = result.cake.children.find((child) => child.userData['isCakeWafer']) as THREE.Mesh;
+    expect(wafer).toBeTruthy();
+
+    const material = wafer.material as THREE.MeshStandardMaterial;
+    expect(material.map).toBe(material.alphaMap);
+
+    const geometry = wafer.geometry as THREE.CircleGeometry | THREE.PlaneGeometry;
+    if (geometry instanceof THREE.CircleGeometry) {
+      expect(geometry.parameters['radius']).toBeCloseTo(2 * 1.25, 2);
+    }
+
+    expect(wafer.position.y).toBeGreaterThan(0.9);
+    expect(wafer.rotation.x).toBeCloseTo(-Math.PI / 2, 5);
   });
 
   it('nie generuje polewy, gdy jest wyłączona', () => {

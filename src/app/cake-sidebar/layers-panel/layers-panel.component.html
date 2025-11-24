@@ -70,6 +70,45 @@
       />
     </div>
 
+    <div class="sidebar-panel__control sidebar-panel__control--inline">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-wafer">Obraz opłatka</label>
+      <div class="sidebar-panel__control-file">
+        <input
+          id="cake-wafer"
+          class="sidebar-panel__input"
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          (change)="onWaferFileSelected($event)"
+          data-testid="wafer-upload"
+        />
+        <span class="sidebar-panel__hint">PNG/JPG/WebP, maks. 5 MB.</span>
+      </div>
+      <div *ngIf="waferError" class="sidebar-panel__message sidebar-panel__message--warning">
+        {{ waferError }}
+      </div>
+      <div *ngIf="waferTextureUrl" class="sidebar-panel__wafer-preview">
+        <img [src]="waferTextureUrl" alt="Podgląd opłatka" data-testid="wafer-preview" />
+      </div>
+    </div>
+
+    <div class="sidebar-panel__control sidebar-panel__control--range">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="wafer-scale">
+        Skala opłatka
+        <span class="sidebar-panel__value">{{ waferScale | number: '1.1-2' }}x</span>
+      </label>
+      <input
+        id="wafer-scale"
+        class="sidebar-panel__range"
+        type="range"
+        [min]="waferScaleMin"
+        [max]="waferScaleMax"
+        step="0.05"
+        [(ngModel)]="waferScale"
+        (ngModelChange)="updateCakeOptions()"
+        [disabled]="!waferTextureUrl"
+      />
+    </div>
+
 
     <div class="sidebar-panel__control sidebar-panel__control--range">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-layers">

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CakeOptions } from '../../models/cake.options';
@@ -10,11 +10,15 @@ import { CakeOptions } from '../../models/cake.options';
   templateUrl: './layers-panel.component.html',
   styleUrls: ['./layers-panel.component.css']
 })
-export class LayersPanelComponent {
+export class LayersPanelComponent implements OnDestroy {
   @Output() cakeOptionsChange = new EventEmitter<CakeOptions>();
 
   readonly minLayerSize = 0.6;
   readonly maxLayerSize = 1.5;
+  readonly waferScaleMin = 0.5;
+  readonly waferScaleMax = 1.5;
+  readonly acceptedWaferTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  readonly maxWaferSizeBytes = 5 * 1024 * 1024;
 
   cakeSize = 1;
   cakeColor = '#ffea00';
@@ -32,10 +36,13 @@ export class LayersPanelComponent {
   glazeThickness = 0.15;
   glazeDripLength = 1;
   glazeSeed = 1;
+  waferTextureUrl: string | null = null;
+  waferScale = 1;
+  waferError: string | null = null;
   readonly availableFonts = [
     { label: 'Helvetiker', value: 'helvetiker' },
     { label: 'Optimer', value: 'optimer' },
-    { label: 'Frosting', value: 'frosting'},
+    { label: 'Frosting', value: 'frosting' },
   ];
 
   onLayersChanged(newCount: number): void {
@@ -67,6 +74,10 @@ export class LayersPanelComponent {
     this.updateCakeOptions();
   }
 
+  ngOnDestroy(): void {
+    this.clearWaferPreview();
+  }
+
   private clampLayerSize(value: number, min: number, max: number): number {
     let effectiveMin = min;
     let effectiveMax = max;
@@ -94,6 +105,53 @@ export class LayersPanelComponent {
       glaze_thickness: this.glazeThickness,
       glaze_drip_length: this.glazeDripLength,
       glaze_seed: this.glazeSeed,
+      wafer_texture_url: this.waferTextureUrl,
+      wafer_scale: this.waferScale,
     });
+  }
+
+  onWaferFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.processWaferFile(file);
+    input.value = '';
+  }
+
+  private processWaferFile(file: File | null): void {
+    if (!file) {
+      this.clearWaferPreview();
+      this.waferError = null;
+      this.updateCakeOptions();
+      return;
+    }
+
+    if (!this.acceptedWaferTypes.includes(file.type)) {
+      this.waferError = 'Dozwolone są jedynie pliki PNG, JPG lub WebP.';
+      this.clearWaferPreview();
+      this.updateCakeOptions();
+      return;
+    }
+
+    if (file.size > this.maxWaferSizeBytes) {
+      this.waferError = 'Plik jest za duży. Maksymalny rozmiar to 5 MB.';
+      this.clearWaferPreview();
+      this.updateCakeOptions();
+      return;
+    }
+
+    if (this.waferTextureUrl) {
+      URL.revokeObjectURL(this.waferTextureUrl);
+    }
+
+    this.waferTextureUrl = URL.createObjectURL(file);
+    this.waferError = null;
+    this.updateCakeOptions();
+  }
+
+  private clearWaferPreview(): void {
+    if (this.waferTextureUrl) {
+      URL.revokeObjectURL(this.waferTextureUrl);
+    }
+    this.waferTextureUrl = null;
   }
 }
