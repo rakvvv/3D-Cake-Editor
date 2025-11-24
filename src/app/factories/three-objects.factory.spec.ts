@@ -20,6 +20,11 @@ describe('ThreeObjectsFactory', () => {
     glaze_thickness: 0.2,
     glaze_drip_length: 0.4,
     glaze_seed: 1,
+    wafer_texture_url: null,
+    wafer_scale: 1,
+    wafer_texture_zoom: 1,
+    wafer_texture_offset_x: 0,
+    wafer_texture_offset_y: 0,
   };
 
   const getOptions = (overrides: Partial<CakeOptions> = {}): CakeOptions => ({
@@ -48,6 +53,91 @@ describe('ThreeObjectsFactory', () => {
     const result = ThreeObjectsFactory.createCake(getOptions());
     expect(result.glaze).toBeTruthy();
     expect(result.cake.children.some((child) => child.name === 'CakeGlaze')).toBeTrue();
+  });
+
+  it('nakłada opłatek z połyskiem i skalowaniem', () => {
+    const result = ThreeObjectsFactory.createCake(
+      getOptions({ wafer_texture_url: 'blob:wafer', wafer_scale: 1.25 })
+    );
+
+    const wafer = result.cake.children.find((child) => child.userData['isCakeWafer']) as THREE.Mesh;
+    expect(wafer).toBeTruthy();
+
+    const material = wafer.material as THREE.MeshPhysicalMaterial;
+    expect(material.map).toBeTruthy();
+    expect(material.alphaMap).toBeUndefined();
+
+    const geometry = wafer.geometry as THREE.CircleGeometry | THREE.PlaneGeometry;
+    if (geometry instanceof THREE.CircleGeometry) {
+      expect(geometry.parameters['radius']).toBeCloseTo(2 * 1.25, 2);
+    }
+
+    expect(wafer.position.y).toBeGreaterThan(0.9);
+    expect(wafer.rotation.x).toBeCloseTo(-Math.PI / 2, 5);
+
+    const sugar = wafer.children.find((child) => child.name === 'CakeWaferSugar') as THREE.Mesh;
+    expect(sugar).toBeTruthy();
+    const sugarMaterial = sugar.material as THREE.MeshPhysicalMaterial;
+    expect(sugarMaterial.transmission).toBeGreaterThan(0.3);
+    expect(sugarMaterial.clearcoat).toBeCloseTo(1, 3);
+  });
+
+  it('ustawia przybliżenie i przesunięcie tekstury opłatka', () => {
+    const result = ThreeObjectsFactory.createCake(
+      getOptions({
+        wafer_texture_url: 'blob:wafer',
+        wafer_scale: 1,
+        wafer_texture_zoom: 2,
+        wafer_texture_offset_x: 0.25,
+        wafer_texture_offset_y: -0.1,
+      })
+    );
+
+    const wafer = result.cake.children.find((child) => child.userData['isCakeWafer']) as THREE.Mesh;
+    expect(wafer).toBeTruthy();
+    const texture = wafer.userData['waferTexture'] as THREE.Texture;
+
+    expect(texture.repeat.x).toBeCloseTo(0.5, 2);
+    expect(texture.repeat.y).toBeCloseTo(0.5, 2);
+    expect(texture.offset.x).toBeCloseTo(0.375, 3);
+    expect(texture.offset.y).toBeCloseTo(0.25 - 0.05, 3);
+
+    const material = wafer.userData['waferMaterial'] as THREE.MeshPhysicalMaterial;
+    expect(material.roughness).toBeLessThan(0.5);
+    expect(material.clearcoat).toBeGreaterThan(0.25);
+    expect(material.roughnessMap).toBeTruthy();
+    expect(material.bumpMap).toBeTruthy();
+    expect(material.bumpScale).toBeGreaterThan(0.05);
+
+    const sugar = wafer.children.find((child) => child.name === 'CakeWaferSugar') as THREE.Mesh;
+    const sugarMaterial = sugar.material as THREE.MeshPhysicalMaterial;
+    expect(sugarMaterial.transmission).toBeCloseTo(0.45, 2);
+    expect(sugarMaterial.opacity).toBeCloseTo(0.65, 2);
+  });
+
+  it('przycina przesunięcia, gdy zoom wynosi 1, aby nie rozciągać krawędzi', () => {
+    const result = ThreeObjectsFactory.createCake(
+      getOptions({ wafer_texture_url: 'blob:wafer', wafer_texture_zoom: 1, wafer_texture_offset_x: 0.6, wafer_texture_offset_y: 0.6 })
+    );
+
+    const wafer = result.cake.children.find((child) => child.userData['isCakeWafer']) as THREE.Mesh;
+    const texture = wafer.userData['waferTexture'] as THREE.Texture;
+
+    expect(texture.offset.x).toBeCloseTo(0);
+    expect(texture.offset.y).toBeCloseTo(0);
+  });
+
+  it('nie dodaje górnej tafli polewy, gdy opłatek jest włączony, ale zostawia rant i sople', () => {
+    const result = ThreeObjectsFactory.createCake(getOptions({ wafer_texture_url: 'blob:wafer' }));
+
+    expect(result.glaze).toBeTruthy();
+    const glaze = result.glaze!;
+    const topCap = glaze.children.find((child) => child.userData['isGlazeTop']);
+    const hasRim = glaze.children.some((child) => (child as THREE.Mesh).geometry instanceof THREE.TorusGeometry);
+
+    expect(topCap).toBeUndefined();
+    expect(hasRim).toBeTrue();
+    expect(glaze.children.length).toBeGreaterThan(0);
   });
 
   it('nie generuje polewy, gdy jest wyłączona', () => {

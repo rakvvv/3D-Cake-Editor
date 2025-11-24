@@ -178,6 +178,11 @@ describe('ThreeSceneService', () => {
       layers: 1,
       shape: 'cylinder',
       layerSizes: [1],
+      wafer_texture_url: null,
+      wafer_scale: 1,
+      wafer_texture_zoom: 1,
+      wafer_texture_offset_x: 0,
+      wafer_texture_offset_y: 0,
     };
 
     (service as any).loadAndAddText('Hi', 1, 1, 0.1, {
@@ -224,6 +229,11 @@ describe('ThreeSceneService', () => {
       layers: 1,
       shape: 'cylinder',
       layerSizes: [1],
+      wafer_texture_url: null,
+      wafer_scale: 1,
+      wafer_texture_zoom: 1,
+      wafer_texture_offset_x: 0,
+      wafer_texture_offset_y: 0,
     };
 
     (service as any).loadAndAddText('OK', 1, 2, 0.1, {
@@ -275,6 +285,11 @@ describe('ThreeSceneService', () => {
       layers: 1,
       shape: 'cylinder',
       layerSizes: [1],
+      wafer_texture_url: null,
+      wafer_scale: 1,
+      wafer_texture_zoom: 1,
+      wafer_texture_offset_x: 0,
+      wafer_texture_offset_y: 0,
     };
 
     (service as any).loadAndAddText('A', 1, 2, 0.1, {
@@ -323,6 +338,11 @@ describe('ThreeSceneService', () => {
       layers: 1,
       shape: 'cylinder',
       layerSizes: [1],
+      wafer_texture_url: null,
+      wafer_scale: 1,
+      wafer_texture_zoom: 1,
+      wafer_texture_offset_x: 0,
+      wafer_texture_offset_y: 0,
     };
 
     (service as any).loadAndAddText('TOP', 1, 2, 0.1, {

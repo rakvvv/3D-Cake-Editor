@@ -34,6 +34,8 @@ export interface CakeCreationResult {
   metadata: CakeMetadata;
   glaze?: THREE.Group;
   glazeMaterial?: THREE.MeshStandardMaterial;
+  wafer?: THREE.Mesh;
+  waferMaterial?: THREE.MeshPhysicalMaterial;
 }
 
 export class ThreeObjectsFactory {
@@ -76,6 +78,24 @@ export class ThreeObjectsFactory {
 
     material.color = new THREE.Color(color);
     return material;
+  }
+
+  private static createWaferDetailTexture(): THREE.DataTexture {
+    const size = 128;
+    const data = new Uint8Array(size * size * 3);
+
+    for (let i = 0; i < data.length; i += 3) {
+      const noise = 110 + Math.random() * 60;
+      data[i] = noise;
+      data[i + 1] = noise;
+      data[i + 2] = noise;
+    }
+
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    return texture;
   }
 
   public static createCake(options: CakeOptions): CakeCreationResult {
@@ -165,6 +185,8 @@ export class ThreeObjectsFactory {
       }
     }
 
+    const wafer = this.createWafer(metadata, options);
+
     // ========= GLAZE =========
 
     const glaze = this.createGlaze(metadata, options);
@@ -172,10 +194,15 @@ export class ThreeObjectsFactory {
       cake.add(glaze);
     }
 
+    if (wafer) {
+      cake.add(wafer);
+    }
+
     cake.userData['metadata'] = metadata;
     cake.userData['material'] = material;
     cake.userData['layers'] = layers;
     cake.userData['glaze'] = glaze ?? null;
+    cake.userData['wafer'] = wafer ?? null;
 
     return {
       cake,
@@ -184,6 +211,123 @@ export class ThreeObjectsFactory {
       metadata,
       glaze: glaze ?? undefined,
       glazeMaterial: glaze ? (glaze.userData['glazeMaterial'] as THREE.MeshStandardMaterial) : undefined,
+      wafer: wafer ?? undefined,
+      waferMaterial: wafer ? (wafer.userData['waferMaterial'] as THREE.MeshPhysicalMaterial) : undefined,
+    };
+  }
+
+  private static createWafer(metadata: CakeMetadata, options: CakeOptions): THREE.Mesh | null {
+    if (!options.wafer_texture_url) {
+      return null;
+    }
+
+    const topLayer = metadata.layerDimensions[metadata.layerDimensions.length - 1];
+    if (!topLayer) {
+      return null;
+    }
+
+    const texture = this.textureLoader.load(options.wafer_texture_url);
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 8;
+
+    const detailTexture = this.createWaferDetailTexture();
+
+    const { repeat, offsetX, offsetY } = this.computeWaferTransform(options);
+
+    // texture.center.set(0.5, 0.5);
+    texture.repeat.set(repeat, repeat);
+    texture.offset.set(offsetX, offsetY);
+    texture.needsUpdate = true;
+
+    const material = new THREE.MeshPhysicalMaterial({
+      map: texture,
+      roughnessMap: detailTexture,
+      bumpMap: detailTexture,
+      transparent: true,
+      opacity: 1,
+      alphaTest: 0.01,
+      side: THREE.DoubleSide,
+      roughness: 0.42,
+      bumpScale: 0.12,
+      metalness: 0.12,
+      envMapIntensity: 0.9,
+      reflectivity: 0.35,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.35,
+    });
+
+    const scale = THREE.MathUtils.clamp(options.wafer_scale ?? 1, 0.4, 2.5);
+    let geometry: THREE.BufferGeometry;
+
+    if (metadata.shape === 'cylinder') {
+      const radius = (topLayer.radius ?? metadata.radius ?? 2) * scale;
+      geometry = new THREE.CircleGeometry(radius, 64);
+    } else {
+      const width = (topLayer.width ?? metadata.width ?? 2) * scale;
+      const depth = (topLayer.depth ?? metadata.depth ?? 2) * scale;
+      geometry = new THREE.PlaneGeometry(width, depth);
+    }
+
+    const wafer = new THREE.Mesh(geometry, material);
+    wafer.name = 'CakeWafer';
+    wafer.userData['isCakeWafer'] = true;
+    wafer.userData['waferMaterial'] = material;
+    wafer.userData['waferTexture'] = texture;
+    wafer.userData['waferDetailTexture'] = detailTexture;
+    wafer.rotation.x = -Math.PI / 2;
+    wafer.position.y = topLayer.topY + 0.05;
+    wafer.renderOrder = 2;
+    material.polygonOffset = true;
+    material.polygonOffsetFactor = -1;
+    material.polygonOffsetUnits = -0.1;
+
+    const sugarMaterial = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#fff8ec'),
+      transparent: true,
+      opacity: 0.65,
+      transmission: 0.45,
+      thickness: 0.6,
+      ior: 1.28,
+      roughnessMap: detailTexture,
+      bumpMap: detailTexture,
+      bumpScale: 0.06,
+      roughness: 0.2,
+      metalness: 0,
+      envMapIntensity: 1.2,
+      clearcoat: 1,
+      clearcoatRoughness: 0.06,
+      reflectivity: 0.5,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+
+    const sugar = new THREE.Mesh(geometry.clone(), sugarMaterial);
+    sugar.name = 'CakeWaferSugar';
+    sugar.position.y = 0.02;
+    sugar.renderOrder = 3;
+    sugar.userData['waferSugarMaterial'] = sugarMaterial;
+    wafer.add(sugar);
+
+    return wafer;
+  }
+
+  private static computeWaferTransform(options: CakeOptions): { repeat: number; offsetX: number; offsetY: number } {
+    const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
+    const repeat = 1 / zoom;
+
+    const offsetLimit = Math.max(0, 0.5 * (zoom - 1));
+
+    const rawOffsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -offsetLimit, offsetLimit);
+    const rawOffsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -offsetLimit, offsetLimit);
+
+    return {
+      repeat,
+      // Oś X: (Lewo/Prawo) - działa tak samo jak w HTML
+      offsetX: 0.5 - repeat / 2 + rawOffsetX * repeat,
+
+      // Oś Y: (Góra/Dół) - musi być odwrócona (minus) względem HTML
+      offsetY: 0.5 - repeat / 2 - rawOffsetY * repeat,
     };
   }
 
@@ -202,6 +346,7 @@ export class ThreeObjectsFactory {
     const glazeSeed = options.glaze_seed ?? 1;
     const random = this.createRandomGenerator(glazeSeed);
     const material = this.createGlazeMaterial(options.glaze_color ?? '#ffffff');
+    const hasWafer = Boolean(options.wafer_texture_url);
 
     const group = new THREE.Group();
     group.name = 'CakeGlaze';
@@ -216,6 +361,7 @@ export class ThreeObjectsFactory {
         dripLength,
         material,
         random,
+        hasWafer,
       );
       if (!cuboidGlaze) return null;
 
@@ -229,12 +375,16 @@ export class ThreeObjectsFactory {
     // Musi wystawać poza tort (overhang), żeby sople spadały z "półki"
     const overhang = thickness * 0.1;
     const poolRadius = cakeRadius + overhang;
+    const glazeVerticalOffset = hasWafer ? thickness * 0.2 : thickness * 0.35;
 
-    const topGeo = new THREE.CylinderGeometry(poolRadius, poolRadius, thickness * 0.7, 64);
-    const topMesh = new THREE.Mesh(topGeo, material);
-    topMesh.userData['isCakeGlaze'] = true;
-    topMesh.position.y = topLayer.topY + thickness * 0.35;
-    group.add(topMesh);
+    if (!hasWafer) {
+      const topGeo = new THREE.CylinderGeometry(poolRadius, poolRadius, thickness * 0.7, 64);
+      const topMesh = new THREE.Mesh(topGeo, material);
+      topMesh.userData['isCakeGlaze'] = true;
+      topMesh.userData['isGlazeTop'] = true;
+      topMesh.position.y = topLayer.topY + glazeVerticalOffset;
+      group.add(topMesh);
+    }
 
     // 2. RANT (Torus) - To on tworzy zaokrągloną krawędź
     // Pogrubiamy go, żeby lepiej ukryć łączenia
@@ -255,12 +405,12 @@ export class ThreeObjectsFactory {
     const rimMesh = new THREE.Mesh(rimGeo, material);
     rimMesh.userData['isCakeGlaze'] = true;
     rimMesh.rotateX(Math.PI / 2);
-    rimMesh.position.y = topLayer.topY + thickness * 0.35;
+    rimMesh.position.y = topLayer.topY + glazeVerticalOffset;
     group.add(rimMesh);
 
     // 3. SOPLE
     // Startujemy wysoko, prawie w połowie grubości rantu
-    const startY = topLayer.topY + thickness * 0.35;
+    const startY = topLayer.topY + glazeVerticalOffset;
 
     const dripsGroup = this.createRefinedDrips(
       startY,
@@ -496,6 +646,7 @@ export class ThreeObjectsFactory {
     dripLength: number,
     material: THREE.MeshStandardMaterial,
     random: () => number,
+    hasWafer: boolean,
   ): THREE.Group | null {
     const width = layer.width ?? metadata.width;
     const depth = layer.depth ?? metadata.depth;
@@ -509,41 +660,45 @@ export class ThreeObjectsFactory {
     const cornerRadius = 0.15;
     // ZMIANA 2: Większy nawis, żeby przykryć krawędź
     const overhang = thickness * 0.2;
+    const glazeVerticalOffset = hasWafer ? thickness * 0.2 : thickness * 0.35;
 
     // === 1. GÓRA ===
-    const shape = this.getRoundedRectShape(
-      width + overhang * 2,
-      depth + overhang * 2,
-      cornerRadius
-    );
+    if (!hasWafer) {
+      const shape = this.getRoundedRectShape(
+        width + overhang * 2,
+        depth + overhang * 2,
+        cornerRadius
+      );
 
-    const topGeo = new THREE.ExtrudeGeometry(shape, {
-      depth: thickness * 0.5,
-      bevelEnabled: false,
-      curveSegments: 6
-    });
+      const topGeo = new THREE.ExtrudeGeometry(shape, {
+        depth: thickness * 0.5,
+        bevelEnabled: false,
+        curveSegments: 6
+      });
 
-    topGeo.rotateX(Math.PI / 2);
+      topGeo.rotateX(Math.PI / 2);
 
-    // Falowanie góry
-    const pos = topGeo.attributes['position'];
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      const z = pos.getZ(i);
+      // Falowanie góry
+      const pos = topGeo.attributes['position'];
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
 
-      if (y > 0.01) {
-        const wave = Math.sin(x * 1.5) * Math.cos(z * 1.5) * (thickness * 0.05);
-        const noise = Math.sin(x * 5 + z * 5) * (thickness * 0.02);
-        pos.setY(i, y + wave + noise);
+        if (y > 0.01) {
+          const wave = Math.sin(x * 1.5) * Math.cos(z * 1.5) * (thickness * 0.05);
+          const noise = Math.sin(x * 5 + z * 5) * (thickness * 0.02);
+          pos.setY(i, y + wave + noise);
+        }
       }
-    }
-    topGeo.computeVertexNormals();
+      topGeo.computeVertexNormals();
 
-    const topMesh = new THREE.Mesh(topGeo, material);
-    topMesh.userData['isCakeGlaze'] = true;
-    topMesh.position.y = layer.topY + thickness * 0.35;
-    group.add(topMesh);
+      const topMesh = new THREE.Mesh(topGeo, material);
+      topMesh.userData['isCakeGlaze'] = true;
+      topMesh.userData['isGlazeTop'] = true;
+      topMesh.position.y = layer.topY + glazeVerticalOffset;
+      group.add(topMesh);
+    }
 
     // === 2. RANT ===
     const rimMesh = this.buildCuboidRimMesh(width, depth, thickness, overhang, material, layer.topY, cornerRadius);
@@ -554,7 +709,7 @@ export class ThreeObjectsFactory {
 
     // === 3. SOPLE ===
     const dripsGroup = this.createCuboidDrips(
-      layer.topY + thickness * 0.35,
+      layer.topY + glazeVerticalOffset,
       width,
       depth,
       material,

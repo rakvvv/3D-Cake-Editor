@@ -70,6 +70,47 @@
       />
     </div>
 
+    <div class="sidebar-panel__control sidebar-panel__control--inline">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-wafer">Obraz opłatka</label>
+      <div class="sidebar-panel__control-file">
+        <input
+          id="cake-wafer"
+          class="sidebar-panel__input"
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          (change)="onWaferFileSelected($event)"
+          data-testid="wafer-upload"
+        />
+        <span class="sidebar-panel__hint">PNG/JPG/WebP, maks. 5 MB.</span>
+      </div>
+      <div *ngIf="waferError" class="sidebar-panel__message sidebar-panel__message--warning">
+        {{ waferError }}
+      </div>
+      <div *ngIf="waferTextureUrl" class="sidebar-panel__wafer-actions">
+        <button class="sidebar-panel__button" type="button" (click)="openWaferEditor()" data-testid="wafer-open-editor">
+          Dopasuj opłatek
+        </button>
+        <span class="sidebar-panel__hint">Przeciągnij i przybliż w podglądzie.</span>
+      </div>
+    </div>
+
+    <div class="sidebar-panel__control sidebar-panel__control--range">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="wafer-scale">
+        Skala opłatka
+        <span class="sidebar-panel__value">{{ waferScale | number: '1.1-2' }}x</span>
+      </label>
+      <input
+        id="wafer-scale"
+        class="sidebar-panel__range"
+        type="range"
+        [min]="waferScaleMin"
+        [max]="waferScaleMax"
+        step="0.05"
+        [(ngModel)]="waferScale"
+        (ngModelChange)="updateCakeOptions()"
+        [disabled]="!waferTextureUrl"
+      />
+    </div>
 
     <div class="sidebar-panel__control sidebar-panel__control--range">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-layers">
@@ -160,8 +201,8 @@
 
       <div class="sidebar-panel__control sidebar-panel__control--range">
         <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-text-offset">
-          Offset napisu
-          <span class="sidebar-panel__value">{{ cakeTextOffset | number: '1.1-2' }}</span>
+          Wysunięcie napisu
+          <span class="sidebar-panel__value">{{ cakeTextOffset | number: '1.2-2' }}x</span>
         </label>
         <input
           id="cake-text-offset"
@@ -177,32 +218,87 @@
 
       <div class="sidebar-panel__control sidebar-panel__control--range">
         <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-text-depth">
-          Wysokość liter
-          <span class="sidebar-panel__value">{{ cakeTextDepth | number: '1.1-2' }}</span>
+          Grubość napisu
+          <span class="sidebar-panel__value">{{ cakeTextDepth | number: '1.2-2' }}x</span>
         </label>
         <input
           id="cake-text-depth"
           class="sidebar-panel__range"
           type="range"
-          min="0.01"
-          max="0.35"
-          step="0.005"
+          min="0.05"
+          max="0.25"
+          step="0.01"
           [(ngModel)]="cakeTextDepth"
           (ngModelChange)="updateCakeOptions()"
         />
       </div>
 
       <div class="sidebar-panel__control sidebar-panel__control--inline">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-text-font">Czcionka</label>
+        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-text-font">Font napisu</label>
         <select
           id="cake-text-font"
           class="sidebar-panel__select"
           [(ngModel)]="cakeTextFont"
           (ngModelChange)="updateCakeOptions()"
         >
-          <option *ngFor="let font of availableFonts" [ngValue]="font.value">{{ font.label }}</option>
+          <option *ngFor="let font of availableFonts" [value]="font.value">{{ font.label }}</option>
         </select>
       </div>
     </ng-container>
   </div>
 </section>
+
+<div class="wafer-editor" *ngIf="waferEditorOpen" data-testid="wafer-editor">
+  <div class="wafer-editor__backdrop" (click)="closeWaferEditor()"></div>
+  <div class="wafer-editor__dialog" role="dialog" aria-modal="true">
+    <header class="wafer-editor__header">
+      <h4>Dopasuj opłatek</h4>
+      <p>Przesuń i przybliż obraz, aby wypełnić górę tortu.</p>
+    </header>
+    <div class="wafer-editor__viewport-wrapper">
+      <div
+        #waferViewport
+        class="wafer-editor__viewport"
+        [class.wafer-editor__viewport--circle]="cakeShape === 'cylinder'"
+        [class.wafer-editor__viewport--rect]="cakeShape === 'cuboid'"
+        (pointerdown)="onWaferPointerDown($event)"
+        (pointermove)="onWaferPointerMove($event)"
+        (pointerup)="onWaferPointerUp($event)"
+        (pointercancel)="onWaferPointerUp($event)"
+        (contextmenu)="$event.preventDefault()"
+      >
+        <div
+          *ngIf="waferTextureUrl"
+          class="wafer-editor__image"
+          role="img"
+          aria-label="Podgląd opłatka"
+          [ngStyle]="waferPreviewStyle"
+        ></div>
+      </div>
+    </div>
+    <div class="wafer-editor__controls">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="wafer-zoom">
+        Powiększenie zdjęcia
+        <span class="sidebar-panel__value">{{ waferTextureZoom | number: '1.1-2' }}x</span>
+      </label>
+      <input
+        id="wafer-zoom"
+        class="sidebar-panel__range wafer-editor__range"
+        type="range"
+        [min]="waferZoomMin"
+        [max]="waferZoomMax"
+        step="0.05"
+        [(ngModel)]="waferTextureZoom"
+        (ngModelChange)="onWaferZoomChanged($event)"
+      />
+    </div>
+    <footer class="wafer-editor__footer">
+      <button type="button" class="sidebar-panel__button sidebar-panel__button--ghost" (click)="closeWaferEditor()">
+        Anuluj
+      </button>
+      <button type="button" class="sidebar-panel__button" (click)="confirmWaferEditor()">
+        Zapisz podgląd
+      </button>
+    </footer>
+  </div>
+</div>

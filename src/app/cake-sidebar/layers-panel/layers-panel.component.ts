@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, OnDestroy, Output, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CakeOptions } from '../../models/cake.options';
@@ -10,11 +10,18 @@ import { CakeOptions } from '../../models/cake.options';
   templateUrl: './layers-panel.component.html',
   styleUrls: ['./layers-panel.component.css']
 })
-export class LayersPanelComponent {
+export class LayersPanelComponent implements OnDestroy {
   @Output() cakeOptionsChange = new EventEmitter<CakeOptions>();
+  @ViewChild('waferViewport') waferViewport?: ElementRef<HTMLDivElement>;
 
   readonly minLayerSize = 0.6;
   readonly maxLayerSize = 1.5;
+  readonly waferScaleMin = 0.5;
+  readonly waferScaleMax = 1.5;
+  readonly waferZoomMin = 1;
+  readonly waferZoomMax = 3.5;
+  readonly acceptedWaferTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  readonly maxWaferSizeBytes = 5 * 1024 * 1024;
 
   cakeSize = 1;
   cakeColor = '#ffea00';
@@ -32,10 +39,21 @@ export class LayersPanelComponent {
   glazeThickness = 0.15;
   glazeDripLength = 1;
   glazeSeed = 1;
+  waferTextureUrl: string | null = null;
+  waferScale = 1;
+  waferTextureZoom = 1;
+  waferTextureOffsetX = 0;
+  waferTextureOffsetY = 0;
+  waferError: string | null = null;
+  waferEditorOpen = false;
+  private waferEditorSnapshot: { zoom: number; offsetX: number; offsetY: number } | null = null;
+  private waferEditorDirty = false;
+  private waferDragStart: { x: number; y: number; offsetX: number; offsetY: number } | null = null;
+
   readonly availableFonts = [
     { label: 'Helvetiker', value: 'helvetiker' },
     { label: 'Optimer', value: 'optimer' },
-    { label: 'Frosting', value: 'frosting'},
+    { label: 'Frosting', value: 'frosting' },
   ];
 
   onLayersChanged(newCount: number): void {
@@ -67,6 +85,10 @@ export class LayersPanelComponent {
     this.updateCakeOptions();
   }
 
+  ngOnDestroy(): void {
+    this.clearWaferPreview();
+  }
+
   private clampLayerSize(value: number, min: number, max: number): number {
     let effectiveMin = min;
     let effectiveMax = max;
@@ -74,6 +96,15 @@ export class LayersPanelComponent {
       [effectiveMin, effectiveMax] = [effectiveMax, effectiveMin];
     }
     return Math.min(Math.max(value, effectiveMin), effectiveMax);
+  }
+
+  private clampOffset(value: number, limit: number): number {
+    return Math.min(Math.max(value, -limit), limit);
+  }
+
+  private getWaferOffsetLimit(zoom: number = this.waferTextureZoom): number {
+    const clampedZoom = this.clampLayerSize(Number(zoom), this.waferZoomMin, this.waferZoomMax);
+    return Math.max(0, 0.5 * (clampedZoom - 1));
   }
 
   updateCakeOptions(): void {
@@ -94,6 +125,169 @@ export class LayersPanelComponent {
       glaze_thickness: this.glazeThickness,
       glaze_drip_length: this.glazeDripLength,
       glaze_seed: this.glazeSeed,
+      wafer_texture_url: this.waferTextureUrl,
+      wafer_scale: this.waferScale,
+      wafer_texture_zoom: this.waferTextureZoom,
+      wafer_texture_offset_x: this.waferTextureOffsetX,
+      wafer_texture_offset_y: this.waferTextureOffsetY,
     });
+  }
+
+  onWaferFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.processWaferFile(file);
+    input.value = '';
+  }
+
+  openWaferEditor(): void {
+    if (!this.waferTextureUrl) {
+      return;
+    }
+    this.waferEditorSnapshot = {
+      zoom: this.waferTextureZoom,
+      offsetX: this.waferTextureOffsetX,
+      offsetY: this.waferTextureOffsetY,
+    };
+    this.waferEditorDirty = false;
+    this.waferEditorOpen = true;
+  }
+
+  closeWaferEditor(): void {
+    if (this.waferEditorDirty && this.waferEditorSnapshot) {
+      this.waferTextureZoom = this.waferEditorSnapshot.zoom;
+      this.waferTextureOffsetX = this.waferEditorSnapshot.offsetX;
+      this.waferTextureOffsetY = this.waferEditorSnapshot.offsetY;
+    }
+    this.waferEditorDirty = false;
+    this.waferEditorOpen = false;
+    this.waferDragStart = null;
+  }
+
+  confirmWaferEditor(): void {
+    this.waferEditorOpen = false;
+    this.waferEditorDirty = false;
+    this.updateCakeOptions();
+  }
+
+  onWaferZoomChanged(value: number): void {
+    this.waferTextureZoom = this.clampLayerSize(Number(value), this.waferZoomMin, this.waferZoomMax);
+    const offsetLimit = this.getWaferOffsetLimit(this.waferTextureZoom);
+    this.waferTextureOffsetX = this.clampOffset(this.waferTextureOffsetX, offsetLimit);
+    this.waferTextureOffsetY = this.clampOffset(this.waferTextureOffsetY, offsetLimit);
+    this.waferEditorDirty = true;
+  }
+
+  onWaferPointerDown(event: PointerEvent): void {
+    if (!this.waferTextureUrl || event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    this.waferViewport?.nativeElement.setPointerCapture(event.pointerId);
+    this.waferDragStart = {
+      x: event.clientX,
+      y: event.clientY,
+      offsetX: this.waferTextureOffsetX,
+      offsetY: this.waferTextureOffsetY,
+    };
+  }
+
+  onWaferPointerMove(event: PointerEvent): void {
+    if (!this.waferDragStart || !this.waferViewport) {
+      return;
+    }
+    event.preventDefault();
+    const rect = this.waferViewport.nativeElement.getBoundingClientRect();
+    const deltaX = (event.clientX - this.waferDragStart.x) / rect.width;
+    const deltaY = (event.clientY - this.waferDragStart.y) / rect.height;
+    const offsetLimit = this.getWaferOffsetLimit();
+    this.waferTextureOffsetX = this.clampOffset(this.waferDragStart.offsetX - deltaX, offsetLimit);
+    this.waferTextureOffsetY = this.clampOffset(this.waferDragStart.offsetY - deltaY, offsetLimit);
+    this.waferEditorDirty = true;
+  }
+
+  onWaferPointerUp(event: PointerEvent): void {
+    if (this.waferDragStart && this.waferViewport) {
+      this.waferViewport.nativeElement.releasePointerCapture(event.pointerId);
+    }
+    this.waferDragStart = null;
+  }
+
+  private processWaferFile(file: File | null): void {
+    if (!file) {
+      this.clearWaferPreview();
+      this.waferError = null;
+      this.updateCakeOptions();
+      return;
+    }
+
+    if (!this.acceptedWaferTypes.includes(file.type)) {
+      this.waferError = 'Dozwolone są jedynie pliki PNG, JPG lub WebP.';
+      this.clearWaferPreview();
+      this.updateCakeOptions();
+      return;
+    }
+
+    if (file.size > this.maxWaferSizeBytes) {
+      this.waferError = 'Plik jest za duży. Maksymalny rozmiar to 5 MB.';
+      this.clearWaferPreview();
+      this.updateCakeOptions();
+      return;
+    }
+
+    if (this.waferTextureUrl) {
+      URL.revokeObjectURL(this.waferTextureUrl);
+    }
+
+    this.waferTextureUrl = URL.createObjectURL(file);
+    this.waferTextureZoom = 1;
+    this.waferTextureOffsetX = 0;
+    this.waferTextureOffsetY = 0;
+    this.waferError = null;
+    this.waferEditorOpen = true;
+    this.updateCakeOptions();
+  }
+
+  private clearWaferPreview(): void {
+    if (this.waferTextureUrl) {
+      URL.revokeObjectURL(this.waferTextureUrl);
+    }
+    this.waferTextureUrl = null;
+    this.waferTextureZoom = 1;
+    this.waferTextureOffsetX = 0;
+    this.waferTextureOffsetY = 0;
+    this.waferEditorOpen = false;
+  }
+
+  get waferPreviewStyle(): Record<string, string> {
+    if (!this.waferTextureUrl) {
+      return {};
+    }
+
+    const backgroundSize = `${this.waferTextureZoom * 100}% ${this.waferTextureZoom * 100}%`;
+    const limit = this.getWaferOffsetLimit(this.waferTextureZoom);
+
+    const positionX = this.computeWaferBackgroundPosition(this.waferTextureOffsetX, limit);
+    const positionY = this.computeWaferBackgroundPosition(this.waferTextureOffsetY, limit);
+
+    return {
+      backgroundImage: `url(${this.waferTextureUrl})`,
+      backgroundSize,
+      backgroundPosition: `${positionX} ${positionY}`,
+      backgroundRepeat: 'no-repeat'
+    };
+  }
+
+  private computeWaferBackgroundPosition(offset: number, limit: number): string {
+    if (limit <= 0.0001) {
+      return '50%';
+    }
+    // Mapujemy offset (-limit do +limit) na procenty (0% do 100%)
+    // -limit (lewo/góra) -> 0%
+    // 0 (środek) -> 50%
+    // +limit (prawo/dół) -> 100%
+    const normalized = offset / limit; // od -1 do 1
+    const percentage = 50 + (normalized * 50);
+    return `${percentage}%`;
   }
 }
