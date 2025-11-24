@@ -696,12 +696,12 @@ export class ThreeSceneService {
     return Math.abs(seed) % this.candyPalette.length;
   }
   // TODO zapisanie sceny lokalnie
-  public getLocalSceneConfiguration(): any {
-    return this.objects.map((obj, index) => ({
-      id: index,
-      position: obj.position.toArray()
-    }));
-  }
+  // public getSceneConfiguration(): any {
+  //   return this.objects.map((obj, index) => ({
+  //     id: index,
+  //     position: obj.position.toArray()
+  //   }));
+  // }
 
   // TODO zrobic zapisywanie modelu
   public saveSceneConfiguration(data: any): Observable<any> {
