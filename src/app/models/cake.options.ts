@@ -14,4 +14,5 @@ export interface CakeOptions {
   glaze_color: string;
   glaze_thickness: number;
   glaze_drip_length: number;
+  glaze_seed: number;
 }

@@ -19,6 +19,7 @@ describe('ThreeObjectsFactory', () => {
     glaze_color: '#ff00ff',
     glaze_thickness: 0.2,
     glaze_drip_length: 0.4,
+    glaze_seed: 1,
   };
 
   const getOptions = (overrides: Partial<CakeOptions> = {}): CakeOptions => ({
@@ -26,6 +27,12 @@ describe('ThreeObjectsFactory', () => {
     ...overrides,
     layerSizes: overrides.layerSizes ? [...overrides.layerSizes] : [...baseOptions.layerSizes],
   });
+
+  const getGlazeGeometry = (glaze: THREE.Object3D): THREE.BufferGeometry => {
+    const mesh = glaze.children.find((child): child is THREE.Mesh => (child as THREE.Mesh).isMesh);
+    expect(mesh).toBeTruthy();
+    return (mesh as THREE.Mesh).geometry as THREE.BufferGeometry;
+  };
 
   beforeEach(() => {
     const loader = (ThreeObjectsFactory as unknown as { textureLoader: THREE.TextureLoader }).textureLoader;
@@ -80,7 +87,7 @@ describe('ThreeObjectsFactory', () => {
     expect(glazeBox.max.y).toBeGreaterThan(cakeTopY + 0.02);
     expect(glazeBox.min.y).toBeLessThan(cakeTopY - 0.05);
 
-    const positionAttribute = result.glaze!.geometry.getAttribute('position');
+    const positionAttribute = getGlazeGeometry(result.glaze!).getAttribute('position');
     expect(positionAttribute).toBeTruthy();
     const vertexCount = (positionAttribute as THREE.BufferAttribute).count;
     expect(vertexCount).toBeGreaterThan(300);
@@ -94,7 +101,7 @@ describe('ThreeObjectsFactory', () => {
     expect(result.glaze).toBeTruthy();
 
     const positions = Array.from(
-      (result.glaze!.geometry.getAttribute('position') as THREE.BufferAttribute).array as ArrayLike<number>
+      (getGlazeGeometry(result.glaze!).getAttribute('position') as THREE.BufferAttribute).array as ArrayLike<number>
     );
     const totalVertices = positions.length / 3;
     const segments = (totalVertices - 1) / 6;

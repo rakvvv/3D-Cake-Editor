@@ -3,7 +3,7 @@
     <h3 class="sidebar-panel__title">Opcje tortu</h3>
     <p class="sidebar-panel__subtitle">Podstawowe parametry sceny</p>
   </header>
-  <div class="sidebar-panel__body">
+  <div class="sidebar-panel__body sidebar-panel__scroll">
     <div class="sidebar-panel__control sidebar-panel__control--range">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-size">
         Rozmiar tortu
@@ -56,41 +56,20 @@
       />
     </div>
 
-    <div class="sidebar-panel__control sidebar-panel__control--range">
-      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-glaze-thickness">
-        Grubość polewy
-        <span class="sidebar-panel__value">{{ glazeThickness | number: '1.2-2' }}m</span>
-      </label>
+    <div class="sidebar-panel__control sidebar-panel__control--inline">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-glaze-seed">Seed polewy</label>
       <input
-        id="cake-glaze-thickness"
-        class="sidebar-panel__range"
-        type="range"
-        min="0.05"
-        max="0.8"
-        step="0.01"
-        [(ngModel)]="glazeThickness"
+        id="cake-glaze-seed"
+        class="sidebar-panel__input"
+        type="number"
+        min="0"
+        step="1"
+        [(ngModel)]="glazeSeed"
         (ngModelChange)="updateCakeOptions()"
         [disabled]="!glazeEnabled"
       />
     </div>
 
-    <div class="sidebar-panel__control sidebar-panel__control--range">
-      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-glaze-drip">
-        Długość zacieków
-        <span class="sidebar-panel__value">{{ glazeDripLength | number: '1.2-2' }}m</span>
-      </label>
-      <input
-        id="cake-glaze-drip"
-        class="sidebar-panel__range"
-        type="range"
-        min="0"
-        max="1.5"
-        step="0.05"
-        [(ngModel)]="glazeDripLength"
-        (ngModelChange)="updateCakeOptions()"
-        [disabled]="!glazeEnabled"
-      />
-    </div>
 
     <div class="sidebar-panel__control sidebar-panel__control--range">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-layers">

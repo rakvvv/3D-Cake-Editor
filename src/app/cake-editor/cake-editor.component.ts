@@ -34,6 +34,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     glaze_color: '#f99be6',
     glaze_thickness: 0.1,
     glaze_drip_length: 1.2 ,
+    glaze_seed: 1,
   };
 
   public validationSummary: string | null = null;
