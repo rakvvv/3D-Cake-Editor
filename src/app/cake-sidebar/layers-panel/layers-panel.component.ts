@@ -29,8 +29,8 @@ export class LayersPanelComponent {
   cakeLayerSizes: number[] = [1];
   glazeEnabled = true;
   glazeColor = '#f99be6';
-  glazeThickness = 0.2;
-  glazeDripLength = 0.5;
+  glazeThickness = 0.15;
+  glazeDripLength = 1;
   glazeSeed = 1;
   readonly availableFonts = [
     { label: 'Helvetiker', value: 'helvetiker' },

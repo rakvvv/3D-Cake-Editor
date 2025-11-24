@@ -196,9 +196,9 @@ export class ThreeObjectsFactory {
     if (!topLayer) return null;
 
     // Parametry
-    const thickness = THREE.MathUtils.clamp(options.glaze_thickness ?? 0.25, 0.1, 1);
+    const thickness = THREE.MathUtils.clamp(options.glaze_thickness ?? 0.15, 0.1, 1);
     // Skracamy domyślną długość, bo prosiłeś o krótsze
-    const dripLength = THREE.MathUtils.clamp(options.glaze_drip_length ?? 1.5, 0.5, 5.0);
+    const dripLength = THREE.MathUtils.clamp(options.glaze_drip_length ?? 1, 0.5, 5.0);
     const glazeSeed = options.glaze_seed ?? 1;
     const random = this.createRandomGenerator(glazeSeed);
     const material = this.createGlazeMaterial(options.glaze_color ?? '#ffffff');
@@ -290,7 +290,7 @@ export class ThreeObjectsFactory {
     // Długość: Long (0.6 - 1.0 bazy), Short (0.2 - 0.4 bazy) -> małe kropelki
     const length = isLong
       ? baseLength * (0.6 + random() * 0.4)
-      : baseLength * (0.2 + random() * 0.2);
+      : baseLength * (0.35 + random() * 0.5);
 
     // Cienka szyjka
     const neckThickness = baseThickness * 0.2;
@@ -300,8 +300,8 @@ export class ThreeObjectsFactory {
     const bulbSize = neckThickness * bulbScale;
 
     // Geometria
-    const radialSegs = 16;
-    const heightSegs = Math.floor(length * 30) + 10; // Duża gęstość dla gładkości
+    const radialSegs = 32;
+    const heightSegs = Math.floor(length * 50) + 10; // Duża gęstość dla gładkości
 
     // openEnded: false -> zamykamy denko, żeby kropla była pełna od dołu
     const geometry = new THREE.CylinderGeometry(
@@ -336,8 +336,8 @@ export class ThreeObjectsFactory {
       // --- PROFILOWANIE GRUBOŚCI ---
 
       // 1. GÓRA (LEJEK) - Szerokie łączenie z rantem
-      if (t < 0.15) {
-        const topT = (0.15 - t) / 0.15; // 1 na samej górze
+      if (t < 0.18) {
+        const topT = (0.18 - t) / 0.18; // 1 na samej górze
         // Bardzo szeroki kielich na górze
         currentRadius += Math.pow(topT, 2) * (baseThickness * 0.8);
       }
@@ -353,17 +353,18 @@ export class ThreeObjectsFactory {
           const blend = THREE.MathUtils.smoothstep(bulbT, 0, 0.3);
           currentRadius = neckThickness + (bulbSize - neckThickness) * blend;
         } else {
-          // SAM DÓŁ - ZAMYKANIE PO ŁUKU
-          // sphereT idzie od 0 (najszerszy punkt) do 1 (sam czubek)
+          // Faza 2: Idealne, sferyczne zamknięcie
+          // Przeskalowujemy T, żeby szło od 0 (najszerszy punkt) do 1 (czubek)
+          const sphereT = (bulbT - 0.3) / 0.7;
 
-          // Wzór na koło: sqrt(1 - x^2)
-          // To sprawia, że ścianki schodzą się idealnie kuliście
-          const shape = Math.sqrt(Math.max(0, 1 - bulbT * bulbT));
+          // Wzór koła: sqrt(1 - x^2)
+          // Math.max(0, ...) zabezpiecza przed błędem przy samym końcu
+          const circleShape = Math.sqrt(Math.max(0, 1 - sphereT * sphereT));
 
           // Mnożymy bulbSize przez kształt.
           // Na samym końcu (sphereT=1) shape=0, więc promień=0.
           // To eliminuje płaskie denko.
-          currentRadius = bulbSize * shape;
+          currentRadius = bulbSize * circleShape;
         }
       }
 
@@ -443,7 +444,7 @@ export class ThreeObjectsFactory {
       mesh.lookAt(0, py, 0);
 
       // Losowy obrót na boki
-      mesh.rotateZ((random() - 0.5) * 0.2);
+      mesh.rotateZ((random() - 0.5) * 0.02);
 
       group.add(mesh);
     }
@@ -498,29 +499,60 @@ export class ThreeObjectsFactory {
   ): THREE.Group | null {
     const width = layer.width ?? metadata.width;
     const depth = layer.depth ?? metadata.depth;
-    if (!width || !depth) {
-      return null;
-    }
+    if (!width || !depth) return null;
 
     const group = new THREE.Group();
     group.userData['glazeMaterial'] = material;
     group.userData['isCakeGlaze'] = true;
 
-    const overhang = thickness * 0.1;
-    const topMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(width + overhang * 2, thickness * 0.7, depth + overhang * 2),
-      material,
+    // ZMIANA 1: Mniejszy promień rogu, żeby polewa bardziej przylegała do kwadratu
+    const cornerRadius = 0.15;
+    // ZMIANA 2: Większy nawis, żeby przykryć krawędź
+    const overhang = thickness * 0.2;
+
+    // === 1. GÓRA ===
+    const shape = this.getRoundedRectShape(
+      width + overhang * 2,
+      depth + overhang * 2,
+      cornerRadius
     );
+
+    const topGeo = new THREE.ExtrudeGeometry(shape, {
+      depth: thickness * 0.5,
+      bevelEnabled: false,
+      curveSegments: 6
+    });
+
+    topGeo.rotateX(Math.PI / 2);
+
+    // Falowanie góry
+    const pos = topGeo.attributes['position'];
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+
+      if (y > 0.01) {
+        const wave = Math.sin(x * 1.5) * Math.cos(z * 1.5) * (thickness * 0.05);
+        const noise = Math.sin(x * 5 + z * 5) * (thickness * 0.02);
+        pos.setY(i, y + wave + noise);
+      }
+    }
+    topGeo.computeVertexNormals();
+
+    const topMesh = new THREE.Mesh(topGeo, material);
     topMesh.userData['isCakeGlaze'] = true;
     topMesh.position.y = layer.topY + thickness * 0.35;
     group.add(topMesh);
 
-    const rimMesh = this.buildCuboidRimMesh(width, depth, thickness, overhang, material, layer.topY);
+    // === 2. RANT ===
+    const rimMesh = this.buildCuboidRimMesh(width, depth, thickness, overhang, material, layer.topY, cornerRadius);
     if (rimMesh) {
       rimMesh.userData['isCakeGlaze'] = true;
       group.add(rimMesh);
     }
 
+    // === 3. SOPLE ===
     const dripsGroup = this.createCuboidDrips(
       layer.topY + thickness * 0.35,
       width,
@@ -546,24 +578,55 @@ export class ThreeObjectsFactory {
     random: () => number,
   ): THREE.Group {
     const group = new THREE.Group();
-    const points = this.buildCuboidRingPoints(width, depth, 28);
+
+    const points = this.buildCuboidRingPoints(width, depth, 40);
     const perimeter = 2 * (width + depth);
     const segmentDistance = perimeter / points.length;
+
+    // Zwiększamy margines bezpieczny od rogu, żeby sople nie wchodziły na kule
+    const cornerSafeMargin = 0.3;
 
     let index = 0;
     while (index < points.length) {
       const point = points[index];
+
+      const distToCornerX = width / 2 - Math.abs(point.x);
+      const distToCornerZ = depth / 2 - Math.abs(point.z);
+
+      if (distToCornerX < cornerSafeMargin && distToCornerZ < cornerSafeMargin) {
+        index++;
+        continue;
+      }
+
       const { mesh, length } = this.buildDripMesh(material, baseThickness, baseLength, random);
-      const py = startY - 0.02 - length / 2;
 
-      mesh.position.set(point.x, py, point.z);
+      // FIX: Obniżamy start sopla głębiej (0.06), żeby jego góra schowała się pod wałkiem
+      const py = startY - 0.08 - length / 2;
 
-      const lookAtTarget = new THREE.Vector3(point.x, py, point.z).add(
-        new THREE.Vector3(point.normal.x, 0, point.normal.y),
+      const neckThickness = baseThickness * 0.2;
+
+      // FIX: Zmniejszamy offset. Teraz sopel jest bliżej ściany (prawie dotyka).
+      // Mniejszy offset = mniej wystawania.
+      const wallOffset = neckThickness * 0.2;
+
+      const px = point.x + point.normal.x * wallOffset;
+      const pz = point.z + point.normal.y * wallOffset;
+
+      mesh.position.set(px, py, pz);
+
+      // Rotacja: Patrzymy w stronę wnętrza
+      const lookTarget = new THREE.Vector3(
+        point.x - point.normal.x,
+        py,
+        point.z - point.normal.y
       );
-      mesh.lookAt(lookAtTarget);
-      mesh.rotateZ((random() - 0.5) * 0.2);
+      mesh.lookAt(lookTarget);
+
+      mesh.rotateZ((random() - 0.5) * 0.05);
+
       group.add(mesh);
+
+
 
       const gapNoise = random();
       const desiredGap = 0.05 + gapNoise * 0.1 + (gapNoise > 0.9 ? 0.1 : 0.0);
@@ -575,6 +638,26 @@ export class ThreeObjectsFactory {
     return group;
   }
 
+  // Tworzy kształt 2D prostokąta z zaokrąglonymi rogami
+  private static getRoundedRectShape(width: number, depth: number, radius: number): THREE.Shape {
+    const shape = new THREE.Shape();
+    const w = width / 2;
+    const d = depth / 2;
+
+    // Rysujemy prostokąt z łukami na rogach
+    shape.moveTo(-w + radius, -d);
+    shape.lineTo(w - radius, -d);
+    shape.quadraticCurveTo(w, -d, w, -d + radius);
+    shape.lineTo(w, d - radius);
+    shape.quadraticCurveTo(w, d, w - radius, d);
+    shape.lineTo(-w + radius, d);
+    shape.quadraticCurveTo(-w, d, -w, d - radius);
+    shape.lineTo(-w, -d + radius);
+    shape.quadraticCurveTo(-w, -d, -w + radius, -d);
+
+    return shape;
+  }
+
   private static buildCuboidRimMesh(
     width: number,
     depth: number,
@@ -582,43 +665,97 @@ export class ThreeObjectsFactory {
     overhang: number,
     material: THREE.Material,
     topY: number,
-  ): THREE.Mesh | null {
-    const outerHalfWidth = width / 2 + overhang;
-    const outerHalfDepth = depth / 2 + overhang;
-    const inset = Math.max(thickness * 0.35, 0.05);
-    const innerHalfWidth = width / 2 - inset;
-    const innerHalfDepth = depth / 2 - inset;
-    if (innerHalfWidth <= 0 || innerHalfDepth <= 0) {
-      return null;
-    }
+    cornerRadius: number
+  ): THREE.Object3D | null {
 
-    const shape = new THREE.Shape();
-    shape.moveTo(-outerHalfWidth, -outerHalfDepth);
-    shape.lineTo(outerHalfWidth, -outerHalfDepth);
-    shape.lineTo(outerHalfWidth, outerHalfDepth);
-    shape.lineTo(-outerHalfWidth, outerHalfDepth);
-    shape.lineTo(-outerHalfWidth, -outerHalfDepth);
+    const tubeRadius = thickness * 0.6;
 
-    const hole = new THREE.Path();
-    hole.moveTo(-innerHalfWidth, -innerHalfDepth);
-    hole.lineTo(innerHalfWidth, -innerHalfDepth);
-    hole.lineTo(innerHalfWidth, innerHalfDepth);
-    hole.lineTo(-innerHalfWidth, innerHalfDepth);
-    hole.lineTo(-innerHalfWidth, -innerHalfDepth);
-    shape.holes.push(hole);
+    // Wymiary ścieżki
+    const trackWidth = width + overhang * 2 - tubeRadius * 0.8;
+    const trackDepth = depth + overhang * 2 - tubeRadius * 0.8;
+    const straightLenX = trackWidth - 2 * cornerRadius;
+    const straightLenZ = trackDepth - 2 * cornerRadius;
 
-    const extrude = new THREE.ExtrudeGeometry(shape, {
-      depth: thickness * 0.6,
-      bevelEnabled: true,
-      bevelThickness: thickness * 0.25,
-      bevelSize: thickness * 0.18,
-      bevelSegments: 2,
-    });
-    extrude.rotateX(-Math.PI / 2);
-    extrude.translate(0, topY + thickness * 0.05, 0);
+    if (straightLenX <= 0 || straightLenZ <= 0) return null;
 
-    return new THREE.Mesh(extrude, material);
+    const group = new THREE.Group();
+    // Ustawiamy grupę na 0,0,0, żeby transformacje wierzchołków działały w przestrzeni globalnej
+    group.position.set(0, 0, 0);
+
+    const rimY = topY + thickness * 0.005;
+
+    // --- GEOMETRIE Z GĘSTĄ SIATKĄ (KLUCZ DO FALOWANIA) ---
+    // Zmieniamy 4. parametr (heightSegments) z 1 na 32.
+    // Dzięki temu rura składa się z wielu pierścieni i da się ją wyginać.
+    const baseGeoH = new THREE.CylinderGeometry(tubeRadius, tubeRadius, straightLenX, 16, 32, true);
+    const baseGeoV = new THREE.CylinderGeometry(tubeRadius, tubeRadius, straightLenZ, 16, 32, true);
+    const baseGeoCorner = new THREE.TorusGeometry(cornerRadius, tubeRadius, 16, 32, Math.PI / 2);
+
+    // --- FUNKCJA APLIKUJĄCA FALĘ ---
+    const addWavyPart = (geometry: THREE.BufferGeometry, position: THREE.Vector3, rotation: THREE.Euler) => {
+      const geo = geometry.clone();
+
+      // 1. Ustawiamy klocek na właściwym miejscu
+      const matrix = new THREE.Matrix4();
+      const quaternion = new THREE.Quaternion().setFromEuler(rotation);
+      matrix.compose(position, quaternion, new THREE.Vector3(1, 1, 1));
+      geo.applyMatrix4(matrix);
+
+      // 2. MODYFIKUJEMY WIERZCHOŁKI (FALA)
+      const pos = geo.attributes['position'];
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        let y = pos.getY(i);
+        const z = pos.getZ(i);
+
+        // WZÓR NA FALĘ:
+        // thickness * 0.15 -> Siła fali (zwiększona)
+        // x * 1.2 + z * 1.2 -> Częstotliwość (gęstość) fal
+        const waveBig = Math.sin(x * 1.2 + z * 1.2) * (thickness * 0.15);
+
+        // Druga, mniejsza fala dla nieregularności
+        const waveSmall = Math.cos(x * 3.0 - z * 3.0) * (thickness * 0.05);
+
+        // Dodatkowy szum, żeby nie było zbyt idealnie
+        const noise = Math.sin(x * 8) * 0.01;
+
+        pos.setY(i, y + waveBig + waveSmall + noise);
+      }
+
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, material);
+      group.add(mesh);
+    };
+
+    // --- DEFINICJE ROTACJI ---
+    const rotH = new THREE.Euler(0, 0, Math.PI / 2);      // Leży wzdłuż X
+    const rotV = new THREE.Euler(Math.PI / 2, 0, 0);      // Leży wzdłuż Z
+
+    // --- BUDOWANIE RANTU ---
+
+    // 1. PROSTE ODCINKI
+    addWavyPart(baseGeoH, new THREE.Vector3(0, rimY, -trackDepth / 2), rotH); // Tył
+    addWavyPart(baseGeoH, new THREE.Vector3(0, rimY, trackDepth / 2), rotH);  // Przód
+    addWavyPart(baseGeoV, new THREE.Vector3(-trackWidth / 2, rimY, 0), rotV); // Lewo
+    addWavyPart(baseGeoV, new THREE.Vector3(trackWidth / 2, rimY, 0), rotV);  // Prawo
+
+    // 2. NAROŻNIKI
+    const cornerX = trackWidth / 2 - cornerRadius;
+    const cornerZ = trackDepth / 2 - cornerRadius;
+
+    // Prawy-Tył
+    addWavyPart(baseGeoCorner, new THREE.Vector3(cornerX, rimY, -cornerZ), new THREE.Euler(Math.PI/2, 0, -Math.PI/2));
+    // Prawy-Przód
+    addWavyPart(baseGeoCorner, new THREE.Vector3(cornerX, rimY, cornerZ), new THREE.Euler(Math.PI/2,  0, 0));
+    // Lewy-Przód
+    addWavyPart(baseGeoCorner, new THREE.Vector3(-cornerX, rimY, cornerZ), new THREE.Euler(Math.PI/2, -Math.PI, 0));
+    // Lewy-Tył
+    addWavyPart(baseGeoCorner, new THREE.Vector3(-cornerX, rimY, -cornerZ), new THREE.Euler(Math.PI/2, -Math.PI, -Math.PI/2));
+
+
+    return group;
   }
+
 
   private static buildCuboidRingPoints(
     width: number,
