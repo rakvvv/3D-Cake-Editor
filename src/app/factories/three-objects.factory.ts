@@ -234,7 +234,8 @@ export class ThreeObjectsFactory {
     const detailTexture = this.createWaferDetailTexture();
 
     const { repeat, offsetX, offsetY } = this.computeWaferTransform(options);
-    texture.center.set(0.5, 0.5);
+
+    // texture.center.set(0.5, 0.5);
     texture.repeat.set(repeat, repeat);
     texture.offset.set(offsetX, offsetY);
     texture.needsUpdate = true;
@@ -313,15 +314,20 @@ export class ThreeObjectsFactory {
 
   private static computeWaferTransform(options: CakeOptions): { repeat: number; offsetX: number; offsetY: number } {
     const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
-    const offsetLimit = Math.max(0, 0.5 * (zoom - 1));
-    const offsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -offsetLimit, offsetLimit);
-    const offsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -offsetLimit, offsetLimit);
     const repeat = 1 / zoom;
+
+    const offsetLimit = Math.max(0, 0.5 * (zoom - 1));
+
+    const rawOffsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -offsetLimit, offsetLimit);
+    const rawOffsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -offsetLimit, offsetLimit);
 
     return {
       repeat,
-      offsetX: 0.5 - repeat / 2 + offsetX * repeat,
-      offsetY: 0.5 - repeat / 2 + offsetY * repeat,
+      // Oś X: (Lewo/Prawo) - działa tak samo jak w HTML
+      offsetX: 0.5 - repeat / 2 + rawOffsetX * repeat,
+
+      // Oś Y: (Góra/Dół) - musi być odwrócona (minus) względem HTML
+      offsetY: 0.5 - repeat / 2 - rawOffsetY * repeat,
     };
   }
 

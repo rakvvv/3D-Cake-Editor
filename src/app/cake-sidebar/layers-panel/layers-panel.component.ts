@@ -264,37 +264,30 @@ export class LayersPanelComponent implements OnDestroy {
       return {};
     }
 
-    const { repeat, offsetX, offsetY } = this.computeWaferTransform();
-    const backgroundSize = `${(1 / repeat) * 100}% ${(1 / repeat) * 100}%`;
-    const backgroundPosition = `${this.computeWaferBackgroundPosition(offsetX, repeat)} ${this.computeWaferBackgroundPosition(offsetY, repeat)}`;
+    const backgroundSize = `${this.waferTextureZoom * 100}% ${this.waferTextureZoom * 100}%`;
+    const limit = this.getWaferOffsetLimit(this.waferTextureZoom);
+
+    const positionX = this.computeWaferBackgroundPosition(this.waferTextureOffsetX, limit);
+    const positionY = this.computeWaferBackgroundPosition(this.waferTextureOffsetY, limit);
 
     return {
       backgroundImage: `url(${this.waferTextureUrl})`,
       backgroundSize,
-      backgroundPosition,
+      backgroundPosition: `${positionX} ${positionY}`,
+      backgroundRepeat: 'no-repeat'
     };
   }
 
-  private computeWaferTransform(): { repeat: number; offsetX: number; offsetY: number } {
-    const zoom = this.clampLayerSize(this.waferTextureZoom, this.waferZoomMin, this.waferZoomMax);
-    const repeat = 1 / zoom;
-    const offsetLimit = this.getWaferOffsetLimit(zoom);
-    const offsetX = this.clampOffset(this.waferTextureOffsetX, offsetLimit);
-    const offsetY = this.clampOffset(this.waferTextureOffsetY, offsetLimit);
-
-    return {
-      repeat,
-      offsetX: 0.5 - repeat / 2 + offsetX * repeat,
-      offsetY: 0.5 - repeat / 2 + offsetY * repeat,
-    };
-  }
-
-  private computeWaferBackgroundPosition(offset: number, repeat: number): string {
-    if (repeat === 1) {
+  private computeWaferBackgroundPosition(offset: number, limit: number): string {
+    if (limit <= 0.0001) {
       return '50%';
     }
-
-    const position = (offset / (1 - repeat)) * 100;
-    return `${position}%`;
+    // Mapujemy offset (-limit do +limit) na procenty (0% do 100%)
+    // -limit (lewo/góra) -> 0%
+    // 0 (środek) -> 50%
+    // +limit (prawo/dół) -> 100%
+    const normalized = offset / limit; // od -1 do 1
+    const percentage = 50 + (normalized * 50);
+    return `${percentage}%`;
   }
 }
