@@ -314,13 +314,23 @@ export class ThreeSceneService {
       return;
     }
 
-    mesh.geometry?.dispose();
-    const material = mesh.material;
-    if (Array.isArray(material)) {
-      material.forEach((mat) => this.disposeWaferMaterial(mat));
-    } else {
-      this.disposeWaferMaterial(material);
-    }
+    mesh.traverse((child) => {
+      const typedChild = child as THREE.Mesh;
+      if (!(typedChild as { isMesh?: boolean }).isMesh) {
+        return;
+      }
+
+      typedChild.geometry?.dispose();
+      const material = typedChild.material;
+      if (Array.isArray(material)) {
+        material.forEach((mat) => this.disposeWaferMaterial(mat));
+      } else {
+        this.disposeWaferMaterial(material);
+      }
+    });
+
+    const detailTexture = mesh.userData['waferDetailTexture'] as THREE.Texture | undefined;
+    detailTexture?.dispose();
   }
 
   private disposeWaferMaterial(material: THREE.Material | null | undefined): void {

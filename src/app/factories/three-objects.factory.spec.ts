@@ -55,7 +55,7 @@ describe('ThreeObjectsFactory', () => {
     expect(result.cake.children.some((child) => child.name === 'CakeGlaze')).toBeTrue();
   });
 
-  it('nakłada opłatek z mapą alfa i skalowaniem', () => {
+  it('nakłada opłatek z połyskiem i skalowaniem', () => {
     const result = ThreeObjectsFactory.createCake(
       getOptions({ wafer_texture_url: 'blob:wafer', wafer_scale: 1.25 })
     );
@@ -64,7 +64,8 @@ describe('ThreeObjectsFactory', () => {
     expect(wafer).toBeTruthy();
 
     const material = wafer.material as THREE.MeshPhysicalMaterial;
-    expect(material.map).toBe(material.alphaMap);
+    expect(material.map).toBeTruthy();
+    expect(material.alphaMap).toBeUndefined();
 
     const geometry = wafer.geometry as THREE.CircleGeometry | THREE.PlaneGeometry;
     if (geometry instanceof THREE.CircleGeometry) {
@@ -73,6 +74,12 @@ describe('ThreeObjectsFactory', () => {
 
     expect(wafer.position.y).toBeGreaterThan(0.9);
     expect(wafer.rotation.x).toBeCloseTo(-Math.PI / 2, 5);
+
+    const sugar = wafer.children.find((child) => child.name === 'CakeWaferSugar') as THREE.Mesh;
+    expect(sugar).toBeTruthy();
+    const sugarMaterial = sugar.material as THREE.MeshPhysicalMaterial;
+    expect(sugarMaterial.transmission).toBeGreaterThan(0.3);
+    expect(sugarMaterial.clearcoat).toBeCloseTo(1, 3);
   });
 
   it('ustawia przybliżenie i przesunięcie tekstury opłatka', () => {
@@ -96,11 +103,16 @@ describe('ThreeObjectsFactory', () => {
     expect(texture.offset.y).toBeCloseTo(0.25 - 0.05, 3);
 
     const material = wafer.userData['waferMaterial'] as THREE.MeshPhysicalMaterial;
-    expect(material.roughness).toBeLessThan(0.3);
-    expect(material.clearcoat).toBeGreaterThan(0.6);
+    expect(material.roughness).toBeLessThan(0.5);
+    expect(material.clearcoat).toBeGreaterThan(0.25);
     expect(material.roughnessMap).toBeTruthy();
     expect(material.bumpMap).toBeTruthy();
     expect(material.bumpScale).toBeGreaterThan(0.05);
+
+    const sugar = wafer.children.find((child) => child.name === 'CakeWaferSugar') as THREE.Mesh;
+    const sugarMaterial = sugar.material as THREE.MeshPhysicalMaterial;
+    expect(sugarMaterial.transmission).toBeCloseTo(0.45, 2);
+    expect(sugarMaterial.opacity).toBeCloseTo(0.65, 2);
   });
 
   it('nie dodaje górnej tafli polewy, gdy opłatek jest włączony, ale zostawia rant i sople', () => {

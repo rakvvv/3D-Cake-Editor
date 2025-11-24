@@ -85,7 +85,7 @@ export class ThreeObjectsFactory {
     const data = new Uint8Array(size * size * 3);
 
     for (let i = 0; i < data.length; i += 3) {
-      const noise = 100 + Math.random() * 80;
+      const noise = 110 + Math.random() * 60;
       data[i] = noise;
       data[i + 1] = noise;
       data[i + 2] = noise;
@@ -245,20 +245,19 @@ export class ThreeObjectsFactory {
 
     const material = new THREE.MeshPhysicalMaterial({
       map: texture,
-      alphaMap: texture,
       roughnessMap: detailTexture,
       bumpMap: detailTexture,
       transparent: true,
       opacity: 1,
-      alphaTest: 0.08,
+      alphaTest: 0.01,
       side: THREE.DoubleSide,
-      roughness: 0.32,
-      bumpScale: 0.08,
-      metalness: 0.48,
-      envMapIntensity: 0.75,
-      reflectivity: 0.38,
-      clearcoat: 0.65,
-      clearcoatRoughness: 0.28,
+      roughness: 0.42,
+      bumpScale: 0.12,
+      metalness: 0.12,
+      envMapIntensity: 0.9,
+      reflectivity: 0.35,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.35,
     });
 
     const scale = THREE.MathUtils.clamp(options.wafer_scale ?? 1, 0.4, 2.5);
@@ -278,12 +277,40 @@ export class ThreeObjectsFactory {
     wafer.userData['isCakeWafer'] = true;
     wafer.userData['waferMaterial'] = material;
     wafer.userData['waferTexture'] = texture;
+    wafer.userData['waferDetailTexture'] = detailTexture;
     wafer.rotation.x = -Math.PI / 2;
     wafer.position.y = topLayer.topY + 0.05;
     wafer.renderOrder = 2;
     material.polygonOffset = true;
     material.polygonOffsetFactor = -1;
     material.polygonOffsetUnits = -0.1;
+
+    const sugarMaterial = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color('#fff8ec'),
+      transparent: true,
+      opacity: 0.65,
+      transmission: 0.45,
+      thickness: 0.6,
+      ior: 1.28,
+      roughnessMap: detailTexture,
+      bumpMap: detailTexture,
+      bumpScale: 0.06,
+      roughness: 0.2,
+      metalness: 0,
+      envMapIntensity: 1.2,
+      clearcoat: 1,
+      clearcoatRoughness: 0.06,
+      reflectivity: 0.5,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+
+    const sugar = new THREE.Mesh(geometry.clone(), sugarMaterial);
+    sugar.name = 'CakeWaferSugar';
+    sugar.position.y = 0.02;
+    sugar.renderOrder = 3;
+    sugar.userData['waferSugarMaterial'] = sugarMaterial;
+    wafer.add(sugar);
 
     return wafer;
   }
