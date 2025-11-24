@@ -137,8 +137,8 @@ describe('LayersPanelComponent', () => {
     component.waferTextureOffsetY = -0.2;
 
     const style = component.waferPreviewStyle;
-    expect(style.backgroundSize).toBe('200% 200%');
-    expect(style.backgroundPosition).toBe('60% 30%');
+    expect(style['backgroundSize']).toBe('200% 200%');
+    expect(style['backgroundPosition']).toBe('60% 30%');
   });
 
   it('przycina przesunięcie przy zmniejszaniu zoomu, aby uniknąć rozciągania krawędzi', () => {

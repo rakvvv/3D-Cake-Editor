@@ -264,12 +264,9 @@ export class LayersPanelComponent implements OnDestroy {
       return {};
     }
 
-    const zoom = this.clampLayerSize(this.waferTextureZoom, this.waferZoomMin, this.waferZoomMax);
-    const offsetLimit = this.getWaferOffsetLimit(zoom);
-    const offsetX = this.clampOffset(this.waferTextureOffsetX, offsetLimit);
-    const offsetY = this.clampOffset(this.waferTextureOffsetY, offsetLimit);
-    const backgroundSize = `${zoom * 100}% ${zoom * 100}%`;
-    const backgroundPosition = `${this.computeWaferBackgroundPosition(offsetX, zoom)} ${this.computeWaferBackgroundPosition(offsetY, zoom)}`;
+    const { repeat, offsetX, offsetY } = this.computeWaferTransform();
+    const backgroundSize = `${(1 / repeat) * 100}% ${(1 / repeat) * 100}%`;
+    const backgroundPosition = `${this.computeWaferBackgroundPosition(offsetX, repeat)} ${this.computeWaferBackgroundPosition(offsetY, repeat)}`;
 
     return {
       backgroundImage: `url(${this.waferTextureUrl})`,
@@ -292,12 +289,12 @@ export class LayersPanelComponent implements OnDestroy {
     };
   }
 
-  private computeWaferBackgroundPosition(offset: number, zoom: number): string {
-    if (zoom === 1) {
+  private computeWaferBackgroundPosition(offset: number, repeat: number): string {
+    if (repeat === 1) {
       return '50%';
     }
 
-    const position = ((0.5 * zoom + offset - 0.5) / (zoom - 1)) * 100;
+    const position = (offset / (1 - repeat)) * 100;
     return `${position}%`;
   }
 }
