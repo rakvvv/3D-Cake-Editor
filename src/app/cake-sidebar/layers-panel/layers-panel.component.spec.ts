@@ -129,4 +129,27 @@ describe('LayersPanelComponent', () => {
     expect(component.waferTextureOffsetX).toBeCloseTo(0.05);
     expect(component.waferTextureOffsetY).toBeCloseTo(-0.05);
   });
+
+  it('odwraca oś Y w podglądzie tak jak na materiale 3D', () => {
+    component.waferTextureUrl = 'blob:preview';
+    component.waferTextureZoom = 2;
+    component.waferTextureOffsetX = 0.1;
+    component.waferTextureOffsetY = -0.2;
+
+    const style = component.waferPreviewStyle;
+    expect(style.backgroundSize).toBe('200% 200%');
+    expect(style.backgroundPosition).toBe('55% 60%');
+  });
+
+  it('przycina przesunięcie przy zmniejszaniu zoomu, aby uniknąć rozciągania krawędzi', () => {
+    component.waferTextureUrl = 'blob:preview';
+    component.waferTextureZoom = 2;
+    component.waferTextureOffsetX = 0.4;
+    component.waferTextureOffsetY = -0.4;
+
+    component.onWaferZoomChanged(1);
+
+    expect(component.waferTextureOffsetX).toBeCloseTo(0);
+    expect(component.waferTextureOffsetY).toBeCloseTo(0);
+  });
 });

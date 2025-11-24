@@ -313,8 +313,9 @@ export class ThreeObjectsFactory {
 
   private static computeWaferTransform(options: CakeOptions): { repeat: number; offsetX: number; offsetY: number } {
     const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
-    const offsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -1, 1);
-    const offsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -1, 1);
+    const offsetLimit = Math.max(0, 0.5 * (zoom - 1));
+    const offsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -offsetLimit, offsetLimit);
+    const offsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -offsetLimit, offsetLimit);
     const repeat = 1 / zoom;
 
     return {

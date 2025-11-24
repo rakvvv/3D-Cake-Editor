@@ -115,6 +115,18 @@ describe('ThreeObjectsFactory', () => {
     expect(sugarMaterial.opacity).toBeCloseTo(0.65, 2);
   });
 
+  it('przycina przesunięcia, gdy zoom wynosi 1, aby nie rozciągać krawędzi', () => {
+    const result = ThreeObjectsFactory.createCake(
+      getOptions({ wafer_texture_url: 'blob:wafer', wafer_texture_zoom: 1, wafer_texture_offset_x: 0.6, wafer_texture_offset_y: 0.6 })
+    );
+
+    const wafer = result.cake.children.find((child) => child.userData['isCakeWafer']) as THREE.Mesh;
+    const texture = wafer.userData['waferTexture'] as THREE.Texture;
+
+    expect(texture.offset.x).toBeCloseTo(0);
+    expect(texture.offset.y).toBeCloseTo(0);
+  });
+
   it('nie dodaje górnej tafli polewy, gdy opłatek jest włączony, ale zostawia rant i sople', () => {
     const result = ThreeObjectsFactory.createCake(getOptions({ wafer_texture_url: 'blob:wafer' }));
 

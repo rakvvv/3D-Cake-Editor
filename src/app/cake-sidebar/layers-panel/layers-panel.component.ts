@@ -102,6 +102,11 @@ export class LayersPanelComponent implements OnDestroy {
     return Math.min(Math.max(value, -limit), limit);
   }
 
+  private getWaferOffsetLimit(zoom: number = this.waferTextureZoom): number {
+    const clampedZoom = this.clampLayerSize(Number(zoom), this.waferZoomMin, this.waferZoomMax);
+    return Math.max(0, 0.5 * (clampedZoom - 1));
+  }
+
   updateCakeOptions(): void {
     this.cakeOptionsChange.emit({
       cake_size: this.cakeSize,
@@ -167,6 +172,9 @@ export class LayersPanelComponent implements OnDestroy {
 
   onWaferZoomChanged(value: number): void {
     this.waferTextureZoom = this.clampLayerSize(Number(value), this.waferZoomMin, this.waferZoomMax);
+    const offsetLimit = this.getWaferOffsetLimit(this.waferTextureZoom);
+    this.waferTextureOffsetX = this.clampOffset(this.waferTextureOffsetX, offsetLimit);
+    this.waferTextureOffsetY = this.clampOffset(this.waferTextureOffsetY, offsetLimit);
     this.waferEditorDirty = true;
   }
 
@@ -192,8 +200,9 @@ export class LayersPanelComponent implements OnDestroy {
     const rect = this.waferViewport.nativeElement.getBoundingClientRect();
     const deltaX = (event.clientX - this.waferDragStart.x) / rect.width;
     const deltaY = (event.clientY - this.waferDragStart.y) / rect.height;
-    this.waferTextureOffsetX = this.clampOffset(this.waferDragStart.offsetX + deltaX, 0.75);
-    this.waferTextureOffsetY = this.clampOffset(this.waferDragStart.offsetY + deltaY, 0.75);
+    const offsetLimit = this.getWaferOffsetLimit();
+    this.waferTextureOffsetX = this.clampOffset(this.waferDragStart.offsetX - deltaX, offsetLimit);
+    this.waferTextureOffsetY = this.clampOffset(this.waferDragStart.offsetY - deltaY, offsetLimit);
     this.waferEditorDirty = true;
   }
 
@@ -257,7 +266,7 @@ export class LayersPanelComponent implements OnDestroy {
 
     const { repeat, offsetX, offsetY } = this.computeWaferTransform();
     const backgroundSize = `${(1 / repeat) * 100}% ${(1 / repeat) * 100}%`;
-    const backgroundPosition = `${(offsetX + repeat / 2) * 100}% ${(offsetY + repeat / 2) * 100}%`;
+    const backgroundPosition = `${(offsetX + repeat / 2) * 100}% ${(1 - (offsetY + repeat / 2)) * 100}%`;
 
     return {
       backgroundImage: `url(${this.waferTextureUrl})`,
@@ -269,8 +278,9 @@ export class LayersPanelComponent implements OnDestroy {
   private computeWaferTransform(): { repeat: number; offsetX: number; offsetY: number } {
     const zoom = this.clampLayerSize(this.waferTextureZoom, this.waferZoomMin, this.waferZoomMax);
     const repeat = 1 / zoom;
-    const offsetX = this.clampOffset(this.waferTextureOffsetX, 1);
-    const offsetY = this.clampOffset(this.waferTextureOffsetY, 1);
+    const offsetLimit = this.getWaferOffsetLimit(zoom);
+    const offsetX = this.clampOffset(this.waferTextureOffsetX, offsetLimit);
+    const offsetY = this.clampOffset(this.waferTextureOffsetY, offsetLimit);
 
     return {
       repeat,
