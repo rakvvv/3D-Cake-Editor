@@ -80,4 +80,53 @@ describe('LayersPanelComponent', () => {
     const modal = fixture.debugElement.query(By.css('[data-testid="wafer-editor"]'));
     expect(modal).toBeTruthy();
   });
+
+  it('nie emituje zmian w trakcie dopasowywania, dopiero po zapisie', () => {
+    component.waferTextureUrl = 'blob:preview';
+    component.waferTextureZoom = 1.2;
+    component.waferTextureOffsetX = 0.1;
+    component.waferTextureOffsetY = -0.1;
+    component.openWaferEditor();
+
+    const emitSpy = spyOn(component.cakeOptionsChange, 'emit');
+    const viewport = document.createElement('div');
+    Object.defineProperty(viewport, 'getBoundingClientRect', {
+      value: () => ({ x: 0, y: 0, width: 200, height: 200, top: 0, left: 0, right: 200, bottom: 200 }),
+    });
+    (viewport as unknown as { setPointerCapture: () => void }).setPointerCapture = () => {};
+    (viewport as unknown as { releasePointerCapture: () => void }).releasePointerCapture = () => {};
+    component.waferViewport = new (class {
+      nativeElement = viewport;
+    })() as unknown as typeof component.waferViewport;
+
+    component.onWaferZoomChanged(2);
+    component.onWaferPointerDown(new PointerEvent('pointerdown', { button: 0, clientX: 0, clientY: 0, pointerId: 1 }));
+    component.onWaferPointerMove(new PointerEvent('pointermove', { clientX: 100, clientY: 100, pointerId: 1 }));
+    component.onWaferPointerUp(new PointerEvent('pointerup', { clientX: 100, clientY: 100, pointerId: 1 }));
+
+    expect(emitSpy).not.toHaveBeenCalled();
+
+    component.confirmWaferEditor();
+    expect(emitSpy).toHaveBeenCalledTimes(1);
+    const options = emitSpy.calls.mostRecent()?.args[0] as CakeOptions;
+    expect(options.wafer_texture_zoom).toBeCloseTo(2);
+  });
+
+  it('przywraca poprzednie wartości po anulowaniu edycji', () => {
+    component.waferTextureUrl = 'blob:preview';
+    component.waferTextureZoom = 1.1;
+    component.waferTextureOffsetX = 0.05;
+    component.waferTextureOffsetY = -0.05;
+    component.openWaferEditor();
+
+    component.onWaferZoomChanged(3);
+    component.onWaferPointerDown(new PointerEvent('pointerdown', { button: 0, clientX: 0, clientY: 0, pointerId: 2 }));
+    component.onWaferPointerMove(new PointerEvent('pointermove', { clientX: 50, clientY: -50, pointerId: 2 }));
+
+    component.closeWaferEditor();
+
+    expect(component.waferTextureZoom).toBeCloseTo(1.1);
+    expect(component.waferTextureOffsetX).toBeCloseTo(0.05);
+    expect(component.waferTextureOffsetY).toBeCloseTo(-0.05);
+  });
 });

@@ -46,7 +46,8 @@ export class LayersPanelComponent implements OnDestroy {
   waferTextureOffsetY = 0;
   waferError: string | null = null;
   waferEditorOpen = false;
-  private waferUpdatePending = false;
+  private waferEditorSnapshot: { zoom: number; offsetX: number; offsetY: number } | null = null;
+  private waferEditorDirty = false;
   private waferDragStart: { x: number; y: number; offsetX: number; offsetY: number } | null = null;
 
   readonly availableFonts = [
@@ -138,22 +139,35 @@ export class LayersPanelComponent implements OnDestroy {
     if (!this.waferTextureUrl) {
       return;
     }
+    this.waferEditorSnapshot = {
+      zoom: this.waferTextureZoom,
+      offsetX: this.waferTextureOffsetX,
+      offsetY: this.waferTextureOffsetY,
+    };
+    this.waferEditorDirty = false;
     this.waferEditorOpen = true;
   }
 
   closeWaferEditor(): void {
+    if (this.waferEditorDirty && this.waferEditorSnapshot) {
+      this.waferTextureZoom = this.waferEditorSnapshot.zoom;
+      this.waferTextureOffsetX = this.waferEditorSnapshot.offsetX;
+      this.waferTextureOffsetY = this.waferEditorSnapshot.offsetY;
+    }
+    this.waferEditorDirty = false;
     this.waferEditorOpen = false;
     this.waferDragStart = null;
   }
 
   confirmWaferEditor(): void {
     this.waferEditorOpen = false;
+    this.waferEditorDirty = false;
     this.updateCakeOptions();
   }
 
   onWaferZoomChanged(value: number): void {
     this.waferTextureZoom = this.clampLayerSize(Number(value), this.waferZoomMin, this.waferZoomMax);
-    this.scheduleWaferUpdate();
+    this.waferEditorDirty = true;
   }
 
   onWaferPointerDown(event: PointerEvent): void {
@@ -180,15 +194,12 @@ export class LayersPanelComponent implements OnDestroy {
     const deltaY = (event.clientY - this.waferDragStart.y) / rect.height;
     this.waferTextureOffsetX = this.clampOffset(this.waferDragStart.offsetX + deltaX, 0.75);
     this.waferTextureOffsetY = this.clampOffset(this.waferDragStart.offsetY + deltaY, 0.75);
-    this.scheduleWaferUpdate();
+    this.waferEditorDirty = true;
   }
 
   onWaferPointerUp(event: PointerEvent): void {
     if (this.waferDragStart && this.waferViewport) {
       this.waferViewport.nativeElement.releasePointerCapture(event.pointerId);
-    }
-    if (this.waferDragStart) {
-      this.updateCakeOptions();
     }
     this.waferDragStart = null;
   }
@@ -266,16 +277,5 @@ export class LayersPanelComponent implements OnDestroy {
       offsetX: 0.5 - repeat / 2 + offsetX * repeat,
       offsetY: 0.5 - repeat / 2 + offsetY * repeat,
     };
-  }
-
-  private scheduleWaferUpdate(): void {
-    if (this.waferUpdatePending) {
-      return;
-    }
-    this.waferUpdatePending = true;
-    requestAnimationFrame(() => {
-      this.waferUpdatePending = false;
-      this.updateCakeOptions();
-    });
   }
 }
