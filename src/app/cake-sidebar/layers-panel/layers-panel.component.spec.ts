@@ -138,7 +138,7 @@ describe('LayersPanelComponent', () => {
 
     const style = component.waferPreviewStyle;
     expect(style.backgroundSize).toBe('200% 200%');
-    expect(style.backgroundPosition).toBe('55% 60%');
+    expect(style.backgroundPosition).toBe('55% 40%');
   });
 
   it('przycina przesunięcie przy zmniejszaniu zoomu, aby uniknąć rozciągania krawędzi', () => {

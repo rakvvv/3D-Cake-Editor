@@ -266,7 +266,7 @@ export class LayersPanelComponent implements OnDestroy {
 
     const { repeat, offsetX, offsetY } = this.computeWaferTransform();
     const backgroundSize = `${(1 / repeat) * 100}% ${(1 / repeat) * 100}%`;
-    const backgroundPosition = `${(offsetX + repeat / 2) * 100}% ${(1 - (offsetY + repeat / 2)) * 100}%`;
+    const backgroundPosition = `${(offsetX + repeat / 2) * 100}% ${(offsetY + repeat / 2) * 100}%`;
 
     return {
       backgroundImage: `url(${this.waferTextureUrl})`,
