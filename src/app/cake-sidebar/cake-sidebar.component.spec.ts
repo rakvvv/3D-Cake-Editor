@@ -13,7 +13,22 @@ describe('CakeSidebarComponent', () => {
 
   beforeEach(async () => {
     const threeSceneServiceStub = {
-      loadDecorationsData: jasmine.createSpy('loadDecorationsData').and.returnValue(Promise.resolve())
+      loadDecorationsData: jasmine.createSpy('loadDecorationsData').and.returnValue(Promise.resolve()),
+      getSceneOutline: jasmine.createSpy('getSceneOutline').and.returnValue({
+        id: 'cake-root',
+        name: 'Tort',
+        type: 'cake',
+        attached: true,
+        visible: true,
+        parentId: null,
+        layerIndex: null,
+        surface: null,
+        children: [],
+      }),
+      getSelectedDecorationId: jasmine.createSpy('getSelectedDecorationId').and.returnValue(null),
+      selectDecorationById: jasmine.createSpy('selectDecorationById'),
+      setDecorationVisibility: jasmine.createSpy('setDecorationVisibility'),
+      groupDecorationsByIds: jasmine.createSpy('groupDecorationsByIds'),
     } as Partial<ThreeSceneService>;
 
     const decorationsServiceStub = {

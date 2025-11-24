@@ -6,14 +6,21 @@ import { LayersPanelComponent } from './layers-panel/layers-panel.component';
 import { DecorationsPanelComponent } from './decorations-panel/decorations-panel.component';
 import { PaintPanelComponent } from './paint-panel/paint-panel.component';
 import { ExportPanelComponent } from './export-panel/export-panel.component';
+import { SceneOutlineComponent } from './scene-outline/scene-outline.component';
 import { DecorationValidationIssue } from '../models/decoration-validation';
 import { ThreeSceneService } from '../services/three-scene.service';
-type SidebarPanelKey = 'layers' | 'decorations' | 'paint' | 'export';
+type SidebarPanelKey = 'outline' | 'layers' | 'decorations' | 'paint' | 'export';
 
 @Component({
   selector: 'app-cake-sidebar',
   standalone: true,
-  imports: [LayersPanelComponent, DecorationsPanelComponent, PaintPanelComponent, ExportPanelComponent],
+  imports: [
+    LayersPanelComponent,
+    DecorationsPanelComponent,
+    PaintPanelComponent,
+    ExportPanelComponent,
+    SceneOutlineComponent,
+  ],
   templateUrl: './cake-sidebar.component.html',
   styleUrls: ['./cake-sidebar.component.css']
 })
