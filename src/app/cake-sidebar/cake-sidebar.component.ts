@@ -43,7 +43,7 @@ export class CakeSidebarComponent implements OnInit {
   readonly proceedDespiteWarnings = output<void>();
 
   railCollapsed = false;
-  private openPanels = new Set<SidebarPanelKey>(['layers', 'decorations', 'paint', 'export']);
+  private openPanels = new Set<SidebarPanelKey>(['layers']);
 
   togglePanel(panel: SidebarPanelKey): void {
     if (panel === 'outline') return;

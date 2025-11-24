@@ -10,7 +10,7 @@
   padding: var(--space-4) var(--space-3);
   gap: var(--space-3);
   font-family: var(--font-base);
-  overflow: hidden;
+  overflow: auto;
 }
 
 .sidebar__header {
@@ -36,6 +36,7 @@
 
 .sidebar__body {
   display: flex;
+  flex-direction: row-reverse;
   gap: var(--space-3);
   align-items: stretch;
   flex: 1 1 auto;
@@ -43,8 +44,8 @@
 }
 
 .sidebar__rail {
-  width: 260px;
-  min-width: 220px;
+  width: 220px;
+  min-width: 180px;
   background: linear-gradient(180deg, rgba(19, 24, 36, 0.74), rgba(19, 24, 36, 0.9));
   color: #f5f7fb;
   border-radius: var(--radius-lg);
