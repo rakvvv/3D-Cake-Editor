@@ -156,9 +156,10 @@ export class LayersPanelComponent implements OnDestroy {
   }
 
   onWaferPointerDown(event: PointerEvent): void {
-    if (!this.waferTextureUrl) {
+    if (!this.waferTextureUrl || event.button !== 0) {
       return;
     }
+    event.preventDefault();
     this.waferViewport?.nativeElement.setPointerCapture(event.pointerId);
     this.waferDragStart = {
       x: event.clientX,
@@ -172,11 +173,13 @@ export class LayersPanelComponent implements OnDestroy {
     if (!this.waferDragStart || !this.waferViewport) {
       return;
     }
+    event.preventDefault();
     const rect = this.waferViewport.nativeElement.getBoundingClientRect();
     const deltaX = (event.clientX - this.waferDragStart.x) / rect.width;
     const deltaY = (event.clientY - this.waferDragStart.y) / rect.height;
     this.waferTextureOffsetX = this.clampOffset(this.waferDragStart.offsetX + deltaX, 0.75);
     this.waferTextureOffsetY = this.clampOffset(this.waferDragStart.offsetY + deltaY, 0.75);
+    this.updateCakeOptions();
   }
 
   onWaferPointerUp(event: PointerEvent): void {

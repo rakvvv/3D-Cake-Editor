@@ -63,7 +63,7 @@ describe('ThreeObjectsFactory', () => {
     const wafer = result.cake.children.find((child) => child.userData['isCakeWafer']) as THREE.Mesh;
     expect(wafer).toBeTruthy();
 
-    const material = wafer.material as THREE.MeshStandardMaterial;
+    const material = wafer.material as THREE.MeshPhysicalMaterial;
     expect(material.map).toBe(material.alphaMap);
 
     const geometry = wafer.geometry as THREE.CircleGeometry | THREE.PlaneGeometry;
@@ -95,9 +95,22 @@ describe('ThreeObjectsFactory', () => {
     expect(texture.offset.x).toBeCloseTo(0.375, 3);
     expect(texture.offset.y).toBeCloseTo(0.25 - 0.05, 3);
 
-    const material = wafer.userData['waferMaterial'] as THREE.MeshStandardMaterial;
-    expect(material.roughness).toBeLessThan(0.5);
-    expect(material.metalness).toBeGreaterThan(0.25);
+    const material = wafer.userData['waferMaterial'] as THREE.MeshPhysicalMaterial;
+    expect(material.roughness).toBeLessThan(0.3);
+    expect(material.clearcoat).toBeGreaterThan(0.4);
+  });
+
+  it('nie dodaje górnej tafli polewy, gdy opłatek jest włączony, ale zostawia rant i sople', () => {
+    const result = ThreeObjectsFactory.createCake(getOptions({ wafer_texture_url: 'blob:wafer' }));
+
+    expect(result.glaze).toBeTruthy();
+    const glaze = result.glaze!;
+    const topCap = glaze.children.find((child) => child.userData['isGlazeTop']);
+    const hasRim = glaze.children.some((child) => (child as THREE.Mesh).geometry instanceof THREE.TorusGeometry);
+
+    expect(topCap).toBeUndefined();
+    expect(hasRim).toBeTrue();
+    expect(glaze.children.length).toBeGreaterThan(0);
   });
 
   it('nie generuje polewy, gdy jest wyłączona', () => {

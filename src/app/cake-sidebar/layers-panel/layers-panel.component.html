@@ -265,6 +265,7 @@
         (pointermove)="onWaferPointerMove($event)"
         (pointerup)="onWaferPointerUp($event)"
         (pointercancel)="onWaferPointerUp($event)"
+        (contextmenu)="$event.preventDefault()"
       >
         <img
           *ngIf="waferTextureUrl"
