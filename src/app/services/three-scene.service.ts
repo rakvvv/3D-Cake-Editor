@@ -1,7 +1,7 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import * as THREE from 'three';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, lastValueFrom } from 'rxjs';
 import { isPlatformBrowser } from '@angular/common';
 import { FontLoader, Font } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TransformControlsService } from './transform-controls-service';
@@ -14,6 +14,7 @@ import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.fa
 import { TextFactory } from '../factories/text.factory';
 import { SnapService, SnappedDecorationState, SnapInfoSnapshot } from './snap.service';
 import { DecorationValidationIssue } from '../models/decoration-validation';
+import { DecorationInfo } from '../models/decorationInfo';
 import { environment } from '../../environments/environment';
 
 interface DecorationClipboardEntry {
@@ -712,8 +713,16 @@ export class ThreeSceneService {
     return this.http.get(`${this.apiBaseUrl}/${this.endpoints.scene}/${sceneId}`);
   }
 
-  public getAvailableDecorations(): Observable<any> {
-    return this.http.get(`${this.apiBaseUrl}/${this.endpoints.decorations}`);
+  public async loadDecorationsData(): Promise<void> {
+    try {
+      const decorations = await lastValueFrom(
+        this.http.get<DecorationInfo[]>(`${this.apiBaseUrl}/${this.endpoints.decorations}`)
+      );
+      this.decorationsService.setDecorations(decorations ?? []);
+    } catch (error) {
+      console.error('Błąd ładowania danych dekoracji z API:', error);
+      this.decorationsService.setDecorations([]);
+    }
   }
 
   public async addDecorationFromModel(identifier: string): Promise<void> {

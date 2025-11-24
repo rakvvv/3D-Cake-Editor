@@ -52,6 +52,14 @@
   color: var(--color-accent, #f97316);
 }
 
+.decorations-panel__thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+
 .decorations-panel__details {
   display: flex;
   flex-direction: column;

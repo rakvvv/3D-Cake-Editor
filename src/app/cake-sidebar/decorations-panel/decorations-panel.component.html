@@ -27,7 +27,15 @@
           *ngFor="let decoration of filteredDecorations"
           (click)="onAddDecoration(decoration.modelFileName)"
         >
-          <span class="decorations-panel__thumbnail" aria-hidden="true">{{ decoration.name[0] }}</span>
+          <span class="decorations-panel__thumbnail" aria-hidden="true">
+            <img
+              *ngIf="decoration.thumbnailUrl; else letterThumbnail"
+              [src]="decoration.thumbnailUrl"
+              [alt]="'Miniatura dekoracji ' + decoration.name"
+              loading="lazy"
+            />
+            <ng-template #letterThumbnail>{{ decoration.name[0] }}</ng-template>
+          </span>
           <span class="decorations-panel__details">
             <span class="decorations-panel__name">{{ decoration.name }}</span>
             <span class="decorations-panel__type">{{ displayTypeLabel(decoration.type) }}</span>

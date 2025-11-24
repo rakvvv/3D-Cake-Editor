@@ -1,9 +1,10 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DecorationInfo, DecorationPlacementType } from '../../models/decorationInfo';
 import { DecorationsService } from '../../services/decorations.service';
 import { DecorationValidationIssue } from '../../models/decoration-validation';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-decorations-panel',
@@ -12,7 +13,7 @@ import { DecorationValidationIssue } from '../../models/decoration-validation';
   templateUrl: './decorations-panel.component.html',
   styleUrls: ['./decorations-panel.component.css']
 })
-export class DecorationsPanelComponent implements OnChanges {
+export class DecorationsPanelComponent implements OnInit, OnDestroy {
   @Input() decorationsService!: DecorationsService;
   @Input() validationSummary: string | null = null;
   @Input() validationIssues: DecorationValidationIssue[] = [];
@@ -25,11 +26,17 @@ export class DecorationsPanelComponent implements OnChanges {
   filterText = '';
   filterType: 'ALL' | DecorationPlacementType = 'ALL';
   decorations: DecorationInfo[] = [];
+  private subscription?: Subscription;
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['decorationsService'] && this.decorationsService) {
-      this.decorations = this.decorationsService.getDecorations();
-    }
+  ngOnInit(): void {
+    this.subscription = this.decorationsService?.decorations$.subscribe((decorations) => {
+      this.decorations = decorations;
+    });
+    this.decorations = this.decorationsService.getDecorations();
+  }
+
+  ngOnDestroy(): void {
+    this.subscription?.unsubscribe();
   }
 
   get filteredDecorations(): DecorationInfo[] {

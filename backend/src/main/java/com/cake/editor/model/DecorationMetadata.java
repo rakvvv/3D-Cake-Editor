@@ -3,19 +3,19 @@ package com.cake.editor.model;
 public class DecorationMetadata {
     private String id;
     private String name;
-    private String category;
-    private String format;
-    private String previewUrl;
+    private String modelFileName;
+    private String type;
+    private String thumbnailUrl;
 
     public DecorationMetadata() {
     }
 
-    public DecorationMetadata(String id, String name, String category, String format, String previewUrl) {
+    public DecorationMetadata(String id, String name, String modelFileName, String type, String thumbnailUrl) {
         this.id = id;
         this.name = name;
-        this.category = category;
-        this.format = format;
-        this.previewUrl = previewUrl;
+        this.modelFileName = modelFileName;
+        this.type = type;
+        this.thumbnailUrl = thumbnailUrl;
     }
 
     public String getId() {
@@ -34,27 +34,27 @@ public class DecorationMetadata {
         this.name = name;
     }
 
-    public String getCategory() {
-        return category;
+    public String getModelFileName() {
+        return modelFileName;
     }
 
-    public void setCategory(String category) {
-        this.category = category;
+    public void setModelFileName(String modelFileName) {
+        this.modelFileName = modelFileName;
     }
 
-    public String getFormat() {
-        return format;
+    public String getType() {
+        return type;
     }
 
-    public void setFormat(String format) {
-        this.format = format;
+    public void setType(String type) {
+        this.type = type;
     }
 
-    public String getPreviewUrl() {
-        return previewUrl;
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
     }
 
-    public void setPreviewUrl(String previewUrl) {
-        this.previewUrl = previewUrl;
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
     }
 }
