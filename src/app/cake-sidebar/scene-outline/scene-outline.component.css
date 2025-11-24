@@ -1,6 +1,7 @@
 :host {
   display: block;
   color: #f5f7fb;
+  font-size: 0.9rem;
 }
 
 .sidebar-panel {
@@ -11,8 +12,8 @@
 
 .sidebar-panel__description {
   margin: 0 0 var(--space-2);
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
   line-height: 1.3;
 }
 
@@ -43,10 +44,10 @@
   justify-content: space-between;
   position: sticky;
   top: 0;
-  padding: var(--space-2) var(--space-1) var(--space-2) 0;
+  padding: 8px 6px 8px 0;
   margin: -var(--space-2) 0 0;
-  background: linear-gradient(180deg, rgba(19, 24, 36, 0.95), rgba(19, 24, 36, 0.9));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 16, 26, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   z-index: 1;
 }
 
@@ -59,11 +60,12 @@
 .outline-actions__input {
   flex: 1;
   min-width: 0;
-  padding: var(--space-2) var(--space-2);
+  padding: 6px 8px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
   color: #f5f7fb;
+  font-size: 0.9rem;
 }
 
 .outline-tree {
@@ -72,17 +74,17 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .outline-node__row {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: var(--space-2);
-  padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .outline-node__row--selectable {
@@ -90,8 +92,9 @@
 }
 
 .outline-node__row--selected {
-  border-color: rgba(255, 183, 94, 0.85);
-  box-shadow: 0 6px 14px rgba(255, 183, 94, 0.18);
+  border-color: rgba(255, 183, 94, 0.7);
+  box-shadow: 0 4px 10px rgba(255, 183, 94, 0.16);
+  background: rgba(255, 183, 94, 0.08);
 }
 
 .outline-node__main {
@@ -102,17 +105,18 @@
 }
 
 .outline-node__expander {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
   color: #f5f7fb;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  font-size: 0.75rem;
 }
 
 .outline-node__content {
@@ -125,7 +129,7 @@
 .outline-node__title {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 6px;
   align-items: center;
 }
 
@@ -137,11 +141,11 @@
 .outline-node__badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 999px;
   font-size: 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.78);
 }
 
@@ -158,14 +162,14 @@
 }
 
 .outline-node__surface {
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .outline-node__actions {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 6px;
 }
 
 .outline-node__checkbox {
@@ -175,22 +179,23 @@
 }
 
 .outline-node__icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.05);
   color: #f5f7fb;
   cursor: pointer;
+  font-size: 0.8rem;
 }
 
 .outline-node__children {
   list-style: none;
-  margin: 4px 0 4px 14px;
+  margin: 2px 0 2px 12px;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .outline-context {

@@ -259,6 +259,8 @@ export class ThreeSceneService {
       this.snapService.restoreSnappedDecorations(snappedState);
       this.updateBoxHelper();
     }
+
+    this.emitOutlineChanged();
   }
 
   private disposeCake(): void {
