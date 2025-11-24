@@ -42,22 +42,27 @@ export class CakeSidebarComponent implements OnInit {
   readonly screenshot = output<void>();
   readonly proceedDespiteWarnings = output<void>();
 
-  private activePanel: SidebarPanelKey | null = 'layers';
+  railCollapsed = false;
+  private openPanels = new Set<SidebarPanelKey>(['layers', 'decorations', 'paint', 'export']);
 
   togglePanel(panel: SidebarPanelKey): void {
-    if (panel === 'outline') {
-      return;
-    }
+    if (panel === 'outline') return;
 
-    this.activePanel = this.activePanel === panel ? null : panel;
+    if (this.openPanels.has(panel)) {
+      this.openPanels.delete(panel);
+    } else {
+      this.openPanels.add(panel);
+    }
   }
 
   isExpanded(panel: SidebarPanelKey): boolean {
-    if (panel === 'outline') {
-      return true;
-    }
+    if (panel === 'outline') return !this.railCollapsed;
 
-    return this.activePanel === panel;
+    return this.openPanels.has(panel);
+  }
+
+  toggleRail(): void {
+    this.railCollapsed = !this.railCollapsed;
   }
 
   panelToggleId(panel: SidebarPanelKey): string {
