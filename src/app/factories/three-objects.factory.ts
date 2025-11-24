@@ -80,6 +80,24 @@ export class ThreeObjectsFactory {
     return material;
   }
 
+  private static createWaferDetailTexture(): THREE.DataTexture {
+    const size = 128;
+    const data = new Uint8Array(size * size * 3);
+
+    for (let i = 0; i < data.length; i += 3) {
+      const noise = 100 + Math.random() * 80;
+      data[i] = noise;
+      data[i + 1] = noise;
+      data[i + 2] = noise;
+    }
+
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    return texture;
+  }
+
   public static createCake(options: CakeOptions): CakeCreationResult {
     const layerHeight = 2;
     const baseRadius = 2;
@@ -213,6 +231,8 @@ export class ThreeObjectsFactory {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 8;
 
+    const detailTexture = this.createWaferDetailTexture();
+
     const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
     const offsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -1, 1);
     const offsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -1, 1);
@@ -226,16 +246,19 @@ export class ThreeObjectsFactory {
     const material = new THREE.MeshPhysicalMaterial({
       map: texture,
       alphaMap: texture,
+      roughnessMap: detailTexture,
+      bumpMap: detailTexture,
       transparent: true,
       opacity: 1,
       alphaTest: 0.08,
       side: THREE.DoubleSide,
-      roughness: 0.16,
-      metalness: 0.45,
-      envMapIntensity: 0.65,
-      reflectivity: 0.35,
-      clearcoat: 0.55,
-      clearcoatRoughness: 0.32,
+      roughness: 0.32,
+      bumpScale: 0.08,
+      metalness: 0.48,
+      envMapIntensity: 0.75,
+      reflectivity: 0.38,
+      clearcoat: 0.65,
+      clearcoatRoughness: 0.28,
     });
 
     const scale = THREE.MathUtils.clamp(options.wafer_scale ?? 1, 0.4, 2.5);

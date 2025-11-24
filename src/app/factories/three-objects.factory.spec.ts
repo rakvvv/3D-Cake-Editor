@@ -97,7 +97,10 @@ describe('ThreeObjectsFactory', () => {
 
     const material = wafer.userData['waferMaterial'] as THREE.MeshPhysicalMaterial;
     expect(material.roughness).toBeLessThan(0.3);
-    expect(material.clearcoat).toBeGreaterThan(0.4);
+    expect(material.clearcoat).toBeGreaterThan(0.6);
+    expect(material.roughnessMap).toBeTruthy();
+    expect(material.bumpMap).toBeTruthy();
+    expect(material.bumpScale).toBeGreaterThan(0.05);
   });
 
   it('nie dodaje górnej tafli polewy, gdy opłatek jest włączony, ale zostawia rant i sople', () => {

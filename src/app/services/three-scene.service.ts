@@ -332,6 +332,7 @@ export class ThreeSceneService {
     typed.map?.dispose();
     typed.alphaMap?.dispose();
     typed.roughnessMap?.dispose();
+    typed.bumpMap?.dispose();
     material.dispose();
   }
 
