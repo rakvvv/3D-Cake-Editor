@@ -16,6 +16,7 @@ import { SnapService, SnappedDecorationState, SnapInfoSnapshot } from './snap.se
 import { DecorationValidationIssue } from '../models/decoration-validation';
 import { DecorationInfo } from '../models/decorationInfo';
 import { environment } from '../../environments/environment';
+import { DecorationFactory } from '../factories/decoration.factory';
 
 interface DecorationClipboardEntry {
   template: THREE.Object3D;
@@ -91,6 +92,7 @@ export class ThreeSceneService {
     }
     this.options = options;
     this.sceneInitService.init(container);
+    DecorationFactory.initialize(this.renderer);
     this.paintService.registerScene(this.scene);
     this.transformControlsService.init(
       this.scene,
