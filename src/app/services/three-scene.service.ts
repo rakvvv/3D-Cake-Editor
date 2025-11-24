@@ -1158,7 +1158,8 @@ export class ThreeSceneService {
       object.children.forEach(processDecoration);
     };
 
-    this.scene.children.forEach(processDecoration);
+    const sceneChildren = this.sceneInitService.scene?.children ?? [];
+    sceneChildren.forEach(processDecoration);
 
     return root;
   }

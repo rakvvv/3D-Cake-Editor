@@ -81,7 +81,7 @@
           <input
             type="checkbox"
             [checked]="groupingSelection.has(node.id)"
-            (change)="toggleGrouping(node, ($event.target as HTMLInputElement).checked)"
+            (change)="toggleGrouping(node, $any($event.target).checked)"
           />
           <span class="sr-only">Dodaj do grupowania</span>
         </label>
