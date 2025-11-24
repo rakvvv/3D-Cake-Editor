@@ -1,23 +1,35 @@
 package com.cake.editor.controller;
 
 import com.cake.editor.model.DecorationMetadata;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 @RestController
 @RequestMapping(path = "/api/decorations", produces = MediaType.APPLICATION_JSON_VALUE)
 public class DecorationsController {
 
+    private final ObjectMapper objectMapper;
+    private final Resource decorationsResource = new ClassPathResource("decorations.json");
+
+    public DecorationsController(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
     @GetMapping
-    public List<DecorationMetadata> decorations() {
-        return List.of(
-                new DecorationMetadata("sugar-flowers", "Kwiaty z lukru", "flowers", "gltf", "/assets/decorations/sugar-flowers.glb"),
-                new DecorationMetadata("candle-classic", "Świeczka klasyczna", "candles", "obj", "/assets/decorations/candle-classic.obj"),
-                new DecorationMetadata("topper-3d", "Topper 3D", "toppers", "stl", "/assets/decorations/topper-3d.stl")
-        );
+    public List<DecorationMetadata> decorations() throws IOException {
+        try (InputStream inputStream = decorationsResource.getInputStream()) {
+            return objectMapper.readValue(inputStream, new TypeReference<>() {
+            });
+        }
     }
 }

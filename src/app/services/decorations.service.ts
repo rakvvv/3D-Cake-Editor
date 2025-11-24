@@ -1,7 +1,7 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import * as THREE from 'three';
-import { HttpClient } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
+import { BehaviorSubject } from 'rxjs';
 import { TransformControlsService } from './transform-controls-service';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { CakeMetadata } from '../factories/three-objects.factory';
@@ -11,34 +11,28 @@ import { DecorationInfo } from '../models/decorationInfo';
 export class DecorationsService {
   private decorationsInfo: Map<string, DecorationInfo> = new Map();
   private decorations: DecorationInfo[] = [];
+  private readonly decorationsSubject = new BehaviorSubject<DecorationInfo[]>([]);
+  public readonly decorations$ = this.decorationsSubject.asObservable();
 
   constructor(
-    private http: HttpClient,
     private transformControlsService: TransformControlsService,
     @Inject(PLATFORM_ID) private platformId: Object
-  ) {
-    this.loadDecorationsData();
-  }
+  ) {}
 
   public getDecorations(): DecorationInfo[] {
     return this.decorations;
   }
 
-  private async loadDecorationsData(): Promise<void> {
-    try {
-      const decorationsFromApi: DecorationInfo[] = [
-        { name: 'Cyfra 1', modelFileName: 'Numer_1.glb', type: 'TOP' },
-        { name: 'Ozdoba Boczna', modelFileName: 'custom.glb', type: 'SIDE' },
-        { name: 'Czekoladowa ozdoba', modelFileName: 'chocolate_kiss.glb', type: 'BOTH' },
-        { name: 'Trawa', modelFileName: 'trawa.glb', type: 'SIDE' }
-      ];
-      this.decorations = decorationsFromApi;
-      decorationsFromApi.forEach(dec => {
-        this.decorationsInfo.set(dec.modelFileName, dec);
-      });
-    } catch (error) {
-      console.error('Błąd ładowania danych dekoracji z API:', error);
-    }
+  public setDecorations(decorations: DecorationInfo[]): void {
+    this.decorations = decorations;
+    this.decorationsInfo.clear();
+
+    decorations.forEach((decoration) => {
+      this.decorationsInfo.set(decoration.modelFileName, decoration);
+      this.decorationsInfo.set(decoration.id, decoration);
+    });
+
+    this.decorationsSubject.next(this.decorations);
   }
 
   public async addDecorationFromModel(

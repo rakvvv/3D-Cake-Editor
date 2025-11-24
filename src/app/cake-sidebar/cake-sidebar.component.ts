@@ -1,4 +1,4 @@
-import { Component, Input, output } from '@angular/core';
+import { Component, Input, OnInit, output } from '@angular/core';
 import { DecorationsService } from '../services/decorations.service';
 import { PaintService } from '../services/paint.service';
 import { CakeOptions } from '../models/cake.options';
@@ -7,6 +7,7 @@ import { DecorationsPanelComponent } from './decorations-panel/decorations-panel
 import { PaintPanelComponent } from './paint-panel/paint-panel.component';
 import { ExportPanelComponent } from './export-panel/export-panel.component';
 import { DecorationValidationIssue } from '../models/decoration-validation';
+import { ThreeSceneService } from '../services/three-scene.service';
 type SidebarPanelKey = 'layers' | 'decorations' | 'paint' | 'export';
 
 @Component({
@@ -16,7 +17,7 @@ type SidebarPanelKey = 'layers' | 'decorations' | 'paint' | 'export';
   templateUrl: './cake-sidebar.component.html',
   styleUrls: ['./cake-sidebar.component.css']
 })
-export class CakeSidebarComponent {
+export class CakeSidebarComponent implements OnInit {
   @Input() validationSummary: string | null = null;
   @Input() validationIssues: DecorationValidationIssue[] = [];
   @Input() pendingValidationLabel: string | null = null;
@@ -55,5 +56,10 @@ export class CakeSidebarComponent {
   constructor(
     public readonly decorationsService: DecorationsService,
     public readonly paintService: PaintService,
+    private readonly sceneService: ThreeSceneService,
   ) {}
+
+  ngOnInit(): void {
+    void this.sceneService.loadDecorationsData();
+  }
 }

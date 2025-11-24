@@ -1,0 +1,30 @@
+[
+  {
+    "id": "numer-1",
+    "name": "Cyfra 1",
+    "modelFileName": "Numer_1.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/numer-1.svg"
+  },
+  {
+    "id": "boczna-ozdoba",
+    "name": "Ozdoba Boczna",
+    "modelFileName": "custom.glb",
+    "type": "SIDE",
+    "thumbnailUrl": "/assets/decorations/thumbnails/side-ornament.svg"
+  },
+  {
+    "id": "czekoladowa-ozdoba",
+    "name": "Czekoladowa ozdoba",
+    "modelFileName": "chocolate_kiss.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "trawa",
+    "name": "Trawa",
+    "modelFileName": "trawa.glb",
+    "type": "SIDE",
+    "thumbnailUrl": "/assets/decorations/thumbnails/grass.svg"
+  }
+]
