@@ -160,6 +160,70 @@
   z-index: 900;
 }
 
+.scene-rail {
+  position: fixed;
+  top: 88px;
+  right: 18px;
+  width: 280px;
+  max-height: calc(100dvh - 140px);
+  background: linear-gradient(180deg, rgba(17, 20, 31, 0.94), rgba(17, 20, 31, 0.9));
+  color: #f5f7fb;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+  z-index: 940;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 10px 12px;
+  backdrop-filter: blur(8px);
+}
+
+.scene-rail--collapsed {
+  width: 56px;
+  max-height: none;
+  padding: 10px;
+  gap: 0;
+}
+
+.scene-rail__toggle {
+  align-self: flex-end;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f7fb;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.scene-rail__toggle:hover,
+.scene-rail__toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  outline: none;
+}
+
+.scene-rail__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 .editor-toolbar {
   position: fixed;
   top: 24px;
@@ -229,5 +293,13 @@
   .view-controls {
     right: 16px;
     bottom: 16px;
+  }
+
+  .scene-rail {
+    top: auto;
+    bottom: 12px;
+    right: 12px;
+    width: calc(100% - 24px);
+    max-height: 60vh;
   }
 }

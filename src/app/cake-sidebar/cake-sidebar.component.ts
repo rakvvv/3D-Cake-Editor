@@ -6,10 +6,9 @@ import { LayersPanelComponent } from './layers-panel/layers-panel.component';
 import { DecorationsPanelComponent } from './decorations-panel/decorations-panel.component';
 import { PaintPanelComponent } from './paint-panel/paint-panel.component';
 import { ExportPanelComponent } from './export-panel/export-panel.component';
-import { SceneOutlineComponent } from './scene-outline/scene-outline.component';
 import { DecorationValidationIssue } from '../models/decoration-validation';
 import { ThreeSceneService } from '../services/three-scene.service';
-type SidebarPanelKey = 'outline' | 'layers' | 'decorations' | 'paint' | 'export';
+type SidebarPanelKey = 'layers' | 'decorations' | 'paint' | 'export';
 
 @Component({
   selector: 'app-cake-sidebar',
@@ -19,7 +18,6 @@ type SidebarPanelKey = 'outline' | 'layers' | 'decorations' | 'paint' | 'export'
     DecorationsPanelComponent,
     PaintPanelComponent,
     ExportPanelComponent,
-    SceneOutlineComponent,
   ],
   templateUrl: './cake-sidebar.component.html',
   styleUrls: ['./cake-sidebar.component.css']
@@ -42,12 +40,9 @@ export class CakeSidebarComponent implements OnInit {
   readonly screenshot = output<void>();
   readonly proceedDespiteWarnings = output<void>();
 
-  railCollapsed = false;
   private openPanels = new Set<SidebarPanelKey>(['layers']);
 
   togglePanel(panel: SidebarPanelKey): void {
-    if (panel === 'outline') return;
-
     if (this.openPanels.has(panel)) {
       this.openPanels.delete(panel);
     } else {
@@ -56,13 +51,7 @@ export class CakeSidebarComponent implements OnInit {
   }
 
   isExpanded(panel: SidebarPanelKey): boolean {
-    if (panel === 'outline') return !this.railCollapsed;
-
     return this.openPanels.has(panel);
-  }
-
-  toggleRail(): void {
-    this.railCollapsed = !this.railCollapsed;
   }
 
   panelToggleId(panel: SidebarPanelKey): string {

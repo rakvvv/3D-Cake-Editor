@@ -5,22 +5,6 @@
   </header>
 
   <div class="sidebar__body">
-    <aside class="sidebar__rail" [class.sidebar__rail--collapsed]="railCollapsed">
-      <div class="sidebar__rail-header">
-        <div class="sidebar__rail-titles">
-          <p class="sidebar__rail-label">Scena</p>
-          <h3 class="sidebar__rail-title">Struktura</h3>
-        </div>
-        <button type="button" class="sidebar__rail-toggle" (click)="toggleRail()">
-          <span aria-hidden="true">{{ railCollapsed ? '⟩' : '⟨' }}</span>
-          <span class="sr-only">Przełącz panel sceny</span>
-        </button>
-      </div>
-      <div class="sidebar__rail-content" *ngIf="!railCollapsed">
-        <app-scene-outline></app-scene-outline>
-      </div>
-    </aside>
-
     <div class="sidebar__content" tabindex="-1">
       <section
         class="sidebar__section"
