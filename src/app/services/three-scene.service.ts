@@ -1,7 +1,7 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import * as THREE from 'three';
 import { HttpClient } from '@angular/common/http';
-import { Observable, lastValueFrom } from 'rxjs';
+import { Observable, Subject, lastValueFrom } from 'rxjs';
 import { isPlatformBrowser } from '@angular/common';
 import { FontLoader, Font } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TransformControlsService } from './transform-controls-service';
@@ -56,6 +56,8 @@ export class ThreeSceneService {
   private mouse = new THREE.Vector2();
   private boxHelper: THREE.BoxHelper | null = null;
   private clipboard: DecorationClipboardEntry | null = null;
+  private readonly outlineChanged = new Subject<void>();
+  public readonly outlineChanges$ = this.outlineChanged.asObservable();
 
 
 
@@ -68,10 +70,16 @@ export class ThreeSceneService {
     private exportService: ExportService,
     private snapService: SnapService,
     @Inject(PLATFORM_ID) private platformId: Object
-  ) {}
+  ) {
+    this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
+  }
 
   public get scene(): THREE.Scene {
     return this.sceneInitService.scene;
+  }
+
+  private emitOutlineChanged(): void {
+    this.outlineChanged.next();
   }
 
   public get camera(): THREE.PerspectiveCamera {
@@ -739,6 +747,7 @@ export class ThreeSceneService {
     );
     if (decoration) {
       this.showBoxHelperFor(decoration);
+      this.emitOutlineChanged();
     }
   }
 
@@ -882,6 +891,8 @@ export class ThreeSceneService {
       this.snapService.clearSnapInfo(child);
       this.disposeObjectResources(child);
     });
+
+    this.emitOutlineChanged();
   }
 
   public deleteSelectedDecoration(): { success: boolean; message: string } {
@@ -1025,6 +1036,22 @@ export class ThreeSceneService {
       child.visible = visible;
     });
 
+    this.emitOutlineChanged();
+    return true;
+  }
+
+  public removeDecorationById(id: string): boolean {
+    const target = this.findDecorationById(id);
+    if (!target) {
+      return false;
+    }
+
+    if (this.transformControlsService.getSelectedObject()?.uuid === id) {
+      this.transformControlsService.deselectObject();
+      this.hideBoxHelper();
+    }
+
+    this.removeDecoration(target);
     return true;
   }
 
@@ -1059,6 +1086,7 @@ export class ThreeSceneService {
     this.objects.push(group);
     this.transformControlsService.attachObject(group);
     this.showBoxHelperFor(group);
+    this.emitOutlineChanged();
 
     return { success: true, message: 'Utworzono nową grupę dekoracji.', groupId: group.uuid };
   }
@@ -1369,7 +1397,9 @@ export class ThreeSceneService {
     return Boolean(
       object.userData['isDecorationGroup'] === true ||
       object.userData['isDecoration'] === true ||
-      object.userData['decorationType']
+      object.userData['decorationType'] ||
+      object.userData['isPaintStroke'] === true ||
+      object.userData['isPaintDecoration'] === true
     );
   }
 
@@ -1446,6 +1476,14 @@ export class ThreeSceneService {
   }
 
   private describeDecoration(object: THREE.Object3D): string {
+    if (object.userData['isPaintStroke']) {
+      return object.userData['displayName'] || 'Ślad pisaka';
+    }
+
+    if (object.userData['isPaintDecoration']) {
+      return object.userData['displayName'] || 'Dekoracja malowana';
+    }
+
     const label =
       object.userData['displayName'] ||
       object.userData['modelFileName'] ||

@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SceneOutlineNode } from '../../models/scene-outline';
 import { ThreeSceneService } from '../../services/three-scene.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-scene-outline',
@@ -11,7 +12,9 @@ import { ThreeSceneService } from '../../services/three-scene.service';
   templateUrl: './scene-outline.component.html',
   styleUrls: ['../sidebar-panel.css', './scene-outline.component.css'],
 })
-export class SceneOutlineComponent implements OnInit {
+type ContextMenuState = { node: SceneOutlineNode; x: number; y: number } | null;
+
+export class SceneOutlineComponent implements OnInit, OnDestroy {
   outline: SceneOutlineNode | null = null;
   selectedId: string | null = null;
   groupingSelection = new Set<string>();
@@ -19,11 +22,21 @@ export class SceneOutlineComponent implements OnInit {
   statusMessage: string | null = null;
   statusPositive = true;
   groupName = '';
+  contextMenu: ContextMenuState = null;
+  private outlineSubscription?: Subscription;
 
   constructor(private readonly sceneService: ThreeSceneService) {}
 
   ngOnInit(): void {
     this.refreshOutline();
+
+    this.outlineSubscription = this.sceneService.outlineChanges$.subscribe(() =>
+      this.refreshOutline(),
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.outlineSubscription?.unsubscribe();
   }
 
   refreshOutline(): void {
@@ -55,6 +68,7 @@ export class SceneOutlineComponent implements OnInit {
 
     const success = this.sceneService.selectDecorationById(node.id);
     this.selectedId = success ? node.id : this.selectedId;
+    this.closeContextMenu();
   }
 
   toggleVisibility(node: SceneOutlineNode): void {
@@ -79,6 +93,8 @@ export class SceneOutlineComponent implements OnInit {
     } else {
       this.groupingSelection.delete(node.id);
     }
+
+    this.closeContextMenu();
   }
 
   groupSelected(): void {
@@ -93,6 +109,31 @@ export class SceneOutlineComponent implements OnInit {
       this.selectedId = result.groupId ?? this.selectedId;
       this.refreshOutline();
     }
+  }
+
+  onContextMenu(event: MouseEvent, node: SceneOutlineNode): void {
+    if (!this.isSelectable(node)) {
+      return;
+    }
+
+    event.preventDefault();
+    this.contextMenu = { node, x: event.clientX, y: event.clientY };
+  }
+
+  closeContextMenu(): void {
+    this.contextMenu = null;
+  }
+
+  removeNode(node: SceneOutlineNode): void {
+    if (!this.isSelectable(node)) {
+      return;
+    }
+
+    const removed = this.sceneService.removeDecorationById(node.id);
+    if (removed) {
+      this.refreshOutline();
+    }
+    this.closeContextMenu();
   }
 
   attachmentLabel(node: SceneOutlineNode): string {

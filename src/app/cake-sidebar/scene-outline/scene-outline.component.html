@@ -48,6 +48,7 @@
       class="outline-node__row"
       [class.outline-node__row--selectable]="isSelectable(node)"
       [class.outline-node__row--selected]="selectedId === node.id"
+      (contextmenu)="onContextMenu($event, node)"
     >
       <div class="outline-node__main">
         <button
@@ -99,3 +100,25 @@
     </ul>
   </li>
 </ng-template>
+
+<div *ngIf="contextMenu" class="outline-overlay" (click)="closeContextMenu()"></div>
+<div
+  *ngIf="contextMenu as menu"
+  class="outline-context"
+  [style.top.px]="menu.y"
+  [style.left.px]="menu.x"
+  role="menu"
+>
+  <button class="outline-context__button" type="button" (click)="onSelect(menu.node)">
+    Zaznacz
+  </button>
+  <button class="outline-context__button" type="button" (click)="toggleVisibility(menu.node)">
+    {{ menu.node.visible ? 'Ukryj' : 'Pokaż' }}
+  </button>
+  <button class="outline-context__button" type="button" (click)="toggleGrouping(menu.node, true)">
+    Dodaj do grupowania
+  </button>
+  <button class="outline-context__button" type="button" (click)="removeNode(menu.node)">
+    Usuń element
+  </button>
+</div>
