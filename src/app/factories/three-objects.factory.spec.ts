@@ -22,6 +22,9 @@ describe('ThreeObjectsFactory', () => {
     glaze_seed: 1,
     wafer_texture_url: null,
     wafer_scale: 1,
+    wafer_texture_zoom: 1,
+    wafer_texture_offset_x: 0,
+    wafer_texture_offset_y: 0,
   };
 
   const getOptions = (overrides: Partial<CakeOptions> = {}): CakeOptions => ({
@@ -70,6 +73,31 @@ describe('ThreeObjectsFactory', () => {
 
     expect(wafer.position.y).toBeGreaterThan(0.9);
     expect(wafer.rotation.x).toBeCloseTo(-Math.PI / 2, 5);
+  });
+
+  it('ustawia przybliżenie i przesunięcie tekstury opłatka', () => {
+    const result = ThreeObjectsFactory.createCake(
+      getOptions({
+        wafer_texture_url: 'blob:wafer',
+        wafer_scale: 1,
+        wafer_texture_zoom: 2,
+        wafer_texture_offset_x: 0.25,
+        wafer_texture_offset_y: -0.1,
+      })
+    );
+
+    const wafer = result.cake.children.find((child) => child.userData['isCakeWafer']) as THREE.Mesh;
+    expect(wafer).toBeTruthy();
+    const texture = wafer.userData['waferTexture'] as THREE.Texture;
+
+    expect(texture.repeat.x).toBeCloseTo(0.5, 2);
+    expect(texture.repeat.y).toBeCloseTo(0.5, 2);
+    expect(texture.offset.x).toBeCloseTo(0.375, 3);
+    expect(texture.offset.y).toBeCloseTo(0.25 - 0.05, 3);
+
+    const material = wafer.userData['waferMaterial'] as THREE.MeshStandardMaterial;
+    expect(material.roughness).toBeLessThan(0.5);
+    expect(material.metalness).toBeGreaterThan(0.25);
   });
 
   it('nie generuje polewy, gdy jest wyłączona', () => {

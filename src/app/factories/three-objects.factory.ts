@@ -212,13 +212,24 @@ export class ThreeObjectsFactory {
     texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.colorSpace = THREE.SRGBColorSpace;
 
+    const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
+    const offsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -1, 1);
+    const offsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -1, 1);
+    const repeat = 1 / zoom;
+    const baseOffset = 0.5 - repeat / 2;
+    texture.center.set(0.5, 0.5);
+    texture.repeat.set(repeat, repeat);
+    texture.offset.set(baseOffset + offsetX * repeat, baseOffset + offsetY * repeat);
+    texture.needsUpdate = true;
+
     const material = new THREE.MeshStandardMaterial({
       map: texture,
       alphaMap: texture,
       transparent: true,
       side: THREE.DoubleSide,
-      roughness: 0.75,
-      metalness: 0.05,
+      roughness: 0.28,
+      metalness: 0.3,
+      envMapIntensity: 0.4,
     });
 
     const scale = THREE.MathUtils.clamp(options.wafer_scale ?? 1, 0.4, 2.5);

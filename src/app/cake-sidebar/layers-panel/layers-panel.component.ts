@@ -1,4 +1,4 @@
-import { Component, EventEmitter, OnDestroy, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, OnDestroy, Output, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CakeOptions } from '../../models/cake.options';
@@ -12,11 +12,14 @@ import { CakeOptions } from '../../models/cake.options';
 })
 export class LayersPanelComponent implements OnDestroy {
   @Output() cakeOptionsChange = new EventEmitter<CakeOptions>();
+  @ViewChild('waferViewport') waferViewport?: ElementRef<HTMLDivElement>;
 
   readonly minLayerSize = 0.6;
   readonly maxLayerSize = 1.5;
   readonly waferScaleMin = 0.5;
   readonly waferScaleMax = 1.5;
+  readonly waferZoomMin = 1;
+  readonly waferZoomMax = 3.5;
   readonly acceptedWaferTypes = ['image/png', 'image/jpeg', 'image/webp'];
   readonly maxWaferSizeBytes = 5 * 1024 * 1024;
 
@@ -38,7 +41,13 @@ export class LayersPanelComponent implements OnDestroy {
   glazeSeed = 1;
   waferTextureUrl: string | null = null;
   waferScale = 1;
+  waferTextureZoom = 1;
+  waferTextureOffsetX = 0;
+  waferTextureOffsetY = 0;
   waferError: string | null = null;
+  waferEditorOpen = false;
+  private waferDragStart: { x: number; y: number; offsetX: number; offsetY: number } | null = null;
+
   readonly availableFonts = [
     { label: 'Helvetiker', value: 'helvetiker' },
     { label: 'Optimer', value: 'optimer' },
@@ -87,6 +96,10 @@ export class LayersPanelComponent implements OnDestroy {
     return Math.min(Math.max(value, effectiveMin), effectiveMax);
   }
 
+  private clampOffset(value: number, limit: number): number {
+    return Math.min(Math.max(value, -limit), limit);
+  }
+
   updateCakeOptions(): void {
     this.cakeOptionsChange.emit({
       cake_size: this.cakeSize,
@@ -107,6 +120,9 @@ export class LayersPanelComponent implements OnDestroy {
       glaze_seed: this.glazeSeed,
       wafer_texture_url: this.waferTextureUrl,
       wafer_scale: this.waferScale,
+      wafer_texture_zoom: this.waferTextureZoom,
+      wafer_texture_offset_x: this.waferTextureOffsetX,
+      wafer_texture_offset_y: this.waferTextureOffsetY,
     });
   }
 
@@ -115,6 +131,62 @@ export class LayersPanelComponent implements OnDestroy {
     const file = input.files?.[0] ?? null;
     this.processWaferFile(file);
     input.value = '';
+  }
+
+  openWaferEditor(): void {
+    if (!this.waferTextureUrl) {
+      return;
+    }
+    this.waferEditorOpen = true;
+  }
+
+  closeWaferEditor(): void {
+    this.waferEditorOpen = false;
+    this.waferDragStart = null;
+  }
+
+  confirmWaferEditor(): void {
+    this.waferEditorOpen = false;
+    this.updateCakeOptions();
+  }
+
+  onWaferZoomChanged(value: number): void {
+    this.waferTextureZoom = this.clampLayerSize(Number(value), this.waferZoomMin, this.waferZoomMax);
+    this.updateCakeOptions();
+  }
+
+  onWaferPointerDown(event: PointerEvent): void {
+    if (!this.waferTextureUrl) {
+      return;
+    }
+    this.waferViewport?.nativeElement.setPointerCapture(event.pointerId);
+    this.waferDragStart = {
+      x: event.clientX,
+      y: event.clientY,
+      offsetX: this.waferTextureOffsetX,
+      offsetY: this.waferTextureOffsetY,
+    };
+  }
+
+  onWaferPointerMove(event: PointerEvent): void {
+    if (!this.waferDragStart || !this.waferViewport) {
+      return;
+    }
+    const rect = this.waferViewport.nativeElement.getBoundingClientRect();
+    const deltaX = (event.clientX - this.waferDragStart.x) / rect.width;
+    const deltaY = (event.clientY - this.waferDragStart.y) / rect.height;
+    this.waferTextureOffsetX = this.clampOffset(this.waferDragStart.offsetX + deltaX, 0.75);
+    this.waferTextureOffsetY = this.clampOffset(this.waferDragStart.offsetY + deltaY, 0.75);
+  }
+
+  onWaferPointerUp(event: PointerEvent): void {
+    if (this.waferDragStart && this.waferViewport) {
+      this.waferViewport.nativeElement.releasePointerCapture(event.pointerId);
+    }
+    if (this.waferDragStart) {
+      this.updateCakeOptions();
+    }
+    this.waferDragStart = null;
   }
 
   private processWaferFile(file: File | null): void {
@@ -144,7 +216,11 @@ export class LayersPanelComponent implements OnDestroy {
     }
 
     this.waferTextureUrl = URL.createObjectURL(file);
+    this.waferTextureZoom = 1;
+    this.waferTextureOffsetX = 0;
+    this.waferTextureOffsetY = 0;
     this.waferError = null;
+    this.waferEditorOpen = true;
     this.updateCakeOptions();
   }
 
@@ -153,5 +229,9 @@ export class LayersPanelComponent implements OnDestroy {
       URL.revokeObjectURL(this.waferTextureUrl);
     }
     this.waferTextureUrl = null;
+    this.waferTextureZoom = 1;
+    this.waferTextureOffsetX = 0;
+    this.waferTextureOffsetY = 0;
+    this.waferEditorOpen = false;
   }
 }
