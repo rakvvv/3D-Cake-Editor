@@ -46,6 +46,7 @@ export class LayersPanelComponent implements OnDestroy {
   waferTextureOffsetY = 0;
   waferError: string | null = null;
   waferEditorOpen = false;
+  private waferUpdatePending = false;
   private waferDragStart: { x: number; y: number; offsetX: number; offsetY: number } | null = null;
 
   readonly availableFonts = [
@@ -152,7 +153,7 @@ export class LayersPanelComponent implements OnDestroy {
 
   onWaferZoomChanged(value: number): void {
     this.waferTextureZoom = this.clampLayerSize(Number(value), this.waferZoomMin, this.waferZoomMax);
-    this.updateCakeOptions();
+    this.scheduleWaferUpdate();
   }
 
   onWaferPointerDown(event: PointerEvent): void {
@@ -179,7 +180,7 @@ export class LayersPanelComponent implements OnDestroy {
     const deltaY = (event.clientY - this.waferDragStart.y) / rect.height;
     this.waferTextureOffsetX = this.clampOffset(this.waferDragStart.offsetX + deltaX, 0.75);
     this.waferTextureOffsetY = this.clampOffset(this.waferDragStart.offsetY + deltaY, 0.75);
-    this.updateCakeOptions();
+    this.scheduleWaferUpdate();
   }
 
   onWaferPointerUp(event: PointerEvent): void {
@@ -236,5 +237,45 @@ export class LayersPanelComponent implements OnDestroy {
     this.waferTextureOffsetX = 0;
     this.waferTextureOffsetY = 0;
     this.waferEditorOpen = false;
+  }
+
+  get waferPreviewStyle(): Record<string, string> {
+    if (!this.waferTextureUrl) {
+      return {};
+    }
+
+    const { repeat, offsetX, offsetY } = this.computeWaferTransform();
+    const backgroundSize = `${(1 / repeat) * 100}% ${(1 / repeat) * 100}%`;
+    const backgroundPosition = `${(offsetX + repeat / 2) * 100}% ${(offsetY + repeat / 2) * 100}%`;
+
+    return {
+      backgroundImage: `url(${this.waferTextureUrl})`,
+      backgroundSize,
+      backgroundPosition,
+    };
+  }
+
+  private computeWaferTransform(): { repeat: number; offsetX: number; offsetY: number } {
+    const zoom = this.clampLayerSize(this.waferTextureZoom, this.waferZoomMin, this.waferZoomMax);
+    const repeat = 1 / zoom;
+    const offsetX = this.clampOffset(this.waferTextureOffsetX, 1);
+    const offsetY = this.clampOffset(this.waferTextureOffsetY, 1);
+
+    return {
+      repeat,
+      offsetX: 0.5 - repeat / 2 + offsetX * repeat,
+      offsetY: 0.5 - repeat / 2 + offsetY * repeat,
+    };
+  }
+
+  private scheduleWaferUpdate(): void {
+    if (this.waferUpdatePending) {
+      return;
+    }
+    this.waferUpdatePending = true;
+    requestAnimationFrame(() => {
+      this.waferUpdatePending = false;
+      this.updateCakeOptions();
+    });
   }
 }

@@ -267,13 +267,13 @@
         (pointercancel)="onWaferPointerUp($event)"
         (contextmenu)="$event.preventDefault()"
       >
-        <img
+        <div
           *ngIf="waferTextureUrl"
-          [src]="waferTextureUrl"
-          alt="Podgląd opłatka"
           class="wafer-editor__image"
-          [style.transform]="'translate(' + (waferTextureOffsetX * 100) + '%, ' + (waferTextureOffsetY * 100) + '%) scale(' + waferTextureZoom + ')'"
-        />
+          role="img"
+          aria-label="Podgląd opłatka"
+          [ngStyle]="waferPreviewStyle"
+        ></div>
       </div>
     </div>
     <div class="wafer-editor__controls">

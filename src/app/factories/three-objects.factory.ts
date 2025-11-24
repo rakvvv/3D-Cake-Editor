@@ -233,14 +233,10 @@ export class ThreeObjectsFactory {
 
     const detailTexture = this.createWaferDetailTexture();
 
-    const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
-    const offsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -1, 1);
-    const offsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -1, 1);
-    const repeat = 1 / zoom;
-    const baseOffset = 0.5 - repeat / 2;
+    const { repeat, offsetX, offsetY } = this.computeWaferTransform(options);
     texture.center.set(0.5, 0.5);
     texture.repeat.set(repeat, repeat);
-    texture.offset.set(baseOffset + offsetX * repeat, baseOffset + offsetY * repeat);
+    texture.offset.set(offsetX, offsetY);
     texture.needsUpdate = true;
 
     const material = new THREE.MeshPhysicalMaterial({
@@ -313,6 +309,19 @@ export class ThreeObjectsFactory {
     wafer.add(sugar);
 
     return wafer;
+  }
+
+  private static computeWaferTransform(options: CakeOptions): { repeat: number; offsetX: number; offsetY: number } {
+    const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
+    const offsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -1, 1);
+    const offsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -1, 1);
+    const repeat = 1 / zoom;
+
+    return {
+      repeat,
+      offsetX: 0.5 - repeat / 2 + offsetX * repeat,
+      offsetY: 0.5 - repeat / 2 + offsetY * repeat,
+    };
   }
 
   // ========= GLAZE CREATION =========
