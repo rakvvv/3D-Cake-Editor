@@ -6,7 +6,7 @@
 
   <div class="sidebar__content" tabindex="-1">
     <section
-      class="sidebar__section"
+      class="sidebar__section sidebar__section--outline"
       [class.sidebar__section--expanded]="isExpanded('outline')"
     >
       <button
@@ -22,14 +22,14 @@
       </button>
 
       <div
-        class="sidebar__panel-wrapper"
+        class="sidebar__panel-wrapper sidebar__panel-wrapper--static"
         [class.sidebar__panel-wrapper--expanded]="isExpanded('outline')"
         role="region"
         [attr.aria-labelledby]="panelToggleId('outline')"
         [id]="panelRegionId('outline')"
         [attr.aria-hidden]="!isExpanded('outline')"
       >
-        <div class="sidebar__panel">
+        <div class="sidebar__panel sidebar__panel--static">
           <app-scene-outline></app-scene-outline>
         </div>
       </div>

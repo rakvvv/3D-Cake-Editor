@@ -5,6 +5,8 @@ import { SceneOutlineNode } from '../../models/scene-outline';
 import { ThreeSceneService } from '../../services/three-scene.service';
 import { Subscription } from 'rxjs';
 
+type ContextMenuState = { node: SceneOutlineNode; x: number; y: number } | null;
+
 @Component({
   selector: 'app-scene-outline',
   standalone: true,
@@ -12,7 +14,6 @@ import { Subscription } from 'rxjs';
   templateUrl: './scene-outline.component.html',
   styleUrls: ['../sidebar-panel.css', './scene-outline.component.css'],
 })
-type ContextMenuState = { node: SceneOutlineNode; x: number; y: number } | null;
 
 export class SceneOutlineComponent implements OnInit, OnDestroy {
   outline: SceneOutlineNode | null = null;

@@ -45,10 +45,18 @@ export class CakeSidebarComponent implements OnInit {
   private activePanel: SidebarPanelKey | null = 'layers';
 
   togglePanel(panel: SidebarPanelKey): void {
+    if (panel === 'outline') {
+      return;
+    }
+
     this.activePanel = this.activePanel === panel ? null : panel;
   }
 
   isExpanded(panel: SidebarPanelKey): boolean {
+    if (panel === 'outline') {
+      return true;
+    }
+
     return this.activePanel === panel;
   }
 
