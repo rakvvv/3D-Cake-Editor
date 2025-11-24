@@ -14,6 +14,7 @@ import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.fa
 import { TextFactory } from '../factories/text.factory';
 import { SnapService, SnappedDecorationState, SnapInfoSnapshot } from './snap.service';
 import { DecorationValidationIssue } from '../models/decoration-validation';
+import { environment } from '../../environments/environment';
 
 interface DecorationClipboardEntry {
   template: THREE.Object3D;
@@ -46,6 +47,8 @@ export class ThreeSceneService {
     0x9ee7ff,
     0xc0ffc7,
   ];
+  private readonly apiBaseUrl = environment.apiBaseUrl;
+  private readonly endpoints = environment.endpoints;
   private options!: CakeOptions;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
@@ -693,16 +696,24 @@ export class ThreeSceneService {
     return Math.abs(seed) % this.candyPalette.length;
   }
   // TODO zapisanie sceny lokalnie
-  public getSceneConfiguration(): any {
-    return this.objects.map((obj, index) => ({
-      id: index,
-      position: obj.position.toArray()
-    }));
-  }
+  // public getSceneConfiguration(): any {
+  //   return this.objects.map((obj, index) => ({
+  //     id: index,
+  //     position: obj.position.toArray()
+  //   }));
+  // }
 
   // TODO zrobic zapisywanie modelu
   public saveSceneConfiguration(data: any): Observable<any> {
-    return this.http.post('/api/saveScene', data);
+    return this.http.post(`${this.apiBaseUrl}/${this.endpoints.saveScene}`, data);
+  }
+
+  public getSceneConfiguration(sceneId: string): Observable<any> {
+    return this.http.get(`${this.apiBaseUrl}/${this.endpoints.scene}/${sceneId}`);
+  }
+
+  public getAvailableDecorations(): Observable<any> {
+    return this.http.get(`${this.apiBaseUrl}/${this.endpoints.decorations}`);
   }
 
   public async addDecorationFromModel(identifier: string): Promise<void> {
