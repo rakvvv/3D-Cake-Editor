@@ -137,31 +137,9 @@
   padding: 8px 10px 10px;
 }
 
-.sidebar__section--outline {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: transparent;
-}
-
-.sidebar__section--outline .sidebar__toggle {
-  color: #f5f7fb;
-}
-
-.sidebar__section--outline .sidebar__toggle-icon {
-  border-color: rgba(255, 255, 255, 0.55);
-}
-
-.sidebar__section--outline .sidebar__toggle-icon::before {
-  border-color: #f5f7fb;
-}
-
 .sidebar__panel--outline {
-  padding: 8px 8px 10px;
-  background: rgba(12, 15, 23, 0.94);
-  color: #f5f7fb;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(8px);
+  padding: 8px 10px 10px;
+  background: var(--color-surface);
 }
 
 .sidebar__outline {
