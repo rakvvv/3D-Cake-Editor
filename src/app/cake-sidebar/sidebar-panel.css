@@ -151,9 +151,9 @@
 }
 
 .sidebar-panel__scroll {
-  max-height: 240px;
-  overflow-y: auto;
-  border-radius: var(--radius-md);
+  max-height: none;
+  overflow: visible;
+  border-radius: 0;
 }
 
 .sidebar-panel__message {
