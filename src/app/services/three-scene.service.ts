@@ -884,11 +884,12 @@ export class ThreeSceneService {
       return;
     }
 
-    if (this.cakeBase && object.parent === this.cakeBase) {
-      this.scene.attach(object);
+    const parent = object.parent;
+    if (parent) {
+      parent.remove(object);
+    } else {
+      this.scene.remove(object);
     }
-
-    this.scene.remove(object);
     this.objects = this.objects.filter((entry) => entry !== object);
 
     object.traverse((child) => {
