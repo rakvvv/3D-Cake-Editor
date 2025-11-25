@@ -19,29 +19,27 @@
       </select>
     </div>
 
-    <div class="sidebar-panel__scroll">
-      <div class="decorations-panel__list" role="list">
-        <button
-          type="button"
-          class="decorations-panel__card"
-          *ngFor="let decoration of filteredDecorations"
-          (click)="onAddDecoration(decoration.modelFileName)"
-        >
-          <span class="decorations-panel__thumbnail" aria-hidden="true">
-            <img
-              *ngIf="decoration.thumbnailUrl; else letterThumbnail"
-              [src]="decoration.thumbnailUrl"
-              [alt]="'Miniatura dekoracji ' + decoration.name"
-              loading="lazy"
-            />
-            <ng-template #letterThumbnail>{{ decoration.name[0] }}</ng-template>
-          </span>
-          <span class="decorations-panel__details">
-            <span class="decorations-panel__name">{{ decoration.name }}</span>
-            <span class="decorations-panel__type">{{ displayTypeLabel(decoration.type) }}</span>
-          </span>
-        </button>
-      </div>
+    <div class="decorations-panel__list" role="list">
+      <button
+        type="button"
+        class="decorations-panel__card"
+        *ngFor="let decoration of filteredDecorations"
+        (click)="onAddDecoration(decoration.modelFileName)"
+      >
+        <span class="decorations-panel__thumbnail" aria-hidden="true">
+          <img
+            *ngIf="decoration.thumbnailUrl; else letterThumbnail"
+            [src]="decoration.thumbnailUrl"
+            [alt]="'Miniatura dekoracji ' + decoration.name"
+            loading="lazy"
+          />
+          <ng-template #letterThumbnail>{{ decoration.name[0] }}</ng-template>
+        </span>
+        <span class="decorations-panel__details">
+          <span class="decorations-panel__name">{{ decoration.name }}</span>
+          <span class="decorations-panel__type">{{ displayTypeLabel(decoration.type) }}</span>
+        </span>
+      </button>
     </div>
 
     <div class="decorations-panel__actions">
