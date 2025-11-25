@@ -2,12 +2,16 @@
   display: block;
   color: #f5f7fb;
   font-size: 0.85rem;
+  height: 100%;
 }
 
 .sidebar-panel {
   gap: var(--space-1);
   padding: 0;
   background: transparent;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .sidebar-panel__description {
@@ -26,7 +30,10 @@
   flex-direction: column;
   gap: var(--space-2);
   overflow: auto;
-  max-height: 100%;
+  max-height: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-right: 2px;
 }
 
 .sidebar-panel__button {
@@ -46,7 +53,7 @@
   justify-content: space-between;
   position: sticky;
   top: 0;
-  padding: 8px 6px 8px 0;
+  padding: 6px 6px 6px 0;
   margin: 0;
   background: rgba(12, 16, 26, 0.96);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -83,7 +90,7 @@
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 6px;
-  padding: 4px 6px;
+  padding: 3px 6px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.02);
