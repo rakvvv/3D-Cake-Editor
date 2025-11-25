@@ -26,5 +26,96 @@
     "modelFileName": "trawa.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/grass.svg"
+  },
+  {
+    "id": "czekoladowa-ozdoba",
+    "name": "Czekoladowa ozdoba",
+    "modelFileName": "chocolate_kiss.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "borowka",
+    "name": "Borówka",
+    "modelFileName": "borowka.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "kiwi",
+    "name": "Kiwi",
+    "modelFileName": "kiwi.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "kwiat1",
+    "name": "Kwiat 1",
+    "modelFileName": "kwiatek1_1.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "kwiat2",
+    "name": "Kwiat 2",
+    "modelFileName": "kwiatek1_2.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "kwiat3",
+    "name": "Kwiat 3",
+    "modelFileName": "kwiatek2_.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "kwiat4",
+    "name": "Kwiat 4",
+    "modelFileName": "kwiatek5.2.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "kwiat5",
+    "name": "Kwiat 5",
+    "modelFileName": "kwiatek6.2.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "kwiat6",
+    "name": "Kwiat 6",
+    "modelFileName": "kwiatek7.2.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "kwiat7",
+    "name": "Kwiat 7",
+    "modelFileName": "kwiatek8_.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "lisc1",
+    "name": "Liść 1",
+    "modelFileName": "lisc_.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "mandarynka",
+    "name": "Mandarynka",
+    "modelFileName": "mandarynka.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
+  },
+  {
+    "id": "truskawka",
+    "name": "Truskawka",
+    "modelFileName": "truskawka_pol.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg"
   }
 ]
