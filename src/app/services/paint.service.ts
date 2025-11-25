@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
 import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
@@ -16,6 +17,7 @@ export class PaintService {
   public penSize = 0.05;
   public penThickness = 0.02;
   public penColor = '#ff4d6d';
+  public readonly sceneChanged$ = new Subject<void>();
 
   private readonly baseMinDistance = 0.02;
   private readonly baseMinTimeMs = 40;
@@ -203,6 +205,7 @@ export class PaintService {
     const lastObject = this.undoStack.pop()!;
     this.sceneRef.remove(lastObject);
     this.redoStack.push(lastObject);
+    this.notifySceneChanged();
   }
 
   public redo(): void {
@@ -213,6 +216,7 @@ export class PaintService {
     const object = this.redoStack.pop()!;
     this.sceneRef.add(object);
     this.undoStack.push(object);
+    this.notifySceneChanged();
   }
 
   public canUndo(): boolean {
@@ -245,12 +249,14 @@ export class PaintService {
         erasableObject.parent.remove(erasableObject);
       }
       this.removeFromHistory(erasableObject);
+      this.notifySceneChanged();
       return;
     }
 
     if (erasableObject.userData['isPaintDecoration'] || erasableObject.userData['isDecoration']) {
       this.transformManager.removeDecorationObject(erasableObject);
       this.removeFromHistory(erasableObject);
+      this.notifySceneChanged();
     }
   }
 
@@ -765,5 +771,10 @@ export class PaintService {
   private trackPaintAddition(object: THREE.Object3D): void {
     this.undoStack.push(object);
     this.redoStack = [];
+    this.notifySceneChanged();
+  }
+
+  private notifySceneChanged(): void {
+    this.sceneChanged$.next();
   }
 }

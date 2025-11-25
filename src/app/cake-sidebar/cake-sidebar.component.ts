@@ -13,7 +13,12 @@ type SidebarPanelKey = 'layers' | 'decorations' | 'paint' | 'export';
 @Component({
   selector: 'app-cake-sidebar',
   standalone: true,
-  imports: [LayersPanelComponent, DecorationsPanelComponent, PaintPanelComponent, ExportPanelComponent],
+  imports: [
+    LayersPanelComponent,
+    DecorationsPanelComponent,
+    PaintPanelComponent,
+    ExportPanelComponent,
+  ],
   templateUrl: './cake-sidebar.component.html',
   styleUrls: ['./cake-sidebar.component.css']
 })
@@ -35,14 +40,18 @@ export class CakeSidebarComponent implements OnInit {
   readonly screenshot = output<void>();
   readonly proceedDespiteWarnings = output<void>();
 
-  private activePanel: SidebarPanelKey | null = 'layers';
+  private openPanels = new Set<SidebarPanelKey>(['layers']);
 
   togglePanel(panel: SidebarPanelKey): void {
-    this.activePanel = this.activePanel === panel ? null : panel;
+    if (this.openPanels.has(panel)) {
+      this.openPanels.delete(panel);
+    } else {
+      this.openPanels.add(panel);
+    }
   }
 
   isExpanded(panel: SidebarPanelKey): boolean {
-    return this.activePanel === panel;
+    return this.openPanels.has(panel);
   }
 
   panelToggleId(panel: SidebarPanelKey): string {

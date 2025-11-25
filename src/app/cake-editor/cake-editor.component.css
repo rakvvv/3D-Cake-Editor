@@ -1,25 +1,30 @@
 .editor-container {
-  display: grid;
-  grid-template-columns: minmax(var(--sidebar-width-min), var(--sidebar-width-max)) 1fr;
-  grid-template-rows: 1fr;
+  position: relative;
   height: 100dvh;
   overflow: hidden;
-  position: relative;
   background: var(--color-background);
   color: var(--color-text);
 }
 
 .editor-container > app-cake-sidebar {
-  grid-row: 1;
-  grid-column: 1;
-  height: 100%;
-  min-width: 0;
+  position: fixed;
+  top: 12px;
+  bottom: 12px;
+  left: 12px;
+  z-index: 940;
+  width: clamp(260px, 26vw, 340px);
+  max-width: 400px;
+  min-width: 240px;
+  height: calc(100dvh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
+  pointer-events: auto;
+  display: flex;
 }
 
 .editor-stage {
-  grid-column: 2;
-  grid-row: 1;
-  position: relative;
+  position: absolute;
+  inset: 0;
   height: 100%;
   min-width: 0;
   background: var(--color-stage);
@@ -160,6 +165,82 @@
   z-index: 900;
 }
 
+
+.scene-rail {
+  position: fixed;
+  top: 18px;
+  right: 10px;
+  width: clamp(320px, 32vw, 420px);
+  max-width: 40vw;
+  height: calc(100dvh - 36px);
+  max-height: calc(100dvh - 36px);
+  background: rgba(12, 15, 23, 0.94);
+  color: #f5f7fb;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.36);
+  z-index: 950;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 8px 12px;
+  backdrop-filter: blur(8px);
+}
+
+.scene-rail--collapsed {
+  width: 52px;
+  max-height: none;
+  padding: 8px;
+  gap: 0;
+}
+
+.scene-rail__toggle {
+  align-self: flex-end;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f7fb;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.scene-rail__toggle:hover,
+.scene-rail__toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  outline: none;
+}
+
+.scene-rail__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 6px 8px 2px;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+}
+
+.scene-rail__content app-scene-outline {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 .editor-toolbar {
   position: fixed;
   top: 24px;
@@ -200,26 +281,24 @@
 }
 
 @media (max-width: 1180px) {
-  .editor-container {
-    grid-template-columns: minmax(var(--sidebar-width-min), clamp(240px, 32vw, var(--sidebar-width-max))) 1fr;
+  .editor-container > app-cake-sidebar {
+    width: clamp(240px, 36vw, 360px);
   }
 }
 
 @media (max-width: 900px) {
-  .editor-container {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-  }
-
   .editor-container > app-cake-sidebar {
-    grid-column: 1;
-    grid-row: 1;
-    max-height: 45dvh;
+    position: absolute;
+    inset: 0;
+    max-width: none;
+    width: 100%;
+    height: auto;
   }
 
   .editor-stage {
-    grid-column: 1;
-    grid-row: 2;
+    position: relative;
+    height: auto;
+    min-height: 65dvh;
   }
 
   .status-banner {
@@ -229,5 +308,13 @@
   .view-controls {
     right: 16px;
     bottom: 16px;
+  }
+
+  .scene-rail {
+    top: auto;
+    bottom: 12px;
+    right: 12px;
+    width: calc(100% - 24px);
+    max-height: 60vh;
   }
 }

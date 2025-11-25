@@ -1,7 +1,7 @@
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import * as THREE from 'three';
 import { HttpClient } from '@angular/common/http';
-import { Observable, lastValueFrom } from 'rxjs';
+import { Observable, Subject, lastValueFrom } from 'rxjs';
 import { isPlatformBrowser } from '@angular/common';
 import { FontLoader, Font } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TransformControlsService } from './transform-controls-service';
@@ -16,6 +16,7 @@ import { SnapService, SnappedDecorationState, SnapInfoSnapshot } from './snap.se
 import { DecorationValidationIssue } from '../models/decoration-validation';
 import { DecorationInfo } from '../models/decorationInfo';
 import { environment } from '../../environments/environment';
+import { SceneOutlineNode } from '../models/scene-outline';
 import { DecorationFactory } from '../factories/decoration.factory';
 
 interface DecorationClipboardEntry {
@@ -56,6 +57,8 @@ export class ThreeSceneService {
   private mouse = new THREE.Vector2();
   private boxHelper: THREE.BoxHelper | null = null;
   private clipboard: DecorationClipboardEntry | null = null;
+  private readonly outlineChanged = new Subject<void>();
+  public readonly outlineChanges$ = this.outlineChanged.asObservable();
 
 
 
@@ -68,10 +71,16 @@ export class ThreeSceneService {
     private exportService: ExportService,
     private snapService: SnapService,
     @Inject(PLATFORM_ID) private platformId: Object
-  ) {}
+  ) {
+    this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
+  }
 
   public get scene(): THREE.Scene {
     return this.sceneInitService.scene;
+  }
+
+  private emitOutlineChanged(): void {
+    this.outlineChanged.next();
   }
 
   public get camera(): THREE.PerspectiveCamera {
@@ -252,6 +261,8 @@ export class ThreeSceneService {
       this.snapService.restoreSnappedDecorations(snappedState);
       this.updateBoxHelper();
     }
+
+    this.emitOutlineChanged();
   }
 
   private disposeCake(): void {
@@ -740,6 +751,7 @@ export class ThreeSceneService {
     );
     if (decoration) {
       this.showBoxHelperFor(decoration);
+      this.emitOutlineChanged();
     }
   }
 
@@ -883,6 +895,8 @@ export class ThreeSceneService {
       this.snapService.clearSnapInfo(child);
       this.disposeObjectResources(child);
     });
+
+    this.emitOutlineChanged();
   }
 
   public deleteSelectedDecoration(): { success: boolean; message: string } {
@@ -998,6 +1012,204 @@ export class ThreeSceneService {
 
   public getSelectedDecoration(): THREE.Object3D | null {
     return this.transformControlsService.getSelectedObject();
+  }
+
+  public getSelectedDecorationId(): string | null {
+    return this.transformControlsService.getSelectedObject()?.uuid ?? null;
+  }
+
+  public selectDecorationById(id: string): boolean {
+    const target = this.findDecorationById(id);
+    if (!target) {
+      return false;
+    }
+
+    this.transformControlsService.attachObject(target);
+    this.showBoxHelperFor(target);
+    return true;
+  }
+
+  public setDecorationVisibility(id: string, visible: boolean): boolean {
+    const target = this.findDecorationById(id);
+    if (!target) {
+      return false;
+    }
+
+    target.visible = visible;
+    target.traverse((child) => {
+      child.visible = visible;
+    });
+
+    this.emitOutlineChanged();
+    return true;
+  }
+
+  public removeDecorationById(id: string): boolean {
+    const target = this.findDecorationById(id);
+    if (!target) {
+      return false;
+    }
+
+    if (this.transformControlsService.getSelectedObject()?.uuid === id) {
+      this.transformControlsService.deselectObject();
+      this.hideBoxHelper();
+    }
+
+    this.removeDecoration(target);
+    return true;
+  }
+
+  public groupDecorationsByIds(ids: string[], groupName?: string): { success: boolean; message: string; groupId?: string } {
+    const uniqueIds = Array.from(new Set(ids));
+    const decorations = uniqueIds
+      .map((id) => this.findDecorationById(id))
+      .filter((object): object is THREE.Object3D => Boolean(object));
+
+    if (decorations.length < 2) {
+      return { success: false, message: 'Wybierz co najmniej dwie dekoracje do zgrupowania.' };
+    }
+
+    const parent = decorations[0]?.parent ?? this.scene;
+    const incompatibleParent = decorations.some((object) => object.parent !== parent);
+    if (incompatibleParent) {
+      return { success: false, message: 'Wszystkie dekoracje muszą mieć tego samego rodzica, aby utworzyć grupę.' };
+    }
+
+    const group = new THREE.Group();
+    group.name = groupName?.trim() || 'Grupa dekoracji';
+    group.userData['isDecoration'] = true;
+    group.userData['isDecorationGroup'] = true;
+    group.userData['displayName'] = group.name;
+
+    parent?.add(group);
+    decorations.forEach((object) => {
+      group.add(object);
+      this.objects = this.objects.filter((entry) => entry !== object);
+    });
+
+    this.objects.push(group);
+    this.transformControlsService.attachObject(group);
+    this.showBoxHelperFor(group);
+    this.emitOutlineChanged();
+
+    return { success: true, message: 'Utworzono nową grupę dekoracji.', groupId: group.uuid };
+  }
+
+  public getSceneOutline(): SceneOutlineNode {
+    const rootId = this.cakeBase?.uuid ?? 'cake-root';
+    const root: SceneOutlineNode = {
+      id: rootId,
+      name: 'Tort',
+      type: 'cake',
+      attached: true,
+      visible: true,
+      parentId: null,
+      layerIndex: null,
+      surface: null,
+      children: [],
+    };
+
+    const nodes = new Map<string, SceneOutlineNode>();
+    nodes.set(rootId, root);
+
+    this.cakeLayers.forEach((layer, index) => {
+      const label = this.describeLayer(index);
+      const node: SceneOutlineNode = {
+        id: this.layerNodeId(index),
+        name: label,
+        type: 'layer',
+        attached: true,
+        visible: layer.visible,
+        parentId: rootId,
+        layerIndex: index,
+        surface: 'TOP',
+        children: [],
+      };
+      nodes.set(node.id, node);
+      root.children.push(node);
+    });
+
+    const unattached: SceneOutlineNode = {
+      id: 'outline-unattached',
+      name: 'Nieprzyczepione dekoracje',
+      type: 'layer',
+      attached: false,
+      visible: true,
+      parentId: rootId,
+      layerIndex: null,
+      surface: null,
+      children: [],
+    };
+    nodes.set(unattached.id, unattached);
+    root.children.push(unattached);
+
+    const appendNode = (node: SceneOutlineNode, parentId: string | null) => {
+      nodes.set(node.id, node);
+      const parent = (parentId ? nodes.get(parentId) : null) ?? root;
+      node.parentId = parent.id;
+      parent.children.push(node);
+    };
+
+    const processDecoration = (object: THREE.Object3D) => {
+      if (!this.isDecorationNode(object)) {
+        object.children.forEach(processDecoration);
+        return;
+      }
+
+      const parentDecoration = this.findParentDecoration(object);
+      const attached = this.isAttachedToCake(object);
+      const snapInfo = this.findSnapInfo(object);
+      const layerIndex = attached ? snapInfo?.layerIndex ?? null : null;
+      const surface = attached ? snapInfo?.surfaceType ?? null : null;
+
+      let parentId: string | null = null;
+      if (parentDecoration) {
+        parentId = parentDecoration.uuid;
+      } else if (attached && layerIndex !== null) {
+        parentId = this.layerNodeId(layerIndex);
+      } else if (attached) {
+        parentId = this.cakeBase?.uuid ?? rootId;
+      } else {
+        parentId = unattached.id;
+      }
+
+      const node: SceneOutlineNode = {
+        id: object.uuid,
+        name: this.describeDecoration(object),
+        type: this.resolveDecorationType(object),
+        attached,
+        visible: object.visible,
+        parentId,
+        layerIndex,
+        surface: surface ?? null,
+        children: [],
+      };
+
+      appendNode(node, parentId);
+
+      object.children.forEach(processDecoration);
+    };
+
+    const sceneChildren = this.sceneInitService.scene?.children ?? [];
+    sceneChildren.forEach(processDecoration);
+
+    return root;
+  }
+
+  public listDecorationsWithMetadata(): SceneOutlineNode[] {
+    const outline = this.getSceneOutline();
+    const flattened: SceneOutlineNode[] = [];
+
+    const collect = (node: SceneOutlineNode) => {
+      if (node.type !== 'cake' && node.type !== 'layer') {
+        flattened.push(node);
+      }
+
+      node.children.forEach(collect);
+    };
+
+    outline.children.forEach(collect);
+    return flattened;
   }
 
   public deselectDecoration(): boolean {
@@ -1165,6 +1377,98 @@ export class ThreeSceneService {
     return result;
   }
 
+  private findDecorationById(id: string): THREE.Object3D | null {
+    let found: THREE.Object3D | null = null;
+
+    const search = (object: THREE.Object3D) => {
+      if (object.uuid === id) {
+        found = object;
+        return;
+      }
+
+      object.children.forEach((child) => {
+        if (!found) {
+          search(child);
+        }
+      });
+    };
+
+    search(this.scene);
+    return found;
+  }
+
+  private isDecorationNode(object: THREE.Object3D): boolean {
+    return Boolean(
+      object.userData['isDecorationGroup'] === true ||
+      object.userData['isDecoration'] === true ||
+      object.userData['decorationType'] ||
+      object.userData['isPaintStroke'] === true ||
+      object.userData['isPaintDecoration'] === true
+    );
+  }
+
+  private findParentDecoration(object: THREE.Object3D): THREE.Object3D | null {
+    let current = object.parent;
+    while (current && current !== this.scene && current !== this.cakeBase) {
+      if (this.isDecorationNode(current)) {
+        return current;
+      }
+      current = current.parent;
+    }
+    return null;
+  }
+
+  private isAttachedToCake(object: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      if (current === this.cakeBase) {
+        return true;
+      }
+      if (current === this.scene) {
+        return false;
+      }
+      current = current.parent ?? null;
+    }
+    return false;
+  }
+
+  private findSnapInfo(object: THREE.Object3D): SnapInfoSnapshot | null {
+    const snapInfo = object.userData['snapInfo'] as SnapInfoSnapshot | undefined;
+    if (snapInfo) {
+      return snapInfo;
+    }
+
+    for (const child of object.children) {
+      const nested = this.findSnapInfo(child);
+      if (nested) {
+        return nested;
+      }
+    }
+
+    return null;
+  }
+
+  private resolveDecorationType(object: THREE.Object3D): 'group' | 'decoration' {
+    const isGroup = object instanceof THREE.Group || object.userData['isDecorationGroup'] === true;
+    return isGroup ? 'group' : 'decoration';
+  }
+
+  private layerNodeId(index: number): string {
+    return `cake-layer-${index}`;
+  }
+
+  private describeLayer(index: number): string {
+    const layerLabel = `Warstwa ${index + 1}`;
+    const dimension = this.cakeMetadata?.layerDimensions[index];
+    if (!dimension) {
+      return layerLabel;
+    }
+
+    const size = dimension.size ?? 1;
+    const formatted = size.toFixed(2);
+    return `${layerLabel} (×${formatted})`;
+  }
+
   private resolveDecorationRoot(object: THREE.Object3D): THREE.Object3D {
     let current: THREE.Object3D = object;
 
@@ -1176,6 +1480,14 @@ export class ThreeSceneService {
   }
 
   private describeDecoration(object: THREE.Object3D): string {
+    if (object.userData['isPaintStroke']) {
+      return object.userData['displayName'] || 'Ślad pisaka';
+    }
+
+    if (object.userData['isPaintDecoration']) {
+      return object.userData['displayName'] || 'Dekoracja malowana';
+    }
+
     const label =
       object.userData['displayName'] ||
       object.userData['modelFileName'] ||
