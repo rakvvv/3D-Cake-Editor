@@ -33,7 +33,8 @@
   max-height: none;
   flex: 1 1 auto;
   min-height: 0;
-  padding-right: 2px;
+  padding-right: 6px;
+  scrollbar-width: thin;
 }
 
 .sidebar-panel__button {
@@ -90,7 +91,7 @@
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 6px;
-  padding: 3px 6px;
+  padding: 2px 4px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.02);
