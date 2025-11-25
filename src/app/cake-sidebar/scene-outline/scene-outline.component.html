@@ -1,0 +1,124 @@
+<div class="sidebar-panel">
+  <header class="sidebar-panel__header">
+    <p class="sidebar-panel__subtitle">Scena</p>
+    <h3 class="sidebar-panel__title">Struktura tortu</h3>
+    <p class="sidebar-panel__description">
+      Zarządzaj widocznością i grupami dekoracji korzystając z hierarchii tortu, warstw i elementów.
+    </p>
+  </header>
+
+  <div class="sidebar-panel__body" *ngIf="outline">
+    <div class="outline-actions">
+      <div class="outline-actions__group">
+        <input
+          type="text"
+          class="outline-actions__input"
+          placeholder="Nazwa grupy (opcjonalnie)"
+          [(ngModel)]="groupName"
+        />
+        <button
+          type="button"
+          class="sidebar-panel__button"
+          (click)="groupSelected()"
+          [disabled]="groupingSelection.size < 2"
+        >
+          Grupuj zaznaczone
+        </button>
+      </div>
+      <button type="button" class="sidebar-panel__button" (click)="refreshOutline()">Odśwież</button>
+    </div>
+
+    <div
+      *ngIf="statusMessage"
+      class="sidebar-panel__message"
+      [ngClass]="statusPositive ? 'sidebar-panel__message--success' : 'sidebar-panel__message--warning'"
+    >
+      {{ statusMessage }}
+    </div>
+
+    <ul class="outline-tree" *ngIf="outline as root">
+      <ng-container *ngTemplateOutlet="nodeTemplate; context: { node: root }"></ng-container>
+    </ul>
+  </div>
+</div>
+
+<ng-template #nodeTemplate let-node="node">
+  <li class="outline-node" [attr.data-node-id]="node.id">
+    <div
+      class="outline-node__row"
+      [class.outline-node__row--selectable]="isSelectable(node)"
+      [class.outline-node__row--selected]="selectedId === node.id"
+      (contextmenu)="onContextMenu($event, node)"
+    >
+      <div class="outline-node__main">
+        <button
+          type="button"
+          class="outline-node__expander"
+          *ngIf="node.children?.length"
+          (click)="toggleExpanded(node.id)"
+          [attr.aria-expanded]="isExpanded(node.id)"
+        >
+          <span aria-hidden="true">{{ isExpanded(node.id) ? '−' : '+' }}</span>
+          <span class="sr-only">Rozwiń/Zwiń</span>
+        </button>
+
+        <div class="outline-node__content">
+          <div class="outline-node__title" (click)="onSelect(node)">
+            <span class="outline-node__name">{{ node.name }}</span>
+            <span
+              class="outline-node__badge"
+              [class.outline-node__badge--attached]="node.attached"
+              [class.outline-node__badge--detached]="!node.attached"
+            >
+              {{ attachmentLabel(node) }}
+            </span>
+            <span class="outline-node__surface" *ngIf="surfaceLabel(node) as surface">{{ surface }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="outline-node__actions" *ngIf="isSelectable(node)">
+        <label class="outline-node__checkbox">
+          <input
+            type="checkbox"
+            [checked]="groupingSelection.has(node.id)"
+            (change)="toggleGrouping(node, $any($event.target).checked)"
+          />
+          <span class="sr-only">Dodaj do grupowania</span>
+        </label>
+        <button type="button" class="outline-node__icon" (click)="toggleVisibility(node)">
+          <span aria-hidden="true">{{ node.visible ? '👁' : '🚫' }}</span>
+          <span class="sr-only">{{ node.visible ? 'Ukryj' : 'Pokaż' }} element</span>
+        </button>
+      </div>
+    </div>
+
+    <ul class="outline-node__children" *ngIf="node.children?.length && isExpanded(node.id)">
+      <ng-container *ngFor="let child of node.children">
+        <ng-container *ngTemplateOutlet="nodeTemplate; context: { node: child }"></ng-container>
+      </ng-container>
+    </ul>
+  </li>
+</ng-template>
+
+<div *ngIf="contextMenu" class="outline-overlay" (click)="closeContextMenu()"></div>
+<div
+  *ngIf="contextMenu as menu"
+  class="outline-context"
+  [style.top.px]="menu.y"
+  [style.left.px]="menu.x"
+  role="menu"
+>
+  <button class="outline-context__button" type="button" (click)="onSelect(menu.node)">
+    Zaznacz
+  </button>
+  <button class="outline-context__button" type="button" (click)="toggleVisibility(menu.node)">
+    {{ menu.node.visible ? 'Ukryj' : 'Pokaż' }}
+  </button>
+  <button class="outline-context__button" type="button" (click)="toggleGrouping(menu.node, true)">
+    Dodaj do grupowania
+  </button>
+  <button class="outline-context__button" type="button" (click)="removeNode(menu.node)">
+    Usuń element
+  </button>
+</div>
