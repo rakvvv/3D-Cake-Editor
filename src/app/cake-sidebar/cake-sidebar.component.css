@@ -133,24 +133,16 @@
 }
 
 .sidebar__panel-wrapper {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.25s ease;
+  display: none;
 }
 
 .sidebar__panel-wrapper--expanded {
-  grid-template-rows: 1fr;
+  display: block;
 }
 
 .sidebar__panel {
   overflow: visible;
   padding: 8px 10px 10px;
-  transition: opacity 0.18s ease;
-  opacity: 0;
-}
-
-.sidebar__panel-wrapper--expanded .sidebar__panel {
-  opacity: 1;
 }
 
 .sr-only {
