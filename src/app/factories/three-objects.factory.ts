@@ -46,37 +46,88 @@ export class ThreeObjectsFactory {
   private static glazeColorMap: THREE.Texture | null = null;
   private static glazeNormalMap: THREE.Texture | null = null;
 
-  // ========= CAKE BASE =========
-
-  private static ensureTexturesLoaded(): void {
-    if (this.colorMap && this.bumpMap && this.roughnessMap) {
-      return;
+  private static loadTexture(
+    url: string | null | undefined,
+    repeat: number,
+    colorSpace: THREE.ColorSpace | null = null,
+  ): THREE.Texture | null {
+    if (!url) {
+      return null;
     }
 
-    this.colorMap = this.textureLoader.load('/assets/textures/cake_color.jpg');
-    this.bumpMap = this.textureLoader.load('/assets/textures/cake_bump.jpg');
-    this.roughnessMap = this.textureLoader.load('/assets/textures/cake_roughness.jpg');
+    const texture = this.textureLoader.load(url);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeat, repeat);
+    texture.anisotropy = 4;
+    if (colorSpace) {
+      texture.colorSpace = colorSpace;
+    }
+    return texture;
+  }
+
+  // ========= CAKE BASE =========
+
+  private static ensureDefaultCakeTextures(): {
+    map: THREE.Texture | null;
+    bump: THREE.Texture | null;
+    roughness: THREE.Texture | null;
+  } {
+    if (!this.colorMap) {
+      this.colorMap = this.textureLoader.load('/assets/textures/cake_color.jpg');
+      this.colorMap.colorSpace = THREE.SRGBColorSpace;
+    }
+    if (!this.bumpMap) {
+      this.bumpMap = this.textureLoader.load('/assets/textures/cake_bump.jpg');
+    }
+    if (!this.roughnessMap) {
+      this.roughnessMap = this.textureLoader.load('/assets/textures/cake_roughness.jpg');
+    }
 
     [this.colorMap, this.bumpMap, this.roughnessMap].forEach((texture) => {
       if (!texture) return;
       texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
       texture.repeat.set(2, 2);
     });
+
+    return { map: this.colorMap, bump: this.bumpMap, roughness: this.roughnessMap };
   }
 
-  private static createCakeMaterial(color: string): THREE.MeshStandardMaterial {
-    this.ensureTexturesLoaded();
+  private static createCakeMaterial(options: CakeOptions): THREE.MeshStandardMaterial {
+    const defaults = this.ensureDefaultCakeTextures();
+    const repeat = options.cake_textures?.repeat ?? 2;
+
+    const map =
+      this.loadTexture(options.cake_textures?.baseColor, repeat, THREE.SRGBColorSpace) ?? defaults.map;
+    const normalMap = this.loadTexture(options.cake_textures?.normal, repeat);
+    const roughnessMap = this.loadTexture(options.cake_textures?.roughness, repeat) ?? defaults.roughness;
+    const displacementMap = this.loadTexture(options.cake_textures?.displacement, repeat) ?? defaults.bump;
+    const metallicMap = this.loadTexture(options.cake_textures?.metallic, repeat);
+    const emissiveMap = this.loadTexture(options.cake_textures?.emissive, repeat, THREE.SRGBColorSpace);
+
+    if (options.cake_textures?.repeat && defaults.map && map === defaults.map) {
+      defaults.map.repeat.set(repeat, repeat);
+    }
+    if (options.cake_textures?.repeat && defaults.roughness && roughnessMap === defaults.roughness) {
+      defaults.roughness.repeat.set(repeat, repeat);
+    }
 
     const material = new THREE.MeshStandardMaterial({
-      map: this.colorMap ?? undefined,
-      bumpMap: this.bumpMap ?? undefined,
-      bumpScale: 0.1,
-      roughnessMap: this.roughnessMap ?? undefined,
+      map: map ?? undefined,
+      normalMap: normalMap ?? undefined,
+      roughnessMap: roughnessMap ?? undefined,
+      displacementMap: displacementMap ?? undefined,
+      displacementScale: displacementMap ? 0.12 : 0,
+      bumpMap: !displacementMap ? defaults.bump ?? undefined : undefined,
+      bumpScale: !displacementMap ? 0.1 : undefined,
       roughness: 0.7,
-      metalness: 0.0,
+      metalnessMap: metallicMap ?? undefined,
+      metalness: metallicMap ? 0.2 : 0,
+      emissiveMap: emissiveMap ?? undefined,
+      emissive: emissiveMap ? new THREE.Color('#ffffff') : new THREE.Color('#000000'),
+      emissiveIntensity: emissiveMap ? 0.4 : 0,
     });
 
-    material.color = new THREE.Color(color);
+    material.color = new THREE.Color(options.cake_color);
     return material;
   }
 
@@ -102,7 +153,7 @@ export class ThreeObjectsFactory {
     const layerHeight = 2;
     const baseRadius = 2;
     const layerSizes = this.normalizeLayerSizes(options.layers, options.layerSizes);
-    const material = this.createCakeMaterial(options.cake_color);
+    const material = this.createCakeMaterial(options);
 
     const metadata: CakeMetadata = {
       shape: options.shape,
@@ -345,7 +396,7 @@ export class ThreeObjectsFactory {
     const dripLength = THREE.MathUtils.clamp(options.glaze_drip_length ?? 1, 0.5, 5.0);
     const glazeSeed = options.glaze_seed ?? 1;
     const random = this.createRandomGenerator(glazeSeed);
-    const material = this.createGlazeMaterial(options.glaze_color ?? '#ffffff');
+    const material = this.createGlazeMaterial(options.glaze_color ?? '#ffffff', options.glaze_textures);
     const hasWafer = Boolean(options.wafer_texture_url);
 
     const group = new THREE.Group();
@@ -601,9 +652,12 @@ export class ThreeObjectsFactory {
 
     return group;
   }
-  private static createGlazeMaterial(color: string): THREE.MeshStandardMaterial {
+  private static createGlazeMaterial(color: string, textures?: CakeOptions['glaze_textures']): THREE.MeshStandardMaterial {
+    const repeat = textures?.repeat ?? 2.5;
+
     if (!this.glazeColorMap) {
       this.glazeColorMap = this.textureLoader.load('/assets/textures/Candy001_1K-JPG_Color.jpg');
+      this.glazeColorMap.colorSpace = THREE.SRGBColorSpace;
       this.glazeNormalMap = this.textureLoader.load('/assets/textures/Candy001_1K-JPG_NormalGL.jpg');
 
       [this.glazeColorMap, this.glazeNormalMap].forEach((texture) => {
@@ -613,14 +667,36 @@ export class ThreeObjectsFactory {
       });
     }
 
+    const map = this.loadTexture(textures?.baseColor, repeat, THREE.SRGBColorSpace) ?? this.glazeColorMap;
+    const normalMap = this.loadTexture(textures?.normal, repeat) ?? this.glazeNormalMap;
+    const roughnessMap = this.loadTexture(textures?.roughness, repeat);
+    const displacementMap = this.loadTexture(textures?.displacement, repeat);
+    const metallicMap = this.loadTexture(textures?.metallic, repeat);
+    const emissiveMap = this.loadTexture(textures?.emissive, repeat, THREE.SRGBColorSpace);
+
+    if (textures?.repeat) {
+      if (map && map === this.glazeColorMap) {
+        map.repeat.set(repeat, repeat);
+      }
+      if (normalMap && normalMap === this.glazeNormalMap) {
+        normalMap.repeat.set(repeat, repeat);
+      }
+    }
+
     const material = new THREE.MeshStandardMaterial({
       color: new THREE.Color(color),
-      // jeśli chcesz super gładką polewę, na razie bez tekstur:
-      // map: this.glazeColorMap ?? undefined,
-      // normalMap: this.glazeNormalMap ?? undefined,
+      map: map ?? undefined,
+      normalMap: normalMap ?? undefined,
+      roughnessMap: roughnessMap ?? undefined,
+      displacementMap: displacementMap ?? undefined,
+      displacementScale: displacementMap ? 0.05 : 0,
       roughness: 0.25,
-      metalness: 0.15,
+      metalnessMap: metallicMap ?? undefined,
+      metalness: metallicMap ? 0.25 : 0.15,
       envMapIntensity: 0.8,
+      emissiveMap: emissiveMap ?? undefined,
+      emissive: emissiveMap ? new THREE.Color('#ffffff') : new THREE.Color('#000000'),
+      emissiveIntensity: emissiveMap ? 0.35 : 0,
     });
 
     material.normalScale = new THREE.Vector2(0.8, 0.8);

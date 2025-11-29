@@ -1,0 +1,26 @@
+{
+  "sets": [
+    {
+      "id": "vanilla-cake",
+      "label": "Waniliowy biszkopt",
+      "thumbnail": null,
+      "cake": {
+        "baseColor": "/assets/textures/cake_color.jpg",
+        "roughness": "/assets/textures/cake_roughness.jpg",
+        "displacement": "/assets/textures/cake_bump.jpg",
+        "repeat": 2
+      }
+    },
+    {
+      "id": "candy-glaze",
+      "label": "Kolorowa polewa",
+      "thumbnail": null,
+      "glaze": {
+        "baseColor": "/assets/textures/Candy001_1K-JPG_Color.jpg",
+        "normal": "/assets/textures/Candy001_1K-JPG_NormalGL.jpg",
+        "roughness": "/assets/textures/Candy001_1K-JPG_Color.jpg",
+        "repeat": 2.8
+      }
+    }
+  ]
+}

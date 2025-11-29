@@ -1,3 +1,13 @@
+export interface TextureMaps {
+  baseColor?: string | null;
+  normal?: string | null;
+  roughness?: string | null;
+  displacement?: string | null;
+  metallic?: string | null;
+  emissive?: string | null;
+  repeat?: number;
+}
+
 export interface CakeOptions {
   cake_size: number;
   cake_color: string;
@@ -15,6 +25,8 @@ export interface CakeOptions {
   glaze_thickness: number;
   glaze_drip_length: number;
   glaze_seed: number;
+  cake_textures?: TextureMaps | null;
+  glaze_textures?: TextureMaps | null;
   wafer_texture_url: string | null;
   wafer_scale: number;
   wafer_texture_zoom: number;

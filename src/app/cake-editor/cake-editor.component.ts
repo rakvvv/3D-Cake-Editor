@@ -35,6 +35,8 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     glaze_thickness: 0.1,
     glaze_drip_length: 1.2 ,
     glaze_seed: 1,
+    cake_textures: null,
+    glaze_textures: null,
     wafer_texture_url: null,
     wafer_scale: 1,
     wafer_texture_zoom: 1,

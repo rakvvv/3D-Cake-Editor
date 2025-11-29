@@ -1,0 +1,45 @@
+<div class="textures-panel">
+  <header class="textures-panel__header">
+    <div>
+      <h3 class="textures-panel__title">Zestawy tekstur</h3>
+      <p class="textures-panel__subtitle">Wybierz mapy dla biszkoptu i polewy</p>
+    </div>
+    <div class="textures-panel__actions">
+      <button type="button" class="textures-panel__link" (click)="clearTextures('cake')">Domyślny tort</button>
+      <button type="button" class="textures-panel__link" (click)="clearTextures('glaze')">Domyślna polewa</button>
+    </div>
+  </header>
+
+  <div *ngIf="isLoading" class="textures-panel__state">Ładowanie...</div>
+  <div *ngIf="hasError" class="textures-panel__state textures-panel__state--error">
+    Nie udało się wczytać listy tekstur.
+  </div>
+
+  <div class="texture-grid" *ngIf="!isLoading && !hasError">
+    <article class="texture-card" *ngFor="let set of textureSets">
+      <div
+        class="texture-card__thumb"
+        [class.texture-card__thumb--placeholder]="!set.thumbnail"
+        [style.backgroundImage]="set.thumbnail ? 'url(' + set.thumbnail + ')' : 'none'"
+        role="img"
+        aria-label="{{ set.label }}"
+      >
+        <span *ngIf="!set.thumbnail" class="texture-card__placeholder">{{ set.label }}</span>
+      </div>
+      <div class="texture-card__body">
+        <div>
+          <h4 class="texture-card__title">{{ set.label }}</h4>
+          <p class="texture-card__meta">
+            <span *ngIf="set.cake">Tort</span>
+            <span *ngIf="set.cake && set.glaze" aria-hidden="true">•</span>
+            <span *ngIf="set.glaze">Polewa</span>
+          </p>
+        </div>
+        <div class="texture-card__buttons">
+          <button type="button" (click)="applyTextureSet('cake', set)" [disabled]="!set.cake">Na tort</button>
+          <button type="button" (click)="applyTextureSet('glaze', set)" [disabled]="!set.glaze">Na polewę</button>
+        </div>
+      </div>
+    </article>
+  </div>
+</div>

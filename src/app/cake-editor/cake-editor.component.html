@@ -1,11 +1,12 @@
 <div class="editor-container">
-  <app-cake-sidebar
-    [validationSummary]="validationSummary"
-    [validationIssues]="validationIssues"
-    [pendingValidationLabel]="pendingValidationLabel"
-    (addDecorationEvent)="onAddDecoration($event)"
-    (cakeOptionsChange)="updateCakeOptions($event)"
-    (validateDecorations)="onValidateDecorations()"
+    <app-cake-sidebar
+      [validationSummary]="validationSummary"
+      [validationIssues]="validationIssues"
+      [pendingValidationLabel]="pendingValidationLabel"
+      [options]="options"
+      (addDecorationEvent)="onAddDecoration($event)"
+      (cakeOptionsChange)="updateCakeOptions($event)"
+      (validateDecorations)="onValidateDecorations()"
     (transformModeChange)="onTransformModeChange($event)"
     (paintModeChange)="onTogglePaintMode($event)"
     (brushChange)="onBrushChanged($event)"

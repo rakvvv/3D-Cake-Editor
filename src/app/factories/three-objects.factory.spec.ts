@@ -20,6 +20,8 @@ describe('ThreeObjectsFactory', () => {
     glaze_thickness: 0.2,
     glaze_drip_length: 0.4,
     glaze_seed: 1,
+    cake_textures: null,
+    glaze_textures: null,
     wafer_texture_url: null,
     wafer_scale: 1,
     wafer_texture_zoom: 1,

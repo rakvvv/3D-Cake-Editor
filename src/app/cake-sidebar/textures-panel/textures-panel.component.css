@@ -1,0 +1,143 @@
+.textures-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.textures-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.textures-panel__title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.textures-panel__subtitle {
+  margin: 2px 0 0;
+  color: #6c6c6c;
+  font-size: 12px;
+}
+
+.textures-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.textures-panel__link {
+  background: none;
+  border: none;
+  color: #0f6cf6;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.textures-panel__link:hover {
+  color: #0a4fb4;
+}
+
+.textures-panel__state {
+  padding: 10px 12px;
+  background: #f5f7fb;
+  color: #3a3f4b;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.textures-panel__state--error {
+  background: #fff3f3;
+  color: #a30021;
+}
+
+.texture-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.texture-card {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #e4e6ed;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.texture-card__thumb {
+  width: 100%;
+  min-height: 96px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 8px;
+  border: 1px solid #e7e7e7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.texture-card__thumb--placeholder {
+  background: linear-gradient(135deg, #f0f2f7 0%, #e2e6f0 100%);
+  color: #4a4f5c;
+}
+
+.texture-card__placeholder {
+  display: inline-block;
+  text-align: center;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: inherit;
+  text-wrap: balance;
+}
+
+.texture-card__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.texture-card__title {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.texture-card__meta {
+  margin: 0;
+  color: #6c6c6c;
+  font-size: 12px;
+}
+
+.texture-card__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.texture-card__buttons button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #d5d9e5;
+  background: #f7f9fc;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.texture-card__buttons button:hover:enabled {
+  background: #eef2fb;
+  border-color: #c5c9d6;
+}
+
+.texture-card__buttons button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

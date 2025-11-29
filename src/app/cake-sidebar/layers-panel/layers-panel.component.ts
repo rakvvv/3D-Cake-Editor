@@ -1,4 +1,14 @@
-import { Component, ElementRef, EventEmitter, OnDestroy, Output, ViewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  Output,
+  SimpleChanges,
+  ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CakeOptions } from '../../models/cake.options';
@@ -10,8 +20,9 @@ import { CakeOptions } from '../../models/cake.options';
   templateUrl: './layers-panel.component.html',
   styleUrls: ['./layers-panel.component.css']
 })
-export class LayersPanelComponent implements OnDestroy {
+export class LayersPanelComponent implements OnDestroy, OnChanges {
   @Output() cakeOptionsChange = new EventEmitter<CakeOptions>();
+  @Input() options?: CakeOptions;
   @ViewChild('waferViewport') waferViewport?: ElementRef<HTMLDivElement>;
 
   readonly minLayerSize = 0.6;
@@ -39,6 +50,8 @@ export class LayersPanelComponent implements OnDestroy {
   glazeThickness = 0.15;
   glazeDripLength = 1;
   glazeSeed = 1;
+  cakeTextures: CakeOptions['cake_textures'] = null;
+  glazeTextures: CakeOptions['glaze_textures'] = null;
   waferTextureUrl: string | null = null;
   waferScale = 1;
   waferTextureZoom = 1;
@@ -89,6 +102,38 @@ export class LayersPanelComponent implements OnDestroy {
     this.clearWaferPreview();
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['options']?.currentValue) {
+      this.applyOptions(changes['options'].currentValue as CakeOptions);
+    }
+  }
+
+  private applyOptions(options: CakeOptions): void {
+    this.cakeSize = options.cake_size;
+    this.cakeColor = options.cake_color;
+    this.cakeText = options.cake_text;
+    this.cakeTextValue = options.cake_text_value;
+    this.cakeTextPosition = options.cake_text_position;
+    this.cakeTextOffset = options.cake_text_offset;
+    this.cakeTextFont = options.cake_text_font;
+    this.cakeTextDepth = options.cake_text_depth;
+    this.cakeLayers = options.layers;
+    this.cakeShape = options.shape;
+    this.cakeLayerSizes = [...options.layerSizes];
+    this.glazeEnabled = options.glaze_enabled;
+    this.glazeColor = options.glaze_color;
+    this.glazeThickness = options.glaze_thickness;
+    this.glazeDripLength = options.glaze_drip_length;
+    this.glazeSeed = options.glaze_seed;
+    this.cakeTextures = options.cake_textures ?? null;
+    this.glazeTextures = options.glaze_textures ?? null;
+    this.waferTextureUrl = options.wafer_texture_url;
+    this.waferScale = options.wafer_scale;
+    this.waferTextureZoom = options.wafer_texture_zoom;
+    this.waferTextureOffsetX = options.wafer_texture_offset_x;
+    this.waferTextureOffsetY = options.wafer_texture_offset_y;
+  }
+
   private clampLayerSize(value: number, min: number, max: number): number {
     let effectiveMin = min;
     let effectiveMax = max;
@@ -125,6 +170,8 @@ export class LayersPanelComponent implements OnDestroy {
       glaze_thickness: this.glazeThickness,
       glaze_drip_length: this.glazeDripLength,
       glaze_seed: this.glazeSeed,
+      cake_textures: this.cakeTextures,
+      glaze_textures: this.glazeTextures,
       wafer_texture_url: this.waferTextureUrl,
       wafer_scale: this.waferScale,
       wafer_texture_zoom: this.waferTextureZoom,

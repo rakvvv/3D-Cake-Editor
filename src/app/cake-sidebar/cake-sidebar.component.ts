@@ -7,15 +7,17 @@ import { DecorationsPanelComponent } from './decorations-panel/decorations-panel
 import { PaintPanelComponent } from './paint-panel/paint-panel.component';
 import { ExportPanelComponent } from './export-panel/export-panel.component';
 import { SceneOutlineComponent } from './scene-outline/scene-outline.component';
+import { TexturesPanelComponent } from './textures-panel/textures-panel.component';
 import { DecorationValidationIssue } from '../models/decoration-validation';
 import { ThreeSceneService } from '../services/three-scene.service';
-type SidebarPanelKey = 'layers' | 'decorations' | 'outline' | 'paint' | 'export';
+type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'outline' | 'paint' | 'export';
 
 @Component({
   selector: 'app-cake-sidebar',
   standalone: true,
   imports: [
     LayersPanelComponent,
+    TexturesPanelComponent,
     DecorationsPanelComponent,
     SceneOutlineComponent,
     PaintPanelComponent,
@@ -28,6 +30,7 @@ export class CakeSidebarComponent implements OnInit {
   @Input() validationSummary: string | null = null;
   @Input() validationIssues: DecorationValidationIssue[] = [];
   @Input() pendingValidationLabel: string | null = null;
+  @Input() options!: CakeOptions;
 
   readonly addDecorationEvent = output<string>();
   readonly saveSceneEvent = output<void>();
