@@ -5,6 +5,7 @@ export interface TextureMaps {
   displacement?: string | null;
   metallic?: string | null;
   emissive?: string | null;
+  affectDrips?: boolean;
   repeat?: number;
 }
 

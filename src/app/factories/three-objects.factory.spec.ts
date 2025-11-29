@@ -49,6 +49,7 @@ describe('ThreeObjectsFactory', () => {
     (ThreeObjectsFactory as unknown as { roughnessMap: THREE.Texture | null }).roughnessMap = null;
     (ThreeObjectsFactory as unknown as { glazeColorMap: THREE.Texture | null }).glazeColorMap = null;
     (ThreeObjectsFactory as unknown as { glazeNormalMap: THREE.Texture | null }).glazeNormalMap = null;
+    (ThreeObjectsFactory as unknown as { glazeRoughnessMap: THREE.Texture | null }).glazeRoughnessMap = null;
   });
 
   it('tworzy polewę, gdy jest włączona', () => {
