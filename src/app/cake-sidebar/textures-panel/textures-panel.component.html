@@ -22,7 +22,7 @@
         [class.texture-card__thumb--placeholder]="!set.thumbnail"
         [style.backgroundImage]="set.thumbnail ? 'url(' + set.thumbnail + ')' : 'none'"
         role="img"
-        aria-label="{{ set.label }}"
+        [attr.aria-label]="set.label"
       >
         <span *ngIf="!set.thumbnail" class="texture-card__placeholder">{{ set.label }}</span>
       </div>
