@@ -1,7 +1,6 @@
 import {Component, AfterViewInit, ViewChild, ElementRef, Inject, PLATFORM_ID, OnDestroy} from '@angular/core';
 import {CommonModule, isPlatformBrowser} from '@angular/common';
 import {CakeSidebarComponent} from '../cake-sidebar/cake-sidebar.component';
-import {SceneOutlineComponent} from '../cake-sidebar/scene-outline/scene-outline.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
 import {PaintService} from '../services/paint.service';
@@ -12,7 +11,7 @@ import {DecorationValidationIssue} from '../models/decoration-validation';
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, CakeSidebarComponent, SceneOutlineComponent],
+  imports: [CommonModule, CakeSidebarComponent],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
@@ -54,7 +53,6 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   public contextMenuHasSelection = false;
   public contextMenuCanSnap = false;
   public contextMenuCanDetach = false;
-  public outlineCollapsed = false;
 
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
@@ -158,10 +156,6 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
     this.paintService.setPaintTool('eraser');
     this.paintService.paintMode = true;
-  }
-
-  toggleOutline(): void {
-    this.outlineCollapsed = !this.outlineCollapsed;
   }
 
   onBrushChanged(brushId: string): void {

@@ -76,6 +76,38 @@
       </section>
 
       <section
+        class="sidebar__section sidebar__section--outline"
+        [class.sidebar__section--expanded]="isExpanded('outline')"
+      >
+        <button
+          type="button"
+          class="sidebar__toggle"
+          (click)="togglePanel('outline')"
+          [attr.aria-expanded]="isExpanded('outline')"
+          [attr.aria-controls]="panelRegionId('outline')"
+          [id]="panelToggleId('outline')"
+        >
+          <span class="sidebar__toggle-label">Scena</span>
+          <span aria-hidden="true" class="sidebar__toggle-icon"></span>
+        </button>
+
+        <div
+          class="sidebar__panel-wrapper sidebar__panel-wrapper--outline"
+          [class.sidebar__panel-wrapper--expanded]="isExpanded('outline')"
+          role="region"
+          [attr.aria-labelledby]="panelToggleId('outline')"
+          [id]="panelRegionId('outline')"
+          [attr.aria-hidden]="!isExpanded('outline')"
+        >
+          <div class="sidebar__panel sidebar__panel--outline">
+            <div class="sidebar__outline">
+              <app-scene-outline></app-scene-outline>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
         class="sidebar__section"
         [class.sidebar__section--expanded]="isExpanded('paint')"
       >

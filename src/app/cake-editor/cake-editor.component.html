@@ -120,14 +120,4 @@
 
     <div *ngIf="statusMessage" class="status-banner">{{ statusMessage }}</div>
   </div>
-
-  <div class="scene-rail" [class.scene-rail--collapsed]="outlineCollapsed">
-    <button type="button" class="scene-rail__toggle" (click)="toggleOutline()">
-      <span aria-hidden="true">{{ outlineCollapsed ? '⟨' : '⟩' }}</span>
-      <span class="sr-only">Przełącz panel sceny</span>
-    </button>
-    <div class="scene-rail__content" *ngIf="!outlineCollapsed">
-      <app-scene-outline></app-scene-outline>
-    </div>
-  </div>
 </div>

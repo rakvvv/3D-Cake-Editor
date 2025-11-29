@@ -137,6 +137,27 @@
   padding: 8px 10px 10px;
 }
 
+.sidebar__panel--outline {
+  padding: 8px 10px 10px;
+  background: var(--color-surface);
+}
+
+.sidebar__outline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 260px;
+  height: calc(100dvh - 220px);
+  max-height: 520px;
+  padding: 4px 6px 8px 2px;
+  overflow: hidden;
+}
+
+.sidebar__outline app-scene-outline {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
