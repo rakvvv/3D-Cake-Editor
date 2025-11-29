@@ -7,7 +7,6 @@
       "cake": {
         "baseColor": "/assets/textures/cake_color.jpg",
         "roughness": "/assets/textures/cake_roughness.jpg",
-        "displacement": "/assets/textures/cake_bump.jpg",
         "repeat": 2
       }
     },
