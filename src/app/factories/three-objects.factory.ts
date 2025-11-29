@@ -56,7 +56,7 @@ export class ThreeObjectsFactory {
     }
 
     const texture = this.textureLoader.load(url);
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.wrapS = texture.wrapT = THREE.MirroredRepeatWrapping;
     texture.repeat.set(repeat, repeat);
     texture.anisotropy = 4;
     if (colorSpace) {
@@ -85,7 +85,7 @@ export class ThreeObjectsFactory {
 
     [this.colorMap, this.bumpMap, this.roughnessMap].forEach((texture) => {
       if (!texture) return;
-      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.wrapS = texture.wrapT = THREE.MirroredRepeatWrapping;
       texture.repeat.set(2, 2);
     });
 
@@ -661,7 +661,7 @@ export class ThreeObjectsFactory {
 
       [this.glazeColorMap, this.glazeNormalMap].forEach((texture) => {
         if (!texture) return;
-        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.wrapS = texture.wrapT = THREE.MirroredRepeatWrapping;
         texture.repeat.set(2.5, 2.5);
       });
     }
