@@ -42,7 +42,7 @@ export class CakeSidebarComponent implements OnInit {
   readonly screenshot = output<void>();
   readonly proceedDespiteWarnings = output<void>();
 
-  private openPanels = new Set<SidebarPanelKey>(['layers', 'outline']);
+  private openPanels = new Set<SidebarPanelKey>(['layers']);
 
   togglePanel(panel: SidebarPanelKey): void {
     if (this.openPanels.has(panel)) {
