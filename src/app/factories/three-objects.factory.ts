@@ -95,6 +95,7 @@ export class ThreeObjectsFactory {
   private static createCakeMaterial(options: CakeOptions): THREE.MeshStandardMaterial {
     const defaults = this.ensureDefaultCakeTextures();
     const repeat = options.cake_textures?.repeat ?? 2;
+    const hasCustomCakeTextures = !!options.cake_textures;
 
     const map =
       this.loadTexture(options.cake_textures?.baseColor, repeat, THREE.SRGBColorSpace) ?? defaults.map;
@@ -103,12 +104,19 @@ export class ThreeObjectsFactory {
     const metallicMap = this.loadTexture(options.cake_textures?.metallic, repeat);
     const emissiveMap = this.loadTexture(options.cake_textures?.emissive, repeat, THREE.SRGBColorSpace);
 
-    if (options.cake_textures?.repeat && defaults.map && map === defaults.map) {
-      defaults.map.repeat.set(repeat, repeat);
+    if (options.cake_textures?.repeat) {
+      if (defaults.map && map === defaults.map) {
+        defaults.map.repeat.set(repeat, repeat);
+      }
+      if (defaults.roughness && roughnessMap === defaults.roughness) {
+        defaults.roughness.repeat.set(repeat, repeat);
+      }
+      if (defaults.bump && !hasCustomCakeTextures) {
+        defaults.bump.repeat.set(repeat, repeat);
+      }
     }
-    if (options.cake_textures?.repeat && defaults.roughness && roughnessMap === defaults.roughness) {
-      defaults.roughness.repeat.set(repeat, repeat);
-    }
+
+    const bumpMap = hasCustomCakeTextures ? null : defaults.bump;
 
     const material = new THREE.MeshStandardMaterial({
       map: map ?? undefined,
@@ -116,8 +124,8 @@ export class ThreeObjectsFactory {
       roughnessMap: roughnessMap ?? undefined,
       displacementMap: undefined,
       displacementScale: 0,
-      bumpMap: defaults.bump ?? undefined,
-      bumpScale: 0.1,
+      bumpMap: bumpMap ?? undefined,
+      bumpScale: bumpMap ? 0.1 : 0,
       roughness: 0.7,
       metalnessMap: metallicMap ?? undefined,
       metalness: metallicMap ? 0.2 : 0,
