@@ -100,7 +100,7 @@ export class ThreeObjectsFactory {
       this.loadTexture(options.cake_textures?.baseColor, repeat, THREE.SRGBColorSpace) ?? defaults.map;
     const normalMap = this.loadTexture(options.cake_textures?.normal, repeat);
     const roughnessMap = this.loadTexture(options.cake_textures?.roughness, repeat) ?? defaults.roughness;
-    const displacementMap = this.loadTexture(options.cake_textures?.displacement, repeat) ?? defaults.bump;
+    const displacementMap = this.loadTexture(options.cake_textures?.displacement, repeat);
     const metallicMap = this.loadTexture(options.cake_textures?.metallic, repeat);
     const emissiveMap = this.loadTexture(options.cake_textures?.emissive, repeat, THREE.SRGBColorSpace);
 
@@ -116,9 +116,9 @@ export class ThreeObjectsFactory {
       normalMap: normalMap ?? undefined,
       roughnessMap: roughnessMap ?? undefined,
       displacementMap: displacementMap ?? undefined,
-      displacementScale: displacementMap ? 0.12 : 0,
-      bumpMap: !displacementMap ? defaults.bump ?? undefined : undefined,
-      bumpScale: !displacementMap ? 0.1 : undefined,
+      displacementScale: displacementMap ? 0.05 : 0,
+      bumpMap: displacementMap ? undefined : defaults.bump ?? undefined,
+      bumpScale: displacementMap ? undefined : 0.1,
       roughness: 0.7,
       metalnessMap: metallicMap ?? undefined,
       metalness: metallicMap ? 0.2 : 0,
