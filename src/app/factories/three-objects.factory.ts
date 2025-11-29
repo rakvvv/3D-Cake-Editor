@@ -100,7 +100,6 @@ export class ThreeObjectsFactory {
       this.loadTexture(options.cake_textures?.baseColor, repeat, THREE.SRGBColorSpace) ?? defaults.map;
     const normalMap = this.loadTexture(options.cake_textures?.normal, repeat);
     const roughnessMap = this.loadTexture(options.cake_textures?.roughness, repeat) ?? defaults.roughness;
-    const displacementMap = this.loadTexture(options.cake_textures?.displacement, repeat);
     const metallicMap = this.loadTexture(options.cake_textures?.metallic, repeat);
     const emissiveMap = this.loadTexture(options.cake_textures?.emissive, repeat, THREE.SRGBColorSpace);
 
@@ -115,10 +114,10 @@ export class ThreeObjectsFactory {
       map: map ?? undefined,
       normalMap: normalMap ?? undefined,
       roughnessMap: roughnessMap ?? undefined,
-      displacementMap: displacementMap ?? undefined,
-      displacementScale: displacementMap ? 0.05 : 0,
-      bumpMap: displacementMap ? undefined : defaults.bump ?? undefined,
-      bumpScale: displacementMap ? undefined : 0.1,
+      displacementMap: undefined,
+      displacementScale: 0,
+      bumpMap: defaults.bump ?? undefined,
+      bumpScale: 0.1,
       roughness: 0.7,
       metalnessMap: metallicMap ?? undefined,
       metalness: metallicMap ? 0.2 : 0,
@@ -670,7 +669,6 @@ export class ThreeObjectsFactory {
     const map = this.loadTexture(textures?.baseColor, repeat, THREE.SRGBColorSpace) ?? this.glazeColorMap;
     const normalMap = this.loadTexture(textures?.normal, repeat) ?? this.glazeNormalMap;
     const roughnessMap = this.loadTexture(textures?.roughness, repeat);
-    const displacementMap = this.loadTexture(textures?.displacement, repeat);
     const metallicMap = this.loadTexture(textures?.metallic, repeat);
     const emissiveMap = this.loadTexture(textures?.emissive, repeat, THREE.SRGBColorSpace);
 
@@ -688,8 +686,8 @@ export class ThreeObjectsFactory {
       map: map ?? undefined,
       normalMap: normalMap ?? undefined,
       roughnessMap: roughnessMap ?? undefined,
-      displacementMap: displacementMap ?? undefined,
-      displacementScale: displacementMap ? 0.05 : 0,
+      displacementMap: undefined,
+      displacementScale: 0,
       roughness: 0.25,
       metalnessMap: metallicMap ?? undefined,
       metalness: metallicMap ? 0.25 : 0.15,
