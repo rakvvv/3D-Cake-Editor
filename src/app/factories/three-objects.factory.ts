@@ -42,6 +42,7 @@ export class ThreeObjectsFactory {
   private static textureLoader = new THREE.TextureLoader();
   private static colorMap: THREE.Texture | null = null;
   private static bumpMap: THREE.Texture | null = null;
+  private static normalMap: THREE.Texture | null = null;
   private static roughnessMap: THREE.Texture | null = null;
   private static glazeColorMap: THREE.Texture | null = null;
   private static glazeNormalMap: THREE.Texture | null = null;
@@ -71,26 +72,28 @@ export class ThreeObjectsFactory {
   private static ensureDefaultCakeTextures(): {
     map: THREE.Texture | null;
     bump: THREE.Texture | null;
+    normal: THREE.Texture | null;
     roughness: THREE.Texture | null;
   } {
     if (!this.colorMap) {
-      this.colorMap = this.textureLoader.load('/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg');
-      this.colorMap.colorSpace = THREE.SRGBColorSpace;
+      this.colorMap = this.loadTexture('/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg', 2, THREE.SRGBColorSpace);
     }
     if (!this.bumpMap) {
-      this.bumpMap = this.textureLoader.load('/assets/textures/Pink_Cake_Frosting_01-bump.jpg');
+      this.bumpMap = this.loadTexture('/assets/textures/Pink_Cake_Frosting_01-bump.jpg', 2);
+    }
+    if (!this.normalMap) {
+      this.normalMap = this.loadTexture('/assets/textures/Pink_Cake_Frosting_01-normal.jpg', 2);
     }
     if (!this.roughnessMap) {
-      this.roughnessMap = this.textureLoader.load('/assets/textures/cake_roughness.jpg');
+      this.roughnessMap = this.loadTexture('/assets/textures/Pink_Cake_Frosting_01-bump.jpg', 2);
     }
 
-    [this.colorMap, this.bumpMap, this.roughnessMap].forEach((texture) => {
-      if (!texture) return;
-      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(2, 2);
-    });
-
-    return { map: this.colorMap, bump: this.bumpMap, roughness: this.roughnessMap };
+    return {
+      map: this.colorMap,
+      bump: this.bumpMap,
+      normal: this.normalMap,
+      roughness: this.roughnessMap,
+    };
   }
 
   private static createCakeMaterial(options: CakeOptions): THREE.MeshStandardMaterial {
@@ -102,7 +105,9 @@ export class ThreeObjectsFactory {
 
     const map =
       this.loadTexture(options.cake_textures?.baseColor, repeatRaw, THREE.SRGBColorSpace) ?? defaults.map;
-    const normalMap = this.loadTexture(options.cake_textures?.normal, repeatRaw);
+    const normalMap =
+      this.loadTexture(options.cake_textures?.normal, repeatRaw) ??
+      (!hasCustomCakeTextures ? defaults.normal : null);
     const roughnessMap =
       this.loadTexture(options.cake_textures?.roughness, repeatRaw) ?? defaults.roughness;
     const metallicMap = this.loadTexture(options.cake_textures?.metallic, repeatRaw);
@@ -132,7 +137,7 @@ export class ThreeObjectsFactory {
       displacementMap: undefined,
       displacementScale: 0,
       bumpMap: bumpMap ?? undefined,
-      bumpScale: bumpMap ? 0.1 : 0,
+      bumpScale: bumpMap ? 0.2 : 0,
       roughness: 0.7,
       metalnessMap: metallicMap ?? undefined,
       metalness: metallicMap ? 0.2 : 0,
