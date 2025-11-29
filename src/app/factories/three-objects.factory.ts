@@ -85,7 +85,7 @@ export class ThreeObjectsFactory {
 
     [this.colorMap, this.bumpMap, this.roughnessMap].forEach((texture) => {
       if (!texture) return;
-      texture.wrapS = texture.wrapT = THREE.MirroredRepeatWrapping;
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
       texture.repeat.set(2, 2);
     });
 
@@ -94,29 +94,35 @@ export class ThreeObjectsFactory {
 
   private static createCakeMaterial(options: CakeOptions): THREE.MeshStandardMaterial {
     const defaults = this.ensureDefaultCakeTextures();
-    const repeat = options.cake_textures?.repeat ?? 2;
+    const repeatRaw = options.cake_textures?.repeat ?? 2;
+    const repeatU = Math.max(1, Math.round(repeatRaw));
+    const repeatV = repeatRaw;
     const hasCustomCakeTextures = !!options.cake_textures;
 
     const map =
-      this.loadTexture(options.cake_textures?.baseColor, repeat, THREE.SRGBColorSpace) ?? defaults.map;
-    const normalMap = this.loadTexture(options.cake_textures?.normal, repeat);
-    const roughnessMap = this.loadTexture(options.cake_textures?.roughness, repeat) ?? defaults.roughness;
-    const metallicMap = this.loadTexture(options.cake_textures?.metallic, repeat);
-    const emissiveMap = this.loadTexture(options.cake_textures?.emissive, repeat, THREE.SRGBColorSpace);
+      this.loadTexture(options.cake_textures?.baseColor, repeatRaw, THREE.SRGBColorSpace) ?? defaults.map;
+    const normalMap = this.loadTexture(options.cake_textures?.normal, repeatRaw);
+    const roughnessMap =
+      this.loadTexture(options.cake_textures?.roughness, repeatRaw) ?? defaults.roughness;
+    const metallicMap = this.loadTexture(options.cake_textures?.metallic, repeatRaw);
+    const emissiveMap = this.loadTexture(
+      options.cake_textures?.emissive,
+      repeatRaw,
+      THREE.SRGBColorSpace,
+    );
 
-    if (options.cake_textures?.repeat) {
-      if (defaults.map && map === defaults.map) {
-        defaults.map.repeat.set(repeat, repeat);
-      }
-      if (defaults.roughness && roughnessMap === defaults.roughness) {
-        defaults.roughness.repeat.set(repeat, repeat);
-      }
-      if (defaults.bump && !hasCustomCakeTextures) {
-        defaults.bump.repeat.set(repeat, repeat);
-      }
-    }
+    const applyRepeat = (texture: THREE.Texture | null) => {
+      if (!texture) return;
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(repeatU, repeatV);
+    };
+
+    applyRepeat(map);
+    applyRepeat(normalMap);
+    applyRepeat(roughnessMap);
 
     const bumpMap = hasCustomCakeTextures ? null : defaults.bump;
+    applyRepeat(bumpMap);
 
     const material = new THREE.MeshStandardMaterial({
       map: map ?? undefined,
