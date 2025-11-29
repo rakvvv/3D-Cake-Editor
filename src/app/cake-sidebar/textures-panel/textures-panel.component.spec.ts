@@ -6,7 +6,7 @@ import { CakeOptions } from '../../models/cake.options';
 
 const baseOptions: CakeOptions = {
   cake_size: 1,
-  cake_color: '#ffea00',
+  cake_color: '#ffffff',
   cake_text: false,
   cake_text_value: 'Urodziny',
   cake_text_position: 'top',
@@ -17,7 +17,7 @@ const baseOptions: CakeOptions = {
   shape: 'cylinder',
   layerSizes: [1],
   glaze_enabled: true,
-  glaze_color: '#f99be6',
+  glaze_color: '#ffffff',
   glaze_thickness: 0.1,
   glaze_drip_length: 1.2,
   glaze_seed: 1,
@@ -80,8 +80,10 @@ describe('TexturesPanelComponent', () => {
 
     buttons[0].nativeElement.click();
     expect(emitted?.cake_textures?.baseColor).toBe('/cake.png');
+    expect(emitted?.cake_color).toBe('#ffffff');
 
     buttons[1].nativeElement.click();
     expect(emitted?.glaze_textures?.baseColor).toBe('/glaze.png');
+    expect(emitted?.glaze_color).toBe('#ffffff');
   });
 });

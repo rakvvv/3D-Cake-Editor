@@ -35,7 +35,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
   readonly maxWaferSizeBytes = 5 * 1024 * 1024;
 
   cakeSize = 1;
-  cakeColor = '#ffea00';
+  cakeColor = '#ffffff';
   cakeText = false;
   cakeTextValue = 'Urodziny';
   cakeTextPosition: 'top' | 'side' = 'top';
@@ -46,7 +46,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
   cakeShape: 'cylinder' | 'cuboid' = 'cylinder';
   cakeLayerSizes: number[] = [1];
   glazeEnabled = true;
-  glazeColor = '#f99be6';
+  glazeColor = '#ffffff';
   glazeThickness = 0.15;
   glazeDripLength = 1;
   glazeSeed = 1;

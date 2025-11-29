@@ -49,6 +49,8 @@ export class TexturesPanelComponent implements OnInit {
       ...this.options,
       cake_textures: target === 'cake' ? set.cake ?? null : this.options.cake_textures ?? null,
       glaze_textures: target === 'glaze' ? set.glaze ?? null : this.options.glaze_textures ?? null,
+      cake_color: target === 'cake' ? '#ffffff' : this.options.cake_color,
+      glaze_color: target === 'glaze' ? '#ffffff' : this.options.glaze_color,
     };
 
     this.cakeOptionsChange.emit(updatedOptions);
