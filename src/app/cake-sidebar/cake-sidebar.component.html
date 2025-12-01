@@ -31,7 +31,43 @@
           [attr.aria-hidden]="!isExpanded('layers')"
         >
           <div class="sidebar__panel">
-            <app-layers-panel (cakeOptionsChange)="cakeOptionsChange.emit($event)"></app-layers-panel>
+            <app-layers-panel
+              [options]="options"
+              (cakeOptionsChange)="cakeOptionsChange.emit($event)"
+            ></app-layers-panel>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="sidebar__section"
+        [class.sidebar__section--expanded]="isExpanded('textures')"
+      >
+        <button
+          type="button"
+          class="sidebar__toggle"
+          (click)="togglePanel('textures')"
+          [attr.aria-expanded]="isExpanded('textures')"
+          [attr.aria-controls]="panelRegionId('textures')"
+          [id]="panelToggleId('textures')"
+        >
+          <span class="sidebar__toggle-label">Tekstury</span>
+          <span aria-hidden="true" class="sidebar__toggle-icon"></span>
+        </button>
+
+        <div
+          class="sidebar__panel-wrapper"
+          [class.sidebar__panel-wrapper--expanded]="isExpanded('textures')"
+          role="region"
+          [attr.aria-labelledby]="panelToggleId('textures')"
+          [id]="panelRegionId('textures')"
+          [attr.aria-hidden]="!isExpanded('textures')"
+        >
+          <div class="sidebar__panel">
+            <app-textures-panel
+              [options]="options"
+              (cakeOptionsChange)="cakeOptionsChange.emit($event)"
+            ></app-textures-panel>
           </div>
         </div>
       </section>

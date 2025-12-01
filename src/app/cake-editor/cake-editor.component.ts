@@ -20,7 +20,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
   public options: CakeOptions = {
     cake_size: 1,
-    cake_color: '#ffea00',
+    cake_color: '#ffffff',
     cake_text: false,
     cake_text_value: 'Urodziny',
     cake_text_position: 'top',
@@ -31,10 +31,12 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     shape: 'cylinder',
     layerSizes: [1],
     glaze_enabled: true,
-    glaze_color: '#f99be6',
+    glaze_color: '#ffffff',
     glaze_thickness: 0.1,
     glaze_drip_length: 1.2 ,
     glaze_seed: 1,
+    cake_textures: null,
+    glaze_textures: null,
     wafer_texture_url: null,
     wafer_scale: 1,
     wafer_texture_zoom: 1,

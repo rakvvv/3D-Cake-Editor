@@ -20,6 +20,8 @@ describe('ThreeObjectsFactory', () => {
     glaze_thickness: 0.2,
     glaze_drip_length: 0.4,
     glaze_seed: 1,
+    cake_textures: null,
+    glaze_textures: null,
     wafer_texture_url: null,
     wafer_scale: 1,
     wafer_texture_zoom: 1,
@@ -47,6 +49,7 @@ describe('ThreeObjectsFactory', () => {
     (ThreeObjectsFactory as unknown as { roughnessMap: THREE.Texture | null }).roughnessMap = null;
     (ThreeObjectsFactory as unknown as { glazeColorMap: THREE.Texture | null }).glazeColorMap = null;
     (ThreeObjectsFactory as unknown as { glazeNormalMap: THREE.Texture | null }).glazeNormalMap = null;
+    (ThreeObjectsFactory as unknown as { glazeRoughnessMap: THREE.Texture | null }).glazeRoughnessMap = null;
   });
 
   it('tworzy polewę, gdy jest włączona', () => {

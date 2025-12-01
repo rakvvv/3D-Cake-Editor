@@ -1,0 +1,72 @@
+{
+  "sets": [
+    {
+      "id": "chocolate-cake-02",
+      "label": "Czekoladowa polewa",
+      "thumbnail": null,
+      "glaze": {
+        "baseColor": "/assets/textures/Chocolate 02_Albedo.jpg",
+        "roughness": "/assets/textures/Chocolate 02_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate 02_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate 02_Displacement.jpg",
+        "repeat": 2,
+        "affectDrips": true
+      }
+    },
+    {
+      "id": "chocolate-cake-03",
+      "label": "Biała Czekolada polewa",
+      "thumbnail": null,
+      "glaze": {
+        "baseColor": "/assets/textures/Chocolate 03_Albedo.jpg",
+        "roughness": "/assets/textures/Chocolate 03_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate 03_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate 03_Displacement.jpg",
+        "repeat": 2,
+        "affectDrips": true
+      }
+    },
+    {
+      "id": "frosting",
+      "label": "krem",
+      "thumbnail": null,
+      "cake": {
+        "baseColor": "/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg",
+        "normal": "/assets/textures/Pink_Cake_Frosting_01-normal.jpg",
+        "roughness": "/assets/textures/Pink_Cake_Frosting_01-bump.jpg",
+        "repeat": 2.5
+      }
+    },
+    {
+      "id": "pink-candy",
+      "label": "Różowa cukierkowa polewa",
+      "thumbnail": null,
+      "glaze": {
+        "baseColor": "/assets/textures/Pink_Candy_BaseColor.jpg",
+        "normal": "/assets/textures/Pink_Candy_Normal.jpg",
+        "roughness": "/assets/textures/Pink_Candy_Roughness.jpg",
+        "metallic": "/assets/textures/Pink_Candy_Metallic.jpg",
+        "displacement": "/assets/textures/Pink_Candy_Displacement.jpg",
+        "emissive": "/assets/textures/Pink_Candy_Emissive.jpg",
+        "alpha": "/assets/textures/Pink_Candy_Alpha.jpg",
+        "repeat": 3,
+        "affectDrips": false
+      }
+    },
+    {
+      "id": "food-chocolate-glaze",
+      "label": "frosting czekoladowy",
+      "thumbnail": null,
+      "cake": {
+        "baseColor": "/assets/textures/Food_Chocolate_basecolor.jpg",
+        "normal": "/assets/textures/Food_Chocolate_normal.jpg",
+        "roughness": "/assets/textures/Food_Chocolate_roughness.jpg",
+        "metallic": "/assets/textures/Food_Chocolate_metallic.jpg",
+        "displacement": "/assets/textures/Food_Chocolate_height.jpg",
+        "ambientOcclusion": "/assets/textures/Food_Chocolate_ambientocclusion.jpg",
+        "repeat": 2.8,
+        "affectDrips": true
+      }
+    }
+  ]
+}

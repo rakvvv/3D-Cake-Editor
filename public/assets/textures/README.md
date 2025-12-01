@@ -1,0 +1,1 @@
+Tekstury map materiałów nie są dołączone jako pliki binarne w repozytorium. Dodaj własne mapy (baseColor/albedo, normal, roughness itd.) zgodnie z konfiguracją w `index.json`. Miniatury umieść w podkatalogu `thumbnails/`.
