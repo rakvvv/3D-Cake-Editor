@@ -55,6 +55,7 @@ export class PaintService {
   private readonly extruderMaxInstances = 1500;
 
   private sceneRef: THREE.Scene | null = null;
+  private cakeBaseRef: THREE.Object3D | null = null;
   private undoStack: THREE.Object3D[] = [];
   private redoStack: THREE.Object3D[] = [];
 
@@ -70,6 +71,7 @@ export class PaintService {
   private activePenJoints: THREE.Mesh[] = [];
   private activePenStartCap: THREE.Mesh | null = null;
   private activePenEndCap: THREE.Mesh | null = null;
+  private activeDecorationGroup: THREE.Group | null = null;
 
   constructor(private readonly transformManager: TransformManagerService) {}
 
@@ -87,6 +89,7 @@ export class PaintService {
     }
 
     this.sceneRef = scene;
+    this.cakeBaseRef = cakeBase;
 
     const rect = this.paintCanvasRect ?? renderer.domElement.getBoundingClientRect();
     if (!this.paintCanvasRect) {
@@ -166,6 +169,7 @@ export class PaintService {
     this.activePenStartCap = null;
     this.activePenEndCap = null;
     this.lastPenDirection = null;
+    this.activeDecorationGroup = null;
     this.activeExtruderStrokeGroup = null;
     this.extruderStrokeInstances.clear();
     this.extruderLastPlacedPoint = null;
@@ -179,6 +183,7 @@ export class PaintService {
     this.paintCanvasRect = null;
     if (this.activePenStrokeGroup) {
       if (this.activePenStrokeGroup.children.length) {
+        this.finalizePaintRoot(this.activePenStrokeGroup);
         this.trackPaintAddition(this.activePenStrokeGroup);
       } else if (this.sceneRef) {
         this.sceneRef.remove(this.activePenStrokeGroup);
@@ -191,9 +196,19 @@ export class PaintService {
     this.activePenStartCap = null;
     this.activePenEndCap = null;
     this.lastPenDirection = null;
+    if (this.activeDecorationGroup) {
+      if (this.activeDecorationGroup.children.length) {
+        this.finalizePaintRoot(this.activeDecorationGroup);
+        this.trackPaintAddition(this.activeDecorationGroup);
+      } else if (this.sceneRef) {
+        this.sceneRef.remove(this.activeDecorationGroup);
+      }
+    }
+    this.activeDecorationGroup = null;
     if (this.activeExtruderStrokeGroup) {
       const hasInstances = Array.from(this.extruderStrokeInstances.values()).some((state) => state.count > 0);
       if (this.activeExtruderStrokeGroup.children.length && hasInstances) {
+        this.finalizePaintRoot(this.activeExtruderStrokeGroup);
         this.trackPaintAddition(this.activeExtruderStrokeGroup);
       } else if (this.sceneRef) {
         this.sceneRef.remove(this.activeExtruderStrokeGroup);
@@ -244,7 +259,7 @@ export class PaintService {
     }
 
     const lastObject = this.undoStack.pop()!;
-    this.sceneRef.remove(lastObject);
+    lastObject.parent?.remove(lastObject);
     this.redoStack.push(lastObject);
     this.notifySceneChanged();
   }
@@ -255,7 +270,8 @@ export class PaintService {
     }
 
     const object = this.redoStack.pop()!;
-    this.sceneRef.add(object);
+    const targetParent = this.getPaintParent(object) ?? this.sceneRef;
+    targetParent.add(object);
     this.undoStack.push(object);
     this.notifySceneChanged();
   }
@@ -409,6 +425,10 @@ export class PaintService {
       this.extruderLastPlacedPoint = null;
       this.extruderLastNormal = null;
     }
+
+    if (this.activeDecorationGroup === object) {
+      this.activeDecorationGroup = null;
+    }
   }
 
   private resetPaintTracking(): void {
@@ -419,7 +439,20 @@ export class PaintService {
     this.extruderLastNormal = null;
   }
 
+  private ensureActiveDecorationGroup(scene: THREE.Scene): THREE.Group {
+    if (!this.activeDecorationGroup) {
+      this.activeDecorationGroup = new THREE.Group();
+      this.activeDecorationGroup.userData['isPaintDecoration'] = true;
+      this.activeDecorationGroup.userData['displayName'] = 'Dekoracja malowana';
+      scene.add(this.activeDecorationGroup);
+      this.redoStack = [];
+    }
+
+    return this.activeDecorationGroup;
+  }
+
   private async placeDecorationBrush(point: THREE.Vector3, normal: THREE.Vector3, scene: THREE.Scene): Promise<void> {
+    const decorationGroup = this.ensureActiveDecorationGroup(scene);
     const brushModel = await this.getBrushInstance(this.currentBrush);
     const brushSize = this.getBrushSize(this.currentBrush, brushModel);
 
@@ -441,10 +474,9 @@ export class PaintService {
     brushModel.updateMatrixWorld(true);
     brushModel.matrixAutoUpdate = false;
 
-    scene.add(brushModel);
+    decorationGroup.add(brushModel);
     brushModel.userData['isSnapped'] = true;
     brushModel.userData['isPaintDecoration'] = true;
-    this.trackPaintAddition(brushModel);
   }
 
   public setExtruderVariantSelection(selection: number | 'random'): void {
@@ -1104,6 +1136,78 @@ export class PaintService {
     const size = new THREE.Vector3();
     box.getSize(size);
     return size;
+  }
+
+  private finalizePaintRoot(object: THREE.Object3D): void {
+    this.recenterPivot(object);
+    object.userData['isSnapped'] = true;
+    object.traverse((child) => {
+      child.userData = { ...child.userData, isSnapped: true };
+    });
+    this.attachToCake(object);
+    object.userData['paintParent'] = object.parent ?? null;
+    object.updateMatrixWorld(true);
+  }
+
+  private recenterPivot(object: THREE.Object3D): void {
+    object.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(object);
+    if (box.isEmpty()) {
+      return;
+    }
+
+    const center = box.getCenter(new THREE.Vector3());
+    if (center.lengthSq() <= 1e-8) {
+      return;
+    }
+
+    object.children.forEach((child) => this.offsetChildForPivot(child, center));
+    object.position.add(center);
+  }
+
+  private offsetChildForPivot(child: THREE.Object3D, offset: THREE.Vector3): void {
+    if ((child as THREE.InstancedMesh).isInstancedMesh) {
+      const instanced = child as THREE.InstancedMesh;
+      const tempMatrix = new THREE.Matrix4();
+      const tempPosition = new THREE.Vector3();
+      const tempQuaternion = new THREE.Quaternion();
+      const tempScale = new THREE.Vector3();
+
+      for (let i = 0; i < instanced.count; i++) {
+        instanced.getMatrixAt(i, tempMatrix);
+        tempMatrix.decompose(tempPosition, tempQuaternion, tempScale);
+        tempPosition.sub(offset);
+        tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
+        instanced.setMatrixAt(i, tempMatrix);
+      }
+
+      instanced.instanceMatrix.needsUpdate = true;
+      return;
+    }
+
+    child.position.sub(offset);
+    if (child.matrixAutoUpdate === false) {
+      child.updateMatrix();
+    }
+  }
+
+  private attachToCake(object: THREE.Object3D): void {
+    if (!this.cakeBaseRef) {
+      return;
+    }
+
+    this.cakeBaseRef.updateMatrixWorld(true);
+    this.sceneRef?.updateMatrixWorld(true);
+    this.cakeBaseRef.attach(object);
+  }
+
+  private getPaintParent(object: THREE.Object3D): THREE.Object3D | null {
+    const savedParent = object.userData['paintParent'] as THREE.Object3D | null | undefined;
+    if (savedParent) {
+      return savedParent;
+    }
+
+    return this.sceneRef ?? null;
   }
 
   private trackPaintAddition(object: THREE.Object3D): void {

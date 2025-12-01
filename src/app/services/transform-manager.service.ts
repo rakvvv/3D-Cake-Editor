@@ -87,7 +87,14 @@ export class TransformManagerService {
       return;
     }
 
-    this.selectionService.selectObject(object, this.transformControls, this.boxHelperCallback);
+    const allowTransform = !this.isTransformLocked(object);
+    this.transformControls.enabled = allowTransform;
+    this.selectionService.selectObject(
+      object,
+      this.transformControls,
+      this.boxHelperCallback,
+      allowTransform,
+    );
   }
 
   public deselectObject(): void {
@@ -244,4 +251,8 @@ export class TransformManagerService {
       );
     }
   };
+
+  private isTransformLocked(object: THREE.Object3D): boolean {
+    return object.userData['isPaintStroke'] === true || object.userData['isPaintDecoration'] === true;
+  }
 }

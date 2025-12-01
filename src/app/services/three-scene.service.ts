@@ -134,6 +134,15 @@ export class ThreeSceneService {
 
       if (this.paintService.paintMode && this.cakeBase) {
         const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
+        if (!intersectsCake.length || this.transformControlsService.isDragging()) {
+          this.onClickDown(event);
+          return;
+        }
+
         this.paintService.beginStroke(rect);
         this.sceneInitService.setOrbitEnabled(false);
         void this.paintService.handlePaint(
@@ -156,6 +165,11 @@ export class ThreeSceneService {
       }
 
       if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+        this.stopPaintingStroke();
+        return;
+      }
+
+      if (this.transformControlsService.isDragging()) {
         this.stopPaintingStroke();
         return;
       }

@@ -16,6 +16,7 @@ export class SelectionService {
     object: THREE.Object3D,
     transformControls: TransformControls,
     boxHelperCallback?: (() => void) | null,
+    attachToControls = true,
   ): void {
     if (this.selectedObject === object) {
       return;
@@ -24,7 +25,9 @@ export class SelectionService {
     this.deselectObject(transformControls, boxHelperCallback);
 
     this.selectedObject = object;
-    transformControls.attach(object);
+    if (attachToControls) {
+      transformControls.attach(object);
+    }
   }
 
   public deselectObject(
