@@ -137,30 +137,6 @@ export class SceneOutlineComponent implements OnInit, OnDestroy {
     this.closeContextMenu();
   }
 
-  attachmentLabel(node: SceneOutlineNode): string {
-    if (node.type === 'layer' || node.type === 'cake') {
-      return node.name;
-    }
-
-    return node.attached ? 'Przyczepione' : 'Nieprzyczepione';
-  }
-
-  surfaceLabel(node: SceneOutlineNode): string | null {
-    if (!node.attached || !node.surface || node.surface === 'NONE') {
-      return null;
-    }
-
-    if (node.surface === 'TOP') {
-      return 'góra tortu';
-    }
-
-    if (node.surface === 'SIDE') {
-      return 'bok tortu';
-    }
-
-    return null;
-  }
-
   private ensureRootExpanded(node: SceneOutlineNode | null): void {
     if (!node) {
       return;

@@ -855,6 +855,7 @@ export class ThreeSceneService {
     if (attach) {
       this.transformControlsService.attachObject(selected);
       this.showBoxHelperFor(selected);
+      this.emitOutlineChanged();
     }
 
     return selected;
@@ -1127,40 +1128,9 @@ export class ThreeSceneService {
     const nodes = new Map<string, SceneOutlineNode>();
     nodes.set(rootId, root);
 
-    this.cakeLayers.forEach((layer, index) => {
-      const label = this.describeLayer(index);
-      const node: SceneOutlineNode = {
-        id: this.layerNodeId(index),
-        name: label,
-        type: 'layer',
-        attached: true,
-        visible: layer.visible,
-        parentId: rootId,
-        layerIndex: index,
-        surface: 'TOP',
-        children: [],
-      };
-      nodes.set(node.id, node);
-      root.children.push(node);
-    });
-
-    const unattached: SceneOutlineNode = {
-      id: 'outline-unattached',
-      name: 'Nieprzyczepione dekoracje',
-      type: 'layer',
-      attached: false,
-      visible: true,
-      parentId: rootId,
-      layerIndex: null,
-      surface: null,
-      children: [],
-    };
-    nodes.set(unattached.id, unattached);
-    root.children.push(unattached);
-
     const appendNode = (node: SceneOutlineNode, parentId: string | null) => {
-      nodes.set(node.id, node);
       const parent = (parentId ? nodes.get(parentId) : null) ?? root;
+      nodes.set(node.id, node);
       node.parentId = parent.id;
       parent.children.push(node);
     };
@@ -1171,21 +1141,21 @@ export class ThreeSceneService {
         return;
       }
 
-      const parentDecoration = this.findParentDecoration(object);
       const attached = this.isAttachedToCake(object);
+      if (!attached) {
+        object.children.forEach(processDecoration);
+        return;
+      }
+
+      const parentDecoration = this.findParentDecoration(object);
       const snapInfo = this.findSnapInfo(object);
-      const layerIndex = attached ? snapInfo?.layerIndex ?? null : null;
-      const surface = attached ? snapInfo?.surfaceType ?? null : null;
+      const surface = snapInfo?.surfaceType ?? null;
 
       let parentId: string | null = null;
-      if (parentDecoration) {
+      if (parentDecoration && this.isAttachedToCake(parentDecoration)) {
         parentId = parentDecoration.uuid;
-      } else if (attached && layerIndex !== null) {
-        parentId = this.layerNodeId(layerIndex);
-      } else if (attached) {
-        parentId = this.cakeBase?.uuid ?? rootId;
       } else {
-        parentId = unattached.id;
+        parentId = rootId;
       }
 
       const node: SceneOutlineNode = {
@@ -1195,7 +1165,7 @@ export class ThreeSceneService {
         attached,
         visible: object.visible,
         parentId,
-        layerIndex,
+        layerIndex: null,
         surface: surface ?? null,
         children: [],
       };
