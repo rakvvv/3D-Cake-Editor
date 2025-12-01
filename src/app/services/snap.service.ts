@@ -61,8 +61,8 @@ export class SnapService {
       };
     }
 
-    const worldPosition = object.getWorldPosition(new THREE.Vector3());
-    const closest = this.getClosestPointOnCake(worldPosition);
+    const closestCandidate = this.getClosestPointForObject(object);
+    const closest = closestCandidate.info;
 
     if (closest.surfaceType === 'NONE' || !isFinite(closest.distance)) {
       return {
@@ -126,8 +126,8 @@ export class SnapService {
       };
     }
 
-    const worldPosition = object.getWorldPosition(new THREE.Vector3());
-    const closest = this.getClosestPointOnCake(worldPosition);
+    const closestCandidate = this.getClosestPointForObject(object);
+    const closest = closestCandidate.info;
 
     if (closest.surfaceType === 'NONE' || closest.distance > this.attachmentTolerance * 3) {
       return {
@@ -249,6 +249,29 @@ export class SnapService {
     }
 
     return null;
+  }
+
+  private getClosestPointForObject(object: THREE.Object3D): { info: ClosestPointInfo; worldPoint: THREE.Vector3 } {
+    const pivotWorld = object.getWorldPosition(new THREE.Vector3());
+    let bestInfo = this.getClosestPointOnCake(pivotWorld);
+    let bestWorldPoint = pivotWorld.clone();
+
+    const box = this.computeWorldBoundingBox(object);
+    if (!box.isEmpty()) {
+      const center = box.getCenter(new THREE.Vector3());
+      const corners = this.getBoxCorners(box);
+      const candidates = [...corners, center];
+
+      for (const candidate of candidates) {
+        const info = this.getClosestPointOnCake(candidate);
+        if (info.surfaceType !== 'NONE' && info.distance < bestInfo.distance) {
+          bestInfo = info;
+          bestWorldPoint = candidate.clone();
+        }
+      }
+    }
+
+    return { info: bestInfo, worldPoint: bestWorldPoint };
   }
 
   public getClosestPointOnCake(worldPoint: THREE.Vector3): ClosestPointInfo {
@@ -1095,6 +1118,19 @@ export class SnapService {
     });
 
     return box;
+  }
+
+  private getBoxCorners(box: THREE.Box3): THREE.Vector3[] {
+    return [
+      new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+      new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+      new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+      new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+      new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+      new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+      new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+      new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+    ];
   }
 
   private getWorldNormal(normalLocal: THREE.Vector3): THREE.Vector3 {
