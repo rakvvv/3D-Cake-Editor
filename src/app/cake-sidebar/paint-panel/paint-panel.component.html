@@ -31,6 +31,18 @@
       </select>
     </div>
 
+    <div class="sidebar-panel__control sidebar-panel__control--inline" *ngIf="selectedTool === 'extruder'">
+      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="extruder-variant">Wariant segmentu</label>
+      <select
+        id="extruder-variant"
+        class="sidebar-panel__select"
+        [(ngModel)]="extruderVariant"
+        (change)="onExtruderVariantChange()"
+      >
+        <option *ngFor="let variant of extruderVariants" [ngValue]="variant.id">{{ variant.name }}</option>
+      </select>
+    </div>
+
     <div class="paint-panel__pen-settings" *ngIf="selectedTool === 'pen'">
       <div class="sidebar-panel__control sidebar-panel__control--inline">
         <label class="sidebar-panel__label sidebar-panel__label--wrap" for="pen-size">Rozmiar końcówki (m)</label>

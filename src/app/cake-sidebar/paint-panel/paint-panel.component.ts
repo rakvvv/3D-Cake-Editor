@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PaintService } from '../../services/paint.service';
 
+type SidebarPaintTool = 'decoration' | 'pen' | 'extruder';
+
 @Component({
   selector: 'app-paint-panel',
   standalone: true,
@@ -21,24 +23,35 @@ export class PaintPanelComponent implements OnChanges {
   ];
 
   selectedBrush = this.brushList[0].id;
-  paintTools: { id: 'decoration' | 'pen'; name: string }[] = [
+  paintTools: { id: SidebarPaintTool; name: string }[] = [
     { id: 'decoration', name: 'Dekoracje 3D' },
     { id: 'pen', name: 'Pisak' },
+    { id: 'extruder', name: 'Ekstruder kremu' },
   ];
-  selectedTool: 'decoration' | 'pen' = 'decoration';
+  selectedTool: SidebarPaintTool = 'decoration';
   penSize = 0.05;
   penThickness = 0.02;
   penColor = '#ff4d6d';
+  extruderVariant: number | 'random' = 'random';
+  extruderVariants: { id: number | 'random'; name: string }[] = [
+    { id: 'random', name: 'Losowy wariant' },
+    { id: 0, name: 'Wariant 1' },
+    { id: 1, name: 'Wariant 2' },
+    { id: 2, name: 'Wariant 3' },
+    { id: 3, name: 'Wariant 4' },
+    { id: 4, name: 'Wariant 5' },
+  ];
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
       this.selectedBrush = this.paintService.currentBrush || this.brushList[0].id;
       const activeTool = this.paintService.paintTool;
       this.selectedTool =
-        activeTool === 'eraser' ? this.paintService.getLastNonEraserTool() : activeTool;
+        activeTool === 'eraser' ? this.paintService.getLastNonEraserTool() : (activeTool as SidebarPaintTool);
       this.penSize = this.paintService.penSize;
       this.penThickness = this.paintService.penThickness;
       this.penColor = this.paintService.penColor;
+      this.extruderVariant = this.paintService.getExtruderVariantSelection() ?? 'random';
     }
   }
 
@@ -66,6 +79,8 @@ export class PaintPanelComponent implements OnChanges {
     this.paintService.setPaintTool(this.selectedTool);
     if (this.selectedTool === 'pen') {
       this.onPenSettingsChange();
+    } else if (this.selectedTool === 'extruder') {
+      this.paintService.setExtruderVariantSelection(this.extruderVariant);
     } else {
       this.paintService.setCurrentBrush(this.selectedBrush);
     }
@@ -80,6 +95,13 @@ export class PaintPanelComponent implements OnChanges {
       thickness: Number(this.penThickness),
       color: this.penColor,
     });
+  }
+
+  onExtruderVariantChange(): void {
+    if (!this.paintService) {
+      return;
+    }
+    this.paintService.setExtruderVariantSelection(this.extruderVariant);
   }
 
   undoLast(): void {

@@ -11,8 +11,8 @@ import { PaintService } from '../services/paint.service';
 
 type PaintServiceStubType = {
   paintMode: boolean;
-  paintTool: 'decoration' | 'pen' | 'eraser';
-  lastNonEraserTool: 'decoration' | 'pen';
+  paintTool: 'decoration' | 'pen' | 'extruder' | 'eraser';
+  lastNonEraserTool: 'decoration' | 'pen' | 'extruder';
   setPaintTool: jasmine.Spy;
   getLastNonEraserTool: jasmine.Spy;
 } & Partial<PaintService>;
@@ -95,7 +95,9 @@ describe('CakeEditorComponent', () => {
       paintMode: false,
       paintTool: 'pen',
       lastNonEraserTool: 'pen',
-      setPaintTool: jasmine.createSpy('setPaintTool').and.callFake((tool: 'decoration' | 'pen' | 'eraser') => {
+      setPaintTool: jasmine
+        .createSpy('setPaintTool')
+        .and.callFake((tool: 'decoration' | 'pen' | 'extruder' | 'eraser') => {
         paintServiceStub.paintTool = tool;
         if (tool !== 'eraser') {
           paintServiceStub.lastNonEraserTool = tool;

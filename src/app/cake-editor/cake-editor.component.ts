@@ -59,7 +59,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
 
-  private eraserRestoreTool: 'decoration' | 'pen' = 'decoration';
+  private eraserRestoreTool: 'decoration' | 'pen' | 'extruder' = 'decoration';
   private eraserRestorePaintMode = false;
 
   private readonly handleDocumentClick = () => this.hideContextMenu();
@@ -151,7 +151,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     const currentTool =
       this.paintService.paintTool === 'eraser'
         ? this.paintService.getLastNonEraserTool()
-        : (this.paintService.paintTool as 'decoration' | 'pen');
+        : (this.paintService.paintTool as 'decoration' | 'pen' | 'extruder');
 
     this.eraserRestoreTool = currentTool;
     this.eraserRestorePaintMode = this.paintService.paintMode;
