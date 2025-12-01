@@ -1126,8 +1126,21 @@ export class ThreeSceneService {
       children: [],
     };
 
+    const unattachedRoot: SceneOutlineNode = {
+      id: 'unattached-root',
+      name: 'Nieprzyczepione',
+      type: 'layer',
+      attached: false,
+      visible: true,
+      parentId: rootId,
+      layerIndex: null,
+      surface: null,
+      children: [],
+    };
+
     const nodes = new Map<string, SceneOutlineNode>();
     nodes.set(rootId, root);
+    nodes.set(unattachedRoot.id, unattachedRoot);
 
     const appendNode = (node: SceneOutlineNode, parentId: string | null) => {
       const parent = (parentId ? nodes.get(parentId) : null) ?? root;
@@ -1142,22 +1155,14 @@ export class ThreeSceneService {
         return;
       }
 
-      const attached = this.isAttachedToCake(object);
-      if (!attached) {
-        object.children.forEach(processDecoration);
+      if (this.findParentDecoration(object)) {
         return;
       }
 
-      const parentDecoration = this.findParentDecoration(object);
+      const attached = this.isAttachedToCake(object);
       const snapInfo = this.findSnapInfo(object);
       const surface = snapInfo?.surfaceType ?? null;
-
-      let parentId: string | null = null;
-      if (parentDecoration && this.isAttachedToCake(parentDecoration)) {
-        parentId = parentDecoration.uuid;
-      } else {
-        parentId = rootId;
-      }
+      const parentId = attached ? rootId : unattachedRoot.id;
 
       const node: SceneOutlineNode = {
         id: object.uuid,
@@ -1176,6 +1181,8 @@ export class ThreeSceneService {
 
     const sceneChildren = this.sceneInitService.scene?.children ?? [];
     sceneChildren.forEach(processDecoration);
+
+    root.children.push(unattachedRoot);
 
     return root;
   }
