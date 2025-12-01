@@ -46,8 +46,7 @@ export class PaintPanelComponent implements OnChanges {
     if (changes['paintService'] && this.paintService) {
       this.selectedBrush = this.paintService.currentBrush || this.brushList[0].id;
       const activeTool = this.paintService.paintTool;
-      this.selectedTool =
-        activeTool === 'eraser' ? this.paintService.getLastNonEraserTool() : (activeTool as SidebarPaintTool);
+      this.selectedTool = activeTool as SidebarPaintTool;
       this.penSize = this.paintService.penSize;
       this.penThickness = this.paintService.penThickness;
       this.penColor = this.paintService.penColor;

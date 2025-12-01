@@ -764,7 +764,6 @@ export class ThreeSceneService {
       this.objects
     );
     if (decoration) {
-      this.showBoxHelperFor(decoration);
       this.paintService.registerDecorationAddition(decoration);
       this.emitOutlineChanged();
     }
@@ -808,6 +807,10 @@ export class ThreeSceneService {
   private handleInteraction(clientX: number, clientY: number, attach = false): THREE.Object3D | null {
     if (this.transformControlsService.isDragging()) {
       return null;
+    }
+
+    if (attach) {
+      this.hideBoxHelper();
     }
 
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -855,7 +858,6 @@ export class ThreeSceneService {
 
     if (attach) {
       this.transformControlsService.attachObject(selected);
-      this.showBoxHelperFor(selected);
       this.emitOutlineChanged();
     }
 
@@ -995,7 +997,6 @@ export class ThreeSceneService {
     instance.updateMatrixWorld(true);
 
     this.transformControlsService.attachObject(instance);
-    this.showBoxHelperFor(instance);
     this.clipboard.pasteCount += 1;
 
     this.paintService.registerDecorationAddition(instance);
@@ -1109,7 +1110,6 @@ export class ThreeSceneService {
 
     this.objects.push(group);
     this.transformControlsService.attachObject(group);
-    this.showBoxHelperFor(group);
     this.emitOutlineChanged();
 
     return { success: true, message: 'Utworzono nową grupę dekoracji.', groupId: group.uuid };

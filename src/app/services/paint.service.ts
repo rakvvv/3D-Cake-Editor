@@ -43,7 +43,7 @@ type PenJointInstance = {
   index: number;
 };
 
-type PaintTool = 'decoration' | 'pen' | 'extruder' | 'eraser';
+type PaintTool = 'decoration' | 'pen' | 'extruder';
 
 @Injectable({ providedIn: 'root' })
 export class PaintService {
@@ -51,7 +51,6 @@ export class PaintService {
   public currentBrush = 'trawa.glb';
   public isPainting = false;
   public paintTool: PaintTool = 'decoration';
-  private lastNonEraserTool: Exclude<PaintTool, 'eraser'> = 'decoration';
 
   public penSize = 0.05;
   public penThickness = 0.02;
@@ -140,12 +139,6 @@ export class PaintService {
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-
-    if (this.paintTool === 'eraser') {
-      this.performErase(raycaster, scene);
-      this.resetPaintTracking();
-      return;
-    }
 
     if (!cakeBase) {
       return;
@@ -269,13 +262,6 @@ export class PaintService {
 
   public setPaintTool(tool: PaintTool): void {
     this.paintTool = tool;
-    if (tool !== 'eraser') {
-      this.lastNonEraserTool = tool;
-    }
-  }
-
-  public getLastNonEraserTool(): Exclude<PaintTool, 'eraser'> {
-    return this.lastNonEraserTool;
   }
 
   public setCurrentBrush(brushId: string): void {
@@ -340,76 +326,6 @@ export class PaintService {
     this.undoStack.push(object);
     this.redoStack = [];
     this.notifySceneChanged();
-  }
-
-  private performErase(raycaster: THREE.Raycaster, scene: THREE.Scene): void {
-    const erasableObjects: THREE.Object3D[] = [];
-    scene.traverse((child) => {
-      if (this.isErasableObject(child)) {
-        erasableObjects.push(child);
-      }
-    });
-
-    if (!erasableObjects.length) {
-      return;
-    }
-
-    const hits = raycaster.intersectObjects(erasableObjects, true);
-    if (!hits.length) {
-      return;
-    }
-
-    const targetIntersection = hits.find((intersection) => this.findErasableRoot(intersection.object));
-    if (!targetIntersection) {
-      return;
-    }
-
-    const erasableObject = this.findErasableRoot(targetIntersection.object);
-    if (!erasableObject) {
-      return;
-    }
-
-    if (erasableObject.userData['isPaintStroke']) {
-      this.disposePaintStroke(erasableObject);
-      if (erasableObject.parent) {
-        erasableObject.parent.remove(erasableObject);
-      }
-      this.removeFromHistory(erasableObject);
-      this.notifySceneChanged();
-      return;
-    }
-
-    if (erasableObject.userData['isPaintDecoration'] || erasableObject.userData['isDecoration']) {
-      this.transformManager.removeDecorationObject(erasableObject);
-      this.removeFromHistory(erasableObject);
-      this.notifySceneChanged();
-    }
-  }
-
-  private isErasableObject(object: THREE.Object3D | undefined): boolean {
-    if (!object) {
-      return false;
-    }
-
-    return Boolean(
-      object.userData['isPaintStroke'] ||
-        object.userData['isPaintDecoration'] ||
-        object.userData['isDecoration'],
-    );
-  }
-
-  private findErasableRoot(object: THREE.Object3D): THREE.Object3D | null {
-    let current: THREE.Object3D | null = object;
-    let lastMatch: THREE.Object3D | null = null;
-
-    while (current) {
-      if (this.isErasableObject(current)) {
-        lastMatch = current;
-      }
-      current = current.parent;
-    }
-
-    return lastMatch;
   }
 
   private disposePaintStroke(object: THREE.Object3D): void {
@@ -484,35 +400,6 @@ export class PaintService {
     }
 
     return false;
-  }
-
-  private removeFromHistory(object: THREE.Object3D): void {
-    this.undoStack = this.undoStack.filter((entry) => entry !== object);
-    this.redoStack = this.redoStack.filter((entry) => entry !== object);
-
-    if (this.activePenStrokeGroup === object) {
-      this.activePenStrokeGroup = null;
-      this.activePenStrokePoints = [];
-      this.activePenSegments = [];
-      this.activePenJoints = [];
-      this.penSegmentInstance = null;
-      this.penJointInstance = null;
-      this.penCapInstance = null;
-      this.activePenStartCapIndex = null;
-      this.activePenEndCapIndex = null;
-      this.lastPenDirection = null;
-    }
-
-    if (this.activeExtruderStrokeGroup === object) {
-      this.activeExtruderStrokeGroup = null;
-      this.extruderStrokeInstances.clear();
-      this.extruderLastPlacedPoint = null;
-      this.extruderLastNormal = null;
-    }
-
-    if (this.activeDecorationGroup === object) {
-      this.activeDecorationGroup = null;
-    }
   }
 
   private resetPaintTracking(): void {

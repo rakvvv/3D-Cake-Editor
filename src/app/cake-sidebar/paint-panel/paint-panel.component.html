@@ -87,7 +87,6 @@
       type="button"
       class="sidebar-panel__button paint-panel__toggle"
       (click)="togglePaintMode()"
-      [disabled]="paintService.paintTool === 'eraser'"
     >
       {{ paintService.paintMode ? 'Wyłącz rysowanie' : 'Włącz rysowanie' }}
     </button>

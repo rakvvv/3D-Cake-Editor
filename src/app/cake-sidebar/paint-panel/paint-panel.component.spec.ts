@@ -21,7 +21,6 @@ describe('PaintPanelComponent', () => {
         'redo',
         'canUndo',
         'canRedo',
-        'getLastNonEraserTool',
         'getExtruderVariantSelection',
       ],
       {
@@ -48,15 +47,11 @@ describe('PaintPanelComponent', () => {
     fixture.detectChanges();
   });
 
-  it('wyłącza przełącznik trybu malowania, gdy aktywna jest gumka', () => {
-    paintService.paintTool = 'eraser';
-    paintService.getLastNonEraserTool.and.returnValue('pen');
-
+  it('pozostawia przełącznik trybu malowania aktywny', () => {
     component.ngOnChanges({ paintService: new SimpleChange(null, paintService, true) });
     fixture.detectChanges();
 
     const toggleButton = fixture.debugElement.query(By.css('.paint-panel__toggle')).nativeElement as HTMLButtonElement;
-    expect(toggleButton.disabled).toBeTrue();
-    expect(component.selectedTool).toBe('pen');
+    expect(toggleButton.disabled).toBeFalse();
   });
 });
