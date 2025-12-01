@@ -20,6 +20,17 @@ export class TransformManagerService {
   private copyDecorationCallback: (() => void) | null = null;
   private pasteDecorationCallback: (() => void) | null = null;
   private cakeSize = 1;
+  private lockedSelection: {
+    object: THREE.Object3D | null;
+    position: THREE.Vector3;
+    quaternion: THREE.Quaternion;
+    scale: THREE.Vector3;
+  } = {
+    object: null,
+    position: new THREE.Vector3(),
+    quaternion: new THREE.Quaternion(),
+    scale: new THREE.Vector3(),
+  };
   private readonly isBrowser: boolean;
 
   constructor(
@@ -87,8 +98,16 @@ export class TransformManagerService {
       return;
     }
 
-    const allowTransform = !this.isTransformLocked(object);
-    this.transformControls.enabled = allowTransform;
+    const locked = this.isTransformLocked(object);
+    this.transformControls.enabled = true;
+    if (locked) {
+      this.lockedSelection.object = object;
+      this.lockedSelection.position.copy(object.position);
+      this.lockedSelection.quaternion.copy(object.quaternion);
+      this.lockedSelection.scale.copy(object.scale);
+    } else {
+      this.lockedSelection.object = null;
+    }
     this.selectionService.selectObject(
       object,
       this.transformControls,
@@ -102,6 +121,7 @@ export class TransformManagerService {
       return;
     }
 
+    this.lockedSelection.object = null;
     this.selectionService.deselectObject(this.transformControls, this.boxHelperCallback);
   }
 
@@ -179,6 +199,15 @@ export class TransformManagerService {
 
     const selectedObject = this.selectionService.getSelectedObject();
     if (selectedObject && this.transformControls) {
+      if (this.lockedSelection.object === selectedObject) {
+        selectedObject.position.copy(this.lockedSelection.position);
+        selectedObject.quaternion.copy(this.lockedSelection.quaternion);
+        selectedObject.scale.copy(this.lockedSelection.scale);
+        selectedObject.updateMatrixWorld(true);
+        this.snapService.enforceSnappedPosition(selectedObject);
+        return;
+      }
+
       const mode = this.transformControls.mode;
       if (mode === 'translate' || mode === 'scale') {
         this.snapService.enforceSnappedPosition(selectedObject);

@@ -968,42 +968,88 @@ export class SnapService {
   }
 
   private computeOffsetDistance(object: THREE.Object3D, normalWorld: THREE.Vector3): number {
-    const boundingBox = this.computeWorldBoundingBox(object);
-    const center = boundingBox.getCenter(new THREE.Vector3());
-
-    const vertices = [
-      new THREE.Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z),
-      new THREE.Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.max.z),
-      new THREE.Vector3(boundingBox.min.x, boundingBox.max.y, boundingBox.min.z),
-      new THREE.Vector3(boundingBox.min.x, boundingBox.max.y, boundingBox.max.z),
-      new THREE.Vector3(boundingBox.max.x, boundingBox.min.y, boundingBox.min.z),
-      new THREE.Vector3(boundingBox.max.x, boundingBox.min.y, boundingBox.max.z),
-      new THREE.Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.min.z),
-      new THREE.Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z),
-    ];
+    object.updateMatrixWorld(true);
 
     const normal = normalWorld.clone().normalize();
-    let minProjection = Infinity;
-
-    for (const vertex of vertices) {
-      const projection = normal.dot(vertex.clone().sub(center));
-      if (projection < minProjection) {
-        minProjection = projection;
-      }
-    }
-
-    if (!isFinite(minProjection)) {
-      return 0.2;
-    }
+    const pivot = object.getWorldPosition(new THREE.Vector3());
 
     const clearance = 0.002;
-    const computedOffset = -minProjection + clearance;
+    let minProjection = Infinity;
 
-    const boundingSphere = new THREE.Sphere();
-    boundingBox.getBoundingSphere(boundingSphere);
-    const sphereLimit = Math.max(0.005, boundingSphere.radius + clearance);
+    const corners: THREE.Vector3[] = [
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+    ];
 
-    return THREE.MathUtils.clamp(computedOffset, 0.005, sphereLimit);
+    const updateCorners = (box: THREE.Box3, matrixWorld: THREE.Matrix4 | null) => {
+      const transform = matrixWorld ?? new THREE.Matrix4();
+      corners[0].set(box.min.x, box.min.y, box.min.z).applyMatrix4(transform);
+      corners[1].set(box.min.x, box.min.y, box.max.z).applyMatrix4(transform);
+      corners[2].set(box.min.x, box.max.y, box.min.z).applyMatrix4(transform);
+      corners[3].set(box.min.x, box.max.y, box.max.z).applyMatrix4(transform);
+      corners[4].set(box.max.x, box.min.y, box.min.z).applyMatrix4(transform);
+      corners[5].set(box.max.x, box.min.y, box.max.z).applyMatrix4(transform);
+      corners[6].set(box.max.x, box.max.y, box.min.z).applyMatrix4(transform);
+      corners[7].set(box.max.x, box.max.y, box.max.z).applyMatrix4(transform);
+
+      for (const corner of corners) {
+        const projection = normal.dot(corner.clone().sub(pivot));
+        if (projection < minProjection) {
+          minProjection = projection;
+        }
+      }
+    };
+
+    const tempBox = new THREE.Box3();
+    const instanceMatrix = new THREE.Matrix4();
+    const worldMatrix = new THREE.Matrix4();
+
+    object.traverse((child) => {
+      if ((child as THREE.InstancedMesh).isInstancedMesh) {
+        const instanced = child as THREE.InstancedMesh;
+        const geometry = instanced.geometry;
+        if (!geometry.boundingBox) {
+          geometry.computeBoundingBox();
+        }
+        if (!geometry.boundingBox) {
+          return;
+        }
+
+        for (let i = 0; i < instanced.count; i++) {
+          instanced.getMatrixAt(i, instanceMatrix);
+          worldMatrix.multiplyMatrices(instanced.matrixWorld, instanceMatrix);
+          tempBox.copy(geometry.boundingBox);
+          updateCorners(tempBox, worldMatrix);
+        }
+        return;
+      }
+
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const geometry = mesh.geometry;
+        if (!geometry.boundingBox) {
+          geometry.computeBoundingBox();
+        }
+        if (!geometry.boundingBox) {
+          return;
+        }
+
+        tempBox.copy(geometry.boundingBox);
+        updateCorners(tempBox, mesh.matrixWorld);
+      }
+    });
+
+    if (!isFinite(minProjection)) {
+      return clearance;
+    }
+
+    return Math.max(clearance, -minProjection + clearance);
   }
 
   private computeWorldBoundingBox(object: THREE.Object3D): THREE.Box3 {
