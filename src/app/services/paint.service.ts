@@ -520,6 +520,7 @@ export class PaintService {
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
       mesh.userData['isPaintDecoration'] = true;
       mesh.userData['isPaintStroke'] = true;
       decorationGroup.add(mesh);
@@ -780,6 +781,7 @@ export class PaintService {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
     mesh.userData['isPaintStroke'] = true;
     strokeGroup.add(mesh);
 

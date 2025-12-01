@@ -78,10 +78,14 @@ export class SnapService {
 
     object.updateMatrixWorld(true);
 
-    const offset = this.computeOffsetDistance(object, surfaceWorldNormal, closestCandidate.worldPoint);
+    const pivotWorld = object.getWorldPosition(new THREE.Vector3());
+    const anchorWorld = closestCandidate.worldPoint.clone();
+    const offset = this.computeOffsetDistance(object, surfaceWorldNormal, anchorWorld);
+    const anchorDelta = anchorWorld.clone().sub(pivotWorld);
     const finalWorldPosition = surfaceWorldPosition
       .clone()
-      .add(surfaceWorldNormal.clone().multiplyScalar(offset));
+      .add(surfaceWorldNormal.clone().multiplyScalar(offset))
+      .sub(anchorDelta);
 
     if (object.parent !== this.cakeBase) {
       this.cakeBase.attach(object);
