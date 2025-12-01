@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { PaintService } from './paint.service';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
+import { SnapService } from './snap.service';
 
 if (typeof performance === 'undefined') {
   (globalThis as any).performance = {
@@ -41,21 +42,26 @@ const getStrokeCylinderLengths = (group: THREE.Group): number[] =>
 describe('PaintService', () => {
   let service: PaintService;
   let transformManager: jasmine.SpyObj<TransformManagerService>;
+  let snapService: jasmine.SpyObj<SnapService>;
 
   beforeEach(() => {
     const transformManagerSpy = jasmine.createSpyObj<TransformManagerService>('TransformManagerService', [
       'removeDecorationObject',
     ]);
+    const snapServiceSpy = jasmine.createSpyObj<SnapService>('SnapService', ['snapDecorationToCake']);
+    snapServiceSpy.snapDecorationToCake.and.returnValue({ success: true, surfaceType: 'TOP', message: '' });
     TestBed.configureTestingModule({
       providers: [
         PaintService,
         { provide: TransformManagerService, useValue: transformManagerSpy },
+        { provide: SnapService, useValue: snapServiceSpy },
       ],
     });
     service = TestBed.inject(PaintService);
     transformManager = TestBed.inject(
       TransformManagerService,
     ) as jasmine.SpyObj<TransformManagerService>;
+    snapService = TestBed.inject(SnapService) as jasmine.SpyObj<SnapService>;
   });
 
   it('zapamiętuje ostatnie narzędzie inne niż gumka', () => {

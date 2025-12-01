@@ -3,6 +3,7 @@ import { Subject } from 'rxjs';
 import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
+import { SnapService } from './snap.service';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -12,6 +13,17 @@ type ExtruderVariantData = {
 };
 
 type ExtruderInstanceState = {
+  mesh: THREE.InstancedMesh;
+  count: number;
+};
+
+type DecorationVariantData = {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  name: string;
+};
+
+type DecorationInstanceState = {
   mesh: THREE.InstancedMesh;
   count: number;
 };
@@ -73,7 +85,13 @@ export class PaintService {
   private activePenEndCap: THREE.Mesh | null = null;
   private activeDecorationGroup: THREE.Group | null = null;
 
-  constructor(private readonly transformManager: TransformManagerService) {}
+  private decorationVariants = new Map<string, DecorationVariantData[]>();
+  private decorationStrokeInstances = new Map<string, DecorationInstanceState[]>();
+
+  constructor(
+    private readonly transformManager: TransformManagerService,
+    private readonly snapService: SnapService,
+  ) {}
 
   public async handlePaint(
     event: MouseEvent,
@@ -170,6 +188,7 @@ export class PaintService {
     this.activePenEndCap = null;
     this.lastPenDirection = null;
     this.activeDecorationGroup = null;
+    this.decorationStrokeInstances.clear();
     this.activeExtruderStrokeGroup = null;
     this.extruderStrokeInstances.clear();
     this.extruderLastPlacedPoint = null;
@@ -384,6 +403,12 @@ export class PaintService {
       }
     }
 
+    for (const variants of this.decorationVariants.values()) {
+      if (variants.some((variant) => variant.geometry === geometry)) {
+        return true;
+      }
+    }
+
     if (this.extruderVariants?.some((variant) => variant.geometry === geometry)) {
       return true;
     }
@@ -394,6 +419,12 @@ export class PaintService {
   private isSharedStrokeMaterial(material: THREE.Material): boolean {
     for (const cachedMaterial of this.penMaterialCache.values()) {
       if (material === cachedMaterial) {
+        return true;
+      }
+    }
+
+    for (const variants of this.decorationVariants.values()) {
+      if (variants.some((variant) => variant.material === material)) {
         return true;
       }
     }
@@ -444,6 +475,7 @@ export class PaintService {
       this.activeDecorationGroup = new THREE.Group();
       this.activeDecorationGroup.userData['isPaintDecoration'] = true;
       this.activeDecorationGroup.userData['displayName'] = 'Dekoracja malowana';
+      this.activeDecorationGroup.userData['isPaintStroke'] = true;
       scene.add(this.activeDecorationGroup);
       this.redoStack = [];
     }
@@ -451,32 +483,144 @@ export class PaintService {
     return this.activeDecorationGroup;
   }
 
-  private async placeDecorationBrush(point: THREE.Vector3, normal: THREE.Vector3, scene: THREE.Scene): Promise<void> {
-    const decorationGroup = this.ensureActiveDecorationGroup(scene);
-    const brushModel = await this.getBrushInstance(this.currentBrush);
-    const brushSize = this.getBrushSize(this.currentBrush, brushModel);
+  private addDecorationInstances(
+    brushId: string,
+    variants: DecorationVariantData[],
+    decorationGroup: THREE.Group,
+    matrix: THREE.Matrix4,
+  ): void {
+    const states = this.ensureDecorationInstanceMeshes(brushId, variants, decorationGroup);
 
-    brushModel.position.copy(point);
-    const offset = normal.clone().multiplyScalar(0.005);
-    brushModel.position.add(offset);
+    variants.forEach((variant, index) => {
+      const state = states[index];
+      if (!state || state.count >= this.extruderMaxInstances) {
+        return;
+      }
 
-    const quaternion = new THREE.Quaternion();
-    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal.clone());
-    brushModel.quaternion.copy(quaternion);
-    brushModel.rotation.y = Math.random() * Math.PI * 2;
+      state.mesh.setMatrixAt(state.count, matrix);
+      state.mesh.count = state.count + 1;
+      state.mesh.instanceMatrix.needsUpdate = true;
+      state.count += 1;
+    });
+  }
 
-    const maxDim = Math.max(brushSize.x, brushSize.y, brushSize.z);
-    if (maxDim > 0) {
-      const scaleFactor = 0.5 / maxDim;
-      brushModel.scale.setScalar(scaleFactor);
+  private ensureDecorationInstanceMeshes(
+    brushId: string,
+    variants: DecorationVariantData[],
+    decorationGroup: THREE.Group,
+  ): DecorationInstanceState[] {
+    const existing = this.decorationStrokeInstances.get(brushId);
+    if (existing && existing.length === variants.length) {
+      return existing;
     }
 
-    brushModel.updateMatrixWorld(true);
-    brushModel.matrixAutoUpdate = false;
+    const states: DecorationInstanceState[] = variants.map((variant) => {
+      const mesh = new THREE.InstancedMesh(variant.geometry, variant.material, this.extruderMaxInstances);
+      mesh.count = 0;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData['isPaintDecoration'] = true;
+      mesh.userData['isPaintStroke'] = true;
+      decorationGroup.add(mesh);
 
-    decorationGroup.add(brushModel);
-    brushModel.userData['isSnapped'] = true;
-    brushModel.userData['isPaintDecoration'] = true;
+      return { mesh, count: 0 };
+    });
+
+    this.decorationStrokeInstances.set(brushId, states);
+    return states;
+  }
+
+  private getDecorationScale(brushId: string, variants: DecorationVariantData[]): number {
+    const templateSize = this.brushSizes.get(brushId);
+    if (templateSize) {
+      const maxDim = Math.max(templateSize.x, templateSize.y, templateSize.z);
+      if (maxDim > 0) {
+        return 0.5 / maxDim;
+      }
+    }
+
+    if (variants.length) {
+      const geometriesBox = new THREE.Box3();
+      const mergedSize = new THREE.Vector3();
+      variants.forEach((variant) => {
+        variant.geometry.computeBoundingBox();
+        const box = variant.geometry.boundingBox;
+        if (box) {
+          geometriesBox.union(box);
+        }
+      });
+      geometriesBox.getSize(mergedSize);
+      const maxDim = Math.max(mergedSize.x, mergedSize.y, mergedSize.z);
+      if (maxDim > 0) {
+        return 0.5 / maxDim;
+      }
+    }
+
+    return 1;
+  }
+
+  private async getDecorationVariants(brushId: string): Promise<DecorationVariantData[]> {
+    const cached = this.decorationVariants.get(brushId);
+    if (cached) {
+      return cached;
+    }
+
+    const variants = await this.loadDecorationVariants(brushId);
+    this.decorationVariants.set(brushId, variants);
+    return variants;
+  }
+
+  private async loadDecorationVariants(brushId: string): Promise<DecorationVariantData[]> {
+    const template = await this.loadBrushTemplate(brushId);
+    const variants: DecorationVariantData[] = [];
+
+    template.updateMatrixWorld(true);
+
+    template.traverse((node) => {
+      const mesh = node as THREE.Mesh;
+      if (!mesh.isMesh) {
+        return;
+      }
+
+      const geometry = mesh.geometry.clone();
+      geometry.applyMatrix4(mesh.matrixWorld.clone());
+      geometry.computeBoundingBox();
+      geometry.computeBoundingSphere();
+
+      const material = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material)?.clone();
+
+      if (!material) {
+        return;
+      }
+
+      variants.push({
+        geometry,
+        material,
+        name: mesh.name || 'Dekoracja',
+      });
+    });
+
+    return variants;
+  }
+
+  private async placeDecorationBrush(point: THREE.Vector3, normal: THREE.Vector3, scene: THREE.Scene): Promise<void> {
+    const decorationGroup = this.ensureActiveDecorationGroup(scene);
+    const variants = await this.getDecorationVariants(this.currentBrush);
+    if (!variants.length) {
+      return;
+    }
+
+    const offset = normal.clone().normalize().multiplyScalar(0.005);
+    const position = point.clone().add(offset);
+    const up = new THREE.Vector3(0, 1, 0);
+    const align = new THREE.Quaternion().setFromUnitVectors(up, normal.clone().normalize());
+    const spin = new THREE.Quaternion().setFromAxisAngle(normal.clone().normalize(), Math.random() * Math.PI * 2);
+    const rotation = align.clone().multiply(spin).normalize();
+    const scale = this.getDecorationScale(this.currentBrush, variants);
+
+    const matrix = new THREE.Matrix4().compose(position, rotation, new THREE.Vector3(scale, scale, scale));
+    this.addDecorationInstances(this.currentBrush, variants, decorationGroup, matrix);
   }
 
   public setExtruderVariantSelection(selection: number | 'random'): void {
@@ -1140,13 +1284,21 @@ export class PaintService {
 
   private finalizePaintRoot(object: THREE.Object3D): void {
     this.recenterPivot(object);
-    object.userData['isSnapped'] = true;
+    this.trySnapPaintStroke(object);
+    object.userData['paintParent'] = object.parent ?? null;
+    object.updateMatrixWorld(true);
+  }
+
+  private trySnapPaintStroke(object: THREE.Object3D): void {
     object.traverse((child) => {
       child.userData = { ...child.userData, isSnapped: true };
     });
-    this.attachToCake(object);
-    object.userData['paintParent'] = object.parent ?? null;
-    object.updateMatrixWorld(true);
+
+    const snapResult = this.snapService.snapDecorationToCake(object);
+    if (!snapResult.success) {
+      this.attachToCake(object);
+      object.userData['isSnapped'] = true;
+    }
   }
 
   private recenterPivot(object: THREE.Object3D): void {
