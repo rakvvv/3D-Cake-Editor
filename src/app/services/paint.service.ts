@@ -3,7 +3,6 @@ import { Subject } from 'rxjs';
 import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
-import { SnapService } from './snap.service';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -88,10 +87,7 @@ export class PaintService {
   private decorationVariants = new Map<string, DecorationVariantData[]>();
   private decorationStrokeInstances = new Map<string, DecorationInstanceState[]>();
 
-  constructor(
-    private readonly transformManager: TransformManagerService,
-    private readonly snapService: SnapService,
-  ) {}
+  constructor(private readonly transformManager: TransformManagerService) {}
 
   public async handlePaint(
     event: MouseEvent,
@@ -1296,11 +1292,8 @@ export class PaintService {
       child.userData = { ...child.userData, isSnapped: true };
     });
 
-    const snapResult = this.snapService.snapDecorationToCake(object);
-    if (!snapResult.success) {
-      this.attachToCake(object);
-      object.userData['isSnapped'] = true;
-    }
+    this.attachToCake(object);
+    object.userData['isSnapped'] = true;
   }
 
   private recenterPivot(object: THREE.Object3D): void {
