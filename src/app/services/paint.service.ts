@@ -119,7 +119,7 @@ export class PaintService {
     mouse: THREE.Vector2,
     raycaster: THREE.Raycaster,
   ): Promise<void> {
-    if (!cakeBase || !this.paintMode) {
+    if (!this.paintMode) {
       return;
     }
 
@@ -140,15 +140,20 @@ export class PaintService {
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(cakeBase, true);
-
-    if (intersects.length === 0) {
-      return;
-    }
 
     if (this.paintTool === 'eraser') {
       this.performErase(raycaster, scene);
       this.resetPaintTracking();
+      return;
+    }
+
+    if (!cakeBase) {
+      return;
+    }
+
+    const intersects = raycaster.intersectObject(cakeBase, true);
+
+    if (intersects.length === 0) {
       return;
     }
 
