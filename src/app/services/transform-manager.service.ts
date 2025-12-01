@@ -99,21 +99,16 @@ export class TransformManagerService {
     }
 
     const locked = this.isTransformLocked(object);
-    this.transformControls.enabled = true;
+    this.transformControls.enabled = !locked;
     if (locked) {
-      this.lockedSelection.object = object;
-      this.lockedSelection.position.copy(object.position);
-      this.lockedSelection.quaternion.copy(object.quaternion);
-      this.lockedSelection.scale.copy(object.scale);
-    } else {
       this.lockedSelection.object = null;
+      this.transformControls.detach();
+      this.selectionService.selectObject(object, this.transformControls, this.boxHelperCallback, false);
+      return;
     }
-    this.selectionService.selectObject(
-      object,
-      this.transformControls,
-      this.boxHelperCallback,
-      true,
-    );
+
+    this.lockedSelection.object = null;
+    this.selectionService.selectObject(object, this.transformControls, this.boxHelperCallback, true);
   }
 
   public deselectObject(): void {
