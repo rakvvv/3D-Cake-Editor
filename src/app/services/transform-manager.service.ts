@@ -98,6 +98,12 @@ export class TransformManagerService {
       return;
     }
 
+    const cakeBase = this.snapService.getCakeBase();
+    if (cakeBase && (object === cakeBase || object.parent === cakeBase)) {
+      this.deselectObject();
+      return;
+    }
+
     const locked = this.isTransformLocked(object);
     this.transformControls.enabled = !locked;
     if (locked) {
