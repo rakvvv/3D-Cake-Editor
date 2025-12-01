@@ -78,7 +78,7 @@ export class SnapService {
 
     object.updateMatrixWorld(true);
 
-    const offset = this.computeOffsetDistance(object, surfaceWorldNormal);
+    const offset = this.computeOffsetDistance(object, surfaceWorldNormal, closestCandidate.worldPoint);
     const finalWorldPosition = surfaceWorldPosition
       .clone()
       .add(surfaceWorldNormal.clone().multiplyScalar(offset));
@@ -990,11 +990,15 @@ export class SnapService {
     }
   }
 
-  private computeOffsetDistance(object: THREE.Object3D, normalWorld: THREE.Vector3): number {
+  private computeOffsetDistance(
+    object: THREE.Object3D,
+    normalWorld: THREE.Vector3,
+    anchorWorld?: THREE.Vector3,
+  ): number {
     object.updateMatrixWorld(true);
 
     const normal = normalWorld.clone().normalize();
-    const pivot = object.getWorldPosition(new THREE.Vector3());
+    const pivot = anchorWorld?.clone() ?? object.getWorldPosition(new THREE.Vector3());
 
     const clearance = 0.002;
     let minProjection = Infinity;
