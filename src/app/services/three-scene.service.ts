@@ -765,6 +765,7 @@ export class ThreeSceneService {
     );
     if (decoration) {
       this.showBoxHelperFor(decoration);
+      this.paintService.registerDecorationAddition(decoration);
       this.emitOutlineChanged();
     }
   }
@@ -996,6 +997,8 @@ export class ThreeSceneService {
     this.transformControlsService.attachObject(instance);
     this.showBoxHelperFor(instance);
     this.clipboard.pasteCount += 1;
+
+    this.paintService.registerDecorationAddition(instance);
 
     this.emitOutlineChanged();
 

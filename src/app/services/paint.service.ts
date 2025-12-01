@@ -331,8 +331,30 @@ export class PaintService {
     return this.redoStack.length > 0;
   }
 
+  public registerDecorationAddition(object: THREE.Object3D): void {
+    if (!object) {
+      return;
+    }
+
+    object.userData['paintParent'] = object.parent ?? null;
+    this.undoStack.push(object);
+    this.redoStack = [];
+    this.notifySceneChanged();
+  }
+
   private performErase(raycaster: THREE.Raycaster, scene: THREE.Scene): void {
-    const hits = raycaster.intersectObjects(scene.children, true);
+    const erasableObjects: THREE.Object3D[] = [];
+    scene.traverse((child) => {
+      if (this.isErasableObject(child)) {
+        erasableObjects.push(child);
+      }
+    });
+
+    if (!erasableObjects.length) {
+      return;
+    }
+
+    const hits = raycaster.intersectObjects(erasableObjects, true);
     if (!hits.length) {
       return;
     }

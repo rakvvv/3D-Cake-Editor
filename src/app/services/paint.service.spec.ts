@@ -582,6 +582,25 @@ describe('PaintService', () => {
     expect(paintedAfterRedo).toBe(1);
   });
 
+  it('śledzi dodanie zwykłej dekoracji dla undo/redo', () => {
+    const scene = new THREE.Scene();
+    const decoration = new THREE.Group();
+    decoration.userData['isDecoration'] = true;
+    scene.add(decoration);
+
+    service.registerScene(scene);
+    service.registerDecorationAddition(decoration);
+
+    expect(service.canUndo()).toBeTrue();
+
+    service.undo();
+    expect(scene.children.includes(decoration)).toBeFalse();
+    expect(service.canRedo()).toBeTrue();
+
+    service.redo();
+    expect(scene.children.includes(decoration)).toBeTrue();
+  });
+
   it('usuwa dekoracje trafione gumką i czyści stosy historii', async () => {
     service.paintMode = true;
     service.setPaintTool('eraser');
