@@ -872,7 +872,6 @@ export class ThreeSceneService {
   private showBoxHelperFor(object: THREE.Object3D): void {
     this.hideBoxHelper(); // Usuń stary
     this.boxHelper = new THREE.BoxHelper(object, 0xff0000); // Czerwony kolor
-    this.boxHelper.layers.set(1);
     this.scene.add(this.boxHelper);
     // Aktualizuj BoxHelper, gdy obiekt się porusza (w TransformControlsService)
   }
@@ -997,6 +996,8 @@ export class ThreeSceneService {
     this.transformControlsService.attachObject(instance);
     this.showBoxHelperFor(instance);
     this.clipboard.pasteCount += 1;
+
+    this.emitOutlineChanged();
 
     return {
       success: true,
@@ -1171,8 +1172,6 @@ export class ThreeSceneService {
       };
 
       appendNode(node, parentId);
-
-      object.children.forEach(processDecoration);
     };
 
     const sceneChildren = this.sceneInitService.scene?.children ?? [];
