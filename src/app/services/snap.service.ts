@@ -968,7 +968,7 @@ export class SnapService {
   }
 
   private computeOffsetDistance(object: THREE.Object3D, normalWorld: THREE.Vector3): number {
-    const boundingBox = new THREE.Box3().setFromObject(object);
+    const boundingBox = this.computeWorldBoundingBox(object);
     const center = boundingBox.getCenter(new THREE.Vector3());
 
     const vertices = [
@@ -1004,6 +1004,51 @@ export class SnapService {
     const sphereLimit = Math.max(0.005, boundingSphere.radius + clearance);
 
     return THREE.MathUtils.clamp(computedOffset, 0.005, sphereLimit);
+  }
+
+  private computeWorldBoundingBox(object: THREE.Object3D): THREE.Box3 {
+    object.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    const tempBox = new THREE.Box3();
+    const instanceMatrix = new THREE.Matrix4();
+    const worldMatrix = new THREE.Matrix4();
+
+    object.traverse((child) => {
+      if ((child as THREE.InstancedMesh).isInstancedMesh) {
+        const instanced = child as THREE.InstancedMesh;
+        const geometry = instanced.geometry;
+        if (!geometry.boundingBox) {
+          geometry.computeBoundingBox();
+        }
+        if (!geometry.boundingBox) {
+          return;
+        }
+
+        for (let i = 0; i < instanced.count; i++) {
+          instanced.getMatrixAt(i, instanceMatrix);
+          worldMatrix.multiplyMatrices(instanced.matrixWorld, instanceMatrix);
+          tempBox.copy(geometry.boundingBox).applyMatrix4(worldMatrix);
+          box.union(tempBox);
+        }
+        return;
+      }
+
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const geometry = mesh.geometry;
+        if (!geometry.boundingBox) {
+          geometry.computeBoundingBox();
+        }
+        if (!geometry.boundingBox) {
+          return;
+        }
+
+        tempBox.copy(geometry.boundingBox).applyMatrix4(mesh.matrixWorld);
+        box.union(tempBox);
+      }
+    });
+
+    return box;
   }
 
   private getWorldNormal(normalLocal: THREE.Vector3): THREE.Vector3 {

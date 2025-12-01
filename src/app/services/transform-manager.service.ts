@@ -93,7 +93,7 @@ export class TransformManagerService {
       object,
       this.transformControls,
       this.boxHelperCallback,
-      allowTransform,
+      true,
     );
   }
 
