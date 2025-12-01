@@ -2,9 +2,7 @@
   <header class="sidebar-panel__header">
     <p class="sidebar-panel__subtitle">Scena</p>
     <h3 class="sidebar-panel__title">Struktura tortu</h3>
-    <p class="sidebar-panel__description">
-      Zarządzaj widocznością i grupami dekoracji korzystając z hierarchii tortu, warstw i elementów.
-    </p>
+    <p class="sidebar-panel__description">Prosty podgląd tortu i dekoracji — również tych jeszcze nieprzyczepionych.</p>
   </header>
 
   <div class="sidebar-panel__body" *ngIf="outline">
@@ -64,15 +62,10 @@
 
         <div class="outline-node__content">
           <div class="outline-node__title" (click)="onSelect(node)">
-            <span class="outline-node__name">{{ node.name }}</span>
-            <span
-              class="outline-node__badge"
-              [class.outline-node__badge--attached]="node.attached"
-              [class.outline-node__badge--detached]="!node.attached"
-            >
-              {{ attachmentLabel(node) }}
+            <span class="outline-node__indicator" *ngIf="selectedId === node.id" aria-label="Zaznaczone">
+              ●
             </span>
-            <span class="outline-node__surface" *ngIf="surfaceLabel(node) as surface">{{ surface }}</span>
+            <span class="outline-node__name">{{ node.name }}</span>
           </div>
         </div>
       </div>

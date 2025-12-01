@@ -20,6 +20,17 @@ export class TransformManagerService {
   private copyDecorationCallback: (() => void) | null = null;
   private pasteDecorationCallback: (() => void) | null = null;
   private cakeSize = 1;
+  private lockedSelection: {
+    object: THREE.Object3D | null;
+    position: THREE.Vector3;
+    quaternion: THREE.Quaternion;
+    scale: THREE.Vector3;
+  } = {
+    object: null,
+    position: new THREE.Vector3(),
+    quaternion: new THREE.Quaternion(),
+    scale: new THREE.Vector3(),
+  };
   private readonly isBrowser: boolean;
 
   constructor(
@@ -87,7 +98,23 @@ export class TransformManagerService {
       return;
     }
 
-    this.selectionService.selectObject(object, this.transformControls, this.boxHelperCallback);
+    const cakeBase = this.snapService.getCakeBase();
+    if (cakeBase && (object === cakeBase || object.parent === cakeBase)) {
+      this.deselectObject();
+      return;
+    }
+
+    const locked = this.isTransformLocked(object);
+    this.transformControls.enabled = !locked;
+    if (locked) {
+      this.lockedSelection.object = null;
+      this.transformControls.detach();
+      this.selectionService.selectObject(object, this.transformControls, this.boxHelperCallback, false);
+      return;
+    }
+
+    this.lockedSelection.object = null;
+    this.selectionService.selectObject(object, this.transformControls, this.boxHelperCallback, true);
   }
 
   public deselectObject(): void {
@@ -95,6 +122,7 @@ export class TransformManagerService {
       return;
     }
 
+    this.lockedSelection.object = null;
     this.selectionService.deselectObject(this.transformControls, this.boxHelperCallback);
   }
 
@@ -172,6 +200,15 @@ export class TransformManagerService {
 
     const selectedObject = this.selectionService.getSelectedObject();
     if (selectedObject && this.transformControls) {
+      if (this.lockedSelection.object === selectedObject) {
+        selectedObject.position.copy(this.lockedSelection.position);
+        selectedObject.quaternion.copy(this.lockedSelection.quaternion);
+        selectedObject.scale.copy(this.lockedSelection.scale);
+        selectedObject.updateMatrixWorld(true);
+        this.snapService.enforceSnappedPosition(selectedObject);
+        return;
+      }
+
       const mode = this.transformControls.mode;
       if (mode === 'translate' || mode === 'scale') {
         this.snapService.enforceSnappedPosition(selectedObject);
@@ -244,4 +281,8 @@ export class TransformManagerService {
       );
     }
   };
+
+  private isTransformLocked(object: THREE.Object3D): boolean {
+    return object.userData['isPaintStroke'] === true || object.userData['isPaintDecoration'] === true;
+  }
 }

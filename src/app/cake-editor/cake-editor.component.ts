@@ -59,9 +59,6 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
 
-  private eraserRestoreTool: 'decoration' | 'pen' = 'decoration';
-  private eraserRestorePaintMode = false;
-
   private readonly handleDocumentClick = () => this.hideContextMenu();
   private readonly handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
@@ -135,29 +132,6 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
   onTogglePaintMode(enabled: boolean): void {
     this.paintService.paintMode = enabled;
-  }
-
-  public get isEraserActive(): boolean {
-    return this.paintService.paintMode && this.paintService.paintTool === 'eraser';
-  }
-
-  onToggleGlobalEraser(): void {
-    if (this.isEraserActive) {
-      this.paintService.setPaintTool(this.eraserRestoreTool);
-      this.paintService.paintMode = this.eraserRestorePaintMode;
-      return;
-    }
-
-    const currentTool =
-      this.paintService.paintTool === 'eraser'
-        ? this.paintService.getLastNonEraserTool()
-        : (this.paintService.paintTool as 'decoration' | 'pen');
-
-    this.eraserRestoreTool = currentTool;
-    this.eraserRestorePaintMode = this.paintService.paintMode;
-
-    this.paintService.setPaintTool('eraser');
-    this.paintService.paintMode = true;
   }
 
   onBrushChanged(brushId: string): void {

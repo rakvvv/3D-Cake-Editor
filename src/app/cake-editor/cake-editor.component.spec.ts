@@ -11,10 +11,8 @@ import { PaintService } from '../services/paint.service';
 
 type PaintServiceStubType = {
   paintMode: boolean;
-  paintTool: 'decoration' | 'pen' | 'eraser';
-  lastNonEraserTool: 'decoration' | 'pen';
+  paintTool: 'decoration' | 'pen' | 'extruder';
   setPaintTool: jasmine.Spy;
-  getLastNonEraserTool: jasmine.Spy;
 } & Partial<PaintService>;
 
 describe('CakeEditorComponent', () => {
@@ -94,16 +92,11 @@ describe('CakeEditorComponent', () => {
     paintServiceStub = {
       paintMode: false,
       paintTool: 'pen',
-      lastNonEraserTool: 'pen',
-      setPaintTool: jasmine.createSpy('setPaintTool').and.callFake((tool: 'decoration' | 'pen' | 'eraser') => {
+      setPaintTool: jasmine
+        .createSpy('setPaintTool')
+        .and.callFake((tool: 'decoration' | 'pen' | 'extruder') => {
         paintServiceStub.paintTool = tool;
-        if (tool !== 'eraser') {
-          paintServiceStub.lastNonEraserTool = tool;
-        }
       }),
-      getLastNonEraserTool: jasmine
-        .createSpy('getLastNonEraserTool')
-        .and.callFake(() => paintServiceStub.lastNonEraserTool),
     } as PaintServiceStubType;
 
     await TestBed.configureTestingModule({
@@ -124,23 +117,5 @@ describe('CakeEditorComponent', () => {
 
   it('tworzy komponent', () => {
     expect(component).toBeTruthy();
-  });
-
-  it('przełącza globalny tryb gumki i przywraca poprzednie narzędzie', () => {
-    const eraserButton = fixture.debugElement.query(By.css('[data-testid="global-eraser-toggle"]'));
-
-    eraserButton.triggerEventHandler('click');
-    fixture.detectChanges();
-
-    expect(paintServiceStub.setPaintTool).toHaveBeenCalledWith('eraser');
-    expect(paintServiceStub.paintMode).toBeTrue();
-    expect(component.isEraserActive).toBeTrue();
-
-    eraserButton.triggerEventHandler('click');
-    fixture.detectChanges();
-
-    expect(paintServiceStub.setPaintTool).toHaveBeenCalledWith('pen');
-    expect(paintServiceStub.paintMode).toBeFalse();
-    expect(component.isEraserActive).toBeFalse();
   });
 });

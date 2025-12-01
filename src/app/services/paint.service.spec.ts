@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { PaintService } from './paint.service';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
+import { SnapService } from './snap.service';
 
 if (typeof performance === 'undefined') {
   (globalThis as any).performance = {
@@ -41,34 +42,26 @@ const getStrokeCylinderLengths = (group: THREE.Group): number[] =>
 describe('PaintService', () => {
   let service: PaintService;
   let transformManager: jasmine.SpyObj<TransformManagerService>;
+  let snapService: jasmine.SpyObj<SnapService>;
 
   beforeEach(() => {
     const transformManagerSpy = jasmine.createSpyObj<TransformManagerService>('TransformManagerService', [
       'removeDecorationObject',
     ]);
+    const snapServiceSpy = jasmine.createSpyObj<SnapService>('SnapService', ['snapDecorationToCake']);
+    snapServiceSpy.snapDecorationToCake.and.returnValue({ success: true, surfaceType: 'TOP', message: '' });
     TestBed.configureTestingModule({
       providers: [
         PaintService,
         { provide: TransformManagerService, useValue: transformManagerSpy },
+        { provide: SnapService, useValue: snapServiceSpy },
       ],
     });
     service = TestBed.inject(PaintService);
     transformManager = TestBed.inject(
       TransformManagerService,
     ) as jasmine.SpyObj<TransformManagerService>;
-  });
-
-  it('zapamiętuje ostatnie narzędzie inne niż gumka', () => {
-    expect(service.getLastNonEraserTool()).toBe('decoration');
-
-    service.setPaintTool('pen');
-    expect(service.getLastNonEraserTool()).toBe('pen');
-
-    service.setPaintTool('eraser');
-    expect(service.getLastNonEraserTool()).toBe('pen');
-
-    service.setPaintTool('decoration');
-    expect(service.getLastNonEraserTool()).toBe('decoration');
+    snapService = TestBed.inject(SnapService) as jasmine.SpyObj<SnapService>;
   });
 
   it('caches brush models and clones new instances', async () => {
@@ -576,212 +569,23 @@ describe('PaintService', () => {
     expect(paintedAfterRedo).toBe(1);
   });
 
-  it('usuwa dekoracje trafione gumką i czyści stosy historii', async () => {
-    service.paintMode = true;
-    service.setPaintTool('eraser');
-
-    const element = document.createElement('canvas');
-    (element as any).getBoundingClientRect = () => ({
-      left: 0,
-      top: 0,
-      width: 200,
-      height: 200,
-      right: 200,
-      bottom: 200,
-      x: 0,
-      y: 0,
-    });
-
-    const renderer = { domElement: element } as unknown as THREE.WebGLRenderer;
-    const camera = new THREE.PerspectiveCamera();
+  it('śledzi dodanie zwykłej dekoracji dla undo/redo', () => {
     const scene = new THREE.Scene();
-    const cake = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
-    cake.updateMatrixWorld(true);
-    const mouse = new THREE.Vector2();
-
-    const baseIntersection = {
-      point: new THREE.Vector3(0, 0.5, 0),
-      face: { normal: new THREE.Vector3(0, 1, 0) },
-      object: cake,
-    } as unknown as THREE.Intersection;
-
     const decoration = new THREE.Group();
     decoration.userData['isDecoration'] = true;
     scene.add(decoration);
 
-    (service as any).undoStack = [decoration];
-    (service as any).redoStack = [decoration];
+    service.registerScene(scene);
+    service.registerDecorationAddition(decoration);
 
-    transformManager.removeDecorationObject.and.callFake((object) => {
-      scene.remove(object);
-    });
+    expect(service.canUndo()).toBeTrue();
 
-    const raycasterSpy = jasmine.createSpyObj<THREE.Raycaster>('Raycaster', [
-      'setFromCamera',
-      'intersectObject',
-      'intersectObjects',
-    ]);
-    raycasterSpy.intersectObject.and.returnValue([baseIntersection]);
-    const decorationIntersection = {
-      distance: 0,
-      point: new THREE.Vector3(),
-      object: decoration,
-    } as unknown as THREE.Intersection;
-
-    raycasterSpy.intersectObjects.and.returnValue([decorationIntersection]);
-
-    await service.handlePaint(
-      new MouseEvent('mousemove', { clientX: 100, clientY: 100, buttons: 1 }),
-      renderer,
-      camera,
-      scene,
-      cake,
-      mouse,
-      raycasterSpy,
-    );
-
-    expect(transformManager.removeDecorationObject).toHaveBeenCalledWith(decoration);
+    service.undo();
     expect(scene.children.includes(decoration)).toBeFalse();
-    expect((service as any).undoStack).toEqual([]);
-    expect((service as any).redoStack).toEqual([]);
+    expect(service.canRedo()).toBeTrue();
+
+    service.redo();
+    expect(scene.children.includes(decoration)).toBeTrue();
   });
 
-  it('usuwa dekoracje malowane pędzlem trafione gumką', async () => {
-    service.paintMode = true;
-    service.setPaintTool('eraser');
-
-    const element = document.createElement('canvas');
-    (element as any).getBoundingClientRect = () => ({
-      left: 0,
-      top: 0,
-      width: 200,
-      height: 200,
-      right: 200,
-      bottom: 200,
-      x: 0,
-      y: 0,
-    });
-
-    const renderer = { domElement: element } as unknown as THREE.WebGLRenderer;
-    const camera = new THREE.PerspectiveCamera();
-    const scene = new THREE.Scene();
-    const cake = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
-    cake.updateMatrixWorld(true);
-    const mouse = new THREE.Vector2();
-
-    const baseIntersection = {
-      point: new THREE.Vector3(0, 0.5, 0),
-      face: { normal: new THREE.Vector3(0, 1, 0) },
-      object: cake,
-    } as unknown as THREE.Intersection;
-
-    const decoration = new THREE.Group();
-    decoration.userData['isPaintDecoration'] = true;
-    scene.add(decoration);
-
-    (service as any).undoStack = [decoration];
-    (service as any).redoStack = [decoration];
-
-    transformManager.removeDecorationObject.and.callFake((object) => {
-      scene.remove(object);
-    });
-
-    const raycasterSpy = jasmine.createSpyObj<THREE.Raycaster>('Raycaster', [
-      'setFromCamera',
-      'intersectObject',
-      'intersectObjects',
-    ]);
-    raycasterSpy.intersectObject.and.returnValue([baseIntersection]);
-    const decorationIntersection = {
-      distance: 0,
-      point: new THREE.Vector3(),
-      object: decoration,
-    } as unknown as THREE.Intersection;
-
-    raycasterSpy.intersectObjects.and.returnValue([decorationIntersection]);
-
-    await service.handlePaint(
-      new MouseEvent('mousemove', { clientX: 100, clientY: 100, buttons: 1 }),
-      renderer,
-      camera,
-      scene,
-      cake,
-      mouse,
-      raycasterSpy,
-    );
-
-    expect(transformManager.removeDecorationObject).toHaveBeenCalledWith(decoration);
-    expect(scene.children.includes(decoration)).toBeFalse();
-    expect((service as any).undoStack).toEqual([]);
-    expect((service as any).redoStack).toEqual([]);
-  });
-
-  it('usuwa segmenty pisaka trafione gumką bez wywołania usuwania dekoracji', async () => {
-    service.paintMode = true;
-    service.setPaintTool('eraser');
-
-    const element = document.createElement('canvas');
-    (element as any).getBoundingClientRect = () => ({
-      left: 0,
-      top: 0,
-      width: 200,
-      height: 200,
-      right: 200,
-      bottom: 200,
-      x: 0,
-      y: 0,
-    });
-
-    const renderer = { domElement: element } as unknown as THREE.WebGLRenderer;
-    const camera = new THREE.PerspectiveCamera();
-    const scene = new THREE.Scene();
-    const cake = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
-    cake.updateMatrixWorld(true);
-    const mouse = new THREE.Vector2();
-
-    const baseIntersection = {
-      point: new THREE.Vector3(0, 0.5, 0),
-      face: { normal: new THREE.Vector3(0, 1, 0) },
-      object: cake,
-    } as unknown as THREE.Intersection;
-
-    const strokeGroup = new THREE.Group();
-    strokeGroup.userData['isPaintStroke'] = true;
-    const segment = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
-    segment.userData['isPaintStroke'] = true;
-    strokeGroup.add(segment);
-    scene.add(strokeGroup);
-
-    (service as any).undoStack = [strokeGroup];
-    (service as any).redoStack = [strokeGroup];
-
-    const raycasterSpy = jasmine.createSpyObj<THREE.Raycaster>('Raycaster', [
-      'setFromCamera',
-      'intersectObject',
-      'intersectObjects',
-    ]);
-    raycasterSpy.intersectObject.and.returnValue([baseIntersection]);
-    const strokeIntersection = {
-      distance: 0,
-      point: new THREE.Vector3(),
-      object: segment,
-    } as unknown as THREE.Intersection;
-
-    raycasterSpy.intersectObjects.and.returnValue([strokeIntersection]);
-
-    await service.handlePaint(
-      new MouseEvent('mousemove', { clientX: 100, clientY: 100, buttons: 1 }),
-      renderer,
-      camera,
-      scene,
-      cake,
-      mouse,
-      raycasterSpy,
-    );
-
-    expect(transformManager.removeDecorationObject).not.toHaveBeenCalled();
-    expect(scene.children.includes(strokeGroup)).toBeFalse();
-    expect((service as any).undoStack).toEqual([]);
-    expect((service as any).redoStack).toEqual([]);
-  });
 });

@@ -27,17 +27,6 @@
       <button
         type="button"
         class="editor-toolbar__button"
-        (click)="onToggleGlobalEraser()"
-        [class.editor-toolbar__button--active]="isEraserActive"
-        [attr.aria-pressed]="isEraserActive"
-        title="Usuń dekoracje i pociągnięcia pędzla"
-        data-testid="global-eraser-toggle"
-      >
-        {{ isEraserActive ? 'Wyłącz gumkę' : 'Włącz gumkę' }}
-      </button>
-      <button
-        type="button"
-        class="editor-toolbar__button"
         (click)="onToolbarResetCamera()"
         title="Resetuj widok (klawisz R)"
       >

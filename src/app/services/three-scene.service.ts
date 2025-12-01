@@ -134,6 +134,15 @@ export class ThreeSceneService {
 
       if (this.paintService.paintMode && this.cakeBase) {
         const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
+        if (!intersectsCake.length || this.transformControlsService.isDragging()) {
+          this.onClickDown(event);
+          return;
+        }
+
         this.paintService.beginStroke(rect);
         this.sceneInitService.setOrbitEnabled(false);
         void this.paintService.handlePaint(
@@ -156,6 +165,11 @@ export class ThreeSceneService {
       }
 
       if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+        this.stopPaintingStroke();
+        return;
+      }
+
+      if (this.transformControlsService.isDragging()) {
         this.stopPaintingStroke();
         return;
       }
@@ -750,7 +764,7 @@ export class ThreeSceneService {
       this.objects
     );
     if (decoration) {
-      this.showBoxHelperFor(decoration);
+      this.paintService.registerDecorationAddition(decoration);
       this.emitOutlineChanged();
     }
   }
@@ -793,6 +807,10 @@ export class ThreeSceneService {
   private handleInteraction(clientX: number, clientY: number, attach = false): THREE.Object3D | null {
     if (this.transformControlsService.isDragging()) {
       return null;
+    }
+
+    if (attach) {
+      this.hideBoxHelper();
     }
 
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -840,7 +858,7 @@ export class ThreeSceneService {
 
     if (attach) {
       this.transformControlsService.attachObject(selected);
-      this.showBoxHelperFor(selected);
+      this.emitOutlineChanged();
     }
 
     return selected;
@@ -857,7 +875,6 @@ export class ThreeSceneService {
   private showBoxHelperFor(object: THREE.Object3D): void {
     this.hideBoxHelper(); // Usuń stary
     this.boxHelper = new THREE.BoxHelper(object, 0xff0000); // Czerwony kolor
-    this.boxHelper.layers.set(1);
     this.scene.add(this.boxHelper);
     // Aktualizuj BoxHelper, gdy obiekt się porusza (w TransformControlsService)
   }
@@ -980,8 +997,11 @@ export class ThreeSceneService {
     instance.updateMatrixWorld(true);
 
     this.transformControlsService.attachObject(instance);
-    this.showBoxHelperFor(instance);
     this.clipboard.pasteCount += 1;
+
+    this.paintService.registerDecorationAddition(instance);
+
+    this.emitOutlineChanged();
 
     return {
       success: true,
@@ -1090,7 +1110,6 @@ export class ThreeSceneService {
 
     this.objects.push(group);
     this.transformControlsService.attachObject(group);
-    this.showBoxHelperFor(group);
     this.emitOutlineChanged();
 
     return { success: true, message: 'Utworzono nową grupę dekoracji.', groupId: group.uuid };
@@ -1110,29 +1129,9 @@ export class ThreeSceneService {
       children: [],
     };
 
-    const nodes = new Map<string, SceneOutlineNode>();
-    nodes.set(rootId, root);
-
-    this.cakeLayers.forEach((layer, index) => {
-      const label = this.describeLayer(index);
-      const node: SceneOutlineNode = {
-        id: this.layerNodeId(index),
-        name: label,
-        type: 'layer',
-        attached: true,
-        visible: layer.visible,
-        parentId: rootId,
-        layerIndex: index,
-        surface: 'TOP',
-        children: [],
-      };
-      nodes.set(node.id, node);
-      root.children.push(node);
-    });
-
-    const unattached: SceneOutlineNode = {
-      id: 'outline-unattached',
-      name: 'Nieprzyczepione dekoracje',
+    const unattachedRoot: SceneOutlineNode = {
+      id: 'unattached-root',
+      name: 'Nieprzyczepione',
       type: 'layer',
       attached: false,
       visible: true,
@@ -1141,12 +1140,14 @@ export class ThreeSceneService {
       surface: null,
       children: [],
     };
-    nodes.set(unattached.id, unattached);
-    root.children.push(unattached);
+
+    const nodes = new Map<string, SceneOutlineNode>();
+    nodes.set(rootId, root);
+    nodes.set(unattachedRoot.id, unattachedRoot);
 
     const appendNode = (node: SceneOutlineNode, parentId: string | null) => {
-      nodes.set(node.id, node);
       const parent = (parentId ? nodes.get(parentId) : null) ?? root;
+      nodes.set(node.id, node);
       node.parentId = parent.id;
       parent.children.push(node);
     };
@@ -1157,22 +1158,14 @@ export class ThreeSceneService {
         return;
       }
 
-      const parentDecoration = this.findParentDecoration(object);
+      if (this.findParentDecoration(object)) {
+        return;
+      }
+
       const attached = this.isAttachedToCake(object);
       const snapInfo = this.findSnapInfo(object);
-      const layerIndex = attached ? snapInfo?.layerIndex ?? null : null;
-      const surface = attached ? snapInfo?.surfaceType ?? null : null;
-
-      let parentId: string | null = null;
-      if (parentDecoration) {
-        parentId = parentDecoration.uuid;
-      } else if (attached && layerIndex !== null) {
-        parentId = this.layerNodeId(layerIndex);
-      } else if (attached) {
-        parentId = this.cakeBase?.uuid ?? rootId;
-      } else {
-        parentId = unattached.id;
-      }
+      const surface = snapInfo?.surfaceType ?? null;
+      const parentId = attached ? rootId : unattachedRoot.id;
 
       const node: SceneOutlineNode = {
         id: object.uuid,
@@ -1181,18 +1174,18 @@ export class ThreeSceneService {
         attached,
         visible: object.visible,
         parentId,
-        layerIndex,
+        layerIndex: null,
         surface: surface ?? null,
         children: [],
       };
 
       appendNode(node, parentId);
-
-      object.children.forEach(processDecoration);
     };
 
     const sceneChildren = this.sceneInitService.scene?.children ?? [];
     sceneChildren.forEach(processDecoration);
+
+    root.children.push(unattachedRoot);
 
     return root;
   }

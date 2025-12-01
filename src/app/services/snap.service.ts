@@ -61,8 +61,8 @@ export class SnapService {
       };
     }
 
-    const worldPosition = object.getWorldPosition(new THREE.Vector3());
-    const closest = this.getClosestPointOnCake(worldPosition);
+    const closestCandidate = this.getClosestPointForObject(object);
+    const closest = closestCandidate.info;
 
     if (closest.surfaceType === 'NONE' || !isFinite(closest.distance)) {
       return {
@@ -78,10 +78,16 @@ export class SnapService {
 
     object.updateMatrixWorld(true);
 
-    const offset = this.computeOffsetDistance(object, surfaceWorldNormal);
+    const pivotWorld = object.getWorldPosition(new THREE.Vector3());
+    const anchorWorld = closestCandidate.worldPoint.clone();
+    const offset = this.computeOffsetDistance(object, surfaceWorldNormal, anchorWorld);
+    const anchorOffsetAlongNormal = surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition));
+    const effectiveOffset = Math.max(0.002, offset - anchorOffsetAlongNormal);
+    const anchorDelta = anchorWorld.clone().sub(pivotWorld);
     const finalWorldPosition = surfaceWorldPosition
       .clone()
-      .add(surfaceWorldNormal.clone().multiplyScalar(offset));
+      .add(surfaceWorldNormal.clone().multiplyScalar(effectiveOffset))
+      .sub(anchorDelta);
 
     if (object.parent !== this.cakeBase) {
       this.cakeBase.attach(object);
@@ -126,8 +132,8 @@ export class SnapService {
       };
     }
 
-    const worldPosition = object.getWorldPosition(new THREE.Vector3());
-    const closest = this.getClosestPointOnCake(worldPosition);
+    const closestCandidate = this.getClosestPointForObject(object);
+    const closest = closestCandidate.info;
 
     if (closest.surfaceType === 'NONE' || closest.distance > this.attachmentTolerance * 3) {
       return {
@@ -249,6 +255,29 @@ export class SnapService {
     }
 
     return null;
+  }
+
+  private getClosestPointForObject(object: THREE.Object3D): { info: ClosestPointInfo; worldPoint: THREE.Vector3 } {
+    const pivotWorld = object.getWorldPosition(new THREE.Vector3());
+    let bestInfo = this.getClosestPointOnCake(pivotWorld);
+    let bestWorldPoint = pivotWorld.clone();
+
+    const box = this.computeWorldBoundingBox(object);
+    if (!box.isEmpty()) {
+      const center = box.getCenter(new THREE.Vector3());
+      const corners = this.getBoxCorners(box);
+      const candidates = [...corners, center];
+
+      for (const candidate of candidates) {
+        const info = this.getClosestPointOnCake(candidate);
+        if (info.surfaceType !== 'NONE' && info.distance < bestInfo.distance) {
+          bestInfo = info;
+          bestWorldPoint = candidate.clone();
+        }
+      }
+    }
+
+    return { info: bestInfo, worldPoint: bestWorldPoint };
   }
 
   public getClosestPointOnCake(worldPoint: THREE.Vector3): ClosestPointInfo {
@@ -967,43 +996,151 @@ export class SnapService {
     }
   }
 
-  private computeOffsetDistance(object: THREE.Object3D, normalWorld: THREE.Vector3): number {
-    const boundingBox = new THREE.Box3().setFromObject(object);
-    const center = boundingBox.getCenter(new THREE.Vector3());
-
-    const vertices = [
-      new THREE.Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z),
-      new THREE.Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.max.z),
-      new THREE.Vector3(boundingBox.min.x, boundingBox.max.y, boundingBox.min.z),
-      new THREE.Vector3(boundingBox.min.x, boundingBox.max.y, boundingBox.max.z),
-      new THREE.Vector3(boundingBox.max.x, boundingBox.min.y, boundingBox.min.z),
-      new THREE.Vector3(boundingBox.max.x, boundingBox.min.y, boundingBox.max.z),
-      new THREE.Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.min.z),
-      new THREE.Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z),
-    ];
+  private computeOffsetDistance(
+    object: THREE.Object3D,
+    normalWorld: THREE.Vector3,
+    anchorWorld?: THREE.Vector3,
+  ): number {
+    object.updateMatrixWorld(true);
 
     const normal = normalWorld.clone().normalize();
-    let minProjection = Infinity;
-
-    for (const vertex of vertices) {
-      const projection = normal.dot(vertex.clone().sub(center));
-      if (projection < minProjection) {
-        minProjection = projection;
-      }
-    }
-
-    if (!isFinite(minProjection)) {
-      return 0.2;
-    }
+    const pivot = anchorWorld?.clone() ?? object.getWorldPosition(new THREE.Vector3());
 
     const clearance = 0.002;
-    const computedOffset = -minProjection + clearance;
+    let minProjection = Infinity;
 
-    const boundingSphere = new THREE.Sphere();
-    boundingBox.getBoundingSphere(boundingSphere);
-    const sphereLimit = Math.max(0.005, boundingSphere.radius + clearance);
+    const corners: THREE.Vector3[] = [
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+    ];
 
-    return THREE.MathUtils.clamp(computedOffset, 0.005, sphereLimit);
+    const updateCorners = (box: THREE.Box3, matrixWorld: THREE.Matrix4 | null) => {
+      const transform = matrixWorld ?? new THREE.Matrix4();
+      corners[0].set(box.min.x, box.min.y, box.min.z).applyMatrix4(transform);
+      corners[1].set(box.min.x, box.min.y, box.max.z).applyMatrix4(transform);
+      corners[2].set(box.min.x, box.max.y, box.min.z).applyMatrix4(transform);
+      corners[3].set(box.min.x, box.max.y, box.max.z).applyMatrix4(transform);
+      corners[4].set(box.max.x, box.min.y, box.min.z).applyMatrix4(transform);
+      corners[5].set(box.max.x, box.min.y, box.max.z).applyMatrix4(transform);
+      corners[6].set(box.max.x, box.max.y, box.min.z).applyMatrix4(transform);
+      corners[7].set(box.max.x, box.max.y, box.max.z).applyMatrix4(transform);
+
+      for (const corner of corners) {
+        const projection = normal.dot(corner.clone().sub(pivot));
+        if (projection < minProjection) {
+          minProjection = projection;
+        }
+      }
+    };
+
+    const tempBox = new THREE.Box3();
+    const instanceMatrix = new THREE.Matrix4();
+    const worldMatrix = new THREE.Matrix4();
+
+    object.traverse((child) => {
+      if ((child as THREE.InstancedMesh).isInstancedMesh) {
+        const instanced = child as THREE.InstancedMesh;
+        const geometry = instanced.geometry;
+        if (!geometry.boundingBox) {
+          geometry.computeBoundingBox();
+        }
+        if (!geometry.boundingBox) {
+          return;
+        }
+
+        for (let i = 0; i < instanced.count; i++) {
+          instanced.getMatrixAt(i, instanceMatrix);
+          worldMatrix.multiplyMatrices(instanced.matrixWorld, instanceMatrix);
+          tempBox.copy(geometry.boundingBox);
+          updateCorners(tempBox, worldMatrix);
+        }
+        return;
+      }
+
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const geometry = mesh.geometry;
+        if (!geometry.boundingBox) {
+          geometry.computeBoundingBox();
+        }
+        if (!geometry.boundingBox) {
+          return;
+        }
+
+        tempBox.copy(geometry.boundingBox);
+        updateCorners(tempBox, mesh.matrixWorld);
+      }
+    });
+
+    if (!isFinite(minProjection)) {
+      return clearance;
+    }
+
+    return Math.max(clearance, -minProjection + clearance);
+  }
+
+  private computeWorldBoundingBox(object: THREE.Object3D): THREE.Box3 {
+    object.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    const tempBox = new THREE.Box3();
+    const instanceMatrix = new THREE.Matrix4();
+    const worldMatrix = new THREE.Matrix4();
+
+    object.traverse((child) => {
+      if ((child as THREE.InstancedMesh).isInstancedMesh) {
+        const instanced = child as THREE.InstancedMesh;
+        const geometry = instanced.geometry;
+        if (!geometry.boundingBox) {
+          geometry.computeBoundingBox();
+        }
+        if (!geometry.boundingBox) {
+          return;
+        }
+
+        for (let i = 0; i < instanced.count; i++) {
+          instanced.getMatrixAt(i, instanceMatrix);
+          worldMatrix.multiplyMatrices(instanced.matrixWorld, instanceMatrix);
+          tempBox.copy(geometry.boundingBox).applyMatrix4(worldMatrix);
+          box.union(tempBox);
+        }
+        return;
+      }
+
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const geometry = mesh.geometry;
+        if (!geometry.boundingBox) {
+          geometry.computeBoundingBox();
+        }
+        if (!geometry.boundingBox) {
+          return;
+        }
+
+        tempBox.copy(geometry.boundingBox).applyMatrix4(mesh.matrixWorld);
+        box.union(tempBox);
+      }
+    });
+
+    return box;
+  }
+
+  private getBoxCorners(box: THREE.Box3): THREE.Vector3[] {
+    return [
+      new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+      new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+      new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+      new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+      new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+      new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+      new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+      new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+    ];
   }
 
   private getWorldNormal(normalLocal: THREE.Vector3): THREE.Vector3 {
