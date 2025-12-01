@@ -106,6 +106,7 @@ export class PaintService {
 
   private decorationVariants = new Map<string, DecorationVariantData[]>();
   private decorationStrokeInstances = new Map<string, DecorationInstanceState[]>();
+  private decorationVariantCursor = new Map<string, number>();
 
   constructor(private readonly transformManager: TransformManagerService) {}
 
@@ -513,20 +514,31 @@ export class PaintService {
     variants: DecorationVariantData[],
     decorationGroup: THREE.Group,
     matrix: THREE.Matrix4,
+    selectedIndex?: number,
   ): void {
     const states = this.ensureDecorationInstanceMeshes(brushId, variants, decorationGroup);
 
-    variants.forEach((variant, index) => {
-      const state = states[index];
-      if (!state || state.count >= this.extruderMaxInstances) {
-        return;
-      }
+    const targetIndex = typeof selectedIndex === 'number' ? selectedIndex : 0;
+    const state = states[targetIndex];
+    if (!state || state.count >= this.extruderMaxInstances) {
+      return;
+    }
 
-      state.mesh.setMatrixAt(state.count, matrix);
-      state.mesh.count = state.count + 1;
-      state.mesh.instanceMatrix.needsUpdate = true;
-      state.count += 1;
-    });
+    state.mesh.setMatrixAt(state.count, matrix);
+    state.mesh.count = state.count + 1;
+    state.mesh.instanceMatrix.needsUpdate = true;
+    state.count += 1;
+  }
+
+  private getNextDecorationVariantIndex(brushId: string, total: number): number {
+    if (total <= 0) {
+      return 0;
+    }
+
+    const next = this.decorationVariantCursor.get(brushId) ?? 0;
+    const index = next % total;
+    this.decorationVariantCursor.set(brushId, index + 1);
+    return index;
   }
 
   private ensureDecorationInstanceMeshes(
@@ -584,6 +596,21 @@ export class PaintService {
     }
 
     return 1;
+  }
+
+  private getDecorationSpacing(brushId: string): number {
+    const templateSize = this.brushSizes.get(brushId);
+    if (templateSize) {
+      const maxDim = Math.max(templateSize.x, templateSize.y, templateSize.z);
+      if (maxDim > 0) {
+        const scale = 0.5 / maxDim;
+        const scaledMax = maxDim * scale;
+        const spacing = scaledMax * 0.35;
+        return Math.max(this.baseMinDistance * 1.5, spacing);
+      }
+    }
+
+    return this.baseMinDistance * 1.5;
   }
 
   private async getDecorationVariants(brushId: string): Promise<DecorationVariantData[]> {
@@ -646,7 +673,8 @@ export class PaintService {
     const scale = this.getDecorationScale(this.currentBrush, variants);
 
     const matrix = new THREE.Matrix4().compose(position, rotation, new THREE.Vector3(scale, scale, scale));
-    this.addDecorationInstances(this.currentBrush, variants, decorationGroup, matrix);
+    const selectedVariant = this.getNextDecorationVariantIndex(this.currentBrush, variants.length);
+    this.addDecorationInstances(this.currentBrush, variants, decorationGroup, matrix, selectedVariant);
   }
 
   public setExtruderVariantSelection(selection: number | 'random'): void {
@@ -1095,6 +1123,10 @@ export class PaintService {
 
     if (this.paintTool === 'extruder') {
       return Math.max(0.005, this.getExtruderAverageSpacing(this.extruderVariants ?? []));
+    }
+
+    if (this.paintTool === 'decoration') {
+      return this.getDecorationSpacing(this.currentBrush);
     }
 
     return this.baseMinDistance;
