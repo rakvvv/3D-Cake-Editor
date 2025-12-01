@@ -1,73 +1,40 @@
 {
   "sets": [
     {
-      "id": "vanilla-cake",
-      "label": "Waniliowy biszkopt",
-      "thumbnail": null,
-      "cake": {
-        "baseColor": "/assets/textures/cake_color.jpg",
-        "roughness": "/assets/textures/cake_roughness.jpg",
-        "repeat": 2
-      }
-    },
-    {
-      "id": "candy-glaze",
-      "label": "Kolorowa polewa",
+      "id": "chocolate-cake-02",
+      "label": "Czekoladowa polewa",
       "thumbnail": null,
       "glaze": {
-        "baseColor": "/assets/textures/Candy001_1K-JPG_Color.jpg",
-        "normal": "/assets/textures/Candy001_1K-JPG_NormalGL.jpg",
-        "roughness": "/assets/textures/Candy001_1K-JPG_Color.jpg",
-        "repeat": 2.8,
+        "baseColor": "/assets/textures/Chocolate 02_Albedo.jpg",
+        "roughness": "/assets/textures/Chocolate 02_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate 02_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate 02_Displacement.jpg",
+        "repeat": 2,
         "affectDrips": true
       }
     },
     {
-      "id": "chocolate-cake-02",
-      "label": "Czekoladowy biszkopt (ciemny)",
-      "thumbnail": null,
-      "cake": {
-        "baseColor": "/assets/textures/Chocolate 02_Albedo.jpg",
-        "roughness": "/assets/textures/Chocolate 02_Roughness.jpg",
-        "normal": "/assets/textures/Chocolate 02_Normal.jpg",
-        "repeat": 2
-      }
-    },
-    {
-      "id": "chocolate-cake-03-glaze",
+      "id": "chocolate-cake-03",
       "label": "Biała Czekolada polewa",
       "thumbnail": null,
       "glaze": {
         "baseColor": "/assets/textures/Chocolate 03_Albedo.jpg",
         "roughness": "/assets/textures/Chocolate 03_Roughness.jpg",
         "normal": "/assets/textures/Chocolate 03_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate 03_Displacement.jpg",
         "repeat": 2,
         "affectDrips": true
       }
     },
     {
-      "id": "cream-glaze",
-      "label": "Śmietankowa polewa",
+      "id": "frosting",
+      "label": "krem",
       "thumbnail": null,
-      "glaze": {
-        "baseColor": "/assets/textures/albedo.jpg",
-        "roughness": "/assets/textures/roughness.jpg",
-        "normal": "/assets/textures/normal.jpg",
-        "displacement": "/assets/textures/displacement.jpg",
-        "repeat": 2.5,
-        "affectDrips": false
-      }
-    },
-    {
-      "id": "pink-frosting",
-      "label": "Różowy krem",
-      "thumbnail": null,
-      "glaze": {
+      "cake": {
         "baseColor": "/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg",
         "normal": "/assets/textures/Pink_Cake_Frosting_01-normal.jpg",
         "roughness": "/assets/textures/Pink_Cake_Frosting_01-bump.jpg",
-        "repeat": 2.5,
-        "affectDrips": true
+        "repeat": 2.5
       }
     },
     {
@@ -81,15 +48,16 @@
         "metallic": "/assets/textures/Pink_Candy_Metallic.jpg",
         "displacement": "/assets/textures/Pink_Candy_Displacement.jpg",
         "emissive": "/assets/textures/Pink_Candy_Emissive.jpg",
+        "alpha": "/assets/textures/Pink_Candy_Alpha.jpg",
         "repeat": 3,
         "affectDrips": false
       }
     },
     {
       "id": "food-chocolate-glaze",
-      "label": "Gęsta polewa czekoladowa",
+      "label": "frosting czekoladowy",
       "thumbnail": null,
-      "glaze": {
+      "cake": {
         "baseColor": "/assets/textures/Food_Chocolate_basecolor.jpg",
         "normal": "/assets/textures/Food_Chocolate_normal.jpg",
         "roughness": "/assets/textures/Food_Chocolate_roughness.jpg",

@@ -205,7 +205,25 @@ export class ThreeObjectsFactory {
       } else {
         width = baseRadius * 2 * sizeMultiplier;
         depth = baseRadius * 2 * sizeMultiplier;
-        geometry = new THREE.BoxGeometry(width, layerHeight, depth);
+
+        const cornerRadius = 0.15; // ← jak chcesz więcej / mniej zaokrąglenia, zmieniasz to
+
+        const shape = this.getRoundedRectShape(width, depth, cornerRadius);
+
+        const extrude = new THREE.ExtrudeGeometry(shape, {
+          depth: layerHeight,
+          bevelEnabled: false,
+          curveSegments: 30,
+          steps: 1,
+        });
+
+        // Extrude idzie w +Z, obracamy żeby "depth" było wysokością (Y)
+        extrude.rotateX(Math.PI / 2);
+
+        // centrujemy, żeby warstwa dalej była liczone od środka
+        extrude.center();
+
+        geometry = extrude;
       }
 
       const layer = new THREE.Mesh(geometry, material);
@@ -479,12 +497,12 @@ export class ThreeObjectsFactory {
     const rimMesh = new THREE.Mesh(rimGeo, glazeMaterial);
     rimMesh.userData['isCakeGlaze'] = true;
     rimMesh.rotateX(Math.PI / 2);
-    rimMesh.position.y = topLayer.topY + glazeVerticalOffset;
+    rimMesh.position.y = topLayer.topY + glazeVerticalOffset - 0.017;
     group.add(rimMesh);
 
     // 3. SOPLE
     // Startujemy wysoko, prawie w połowie grubości rantu
-    const startY = topLayer.topY + glazeVerticalOffset;
+    const startY = topLayer.topY + glazeVerticalOffset - 0.017;
 
     const dripsGroup = this.createRefinedDrips(
       startY,
@@ -886,7 +904,7 @@ export class ThreeObjectsFactory {
       const { mesh, length } = this.buildDripMesh(material, baseThickness, baseLength, random);
 
       // FIX: Obniżamy start sopla głębiej (0.06), żeby jego góra schowała się pod wałkiem
-      const py = startY - 0.08 - length / 2;
+      const py = startY - 0.06 - length / 2;
 
       const neckThickness = baseThickness * 0.2;
 
@@ -967,7 +985,9 @@ export class ThreeObjectsFactory {
     // Ustawiamy grupę na 0,0,0, żeby transformacje wierzchołków działały w przestrzeni globalnej
     group.position.set(0, 0, 0);
 
-    const rimY = topY + thickness * 0.005;
+    const rimYOffset = -thickness * 0.03;
+
+    const rimY = topY + thickness * 0.005 + rimYOffset;
 
     // --- GEOMETRIE Z GĘSTĄ SIATKĄ (KLUCZ DO FALOWANIA) ---
     // Zmieniamy 4. parametr (heightSegments) z 1 na 32.
