@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Subject } from 'rxjs';
 import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
@@ -89,7 +90,9 @@ export class PaintService {
   private extruderLastNormal: THREE.Vector3 | null = null;
   private readonly extruderTargetWidth = 0.12;
   private readonly extruderMaxInstances = 1500;
-  private readonly extruderBaseRotation = new THREE.Euler(-Math.PI / 2, 0, 0);
+  private readonly extruderBaseRotation = new THREE.Euler(0, 0, 0);
+
+  private readonly isBrowser: boolean;
 
   private sceneRef: THREE.Scene | null = null;
   private cakeBaseRef: THREE.Object3D | null = null;
@@ -117,7 +120,12 @@ export class PaintService {
   private decorationStrokeInstances = new Map<string, DecorationInstanceState[]>();
   private decorationVariantCursor = new Map<string, number>();
 
-  constructor(private readonly transformManager: TransformManagerService) {}
+  constructor(
+    private readonly transformManager: TransformManagerService,
+    @Inject(PLATFORM_ID) platformId: object,
+  ) {
+    this.isBrowser = isPlatformBrowser(platformId);
+  }
 
   public async handlePaint(
     event: MouseEvent,
@@ -928,6 +936,10 @@ export class PaintService {
   }
 
   private async loadExtruderVariants(): Promise<ExtruderVariantData[]> {
+    if (!this.isBrowser) {
+      return [];
+    }
+
     const variants: ExtruderVariantData[] = [];
 
     for (const source of this.extruderVariantSources) {
@@ -949,6 +961,10 @@ export class PaintService {
     fallbackName: string,
     scaleMultiplier: number,
   ): Promise<ExtruderVariantData | null> {
+    if (!this.isBrowser) {
+      return null;
+    }
+
     const model = await DecorationFactory.loadDecorationModel(`/models/${fileId}`);
     model.updateMatrixWorld(true);
 
