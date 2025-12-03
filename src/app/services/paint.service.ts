@@ -77,9 +77,9 @@ export class PaintService {
 
   private extruderBrushId = 'cream_dot.glb';
   private readonly extruderVariantSources: { id: string; name: string; scaleMultiplier: number }[] = [
-    { id: 'cream_dot.glb', name: 'Kropka', scaleMultiplier: 1.45 },
-    { id: 'cream_shell.glb', name: 'Muszelka', scaleMultiplier: 1.7 },
-    { id: 'cream_wave.glb', name: 'Fala', scaleMultiplier: 1.55 },
+    { id: 'cream_dot.glb', name: 'Kropka', scaleMultiplier: 1.85 },
+    { id: 'cream_shell.glb', name: 'Muszelka', scaleMultiplier: 2 },
+    { id: 'cream_wave.glb', name: 'Fala', scaleMultiplier: 2 },
   ];
   private extruderVariantSelection: number | 'random' = 'random';
   private extruderVariants: ExtruderVariantData[] | null = null;
@@ -1123,43 +1123,6 @@ export class PaintService {
     return center;
   }
 
-  private extractExtruderVariants(root: THREE.Object3D): ExtruderVariantData[] {
-    const variants: ExtruderVariantData[] = [];
-    root.traverse((node) => {
-      const mesh = node as THREE.Mesh;
-      if (!mesh.isMesh || variants.length >= 5) {
-        return;
-      }
-
-      mesh.updateMatrixWorld(true);
-
-      const geometry = mesh.geometry.clone();
-      geometry.applyMatrix4(mesh.matrix.clone());
-      geometry.computeBoundingBox();
-      geometry.computeBoundingSphere();
-
-      const size = new THREE.Vector3();
-      geometry.boundingBox?.getSize(size);
-
-      const sourceMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      const material = sourceMaterial?.clone() ?? new THREE.MeshStandardMaterial({ color: 0xffffff });
-      if ((material as THREE.Material).side !== undefined) {
-        (material as THREE.Material).side = THREE.DoubleSide;
-      }
-
-      variants.push({
-        geometry,
-        material,
-        size,
-        name: mesh.name || `Variant ${variants.length + 1}`,
-        sourceId: this.extruderBrushId,
-        scaleMultiplier: 1,
-      });
-    });
-
-    return variants;
-  }
-
   private placePenStroke(
     point: THREE.Vector3,
     normal: THREE.Vector3,
@@ -1200,11 +1163,6 @@ export class PaintService {
     this.updatePenEndCap(currentPosition, strokeGroup);
   }
 
-  private async getBrushInstance(brushId: string): Promise<THREE.Object3D> {
-    const template = await this.loadBrushTemplate(brushId);
-    return this.cloneBrush(template);
-  }
-
   private loadBrushTemplate(brushId: string): Promise<THREE.Object3D> {
     const cached = this.brushCache.get(brushId);
     if (cached) {
@@ -1230,25 +1188,6 @@ export class PaintService {
 
     this.brushPromises.set(brushId, promise);
     return promise;
-  }
-
-  private cloneBrush(template: THREE.Object3D): THREE.Object3D {
-    const clone = template.clone(true);
-    const meshes: THREE.Mesh[] = [];
-
-    clone.traverse((node) => {
-      node.userData = { ...node.userData };
-
-      if ((node as THREE.Mesh).isMesh) {
-        meshes.push(node as THREE.Mesh);
-      }
-    });
-
-    if (meshes.length) {
-      clone.userData['clickableMeshes'] = meshes;
-    }
-
-    return clone;
   }
 
   private ensurePenCapInstanceMesh(strokeGroup: THREE.Group): PenInstanceState {
@@ -1597,17 +1536,6 @@ export class PaintService {
   private getPenRadialSegments(): number {
     const radius = this.getPenTubeRadius();
     return Math.min(48, Math.max(16, Math.round(radius * 200)));
-  }
-
-  private getBrushSize(brushId: string, model: THREE.Object3D): THREE.Vector3 {
-    const cached = this.brushSizes.get(brushId);
-    if (cached) {
-      return cached;
-    }
-
-    const computed = this.computeBrushSize(model);
-    this.brushSizes.set(brushId, computed);
-    return computed;
   }
 
   private computeBrushSize(model: THREE.Object3D): THREE.Vector3 {
