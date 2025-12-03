@@ -17,6 +17,8 @@ describe('PaintPanelComponent', () => {
         'setCurrentBrush',
         'updatePenSettings',
         'setExtruderVariantSelection',
+        'getExtruderVariantPreviews',
+        'insertExtruderPreset',
         'undo',
         'redo',
         'canUndo',
@@ -36,6 +38,8 @@ describe('PaintPanelComponent', () => {
     paintService.canUndo.and.returnValue(false);
     paintService.canRedo.and.returnValue(false);
     paintService.getExtruderVariantSelection.and.returnValue('random');
+    paintService.getExtruderVariantPreviews.and.resolveTo([]);
+    paintService.insertExtruderPreset.and.resolveTo();
 
     await TestBed.configureTestingModule({
       imports: [PaintPanelComponent],
