@@ -88,6 +88,9 @@ export class PaintService {
   private activeExtruderStrokeGroup: THREE.Group | null = null;
   private extruderLastPlacedPoint: THREE.Vector3 | null = null;
   private extruderLastNormal: THREE.Vector3 | null = null;
+  private extruderFirstInstance:
+    | { state: ExtruderInstanceState; index: number; position: THREE.Vector3; normal: THREE.Vector3; scale: number }
+    | null = null;
   private readonly extruderTargetWidth = 0.12;
   private readonly extruderMaxInstances = 1500;
   private readonly extruderBaseRotation = new THREE.Euler(0, 0, 0);
@@ -229,6 +232,7 @@ export class PaintService {
     this.extruderStrokeInstances.clear();
     this.extruderLastPlacedPoint = null;
     this.extruderLastNormal = null;
+    this.extruderFirstInstance = null;
   }
 
   public endStroke(): void {
@@ -276,6 +280,7 @@ export class PaintService {
     this.extruderStrokeInstances.clear();
     this.extruderLastPlacedPoint = null;
     this.extruderLastNormal = null;
+    this.extruderFirstInstance = null;
   }
 
   public setPaintTool(tool: PaintTool): void {
@@ -299,6 +304,7 @@ export class PaintService {
     this.activeExtruderStrokeGroup = null;
     this.extruderLastPlacedPoint = null;
     this.extruderLastNormal = null;
+    this.extruderFirstInstance = null;
   }
 
   public updatePenSettings(settings: { size?: number; thickness?: number; color?: string }): void {
@@ -604,9 +610,10 @@ export class PaintService {
     }
 
     const tangent = pathVector.clone().normalize();
+    this.alignFirstExtruderInstance(tangent, baseNormal);
     let cursor = startPoint.clone();
     let remaining = cursor.distanceTo(currentPosition);
-    const minSpacing = this.getExtruderAverageSpacing(variants);
+    const minSpacing = this.getExtruderAverageSpacing(variants) * 0.8;
 
     while (remaining >= minSpacing) {
       const variantIndex = this.selectExtruderVariant(variants.length);
@@ -698,6 +705,8 @@ export class PaintService {
     const transform = this.buildExtruderMatrix(position, normal, tangent, scale);
 
     const state = this.ensureExtruderInstanceMesh(selectedIndex, variant, strokeGroup);
+    const isFirstPlacement =
+      !this.extruderFirstInstance && Array.from(this.extruderStrokeInstances.values()).every((meshState) => meshState.count === 0);
     if (state.count >= this.extruderMaxInstances) {
       return;
     }
@@ -706,6 +715,16 @@ export class PaintService {
     state.mesh.count = state.count + 1;
     state.mesh.instanceMatrix.needsUpdate = true;
     state.count += 1;
+
+    if (isFirstPlacement) {
+      this.extruderFirstInstance = {
+        state,
+        index: state.count - 1,
+        position: position.clone(),
+        normal: normal.clone(),
+        scale,
+      };
+    }
   }
 
   private buildExtruderMatrix(
@@ -736,6 +755,20 @@ export class PaintService {
     const matrix = new THREE.Matrix4();
     matrix.compose(position, quaternion, new THREE.Vector3(scale, scale, scale));
     return matrix;
+  }
+
+  private alignFirstExtruderInstance(tangent: THREE.Vector3, normal: THREE.Vector3): void {
+    if (!this.extruderFirstInstance) {
+      return;
+    }
+
+    const { state, index, position, scale } = this.extruderFirstInstance;
+    const adjustedNormal = normal.clone().normalize();
+    const transform = this.buildExtruderMatrix(position, adjustedNormal, tangent, scale);
+
+    state.mesh.setMatrixAt(index, transform);
+    state.mesh.instanceMatrix.needsUpdate = true;
+    this.extruderFirstInstance = null;
   }
 
   private ensureExtruderInstanceMesh(
@@ -788,7 +821,7 @@ export class PaintService {
 
     const offset = this.getExtruderSurfaceOffset(variants);
     const upNormal = normal.clone().normalize();
-    const minSpacing = this.getExtruderAverageSpacing(variants);
+    const minSpacing = this.getExtruderAverageSpacing(variants) * 0.8;
     let lastPlaced: THREE.Vector3 | null = null;
 
     points.forEach((point, index) => {
@@ -796,6 +829,7 @@ export class PaintService {
       if (!lastPlaced) {
         const tangent = this.getPresetTangent(points, index);
         this.addExtruderInstance(current, upNormal, tangent, variants, strokeGroup);
+        this.alignFirstExtruderInstance(tangent, upNormal);
         lastPlaced = current.clone();
         return;
       }
@@ -849,7 +883,7 @@ export class PaintService {
     }
 
     const maxHeight = Math.max(...variants.map((variant) => variant.size.y * this.getExtruderScale(variant)));
-    return Math.max(this.penSurfaceOffset, maxHeight * 0.5 + this.penSurfaceOffset * 0.5);
+    return Math.max(this.penSurfaceOffset * 0.6, maxHeight * 0.2);
   }
 
   private getExtruderAverageSpacing(variants: ExtruderVariantData[]): number {
