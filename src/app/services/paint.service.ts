@@ -9,6 +9,8 @@ type ExtruderVariantData = {
   material: THREE.Material;
   size: THREE.Vector3;
   name: string;
+  sourceId: string;
+  scaleMultiplier?: number;
 };
 
 type ExtruderInstanceState = {
@@ -71,7 +73,12 @@ export class PaintService {
   private penJointGeometry = new THREE.SphereGeometry(0.5, 14, 10);
   private penSegmentGeometryCache = new Map<number, THREE.CylinderGeometry>();
 
-  private extruderBrushId = 'creamset_longpiping.glb';
+  private extruderBrushId = 'cream_dot.glb';
+  private readonly extruderVariantSources: { id: string; name: string; scaleMultiplier: number }[] = [
+    { id: 'cream_dot.glb', name: 'Kropka', scaleMultiplier: 1.45 },
+    { id: 'cream_shell.glb', name: 'Muszelka', scaleMultiplier: 1.7 },
+    { id: 'cream_wave.glb', name: 'Fala', scaleMultiplier: 1.55 },
+  ];
   private extruderVariantSelection: number | 'random' = 'random';
   private extruderVariants: ExtruderVariantData[] | null = null;
   private extruderVariantsPromise: Promise<ExtruderVariantData[]> | null = null;
@@ -80,8 +87,9 @@ export class PaintService {
   private activeExtruderStrokeGroup: THREE.Group | null = null;
   private extruderLastPlacedPoint: THREE.Vector3 | null = null;
   private extruderLastNormal: THREE.Vector3 | null = null;
-  private readonly extruderTargetWidth = 0.04;
+  private readonly extruderTargetWidth = 0.07;
   private readonly extruderMaxInstances = 1500;
+  private readonly extruderBaseRotation = new THREE.Euler(-Math.PI / 2, 0, 0);
 
   private sceneRef: THREE.Scene | null = null;
   private cakeBaseRef: THREE.Object3D | null = null;
@@ -902,7 +910,7 @@ export class PaintService {
       return 1;
     }
 
-    return this.extruderTargetWidth / width;
+    return (this.extruderTargetWidth * (variant.scaleMultiplier ?? 1)) / width;
   }
 
   private async getExtruderVariants(): Promise<ExtruderVariantData[]> {
@@ -920,13 +928,74 @@ export class PaintService {
   }
 
   private async loadExtruderVariants(): Promise<ExtruderVariantData[]> {
-    try {
-      const model = await DecorationFactory.loadDecorationModel(`/models/${this.extruderBrushId}`);
-      return this.extractExtruderVariants(model).slice(0, 5);
-    } catch (error) {
-      console.error('Paint: nie udało się załadować segmentów ekstrudera:', error);
-      return [];
+    const variants: ExtruderVariantData[] = [];
+
+    for (const source of this.extruderVariantSources) {
+      try {
+        const variant = await this.loadExtruderVariantFromFile(source.id, source.name, source.scaleMultiplier);
+        if (variant) {
+          variants.push(variant);
+        }
+      } catch (error) {
+        console.error(`Paint: nie udało się załadować końcówki kremu ${source.id}`, error);
+      }
     }
+
+    return variants;
+  }
+
+  private async loadExtruderVariantFromFile(
+    fileId: string,
+    fallbackName: string,
+    scaleMultiplier: number,
+  ): Promise<ExtruderVariantData | null> {
+    const model = await DecorationFactory.loadDecorationModel(`/models/${fileId}`);
+    model.updateMatrixWorld(true);
+
+    const mesh = this.findFirstMesh(model);
+    if (!mesh) {
+      return null;
+    }
+
+    mesh.updateMatrixWorld(true);
+    const geometry = mesh.geometry.clone();
+    geometry.applyMatrix4(mesh.matrixWorld);
+    geometry.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(this.extruderBaseRotation));
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    const size = new THREE.Vector3();
+    geometry.boundingBox?.getSize(size);
+
+    const sourceMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    const material = sourceMaterial?.clone() ?? new THREE.MeshStandardMaterial({ color: 0xffffff });
+    if ((material as THREE.Material).side !== undefined) {
+      (material as THREE.Material).side = THREE.DoubleSide;
+    }
+
+    return {
+      geometry,
+      material,
+      size,
+      name: mesh.name || fallbackName,
+      sourceId: fileId,
+      scaleMultiplier,
+    };
+  }
+
+  private findFirstMesh(
+    root: THREE.Object3D,
+  ): THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]> | null {
+    let mesh: THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]> | null = null;
+
+    root.traverse((node) => {
+      const candidate = node as THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]>;
+      if (candidate.isMesh && !mesh) {
+        mesh = candidate;
+      }
+    });
+
+    return mesh;
   }
 
   private getExtruderVariantThumbnail(variantIndex: number, variant: ExtruderVariantData): string | null {
@@ -934,7 +1003,7 @@ export class PaintService {
       return null;
     }
 
-    const cacheKey = `${this.extruderBrushId}:${variantIndex}`;
+    const cacheKey = `${variant.sourceId}:${variantIndex}`;
     const cached = this.extruderVariantThumbnails.get(cacheKey);
     if (cached) {
       return cached;
@@ -1022,6 +1091,8 @@ export class PaintService {
         material,
         size,
         name: mesh.name || `Variant ${variants.length + 1}`,
+        sourceId: this.extruderBrushId,
+        scaleMultiplier: 1,
       });
     });
 

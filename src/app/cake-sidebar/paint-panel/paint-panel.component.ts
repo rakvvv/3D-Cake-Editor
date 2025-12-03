@@ -41,14 +41,6 @@ export class PaintPanelComponent implements OnChanges {
   penColor = '#ff4d6d';
   extruderVariant: number | 'random' = 'random';
   extruderVariantCards: ExtruderVariantCard[] = [];
-  extruderVariants: { id: number | 'random'; name: string }[] = [
-    { id: 'random', name: 'Losowy wariant' },
-    { id: 0, name: 'Wariant 1' },
-    { id: 1, name: 'Wariant 2' },
-    { id: 2, name: 'Wariant 3' },
-    { id: 3, name: 'Wariant 4' },
-    { id: 4, name: 'Wariant 5' },
-  ];
   presetOptions: { id: ExtruderPreset; name: string }[] = [
     { id: 'circle', name: 'Koło' },
     { id: 'arc', name: 'Łuk' },

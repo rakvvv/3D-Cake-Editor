@@ -14,6 +14,10 @@
   color: var(--color-text-muted, #5a6072);
 }
 
+.paint-panel__hint--inline {
+  margin-top: -4px;
+}
+
 .paint-panel__color {
   min-height: 40px;
   padding: 4px;
