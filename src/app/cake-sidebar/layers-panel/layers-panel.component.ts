@@ -50,6 +50,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
   glazeThickness = 0.15;
   glazeDripLength = 1;
   glazeSeed = 1;
+  glazeTopEnabled = true;
   cakeTextures: CakeOptions['cake_textures'] = null;
   glazeTextures: CakeOptions['glaze_textures'] = null;
   waferTextureUrl: string | null = null;
@@ -125,6 +126,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
     this.glazeThickness = options.glaze_thickness;
     this.glazeDripLength = options.glaze_drip_length;
     this.glazeSeed = options.glaze_seed;
+    this.glazeTopEnabled = options.glaze_top_enabled;
     this.cakeTextures = options.cake_textures ?? null;
     this.glazeTextures = options.glaze_textures ?? null;
     this.waferTextureUrl = options.wafer_texture_url;
@@ -170,6 +172,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
       glaze_thickness: this.glazeThickness,
       glaze_drip_length: this.glazeDripLength,
       glaze_seed: this.glazeSeed,
+      glaze_top_enabled: this.glazeTopEnabled,
       cake_textures: this.cakeTextures,
       glaze_textures: this.glazeTextures,
       wafer_texture_url: this.waferTextureUrl,

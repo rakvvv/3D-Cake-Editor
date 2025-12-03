@@ -4,6 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { PaintService } from '../../services/paint.service';
 
 type SidebarPaintTool = 'decoration' | 'pen' | 'extruder';
+type ExtruderPreset = 'circle' | 'arc' | 'wave';
+
+type ExtruderVariantCard = {
+  id: number;
+  name: string;
+  thumbnail?: string | null;
+};
 
 @Component({
   selector: 'app-paint-panel',
@@ -33,14 +40,13 @@ export class PaintPanelComponent implements OnChanges {
   penThickness = 0.02;
   penColor = '#ff4d6d';
   extruderVariant: number | 'random' = 'random';
-  extruderVariants: { id: number | 'random'; name: string }[] = [
-    { id: 'random', name: 'Losowy wariant' },
-    { id: 0, name: 'Wariant 1' },
-    { id: 1, name: 'Wariant 2' },
-    { id: 2, name: 'Wariant 3' },
-    { id: 3, name: 'Wariant 4' },
-    { id: 4, name: 'Wariant 5' },
+  extruderVariantCards: ExtruderVariantCard[] = [];
+  presetOptions: { id: ExtruderPreset; name: string }[] = [
+    { id: 'circle', name: 'Koło' },
+    { id: 'arc', name: 'Łuk' },
+    { id: 'wave', name: 'Linia falista' },
   ];
+  selectedPreset: ExtruderPreset = 'circle';
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
@@ -51,6 +57,7 @@ export class PaintPanelComponent implements OnChanges {
       this.penThickness = this.paintService.penThickness;
       this.penColor = this.paintService.penColor;
       this.extruderVariant = this.paintService.getExtruderVariantSelection() ?? 'random';
+      this.loadExtruderVariants();
     }
   }
 
@@ -80,6 +87,7 @@ export class PaintPanelComponent implements OnChanges {
       this.onPenSettingsChange();
     } else if (this.selectedTool === 'extruder') {
       this.paintService.setExtruderVariantSelection(this.extruderVariant);
+      this.loadExtruderVariants();
     } else {
       this.paintService.setCurrentBrush(this.selectedBrush);
     }
@@ -103,6 +111,24 @@ export class PaintPanelComponent implements OnChanges {
     this.paintService.setExtruderVariantSelection(this.extruderVariant);
   }
 
+  onExtruderCardSelect(variantId: number): void {
+    this.extruderVariant = variantId;
+    this.onExtruderVariantChange();
+  }
+
+  onRandomExtruderVariant(): void {
+    this.extruderVariant = 'random';
+    this.onExtruderVariantChange();
+  }
+
+  async onInsertPreset(): Promise<void> {
+    if (!this.paintService) {
+      return;
+    }
+
+    await this.paintService.insertExtruderPreset(this.selectedPreset);
+  }
+
   undoLast(): void {
     if (!this.paintService) {
       return;
@@ -123,5 +149,19 @@ export class PaintPanelComponent implements OnChanges {
 
   canRedo(): boolean {
     return this.paintService ? this.paintService.canRedo() : false;
+  }
+
+  private async loadExtruderVariants(): Promise<void> {
+    if (!this.paintService) {
+      this.extruderVariantCards = [];
+      return;
+    }
+
+    try {
+      this.extruderVariantCards = await this.paintService.getExtruderVariantPreviews();
+    } catch (error) {
+      console.error('PaintPanel: nie udało się pobrać wariantów ekstrudera', error);
+      this.extruderVariantCards = [];
+    }
   }
 }

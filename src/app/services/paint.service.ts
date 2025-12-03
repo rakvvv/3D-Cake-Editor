@@ -1,14 +1,18 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Subject } from 'rxjs';
 import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
+import { SnapService } from './snap.service';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
   size: THREE.Vector3;
   name: string;
+  sourceId: string;
+  scaleMultiplier?: number;
 };
 
 type ExtruderInstanceState = {
@@ -44,6 +48,7 @@ type PenJointInstance = {
 };
 
 type PaintTool = 'decoration' | 'pen' | 'extruder';
+type ExtruderPreset = 'circle' | 'arc' | 'wave';
 
 @Injectable({ providedIn: 'root' })
 export class PaintService {
@@ -70,16 +75,28 @@ export class PaintService {
   private penJointGeometry = new THREE.SphereGeometry(0.5, 14, 10);
   private penSegmentGeometryCache = new Map<number, THREE.CylinderGeometry>();
 
-  private readonly extruderModelId = 'creamset_longpiping.glb';
+  private extruderBrushId = 'cream_dot.glb';
+  private readonly extruderVariantSources: { id: string; name: string; scaleMultiplier: number }[] = [
+    { id: 'cream_dot.glb', name: 'Kropka', scaleMultiplier: 1.85 },
+    { id: 'cream_shell.glb', name: 'Muszelka', scaleMultiplier: 2 },
+    { id: 'cream_wave.glb', name: 'Fala', scaleMultiplier: 2 },
+  ];
   private extruderVariantSelection: number | 'random' = 'random';
   private extruderVariants: ExtruderVariantData[] | null = null;
   private extruderVariantsPromise: Promise<ExtruderVariantData[]> | null = null;
+  private extruderVariantThumbnails = new Map<string, string>();
   private extruderStrokeInstances: Map<number, ExtruderInstanceState> = new Map();
   private activeExtruderStrokeGroup: THREE.Group | null = null;
   private extruderLastPlacedPoint: THREE.Vector3 | null = null;
   private extruderLastNormal: THREE.Vector3 | null = null;
-  private readonly extruderTargetWidth = 0.04;
+  private extruderFirstInstance:
+    | { state: ExtruderInstanceState; index: number; position: THREE.Vector3; normal: THREE.Vector3; scale: number }
+    | null = null;
+  private readonly extruderTargetWidth = 0.12;
   private readonly extruderMaxInstances = 1500;
+  private readonly extruderBaseRotation = new THREE.Euler(0, 0, 0);
+
+  private readonly isBrowser: boolean;
 
   private sceneRef: THREE.Scene | null = null;
   private cakeBaseRef: THREE.Object3D | null = null;
@@ -107,7 +124,13 @@ export class PaintService {
   private decorationStrokeInstances = new Map<string, DecorationInstanceState[]>();
   private decorationVariantCursor = new Map<string, number>();
 
-  constructor(private readonly transformManager: TransformManagerService) {}
+  constructor(
+    private readonly transformManager: TransformManagerService,
+    private readonly snapService: SnapService,
+    @Inject(PLATFORM_ID) platformId: object,
+  ) {
+    this.isBrowser = isPlatformBrowser(platformId);
+  }
 
   public async handlePaint(
     event: MouseEvent,
@@ -211,6 +234,7 @@ export class PaintService {
     this.extruderStrokeInstances.clear();
     this.extruderLastPlacedPoint = null;
     this.extruderLastNormal = null;
+    this.extruderFirstInstance = null;
   }
 
   public endStroke(): void {
@@ -258,6 +282,7 @@ export class PaintService {
     this.extruderStrokeInstances.clear();
     this.extruderLastPlacedPoint = null;
     this.extruderLastNormal = null;
+    this.extruderFirstInstance = null;
   }
 
   public setPaintTool(tool: PaintTool): void {
@@ -266,6 +291,22 @@ export class PaintService {
 
   public setCurrentBrush(brushId: string): void {
     this.currentBrush = brushId;
+  }
+
+  public setExtruderBrush(brushId: string): void {
+    if (brushId === this.extruderBrushId) {
+      return;
+    }
+
+    this.extruderBrushId = brushId;
+    this.extruderVariants = null;
+    this.extruderVariantsPromise = null;
+    this.extruderVariantThumbnails.clear();
+    this.extruderStrokeInstances.clear();
+    this.activeExtruderStrokeGroup = null;
+    this.extruderLastPlacedPoint = null;
+    this.extruderLastNormal = null;
+    this.extruderFirstInstance = null;
   }
 
   public updatePenSettings(settings: { size?: number; thickness?: number; color?: string }): void {
@@ -496,7 +537,7 @@ export class PaintService {
       return;
     }
 
-    const offset = normal.clone().normalize().multiplyScalar(0.005);
+    const offset = normal.clone().normalize().multiplyScalar(0.0015);
     const position = point.clone().add(offset);
     const up = new THREE.Vector3(0, 1, 0);
     const align = new THREE.Quaternion().setFromUnitVectors(up, normal.clone().normalize());
@@ -517,6 +558,15 @@ export class PaintService {
     return this.extruderVariantSelection;
   }
 
+  public async getExtruderVariantPreviews(): Promise<{ id: number; name: string; thumbnail: string | null }[]> {
+    const variants = await this.getExtruderVariants();
+    return variants.map((variant, index) => ({
+      id: index,
+      name: variant.name || `Wariant ${index + 1}`,
+      thumbnail: this.getExtruderVariantThumbnail(index, variant),
+    }));
+  }
+
   private async placeExtruderStroke(
     point: THREE.Vector3,
     normal: THREE.Vector3,
@@ -533,6 +583,7 @@ export class PaintService {
     const offset = this.getExtruderSurfaceOffset(variants);
     const currentNormal = normal.clone().normalize();
     const currentPosition = point.clone().add(currentNormal.clone().multiplyScalar(offset));
+    this.recordPaintSnapPoint(point, strokeGroup);
 
     if (!previousPoint || !this.extruderLastPlacedPoint) {
       const fallbackTangent = new THREE.Vector3().crossVectors(currentNormal, new THREE.Vector3(0, 1, 0));
@@ -549,6 +600,7 @@ export class PaintService {
 
     const baseNormal = (previousNormal ?? currentNormal).clone().normalize();
     const startPosition = previousPoint.clone().add(baseNormal.clone().multiplyScalar(offset));
+    this.recordPaintSnapPoint(previousPoint, strokeGroup);
     if (!this.extruderLastPlacedPoint) {
       this.extruderLastPlacedPoint = startPosition.clone();
     }
@@ -562,9 +614,10 @@ export class PaintService {
     }
 
     const tangent = pathVector.clone().normalize();
+    this.alignFirstExtruderInstance(tangent, baseNormal);
     let cursor = startPoint.clone();
     let remaining = cursor.distanceTo(currentPosition);
-    const minSpacing = this.getExtruderAverageSpacing(variants);
+    const minSpacing = this.getExtruderAverageSpacing(variants) * 0.8;
 
     while (remaining >= minSpacing) {
       const variantIndex = this.selectExtruderVariant(variants.length);
@@ -583,6 +636,51 @@ export class PaintService {
     }
 
     this.extruderLastNormal = currentNormal.clone();
+  }
+
+  public async insertExtruderPreset(preset: ExtruderPreset): Promise<void> {
+    const variants = await this.getExtruderVariants();
+    if (!variants.length || !this.sceneRef) {
+      return;
+    }
+
+    const center = this.getCakeTopCenter();
+    if (!center) {
+      return;
+    }
+
+    const strokeGroup = new THREE.Group();
+    strokeGroup.userData['isPaintStroke'] = true;
+    strokeGroup.userData['displayName'] = 'Ekstruder – preset';
+    this.sceneRef.add(strokeGroup);
+
+    const previousGroup = this.activeExtruderStrokeGroup;
+    const previousInstances = this.extruderStrokeInstances;
+    const previousPoint = this.extruderLastPlacedPoint;
+    const previousNormal = this.extruderLastNormal;
+
+    this.activeExtruderStrokeGroup = strokeGroup;
+    this.extruderStrokeInstances = new Map();
+    this.extruderLastPlacedPoint = null;
+    this.extruderLastNormal = null;
+
+    const normal = new THREE.Vector3(0, 1, 0);
+    const pathPoints = this.buildExtruderPresetPath(preset, center);
+    this.populateExtruderPath(pathPoints, normal, variants, strokeGroup);
+
+    const hasInstances = Array.from(this.extruderStrokeInstances.values()).some((state) => state.count > 0);
+    if (strokeGroup.children.length && hasInstances) {
+      this.finalizePaintRoot(strokeGroup);
+      this.trackPaintAddition(strokeGroup);
+    } else {
+      this.sceneRef.remove(strokeGroup);
+    }
+
+    this.activeExtruderStrokeGroup = previousGroup;
+    this.extruderStrokeInstances = previousInstances;
+    this.extruderLastPlacedPoint = previousPoint;
+    this.extruderLastNormal = previousNormal;
+    this.paintTool = 'extruder';
   }
 
   private selectExtruderVariant(total: number): number {
@@ -611,6 +709,8 @@ export class PaintService {
     const transform = this.buildExtruderMatrix(position, normal, tangent, scale);
 
     const state = this.ensureExtruderInstanceMesh(selectedIndex, variant, strokeGroup);
+    const isFirstPlacement =
+      !this.extruderFirstInstance && Array.from(this.extruderStrokeInstances.values()).every((meshState) => meshState.count === 0);
     if (state.count >= this.extruderMaxInstances) {
       return;
     }
@@ -619,6 +719,16 @@ export class PaintService {
     state.mesh.count = state.count + 1;
     state.mesh.instanceMatrix.needsUpdate = true;
     state.count += 1;
+
+    if (isFirstPlacement) {
+      this.extruderFirstInstance = {
+        state,
+        index: state.count - 1,
+        position: position.clone(),
+        normal: normal.clone(),
+        scale,
+      };
+    }
   }
 
   private buildExtruderMatrix(
@@ -651,6 +761,20 @@ export class PaintService {
     return matrix;
   }
 
+  private alignFirstExtruderInstance(tangent: THREE.Vector3, normal: THREE.Vector3): void {
+    if (!this.extruderFirstInstance) {
+      return;
+    }
+
+    const { state, index, position, scale } = this.extruderFirstInstance;
+    const adjustedNormal = normal.clone().normalize();
+    const transform = this.buildExtruderMatrix(position, adjustedNormal, tangent, scale);
+
+    state.mesh.setMatrixAt(index, transform);
+    state.mesh.instanceMatrix.needsUpdate = true;
+    this.extruderFirstInstance = null;
+  }
+
   private ensureExtruderInstanceMesh(
     variantIndex: number,
     variant: ExtruderVariantData,
@@ -679,6 +803,7 @@ export class PaintService {
     if (!this.activeExtruderStrokeGroup) {
       this.activeExtruderStrokeGroup = new THREE.Group();
       this.activeExtruderStrokeGroup.userData['isPaintStroke'] = true;
+      this.activeExtruderStrokeGroup.userData['snapPoints'] = [] as number[][];
       scene.add(this.activeExtruderStrokeGroup);
       this.redoStack = [];
       this.extruderStrokeInstances.clear();
@@ -689,13 +814,82 @@ export class PaintService {
     return this.activeExtruderStrokeGroup;
   }
 
+  private populateExtruderPath(
+    points: THREE.Vector3[],
+    normal: THREE.Vector3,
+    variants: ExtruderVariantData[],
+    strokeGroup: THREE.Group,
+  ): void {
+    if (!points.length) {
+      return;
+    }
+
+    const offset = this.getExtruderSurfaceOffset(variants);
+    const upNormal = normal.clone().normalize();
+    const minSpacing = this.getExtruderAverageSpacing(variants) * 0.8;
+    let lastPlaced: THREE.Vector3 | null = null;
+
+    points.forEach((point, index) => {
+      this.recordPaintSnapPoint(point, strokeGroup);
+      const current = point.clone().add(upNormal.clone().multiplyScalar(offset));
+      if (!lastPlaced) {
+        const tangent = this.getPresetTangent(points, index);
+        this.addExtruderInstance(current, upNormal, tangent, variants, strokeGroup);
+        this.alignFirstExtruderInstance(tangent, upNormal);
+        lastPlaced = current.clone();
+        return;
+      }
+
+      const pathVector = current.clone().sub(lastPlaced);
+      const distance = pathVector.length();
+      if (distance <= 1e-6) {
+        return;
+      }
+
+      const tangent = pathVector.clone().normalize();
+      let cursor = lastPlaced.clone();
+      let remaining = cursor.distanceTo(current);
+
+      while (remaining >= minSpacing) {
+        const variantIndex = this.selectExtruderVariant(variants.length);
+        const spacing = this.getExtruderSpacing(variants, variantIndex);
+        const step = Math.min(spacing, remaining);
+        cursor = cursor.add(tangent.clone().multiplyScalar(step));
+        this.addExtruderInstance(cursor, upNormal, tangent, variants, strokeGroup, variantIndex);
+        lastPlaced = cursor.clone();
+        remaining = cursor.distanceTo(current);
+      }
+
+      if (!lastPlaced || lastPlaced.distanceTo(current) > minSpacing * 0.6) {
+        const variantIndex = this.selectExtruderVariant(variants.length);
+        this.addExtruderInstance(current, upNormal, tangent, variants, strokeGroup, variantIndex);
+        lastPlaced = current.clone();
+      }
+    });
+  }
+
+  private getPresetTangent(points: THREE.Vector3[], index: number): THREE.Vector3 {
+    if (points.length <= 1) {
+      return new THREE.Vector3(1, 0, 0);
+    }
+
+    const current = points[index];
+    const next = points[index + 1] ?? points[index - 1];
+    const tangent = next.clone().sub(current);
+    if (tangent.lengthSq() <= 1e-6) {
+      return new THREE.Vector3(1, 0, 0);
+    }
+
+    return tangent.normalize();
+  }
+
   private getExtruderSurfaceOffset(variants: ExtruderVariantData[]): number {
     if (!variants.length) {
       return this.penSurfaceOffset;
     }
 
     const maxHeight = Math.max(...variants.map((variant) => variant.size.y * this.getExtruderScale(variant)));
-    return Math.max(this.penSurfaceOffset, maxHeight * 0.5 + this.penSurfaceOffset * 0.5);
+    return Math.max(this.penSurfaceOffset * 0.25, maxHeight * 0.08);
   }
 
   private getExtruderAverageSpacing(variants: ExtruderVariantData[]): number {
@@ -706,6 +900,46 @@ export class PaintService {
     const spacings = variants.map((variant, index) => this.getExtruderSpacing(variants, index));
     const average = spacings.reduce((sum, value) => sum + value, 0) / spacings.length;
     return Math.max(0.005, average);
+  }
+
+  private buildExtruderPresetPath(preset: ExtruderPreset, center: THREE.Vector3): THREE.Vector3[] {
+    const points: THREE.Vector3[] = [];
+
+    if (preset === 'circle') {
+      const radius = 0.12;
+      const steps = 28;
+      for (let i = 0; i <= steps; i++) {
+        const angle = (i / steps) * Math.PI * 2;
+        points.push(new THREE.Vector3(center.x + Math.cos(angle) * radius, center.y, center.z + Math.sin(angle) * radius));
+      }
+      return points;
+    }
+
+    if (preset === 'arc') {
+      const radius = 0.14;
+      const steps = 18;
+      const start = -Math.PI * 0.7;
+      const end = Math.PI * 0.2;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const angle = start + (end - start) * t;
+        points.push(new THREE.Vector3(center.x + Math.cos(angle) * radius, center.y, center.z + Math.sin(angle) * radius));
+      }
+      return points;
+    }
+
+    const length = 0.38;
+    const amplitude = 0.05;
+    const waves = 3;
+    const segments = 30;
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const x = center.x - length / 2 + length * t;
+      const z = center.z + Math.sin(t * Math.PI * waves) * amplitude;
+      points.push(new THREE.Vector3(x, center.y, z));
+    }
+
+    return points;
   }
 
   private getExtruderSpacing(variants: ExtruderVariantData[], variantIndex: number): number {
@@ -724,7 +958,7 @@ export class PaintService {
       return 1;
     }
 
-    return this.extruderTargetWidth / width;
+    return (this.extruderTargetWidth * (variant.scaleMultiplier ?? 1)) / width;
   }
 
   private async getExtruderVariants(): Promise<ExtruderVariantData[]> {
@@ -742,48 +976,151 @@ export class PaintService {
   }
 
   private async loadExtruderVariants(): Promise<ExtruderVariantData[]> {
-    try {
-      const model = await DecorationFactory.loadDecorationModel(`/models/${this.extruderModelId}`);
-      return this.extractExtruderVariants(model).slice(0, 5);
-    } catch (error) {
-      console.error('Paint: nie udało się załadować segmentów ekstrudera:', error);
+    if (!this.isBrowser) {
       return [];
     }
-  }
 
-  private extractExtruderVariants(root: THREE.Object3D): ExtruderVariantData[] {
     const variants: ExtruderVariantData[] = [];
-    root.traverse((node) => {
-      const mesh = node as THREE.Mesh;
-      if (!mesh.isMesh || variants.length >= 5) {
-        return;
+
+    for (const source of this.extruderVariantSources) {
+      try {
+        const variant = await this.loadExtruderVariantFromFile(source.id, source.name, source.scaleMultiplier);
+        if (variant) {
+          variants.push(variant);
+        }
+      } catch (error) {
+        console.error(`Paint: nie udało się załadować końcówki kremu ${source.id}`, error);
       }
-
-      mesh.updateMatrixWorld(true);
-
-      const geometry = mesh.geometry.clone();
-      geometry.applyMatrix4(mesh.matrix.clone());
-      geometry.computeBoundingBox();
-      geometry.computeBoundingSphere();
-
-      const size = new THREE.Vector3();
-      geometry.boundingBox?.getSize(size);
-
-      const sourceMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      const material = sourceMaterial?.clone() ?? new THREE.MeshStandardMaterial({ color: 0xffffff });
-      if ((material as THREE.Material).side !== undefined) {
-        (material as THREE.Material).side = THREE.DoubleSide;
-      }
-
-      variants.push({
-        geometry,
-        material,
-        size,
-        name: mesh.name || `Variant ${variants.length + 1}`,
-      });
-    });
+    }
 
     return variants;
+  }
+
+  private async loadExtruderVariantFromFile(
+    fileId: string,
+    fallbackName: string,
+    scaleMultiplier: number,
+  ): Promise<ExtruderVariantData | null> {
+    if (!this.isBrowser) {
+      return null;
+    }
+
+    const model = await DecorationFactory.loadDecorationModel(`/models/${fileId}`);
+    model.updateMatrixWorld(true);
+
+    const mesh = this.findFirstMesh(model);
+    if (!mesh) {
+      return null;
+    }
+
+    mesh.updateMatrixWorld(true);
+    const geometry = mesh.geometry.clone();
+    geometry.applyMatrix4(mesh.matrixWorld);
+    geometry.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(this.extruderBaseRotation));
+    geometry.computeBoundingBox();
+    const minY = geometry.boundingBox?.min.y ?? 0;
+    if (Math.abs(minY) > 1e-6) {
+      geometry.translate(0, -minY, 0);
+    }
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    const size = new THREE.Vector3();
+    geometry.boundingBox?.getSize(size);
+
+    const sourceMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+    const material = sourceMaterial?.clone() ?? new THREE.MeshStandardMaterial({ color: 0xffffff });
+    if ((material as THREE.Material).side !== undefined) {
+      (material as THREE.Material).side = THREE.DoubleSide;
+    }
+
+    return {
+      geometry,
+      material,
+      size,
+      name: mesh.name || fallbackName,
+      sourceId: fileId,
+      scaleMultiplier,
+    };
+  }
+
+  private findFirstMesh(
+    root: THREE.Object3D,
+  ): THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]> | null {
+    let mesh: THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]> | null = null;
+
+    root.traverse((node) => {
+      const candidate = node as THREE.Mesh<THREE.BufferGeometry, THREE.Material | THREE.Material[]>;
+      if (candidate.isMesh && !mesh) {
+        mesh = candidate;
+      }
+    });
+
+    return mesh;
+  }
+
+  private getExtruderVariantThumbnail(variantIndex: number, variant: ExtruderVariantData): string | null {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+
+    const cacheKey = `${variant.sourceId}:${variantIndex}`;
+    const cached = this.extruderVariantThumbnails.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 180;
+    canvas.height = 110;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+
+    ctx.fillStyle = '#fff8fb';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const maxDimension = Math.max(variant.size.x || 1, variant.size.y || 1, variant.size.z || 1);
+    const scale = (canvas.width * 0.55) / Math.max(maxDimension, 1e-3);
+    const drawWidth = Math.max(8, variant.size.x * scale);
+    const drawHeight = Math.max(8, variant.size.z * scale || variant.size.y * scale);
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(drawWidth, drawHeight) * 0.15;
+
+    ctx.fillStyle = '#ffdee7';
+    ctx.strokeStyle = '#ff4d6d';
+    ctx.lineWidth = 2;
+
+    if ((ctx as any).roundRect) {
+      (ctx as any).roundRect(centerX - drawWidth / 2, centerY - drawHeight / 2, drawWidth, drawHeight, radius);
+    } else {
+      ctx.beginPath();
+      ctx.rect(centerX - drawWidth / 2, centerY - drawHeight / 2, drawWidth, drawHeight);
+    }
+
+    ctx.fill();
+    ctx.stroke();
+
+    const dataUrl = canvas.toDataURL('image/png');
+    this.extruderVariantThumbnails.set(cacheKey, dataUrl);
+    return dataUrl;
+  }
+
+  private getCakeTopCenter(): THREE.Vector3 | null {
+    if (!this.cakeBaseRef) {
+      return null;
+    }
+
+    const box = new THREE.Box3().setFromObject(this.cakeBaseRef);
+    if (box.isEmpty()) {
+      return null;
+    }
+
+    const center = box.getCenter(new THREE.Vector3());
+    center.y = box.max.y + this.penSurfaceOffset;
+    return center;
   }
 
   private placePenStroke(
@@ -826,11 +1163,6 @@ export class PaintService {
     this.updatePenEndCap(currentPosition, strokeGroup);
   }
 
-  private async getBrushInstance(brushId: string): Promise<THREE.Object3D> {
-    const template = await this.loadBrushTemplate(brushId);
-    return this.cloneBrush(template);
-  }
-
   private loadBrushTemplate(brushId: string): Promise<THREE.Object3D> {
     const cached = this.brushCache.get(brushId);
     if (cached) {
@@ -856,25 +1188,6 @@ export class PaintService {
 
     this.brushPromises.set(brushId, promise);
     return promise;
-  }
-
-  private cloneBrush(template: THREE.Object3D): THREE.Object3D {
-    const clone = template.clone(true);
-    const meshes: THREE.Mesh[] = [];
-
-    clone.traverse((node) => {
-      node.userData = { ...node.userData };
-
-      if ((node as THREE.Mesh).isMesh) {
-        meshes.push(node as THREE.Mesh);
-      }
-    });
-
-    if (meshes.length) {
-      clone.userData['clickableMeshes'] = meshes;
-    }
-
-    return clone;
   }
 
   private ensurePenCapInstanceMesh(strokeGroup: THREE.Group): PenInstanceState {
@@ -1225,22 +1538,20 @@ export class PaintService {
     return Math.min(48, Math.max(16, Math.round(radius * 200)));
   }
 
-  private getBrushSize(brushId: string, model: THREE.Object3D): THREE.Vector3 {
-    const cached = this.brushSizes.get(brushId);
-    if (cached) {
-      return cached;
-    }
-
-    const computed = this.computeBrushSize(model);
-    this.brushSizes.set(brushId, computed);
-    return computed;
-  }
-
   private computeBrushSize(model: THREE.Object3D): THREE.Vector3 {
     const box = new THREE.Box3().setFromObject(model);
     const size = new THREE.Vector3();
     box.getSize(size);
     return size;
+  }
+
+  private recordPaintSnapPoint(point: THREE.Vector3, strokeGroup: THREE.Group): void {
+    if (!strokeGroup.userData['snapPoints']) {
+      strokeGroup.userData['snapPoints'] = [] as number[][];
+    }
+
+    const snapPoints = strokeGroup.userData['snapPoints'] as number[][];
+    snapPoints.push(point.toArray());
   }
 
   private finalizePaintRoot(object: THREE.Object3D): void {
@@ -1256,6 +1567,7 @@ export class PaintService {
     });
 
     this.attachToCake(object);
+    this.snapService.snapDecorationToCake(object);
     object.userData['isSnapped'] = true;
   }
 

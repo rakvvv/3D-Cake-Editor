@@ -12,6 +12,7 @@ interface ScaledLayerInfo {
   radius?: number;
   halfWidth?: number;
   halfDepth?: number;
+  topOffset?: number;
 }
 
 export interface SnapInfoSnapshot {
@@ -82,7 +83,8 @@ export class SnapService {
     const anchorWorld = closestCandidate.worldPoint.clone();
     const offset = this.computeOffsetDistance(object, surfaceWorldNormal, anchorWorld);
     const anchorOffsetAlongNormal = surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition));
-    const effectiveOffset = Math.max(0.002, offset - anchorOffsetAlongNormal);
+    const minimumOffset = this.isPaintStroke(object) ? 0.0005 : 0.002;
+    const effectiveOffset = Math.max(minimumOffset, offset - anchorOffsetAlongNormal);
     const anchorDelta = anchorWorld.clone().sub(pivotWorld);
     const finalWorldPosition = surfaceWorldPosition
       .clone()
@@ -99,7 +101,9 @@ export class SnapService {
     object.userData['isSnapped'] = true;
 
     const localNormal = closest.normal.clone().normalize();
-    const offsetDistance = Math.max(0, finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal));
+    const offsetDistance = this.isPaintStroke(object)
+      ? Math.max(minimumOffset, effectiveOffset)
+      : Math.max(0, finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal));
     this.writeSnapInfo(object, {
       layerIndex: closest.layerIndex,
       surfaceType: closest.surfaceType,
@@ -109,7 +113,9 @@ export class SnapService {
       rotation: [...this.identityRotation],
     });
 
-    this.captureSnappedOrientation(object);
+    if (!this.isPaintStroke(object)) {
+      this.captureSnappedOrientation(object);
+    }
 
     return {
       success: true,
@@ -169,10 +175,11 @@ export class SnapService {
   }
 
   private getScaledLayers(metadata: CakeMetadata): ScaledLayerInfo[] {
-    return metadata.layerDimensions.map((layer) => ({
+    return metadata.layerDimensions.map((layer, index, all) => ({
       index: layer.index,
       bottom: layer.bottomY,
       top: layer.topY,
+      topOffset: index === all.length - 1 ? metadata.glazeTopOffset ?? 0 : 0,
       radius: layer.radius,
       halfWidth: layer.width !== undefined ? layer.width / 2 : undefined,
       halfDepth: layer.depth !== undefined ? layer.depth / 2 : undefined,
@@ -181,6 +188,10 @@ export class SnapService {
 
   private getCakeMetadata(): CakeMetadata | undefined {
     return this.cakeBase?.userData['metadata'] as CakeMetadata | undefined;
+  }
+
+  private isPaintStroke(object: THREE.Object3D): boolean {
+    return object.userData['isPaintStroke'] === true;
   }
 
   public setCakeBase(cake: THREE.Object3D | null): void {
@@ -262,6 +273,15 @@ export class SnapService {
     let bestInfo = this.getClosestPointOnCake(pivotWorld);
     let bestWorldPoint = pivotWorld.clone();
 
+    const snapPoints = this.extractSnapPoints(object);
+    for (const snapPoint of snapPoints) {
+      const info = this.getClosestPointOnCake(snapPoint);
+      if (info.surfaceType !== 'NONE' && info.distance < bestInfo.distance) {
+        bestInfo = info;
+        bestWorldPoint = snapPoint.clone();
+      }
+    }
+
     const box = this.computeWorldBoundingBox(object);
     if (!box.isEmpty()) {
       const center = box.getCenter(new THREE.Vector3());
@@ -278,6 +298,32 @@ export class SnapService {
     }
 
     return { info: bestInfo, worldPoint: bestWorldPoint };
+  }
+
+  private extractSnapPoints(object: THREE.Object3D): THREE.Vector3[] {
+    const raw = object.userData['snapPoints'];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+
+    const points: THREE.Vector3[] = [];
+    for (const entry of raw) {
+      if (entry instanceof THREE.Vector3) {
+        if (Number.isFinite(entry.x) && Number.isFinite(entry.y) && Number.isFinite(entry.z)) {
+          points.push(entry.clone());
+        }
+        continue;
+      }
+
+      if (Array.isArray(entry) && entry.length === 3) {
+        const [x, y, z] = entry;
+        if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
+          points.push(new THREE.Vector3(x, y, z));
+        }
+      }
+    }
+
+    return points;
   }
 
   public getClosestPointOnCake(worldPoint: THREE.Vector3): ClosestPointInfo {
@@ -322,7 +368,8 @@ export class SnapService {
     for (const layer of scaledLayers) {
       if (metadata.shape === 'cylinder') {
         const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
-        const topY = layer.top;
+        const topOffset = layer.topOffset ?? 0;
+        const topY = layer.top + topOffset;
         const bottomY = layer.bottom;
 
         const horizontal = new THREE.Vector3(localPoint.x, 0, localPoint.z);
@@ -371,7 +418,8 @@ export class SnapService {
           (metadata.maxWidth ? metadata.maxWidth / 2 : metadata.width ? metadata.width / 2 : 0.5);
         const halfDepth = layer.halfDepth ??
           (metadata.maxDepth ? metadata.maxDepth / 2 : metadata.depth ? metadata.depth / 2 : 0.5);
-        const topY = layer.top;
+        const topOffset = layer.topOffset ?? 0;
+        const topY = layer.top + topOffset;
         const bottomY = layer.bottom;
 
         const clampedX = THREE.MathUtils.clamp(localPoint.x, -halfWidth, halfWidth);
@@ -478,15 +526,17 @@ export class SnapService {
       normal: projection.normal.clone().normalize().toArray(),
     };
     this.writeSnapInfo(object, updatedInfo);
-    const relativeRotation = this.getRelativeQuaternion(updatedInfo, projection.normal.clone());
-    this.applyOrientationForSurface(
-      object,
-      worldNormal,
-      snapInfo.surfaceType,
-      updatedInfo.roll ?? 0,
-      relativeRotation,
-    );
-    object.updateMatrixWorld(true);
+    if (!this.isPaintStroke(object)) {
+      const relativeRotation = this.getRelativeQuaternion(updatedInfo, projection.normal.clone());
+      this.applyOrientationForSurface(
+        object,
+        worldNormal,
+        snapInfo.surfaceType,
+        updatedInfo.roll ?? 0,
+        relativeRotation,
+      );
+      object.updateMatrixWorld(true);
+    }
   }
 
   public rotateDecorationQuarter(object: THREE.Object3D, direction: 1 | -1 = 1): {
@@ -674,6 +724,19 @@ export class SnapService {
       object.userData['isSnapped'] = true;
       this.writeSnapInfo(object, snapshot);
       this.cakeBase.attach(object);
+
+      const closest = this.getClosestPointForObject(object).info;
+      if (closest.surfaceType !== 'NONE') {
+        const adjustedNormal = closest.normal.clone().normalize().toArray() as [number, number, number];
+        const adjustedLayerIndex = metadata ? this.clampLayerIndex(closest.layerIndex, metadata) : snapshot.layerIndex;
+        this.writeSnapInfo(object, {
+          ...snapshot,
+          layerIndex: adjustedLayerIndex,
+          surfaceType: closest.surfaceType,
+          normal: adjustedNormal,
+        });
+      }
+
       this.enforceSnappedPosition(object);
     }
   }
@@ -890,13 +953,15 @@ export class SnapService {
     localNormal: THREE.Vector3,
     offset: number,
   ): { position: THREE.Vector3; normal: THREE.Vector3 } {
+    const topHeight = layer.top + (layer.topOffset ?? 0);
+
     if (metadata.shape === 'cylinder') {
       const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
       const horizontal = new THREE.Vector3(localPosition.x, 0, localPosition.z);
       if (horizontal.lengthSq() > radius * radius && horizontal.lengthSq() > 1e-6) {
         horizontal.setLength(radius);
       }
-      const basePoint = new THREE.Vector3(horizontal.x, layer.top, horizontal.z);
+      const basePoint = new THREE.Vector3(horizontal.x, topHeight, horizontal.z);
       const normal = new THREE.Vector3(0, 1, 0);
       const position = basePoint.add(normal.clone().multiplyScalar(offset));
       return { position, normal };
@@ -909,7 +974,7 @@ export class SnapService {
 
     const clampedX = THREE.MathUtils.clamp(localPosition.x, -halfWidth, halfWidth);
     const clampedZ = THREE.MathUtils.clamp(localPosition.z, -halfDepth, halfDepth);
-    const basePoint = new THREE.Vector3(clampedX, layer.top, clampedZ);
+    const basePoint = new THREE.Vector3(clampedX, topHeight, clampedZ);
     const normal = new THREE.Vector3(0, 1, 0);
     const position = basePoint.add(normal.clone().multiplyScalar(offset));
     return { position, normal };
@@ -1006,7 +1071,7 @@ export class SnapService {
     const normal = normalWorld.clone().normalize();
     const pivot = anchorWorld?.clone() ?? object.getWorldPosition(new THREE.Vector3());
 
-    const clearance = 0.002;
+    const clearance = 0.0005;
     let minProjection = Infinity;
 
     const corners: THREE.Vector3[] = [

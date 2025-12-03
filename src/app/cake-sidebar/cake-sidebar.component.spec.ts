@@ -29,6 +29,7 @@ describe('CakeSidebarComponent', () => {
     glaze_thickness: 0.1,
     glaze_drip_length: 1,
     glaze_seed: 1,
+    glaze_top_enabled: true,
     cake_textures: null,
     glaze_textures: null,
     wafer_texture_url: null,
