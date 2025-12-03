@@ -182,6 +182,7 @@ export class ThreeObjectsFactory {
       totalHeight: layerHeight * options.layers,
       layerSizes,
       layerDimensions: [],
+      glazeTopOffset: 0,
     };
 
     const cake = new THREE.Group();

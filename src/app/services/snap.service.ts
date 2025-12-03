@@ -324,7 +324,8 @@ export class SnapService {
     for (const layer of scaledLayers) {
       if (metadata.shape === 'cylinder') {
         const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
-        const topY = layer.top;
+        const topOffset = layer.topOffset ?? 0;
+        const topY = layer.top + topOffset;
         const bottomY = layer.bottom;
 
         const horizontal = new THREE.Vector3(localPoint.x, 0, localPoint.z);
@@ -373,7 +374,8 @@ export class SnapService {
           (metadata.maxWidth ? metadata.maxWidth / 2 : metadata.width ? metadata.width / 2 : 0.5);
         const halfDepth = layer.halfDepth ??
           (metadata.maxDepth ? metadata.maxDepth / 2 : metadata.depth ? metadata.depth / 2 : 0.5);
-        const topY = layer.top;
+        const topOffset = layer.topOffset ?? 0;
+        const topY = layer.top + topOffset;
         const bottomY = layer.bottom;
 
         const clampedX = THREE.MathUtils.clamp(localPoint.x, -halfWidth, halfWidth);
