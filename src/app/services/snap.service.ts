@@ -83,7 +83,8 @@ export class SnapService {
     const anchorWorld = closestCandidate.worldPoint.clone();
     const offset = this.computeOffsetDistance(object, surfaceWorldNormal, anchorWorld);
     const anchorOffsetAlongNormal = surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition));
-    const effectiveOffset = Math.max(0.002, offset - anchorOffsetAlongNormal);
+    const minimumOffset = this.isPaintStroke(object) ? 0.0005 : 0.002;
+    const effectiveOffset = Math.max(minimumOffset, offset - anchorOffsetAlongNormal);
     const anchorDelta = anchorWorld.clone().sub(pivotWorld);
     const finalWorldPosition = surfaceWorldPosition
       .clone()
@@ -100,7 +101,9 @@ export class SnapService {
     object.userData['isSnapped'] = true;
 
     const localNormal = closest.normal.clone().normalize();
-    const offsetDistance = Math.max(0, finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal));
+    const offsetDistance = this.isPaintStroke(object)
+      ? Math.max(minimumOffset, effectiveOffset)
+      : Math.max(0, finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal));
     this.writeSnapInfo(object, {
       layerIndex: closest.layerIndex,
       surfaceType: closest.surfaceType,
@@ -110,7 +113,9 @@ export class SnapService {
       rotation: [...this.identityRotation],
     });
 
-    this.captureSnappedOrientation(object);
+    if (!this.isPaintStroke(object)) {
+      this.captureSnappedOrientation(object);
+    }
 
     return {
       success: true,
@@ -183,6 +188,10 @@ export class SnapService {
 
   private getCakeMetadata(): CakeMetadata | undefined {
     return this.cakeBase?.userData['metadata'] as CakeMetadata | undefined;
+  }
+
+  private isPaintStroke(object: THREE.Object3D): boolean {
+    return object.userData['isPaintStroke'] === true;
   }
 
   public setCakeBase(cake: THREE.Object3D | null): void {
@@ -517,15 +526,17 @@ export class SnapService {
       normal: projection.normal.clone().normalize().toArray(),
     };
     this.writeSnapInfo(object, updatedInfo);
-    const relativeRotation = this.getRelativeQuaternion(updatedInfo, projection.normal.clone());
-    this.applyOrientationForSurface(
-      object,
-      worldNormal,
-      snapInfo.surfaceType,
-      updatedInfo.roll ?? 0,
-      relativeRotation,
-    );
-    object.updateMatrixWorld(true);
+    if (!this.isPaintStroke(object)) {
+      const relativeRotation = this.getRelativeQuaternion(updatedInfo, projection.normal.clone());
+      this.applyOrientationForSurface(
+        object,
+        worldNormal,
+        snapInfo.surfaceType,
+        updatedInfo.roll ?? 0,
+        relativeRotation,
+      );
+      object.updateMatrixWorld(true);
+    }
   }
 
   public rotateDecorationQuarter(object: THREE.Object3D, direction: 1 | -1 = 1): {
