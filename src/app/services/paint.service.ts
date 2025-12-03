@@ -89,7 +89,7 @@ export class PaintService {
   private extruderLastNormal: THREE.Vector3 | null = null;
   private readonly extruderTargetWidth = 0.12;
   private readonly extruderMaxInstances = 1500;
-  private readonly extruderBaseRotation = new THREE.Euler(Math.PI / 2, 0, 0);
+  private readonly extruderBaseRotation = new THREE.Euler(-Math.PI / 2, 0, 0);
 
   private sceneRef: THREE.Scene | null = null;
   private cakeBaseRef: THREE.Object3D | null = null;

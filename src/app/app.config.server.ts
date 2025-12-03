@@ -50,6 +50,12 @@ if (typeof globalThis.ProgressEvent === 'undefined') {
   (globalThis as any).ProgressEvent = NodeProgressEvent as typeof ProgressEvent;
 }
 
+// three.js uses `self` when loading textures inside GLTF files; alias it to the
+// Node global so SSR can hydrate decoration assets without throwing.
+if (typeof (globalThis as any).self === 'undefined') {
+  (globalThis as any).self = globalThis as any;
+}
+
 const serverConfig: ApplicationConfig = {
   providers: [
     provideServerRendering()
