@@ -853,7 +853,7 @@ export class ThreeObjectsFactory {
       topMesh.position.y = layer.topY + glazeVerticalOffset;
       group.add(topMesh);
 
-      const topHeight = (topGeo.parameters?.depth ?? thickness * 0.5) / 2;
+      const topHeight = (topGeo.parameters?.options?.depth ?? thickness * 0.5) / 2;
       metadata.glazeTopOffset = glazeVerticalOffset + topHeight;
     }
 
