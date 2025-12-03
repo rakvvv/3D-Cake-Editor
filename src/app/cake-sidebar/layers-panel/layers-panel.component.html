@@ -44,6 +44,18 @@
       </label>
     </div>
 
+    <div class="sidebar-panel__control sidebar-panel__control--toggle" *ngIf="glazeEnabled">
+      <label class="sidebar-panel__checkbox" for="cake-glaze-top-only">
+        <input
+          id="cake-glaze-top-only"
+          type="checkbox"
+          [(ngModel)]="glazeTopOnly"
+          (ngModelChange)="updateCakeOptions()"
+        />
+        Tylko tafla polewy (bez rantu i sopli)
+      </label>
+    </div>
+
     <div class="sidebar-panel__control sidebar-panel__control--inline">
       <label class="sidebar-panel__label sidebar-panel__label--wrap" for="cake-glaze-color">Kolor polewy</label>
       <input

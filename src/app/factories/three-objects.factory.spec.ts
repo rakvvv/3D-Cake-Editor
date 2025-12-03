@@ -20,6 +20,7 @@ describe('ThreeObjectsFactory', () => {
     glaze_thickness: 0.2,
     glaze_drip_length: 0.4,
     glaze_seed: 1,
+    glaze_top_only: false,
     cake_textures: null,
     glaze_textures: null,
     wafer_texture_url: null,
@@ -56,6 +57,14 @@ describe('ThreeObjectsFactory', () => {
     const result = ThreeObjectsFactory.createCake(getOptions());
     expect(result.glaze).toBeTruthy();
     expect(result.cake.children.some((child) => child.name === 'CakeGlaze')).toBeTrue();
+  });
+
+  it('pomija rant i sople, gdy włączona jest tylko tafla polewy', () => {
+    const result = ThreeObjectsFactory.createCake(getOptions({ glaze_top_only: true }));
+    const glazeGroup = result.cake.children.find((child) => child.name === 'CakeGlaze') as THREE.Group;
+    expect(glazeGroup).toBeTruthy();
+    const nonTopParts = glazeGroup.children.filter((child) => !child.userData['isGlazeTop']);
+    expect(nonTopParts.length).toBe(0);
   });
 
   it('nakłada opłatek z połyskiem i skalowaniem', () => {

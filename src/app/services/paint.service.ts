@@ -535,7 +535,7 @@ export class PaintService {
       return;
     }
 
-    const offset = normal.clone().normalize().multiplyScalar(0.005);
+    const offset = normal.clone().normalize().multiplyScalar(0.0015);
     const position = point.clone().add(offset);
     const up = new THREE.Vector3(0, 1, 0);
     const align = new THREE.Quaternion().setFromUnitVectors(up, normal.clone().normalize());
@@ -883,7 +883,7 @@ export class PaintService {
     }
 
     const maxHeight = Math.max(...variants.map((variant) => variant.size.y * this.getExtruderScale(variant)));
-    return Math.max(this.penSurfaceOffset * 0.6, maxHeight * 0.2);
+    return Math.max(this.penSurfaceOffset * 0.25, maxHeight * 0.08);
   }
 
   private getExtruderAverageSpacing(variants: ExtruderVariantData[]): number {
@@ -1011,6 +1011,11 @@ export class PaintService {
     const geometry = mesh.geometry.clone();
     geometry.applyMatrix4(mesh.matrixWorld);
     geometry.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(this.extruderBaseRotation));
+    geometry.computeBoundingBox();
+    const minY = geometry.boundingBox?.min.y ?? 0;
+    if (Math.abs(minY) > 1e-6) {
+      geometry.translate(0, -minY, 0);
+    }
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
 

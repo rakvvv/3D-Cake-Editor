@@ -26,6 +26,7 @@ export interface CakeOptions {
   glaze_thickness: number;
   glaze_drip_length: number;
   glaze_seed: number;
+  glaze_top_only: boolean;
   cake_textures?: TextureMaps | null;
   glaze_textures?: TextureMaps | null;
   wafer_texture_url: string | null;

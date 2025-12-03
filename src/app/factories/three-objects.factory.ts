@@ -438,6 +438,7 @@ export class ThreeObjectsFactory {
       options.glaze_textures,
     );
     const hasWafer = Boolean(options.wafer_texture_url);
+    const topOnly = options.glaze_top_only === true;
 
     const group = new THREE.Group();
     group.name = 'CakeGlaze';
@@ -454,6 +455,7 @@ export class ThreeObjectsFactory {
         dripMaterial,
         random,
         hasWafer,
+        topOnly,
       );
       if (!cuboidGlaze) return null;
 
@@ -476,6 +478,10 @@ export class ThreeObjectsFactory {
       topMesh.userData['isGlazeTop'] = true;
       topMesh.position.y = topLayer.topY + glazeVerticalOffset;
       group.add(topMesh);
+    }
+
+    if (topOnly) {
+      return group;
     }
 
     // 2. RANT (Torus) - To on tworzy zaokrągloną krawędź
@@ -787,6 +793,7 @@ export class ThreeObjectsFactory {
     dripMaterial: THREE.MeshStandardMaterial,
     random: () => number,
     hasWafer: boolean,
+    topOnly: boolean,
   ): THREE.Group | null {
     const width = layer.width ?? metadata.width;
     const depth = layer.depth ?? metadata.depth;
@@ -841,32 +848,34 @@ export class ThreeObjectsFactory {
     }
 
     // === 2. RANT ===
-    const rimMesh = this.buildCuboidRimMesh(
-      width,
-      depth,
-      thickness,
-      overhang,
-      surfaceMaterial,
-      layer.topY,
-      cornerRadius,
-    );
-    if (rimMesh) {
-      rimMesh.userData['isCakeGlaze'] = true;
-      group.add(rimMesh);
-    }
+    if (!topOnly) {
+      const rimMesh = this.buildCuboidRimMesh(
+        width,
+        depth,
+        thickness,
+        overhang,
+        surfaceMaterial,
+        layer.topY,
+        cornerRadius,
+      );
+      if (rimMesh) {
+        rimMesh.userData['isCakeGlaze'] = true;
+        group.add(rimMesh);
+      }
 
-    // === 3. SOPLE ===
-    const dripsGroup = this.createCuboidDrips(
-      layer.topY + glazeVerticalOffset,
-      width,
-      depth,
-      dripMaterial,
-      thickness,
-      dripLength,
-      random,
-    );
-    dripsGroup.traverse((child) => (child.userData['isCakeGlaze'] = true));
-    group.add(dripsGroup);
+      // === 3. SOPLE ===
+      const dripsGroup = this.createCuboidDrips(
+        layer.topY + glazeVerticalOffset,
+        width,
+        depth,
+        dripMaterial,
+        thickness,
+        dripLength,
+        random,
+      );
+      dripsGroup.traverse((child) => (child.userData['isCakeGlaze'] = true));
+      group.add(dripsGroup);
+    }
 
     return group;
   }

@@ -1006,7 +1006,7 @@ export class SnapService {
     const normal = normalWorld.clone().normalize();
     const pivot = anchorWorld?.clone() ?? object.getWorldPosition(new THREE.Vector3());
 
-    const clearance = 0.002;
+    const clearance = 0.0005;
     let minProjection = Infinity;
 
     const corners: THREE.Vector3[] = [
