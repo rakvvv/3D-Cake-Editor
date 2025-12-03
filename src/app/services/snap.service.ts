@@ -683,13 +683,11 @@ export class SnapService {
       if (closest.surfaceType !== 'NONE') {
         const adjustedNormal = closest.normal.clone().normalize().toArray() as [number, number, number];
         const adjustedLayerIndex = metadata ? this.clampLayerIndex(closest.layerIndex, metadata) : snapshot.layerIndex;
-        const adjustedOffset = Math.max(0, closest.distance);
         this.writeSnapInfo(object, {
           ...snapshot,
           layerIndex: adjustedLayerIndex,
           surfaceType: closest.surfaceType,
           normal: adjustedNormal,
-          offset: adjustedOffset,
         });
       }
 

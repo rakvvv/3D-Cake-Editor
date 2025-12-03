@@ -99,7 +99,7 @@ export class TransformManagerService {
     }
 
     const cakeBase = this.snapService.getCakeBase();
-    if (cakeBase && (object === cakeBase || object.parent === cakeBase)) {
+    if (cakeBase && object === cakeBase) {
       this.deselectObject();
       return;
     }
