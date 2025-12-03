@@ -264,6 +264,15 @@ export class SnapService {
     let bestInfo = this.getClosestPointOnCake(pivotWorld);
     let bestWorldPoint = pivotWorld.clone();
 
+    const snapPoints = this.extractSnapPoints(object);
+    for (const snapPoint of snapPoints) {
+      const info = this.getClosestPointOnCake(snapPoint);
+      if (info.surfaceType !== 'NONE' && info.distance < bestInfo.distance) {
+        bestInfo = info;
+        bestWorldPoint = snapPoint.clone();
+      }
+    }
+
     const box = this.computeWorldBoundingBox(object);
     if (!box.isEmpty()) {
       const center = box.getCenter(new THREE.Vector3());
@@ -280,6 +289,32 @@ export class SnapService {
     }
 
     return { info: bestInfo, worldPoint: bestWorldPoint };
+  }
+
+  private extractSnapPoints(object: THREE.Object3D): THREE.Vector3[] {
+    const raw = object.userData['snapPoints'];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+
+    const points: THREE.Vector3[] = [];
+    for (const entry of raw) {
+      if (entry instanceof THREE.Vector3) {
+        if (Number.isFinite(entry.x) && Number.isFinite(entry.y) && Number.isFinite(entry.z)) {
+          points.push(entry.clone());
+        }
+        continue;
+      }
+
+      if (Array.isArray(entry) && entry.length === 3) {
+        const [x, y, z] = entry;
+        if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
+          points.push(new THREE.Vector3(x, y, z));
+        }
+      }
+    }
+
+    return points;
   }
 
   public getClosestPointOnCake(worldPoint: THREE.Vector3): ClosestPointInfo {

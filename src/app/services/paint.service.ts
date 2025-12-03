@@ -583,6 +583,7 @@ export class PaintService {
     const offset = this.getExtruderSurfaceOffset(variants);
     const currentNormal = normal.clone().normalize();
     const currentPosition = point.clone().add(currentNormal.clone().multiplyScalar(offset));
+    this.recordPaintSnapPoint(point, strokeGroup);
 
     if (!previousPoint || !this.extruderLastPlacedPoint) {
       const fallbackTangent = new THREE.Vector3().crossVectors(currentNormal, new THREE.Vector3(0, 1, 0));
@@ -599,6 +600,7 @@ export class PaintService {
 
     const baseNormal = (previousNormal ?? currentNormal).clone().normalize();
     const startPosition = previousPoint.clone().add(baseNormal.clone().multiplyScalar(offset));
+    this.recordPaintSnapPoint(previousPoint, strokeGroup);
     if (!this.extruderLastPlacedPoint) {
       this.extruderLastPlacedPoint = startPosition.clone();
     }
@@ -801,6 +803,7 @@ export class PaintService {
     if (!this.activeExtruderStrokeGroup) {
       this.activeExtruderStrokeGroup = new THREE.Group();
       this.activeExtruderStrokeGroup.userData['isPaintStroke'] = true;
+      this.activeExtruderStrokeGroup.userData['snapPoints'] = [] as number[][];
       scene.add(this.activeExtruderStrokeGroup);
       this.redoStack = [];
       this.extruderStrokeInstances.clear();
@@ -827,6 +830,7 @@ export class PaintService {
     let lastPlaced: THREE.Vector3 | null = null;
 
     points.forEach((point, index) => {
+      this.recordPaintSnapPoint(point, strokeGroup);
       const current = point.clone().add(upNormal.clone().multiplyScalar(offset));
       if (!lastPlaced) {
         const tangent = this.getPresetTangent(points, index);
@@ -1611,6 +1615,15 @@ export class PaintService {
     const size = new THREE.Vector3();
     box.getSize(size);
     return size;
+  }
+
+  private recordPaintSnapPoint(point: THREE.Vector3, strokeGroup: THREE.Group): void {
+    if (!strokeGroup.userData['snapPoints']) {
+      strokeGroup.userData['snapPoints'] = [] as number[][];
+    }
+
+    const snapPoints = strokeGroup.userData['snapPoints'] as number[][];
+    snapPoints.push(point.toArray());
   }
 
   private finalizePaintRoot(object: THREE.Object3D): void {
