@@ -19,10 +19,11 @@ export class DecorationFactory {
     renderer?: THREE.WebGLRenderer,
   ): Promise<THREE.Object3D> {
     const loader = await this.getLoader(renderer);
+    const resolvedUrl = this.resolveAssetUrl(url);
 
     return new Promise((resolve, reject) => {
       loader.load(
-        url,
+        resolvedUrl,
         gltf => {
           const meshes = this.getAllMeshes(gltf.scene);
           this.prepareMeshesForClick(meshes);
@@ -79,13 +80,31 @@ export class DecorationFactory {
 
     try {
       const ktx2Loader = new KTX2Loader();
-      ktx2Loader.setTranscoderPath('/assets/ktx2/');
+      ktx2Loader.setTranscoderPath(this.resolveAssetUrl('/assets/ktx2/'));
       ktx2Loader.detectSupport(renderer);
       return ktx2Loader;
     } catch (error) {
       this.emitError(error);
       return null;
     }
+  }
+
+  private static resolveAssetUrl(path: string): string {
+    if (/^https?:\/\//i.test(path)) {
+      return path;
+    }
+
+    const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+
+    if (typeof document !== 'undefined' && document.baseURI) {
+      return new URL(normalizedPath, document.baseURI).toString();
+    }
+
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return `${window.location.origin}/${normalizedPath}`;
+    }
+
+    return `http://localhost:4200/${normalizedPath}`;
   }
 
   private static emitError(error: unknown): void {
