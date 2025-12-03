@@ -4,6 +4,7 @@ import { Subject } from 'rxjs';
 import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
+import { SnapService } from './snap.service';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -125,6 +126,7 @@ export class PaintService {
 
   constructor(
     private readonly transformManager: TransformManagerService,
+    private readonly snapService: SnapService,
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -1624,6 +1626,7 @@ export class PaintService {
     });
 
     this.attachToCake(object);
+    this.snapService.snapDecorationToCake(object);
     object.userData['isSnapped'] = true;
   }
 

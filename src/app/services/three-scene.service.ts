@@ -831,12 +831,10 @@ export class ThreeSceneService {
       return null;
     }
 
-    let selected = intersects[0].object;
-    while (selected.parent && selected.parent !== this.scene && selected.parent !== this.cakeBase) {
-      selected = selected.parent;
-    }
+    const candidate = this.findParentDecoration(intersects[0].object) ?? intersects[0].object;
+    const selected = candidate === this.cakeBase ? null : candidate;
 
-    if (selected === this.cakeBase) {
+    if (!selected) {
       if (attach) {
         this.transformControlsService.deselectObject();
         this.hideBoxHelper();
@@ -1355,7 +1353,7 @@ export class ThreeSceneService {
 
     const traverse = (object: THREE.Object3D) => {
       for (const child of object.children) {
-        if (child.userData['decorationType']) {
+        if (child.userData['decorationType'] || child.userData['isPaintStroke'] || child.userData['isPaintDecoration']) {
           const root = this.resolveDecorationRoot(child);
           if (!visited.has(root)) {
             visited.add(root);
