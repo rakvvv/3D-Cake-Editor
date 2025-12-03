@@ -45,14 +45,14 @@
     </div>
 
     <div class="sidebar-panel__control sidebar-panel__control--toggle" *ngIf="glazeEnabled">
-      <label class="sidebar-panel__checkbox" for="cake-glaze-top-only">
+      <label class="sidebar-panel__checkbox" for="cake-glaze-top-enabled">
         <input
-          id="cake-glaze-top-only"
+          id="cake-glaze-top-enabled"
           type="checkbox"
-          [(ngModel)]="glazeTopOnly"
+          [(ngModel)]="glazeTopEnabled"
           (ngModelChange)="updateCakeOptions()"
         />
-        Tylko tafla polewy (bez rantu i sopli)
+        Tafla na wierzchu (odznacz, aby zostawić tylko rant i sople)
       </label>
     </div>
 

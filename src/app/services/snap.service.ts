@@ -12,6 +12,7 @@ interface ScaledLayerInfo {
   radius?: number;
   halfWidth?: number;
   halfDepth?: number;
+  topOffset?: number;
 }
 
 export interface SnapInfoSnapshot {
@@ -169,10 +170,11 @@ export class SnapService {
   }
 
   private getScaledLayers(metadata: CakeMetadata): ScaledLayerInfo[] {
-    return metadata.layerDimensions.map((layer) => ({
+    return metadata.layerDimensions.map((layer, index, all) => ({
       index: layer.index,
       bottom: layer.bottomY,
       top: layer.topY,
+      topOffset: index === all.length - 1 ? metadata.glazeTopOffset ?? 0 : 0,
       radius: layer.radius,
       halfWidth: layer.width !== undefined ? layer.width / 2 : undefined,
       halfDepth: layer.depth !== undefined ? layer.depth / 2 : undefined,
@@ -890,13 +892,15 @@ export class SnapService {
     localNormal: THREE.Vector3,
     offset: number,
   ): { position: THREE.Vector3; normal: THREE.Vector3 } {
+    const topHeight = layer.top + (layer.topOffset ?? 0);
+
     if (metadata.shape === 'cylinder') {
       const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
       const horizontal = new THREE.Vector3(localPosition.x, 0, localPosition.z);
       if (horizontal.lengthSq() > radius * radius && horizontal.lengthSq() > 1e-6) {
         horizontal.setLength(radius);
       }
-      const basePoint = new THREE.Vector3(horizontal.x, layer.top, horizontal.z);
+      const basePoint = new THREE.Vector3(horizontal.x, topHeight, horizontal.z);
       const normal = new THREE.Vector3(0, 1, 0);
       const position = basePoint.add(normal.clone().multiplyScalar(offset));
       return { position, normal };
@@ -909,7 +913,7 @@ export class SnapService {
 
     const clampedX = THREE.MathUtils.clamp(localPosition.x, -halfWidth, halfWidth);
     const clampedZ = THREE.MathUtils.clamp(localPosition.z, -halfDepth, halfDepth);
-    const basePoint = new THREE.Vector3(clampedX, layer.top, clampedZ);
+    const basePoint = new THREE.Vector3(clampedX, topHeight, clampedZ);
     const normal = new THREE.Vector3(0, 1, 0);
     const position = basePoint.add(normal.clone().multiplyScalar(offset));
     return { position, normal };

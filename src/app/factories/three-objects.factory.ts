@@ -25,6 +25,7 @@ export interface CakeMetadata {
   maxRadius?: number;
   maxWidth?: number;
   maxDepth?: number;
+  glazeTopOffset?: number;
 }
 
 export interface CakeCreationResult {
@@ -438,7 +439,7 @@ export class ThreeObjectsFactory {
       options.glaze_textures,
     );
     const hasWafer = Boolean(options.wafer_texture_url);
-    const topOnly = options.glaze_top_only === true;
+    const topEnabled = options.glaze_top_enabled !== false;
 
     const group = new THREE.Group();
     group.name = 'CakeGlaze';
@@ -455,7 +456,7 @@ export class ThreeObjectsFactory {
         dripMaterial,
         random,
         hasWafer,
-        topOnly,
+        topEnabled,
       );
       if (!cuboidGlaze) return null;
 
@@ -471,17 +472,23 @@ export class ThreeObjectsFactory {
     const poolRadius = cakeRadius + overhang;
     const glazeVerticalOffset = hasWafer ? thickness * 0.2 : thickness * 0.35;
 
-    if (!hasWafer) {
+    let glazeTopOffset = 0;
+
+    if (!hasWafer && topEnabled) {
       const topGeo = new THREE.CylinderGeometry(poolRadius, poolRadius, thickness * 0.7, 64);
       const topMesh = new THREE.Mesh(topGeo, glazeMaterial);
       topMesh.userData['isCakeGlaze'] = true;
       topMesh.userData['isGlazeTop'] = true;
       topMesh.position.y = topLayer.topY + glazeVerticalOffset;
       group.add(topMesh);
+
+      glazeTopOffset = glazeVerticalOffset + (topGeo.parameters?.height ?? thickness * 0.7) / 2;
     }
 
-    if (topOnly) {
-      return group;
+    if (glazeTopOffset > 0 && topEnabled) {
+      metadata.glazeTopOffset = glazeTopOffset;
+    } else {
+      metadata.glazeTopOffset = 0;
     }
 
     // 2. RANT (Torus) - To on tworzy zaokrągloną krawędź
@@ -793,7 +800,7 @@ export class ThreeObjectsFactory {
     dripMaterial: THREE.MeshStandardMaterial,
     random: () => number,
     hasWafer: boolean,
-    topOnly: boolean,
+    topEnabled: boolean,
   ): THREE.Group | null {
     const width = layer.width ?? metadata.width;
     const depth = layer.depth ?? metadata.depth;
@@ -810,7 +817,7 @@ export class ThreeObjectsFactory {
     const glazeVerticalOffset = hasWafer ? thickness * 0.2 : thickness * 0.35;
 
     // === 1. GÓRA ===
-    if (!hasWafer) {
+    if (!hasWafer && topEnabled) {
       const shape = this.getRoundedRectShape(
         width + overhang * 2,
         depth + overhang * 2,
@@ -845,36 +852,41 @@ export class ThreeObjectsFactory {
       topMesh.userData['isGlazeTop'] = true;
       topMesh.position.y = layer.topY + glazeVerticalOffset;
       group.add(topMesh);
+
+      const topHeight = (topGeo.parameters?.depth ?? thickness * 0.5) / 2;
+      metadata.glazeTopOffset = glazeVerticalOffset + topHeight;
     }
 
     // === 2. RANT ===
-    if (!topOnly) {
-      const rimMesh = this.buildCuboidRimMesh(
-        width,
-        depth,
-        thickness,
-        overhang,
-        surfaceMaterial,
-        layer.topY,
-        cornerRadius,
-      );
-      if (rimMesh) {
-        rimMesh.userData['isCakeGlaze'] = true;
-        group.add(rimMesh);
-      }
+    const rimMesh = this.buildCuboidRimMesh(
+      width,
+      depth,
+      thickness,
+      overhang,
+      surfaceMaterial,
+      layer.topY,
+      cornerRadius,
+    );
+    if (rimMesh) {
+      rimMesh.userData['isCakeGlaze'] = true;
+      group.add(rimMesh);
+    }
 
-      // === 3. SOPLE ===
-      const dripsGroup = this.createCuboidDrips(
-        layer.topY + glazeVerticalOffset,
-        width,
-        depth,
-        dripMaterial,
-        thickness,
-        dripLength,
-        random,
-      );
-      dripsGroup.traverse((child) => (child.userData['isCakeGlaze'] = true));
-      group.add(dripsGroup);
+    // === 3. SOPLE ===
+    const dripsGroup = this.createCuboidDrips(
+      layer.topY + glazeVerticalOffset,
+      width,
+      depth,
+      dripMaterial,
+      thickness,
+      dripLength,
+      random,
+    );
+    dripsGroup.traverse((child) => (child.userData['isCakeGlaze'] = true));
+    group.add(dripsGroup);
+
+    if (!topEnabled) {
+      metadata.glazeTopOffset = 0;
     }
 
     return group;
