@@ -277,7 +277,7 @@ export class SnapService {
   ): { info: ClosestPointInfo; worldPoint: THREE.Vector3 } {
     const pivotWorld = object.getWorldPosition(new THREE.Vector3());
     let bestInfo = this.getClosestPointOnCake(pivotWorld);
-    if (allowedSurfaces && !allowedSurfaces.includes(bestInfo.surfaceType)) {
+    if (allowedSurfaces && bestInfo.surfaceType !== 'NONE' && !allowedSurfaces.includes(bestInfo.surfaceType)) {
       bestInfo = { ...bestInfo, surfaceType: 'NONE' };
     }
     let bestWorldPoint = pivotWorld.clone();
@@ -285,7 +285,7 @@ export class SnapService {
     const snapPoints = this.extractSnapPoints(object);
     for (const snapPoint of snapPoints) {
       const info = this.getClosestPointOnCake(snapPoint);
-      if (allowedSurfaces && !allowedSurfaces.includes(info.surfaceType)) {
+      if (allowedSurfaces && info.surfaceType !== 'NONE' && !allowedSurfaces.includes(info.surfaceType)) {
         continue;
       }
       if (info.surfaceType !== 'NONE' && info.distance < bestInfo.distance) {
@@ -302,7 +302,7 @@ export class SnapService {
 
       for (const candidate of candidates) {
         const info = this.getClosestPointOnCake(candidate);
-        if (allowedSurfaces && !allowedSurfaces.includes(info.surfaceType)) {
+        if (allowedSurfaces && info.surfaceType !== 'NONE' && !allowedSurfaces.includes(info.surfaceType)) {
           continue;
         }
         if (info.surfaceType !== 'NONE' && info.distance < bestInfo.distance) {
@@ -539,7 +539,7 @@ export class SnapService {
 
     if (snapInfo.surfaceType === 'TOP') {
       const bottomLayer = metadata.layerDimensions[0];
-      const minimumY = bottomLayer?.bottom ?? -metadata.totalHeight / 2;
+      const minimumY = bottomLayer?.bottomY ?? -metadata.totalHeight / 2;
       if (finalPosition.y < minimumY) {
         finalPosition = new THREE.Vector3(finalPosition.x, minimumY, finalPosition.z);
       }
