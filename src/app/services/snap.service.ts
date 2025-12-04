@@ -36,7 +36,7 @@ export interface SnappedDecorationState {
 })
 export class SnapService {
   private readonly attachmentTolerance = 0.75;
-  private readonly maxEmbeddingDepth = 0.02;
+  private readonly maxEmbeddingDepth = 0.05;
 
   private cakeBase: THREE.Object3D | null = null;
   private readonly identityRotation: [number, number, number, number] = [0, 0, 0, 1];
@@ -85,8 +85,8 @@ export class SnapService {
     const worldBounds = this.computeWorldBoundingBox(object);
     const embeddingAllowance = this.isPaintStroke(object) ? 0 : this.computeEmbeddingAllowance(worldBounds);
     const offset = this.computeOffsetDistance(object, surfaceWorldNormal, surfaceWorldPosition);
-    const anchorOffsetAlongNormal = surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition));
-    const minimumOffset = this.isPaintStroke(object) ? 0.0005 : 0.002;
+    const anchorOffsetAlongNormal = Math.max(0, surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition)));
+    const minimumOffset = 0.0005;
     const adjustedOffset = THREE.MathUtils.clamp(
       offset - embeddingAllowance,
       -embeddingAllowance,
