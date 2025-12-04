@@ -36,6 +36,7 @@ export interface SnappedDecorationState {
 })
 export class SnapService {
   private readonly attachmentTolerance = 0.75;
+  private readonly maxEmbeddingDepth = 0.02;
 
   private cakeBase: THREE.Object3D | null = null;
   private readonly identityRotation: [number, number, number, number] = [0, 0, 0, 1];
@@ -81,10 +82,21 @@ export class SnapService {
 
     const pivotWorld = object.getWorldPosition(new THREE.Vector3());
     const anchorWorld = closestCandidate.worldPoint.clone();
-    const offset = this.computeOffsetDistance(object, surfaceWorldNormal, anchorWorld);
+    const worldBounds = this.computeWorldBoundingBox(object);
+    const embeddingAllowance = this.isPaintStroke(object) ? 0 : this.computeEmbeddingAllowance(worldBounds);
+    const offset = this.computeOffsetDistance(object, surfaceWorldNormal, surfaceWorldPosition);
     const anchorOffsetAlongNormal = surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition));
     const minimumOffset = this.isPaintStroke(object) ? 0.0005 : 0.002;
-    const effectiveOffset = Math.max(minimumOffset, offset - anchorOffsetAlongNormal);
+    const adjustedOffset = THREE.MathUtils.clamp(
+      offset - embeddingAllowance,
+      -embeddingAllowance,
+      Math.max(offset, minimumOffset),
+    );
+    const effectiveOffset = THREE.MathUtils.clamp(
+      adjustedOffset - anchorOffsetAlongNormal,
+      -embeddingAllowance,
+      Math.max(adjustedOffset, minimumOffset),
+    );
     const anchorDelta = anchorWorld.clone().sub(pivotWorld);
     const finalWorldPosition = surfaceWorldPosition
       .clone()
@@ -103,7 +115,11 @@ export class SnapService {
     const localNormal = closest.normal.clone().normalize();
     const offsetDistance = this.isPaintStroke(object)
       ? Math.max(minimumOffset, effectiveOffset)
-      : Math.max(0, finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal));
+      : THREE.MathUtils.clamp(
+          finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal),
+          -embeddingAllowance,
+          Math.max(minimumOffset, effectiveOffset),
+        );
     this.writeSnapInfo(object, {
       layerIndex: closest.layerIndex,
       surfaceType: closest.surfaceType,
@@ -815,7 +831,7 @@ export class SnapService {
   private normalizeSnapInfo(info: SnapUserData, metadata: CakeMetadata): SnapUserData {
     const layerIndex = this.clampLayerIndex(info.layerIndex, metadata);
     const normal = new THREE.Vector3().fromArray(info.normal).normalize();
-    const offset = Math.max(0, info.offset);
+    const offset = THREE.MathUtils.clamp(info.offset ?? 0, -this.maxEmbeddingDepth, Infinity);
     const surfaceType = info.surfaceType;
 
     const { quaternion, roll } = this.sanitizeRotation(info, surfaceType, normal.clone());
@@ -1064,12 +1080,12 @@ export class SnapService {
   private computeOffsetDistance(
     object: THREE.Object3D,
     normalWorld: THREE.Vector3,
-    anchorWorld?: THREE.Vector3,
+    surfaceWorldPosition: THREE.Vector3,
   ): number {
     object.updateMatrixWorld(true);
 
     const normal = normalWorld.clone().normalize();
-    const pivot = anchorWorld?.clone() ?? object.getWorldPosition(new THREE.Vector3());
+    const pivot = surfaceWorldPosition.clone();
 
     const clearance = 0.0005;
     let minProjection = Infinity;
@@ -1193,6 +1209,18 @@ export class SnapService {
     });
 
     return box;
+  }
+
+  private computeEmbeddingAllowance(bounds: THREE.Box3): number {
+    if (bounds.isEmpty()) {
+      return 0;
+    }
+
+    const size = bounds.getSize(new THREE.Vector3());
+    const smallestDimension = Math.min(size.x, size.y, size.z);
+    const clamped = Math.max(0, smallestDimension * 0.5);
+
+    return Math.min(this.maxEmbeddingDepth, clamped);
   }
 
   private getBoxCorners(box: THREE.Box3): THREE.Vector3[] {
