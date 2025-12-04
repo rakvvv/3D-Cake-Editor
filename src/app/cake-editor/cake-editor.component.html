@@ -52,6 +52,20 @@
       <button type="button" (click)="onContextDetachFromCake()" [disabled]="!contextMenuCanDetach">
         Odczep od tortu
       </button>
+      <button
+        type="button"
+        (click)="onContextLockDecoration()"
+        [disabled]="!contextMenuHasSelection || contextMenuIsLocked"
+      >
+        Zablokuj przesuwanie
+      </button>
+      <button
+        type="button"
+        (click)="onContextUnlockDecoration()"
+        [disabled]="!contextMenuIsLocked"
+      >
+        Odblokuj przesuwanie
+      </button>
       <button type="button" (click)="onContextDeleteDecoration()" [disabled]="!contextMenuHasSelection">
         Usuń
       </button>

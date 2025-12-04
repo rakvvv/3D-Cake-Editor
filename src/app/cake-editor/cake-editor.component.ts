@@ -56,6 +56,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   public contextMenuHasSelection = false;
   public contextMenuCanSnap = false;
   public contextMenuCanDetach = false;
+  public contextMenuIsLocked = false;
 
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
@@ -274,6 +275,18 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.showStatus(result.message);
   }
 
+  onContextLockDecoration(): void {
+    this.hideContextMenu();
+    const result = this.sceneService.lockSelectedDecoration();
+    this.showStatus(result.message);
+  }
+
+  onContextUnlockDecoration(): void {
+    this.hideContextMenu();
+    const result = this.sceneService.unlockSelectedDecoration();
+    this.showStatus(result.message);
+  }
+
   onContextDeselectDecoration(): void {
     this.hideContextMenu();
     const deselected = this.sceneService.deselectDecoration();
@@ -353,6 +366,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.contextMenuHasSelection = !!selected;
     this.contextMenuCanSnap = !!selected && !isSnapped;
     this.contextMenuCanDetach = !!selected && isSnapped;
+    this.contextMenuIsLocked = !!selected && this.sceneService.isSelectedDecorationLocked();
 
     this.contextMenuVisible = true;
     this.contextMenuX = event.clientX;
@@ -364,6 +378,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.contextMenuHasSelection = false;
     this.contextMenuCanSnap = false;
     this.contextMenuCanDetach = false;
+    this.contextMenuIsLocked = false;
   }
 
   private resetCameraView(): void {

@@ -1029,6 +1029,26 @@ export class ThreeSceneService {
     return selected.parent === this.cakeBase || selected.userData['isSnapped'] === true;
   }
 
+  public isSelectedDecorationLocked(): boolean {
+    return this.transformControlsService.isSelectionLocked();
+  }
+
+  public lockSelectedDecoration(): { success: boolean; message: string } {
+    const result = this.transformControlsService.lockSelectedObject();
+    if (result.success) {
+      this.updateBoxHelper();
+    }
+    return result;
+  }
+
+  public unlockSelectedDecoration(): { success: boolean; message: string } {
+    const result = this.transformControlsService.unlockSelectedObject();
+    if (result.success) {
+      this.updateBoxHelper();
+    }
+    return result;
+  }
+
   public getSelectedDecoration(): THREE.Object3D | null {
     return this.transformControlsService.getSelectedObject();
   }

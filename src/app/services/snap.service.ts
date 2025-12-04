@@ -530,6 +530,12 @@ export class SnapService {
       return;
     }
 
+    this.updateSnapFromObjectPosition(object, true);
+    snapInfo = this.readSnapInfo(object);
+    if (!snapInfo) {
+      return;
+    }
+
     snapInfo = this.normalizeSnapInfo(snapInfo, metadata);
     this.writeSnapInfo(object, snapInfo);
 
@@ -608,6 +614,49 @@ export class SnapService {
       );
       object.updateMatrixWorld(true);
     }
+  }
+
+  public updateSnapFromObjectPosition(object: THREE.Object3D, skipClamp = false): void {
+    if (!object.userData['isSnapped'] || !this.cakeBase) {
+      return;
+    }
+
+    const metadata = this.getCakeMetadata();
+    if (!metadata) {
+      return;
+    }
+
+    const snapInfo = this.readSnapInfo(object);
+    if (!snapInfo) {
+      return;
+    }
+
+    const normalizedInfo = this.normalizeSnapInfo(snapInfo, metadata);
+    const layers = this.getScaledLayers(metadata);
+    const layer = this.findLayerInfo(layers, normalizedInfo.layerIndex);
+    const localNormal = new THREE.Vector3().fromArray(normalizedInfo.normal).normalize();
+    const localPosition = this.cakeBase.worldToLocal(object.getWorldPosition(new THREE.Vector3()));
+
+    const projection =
+      normalizedInfo.surfaceType === 'TOP'
+        ? this.projectPointToTopSurface(localPosition, layer, metadata, localNormal, 0)
+        : this.projectPointToSideSurface(localPosition, layer, metadata, localNormal, 0);
+
+    const userOffset = localPosition.clone().sub(projection.position).dot(projection.normal);
+    const coords = this.computeSurfaceCoordinates(
+      projection.position.clone(),
+      normalizedInfo.surfaceType,
+      layer,
+      metadata,
+    );
+
+    const updated: SnapUserData = {
+      ...normalizedInfo,
+      offset: skipClamp ? userOffset : THREE.MathUtils.clamp(userOffset, -this.maxEmbeddingDepth, Infinity),
+      coords,
+    };
+
+    this.writeSnapInfo(object, updated);
   }
 
   public rotateDecorationQuarter(object: THREE.Object3D, direction: 1 | -1 = 1): {
