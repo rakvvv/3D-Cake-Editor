@@ -80,9 +80,9 @@ export class SnapService {
 
     object.updateMatrixWorld(true);
 
+    const worldBounds = this.computeWorldBoundingBox(object);
     const pivotWorld = object.getWorldPosition(new THREE.Vector3());
     const anchorWorld = this.getAnchorPointForNormal(worldBounds, surfaceWorldNormal, object, pivotWorld);
-    const worldBounds = this.computeWorldBoundingBox(object);
     const embeddingAllowance = this.isPaintStroke(object) ? 0 : this.computeEmbeddingAllowance(worldBounds);
     const offset = this.computeOffsetDistance(object, surfaceWorldNormal, surfaceWorldPosition);
     const anchorOffsetAlongNormal = surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition));
