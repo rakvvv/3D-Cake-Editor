@@ -81,7 +81,7 @@ export class SnapService {
     object.updateMatrixWorld(true);
 
     const pivotWorld = object.getWorldPosition(new THREE.Vector3());
-    const anchorWorld = closestCandidate.worldPoint.clone();
+    const anchorWorld = this.getAnchorPointForNormal(worldBounds, surfaceWorldNormal, object, pivotWorld);
     const worldBounds = this.computeWorldBoundingBox(object);
     const embeddingAllowance = this.isPaintStroke(object) ? 0 : this.computeEmbeddingAllowance(worldBounds);
     const offset = this.computeOffsetDistance(object, surfaceWorldNormal, surfaceWorldPosition);
@@ -1206,6 +1206,38 @@ export class SnapService {
     });
 
     return box;
+  }
+
+  private getAnchorPointForNormal(
+    worldBounds: THREE.Box3,
+    normalWorld: THREE.Vector3,
+    object: THREE.Object3D,
+    fallback: THREE.Vector3,
+  ): THREE.Vector3 {
+    if (worldBounds.isEmpty()) {
+      return fallback.clone();
+    }
+
+    const normal = normalWorld.clone().normalize();
+    const corners = this.getBoxCorners(worldBounds);
+    let bestCorner = corners[0];
+    let bestProjection = normal.dot(corners[0]);
+
+    for (let i = 1; i < corners.length; i++) {
+      const projection = normal.dot(corners[i]);
+      if (projection < bestProjection) {
+        bestProjection = projection;
+        bestCorner = corners[i];
+      }
+    }
+
+    if (!bestCorner) {
+      return fallback.clone();
+    }
+
+    // Preserve local offsets for instanced/attached objects by converting back to world space anchor
+    object.updateMatrixWorld(true);
+    return bestCorner.clone();
   }
 
   private computeEmbeddingAllowance(bounds: THREE.Box3): number {
