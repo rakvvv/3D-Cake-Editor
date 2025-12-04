@@ -19,13 +19,33 @@
       </select>
     </div>
 
+    <div class="decorations-panel__placement">
+      <label class="decorations-panel__placement-row">
+        <span class="decorations-panel__placement-label">Powierzchnia</span>
+        <select class="sidebar-panel__select" [(ngModel)]="placementSurface">
+          <option value="AUTO">{{ surfaceLabel('AUTO') }}</option>
+          <option value="TOP">{{ surfaceLabel('TOP') }}</option>
+          <option value="SIDE">{{ surfaceLabel('SIDE') }}</option>
+        </select>
+      </label>
+
+      <label class="decorations-panel__placement-row" *ngIf="layerOptions.length > 1">
+        <span class="decorations-panel__placement-label">Piętro</span>
+        <select class="sidebar-panel__select" [(ngModel)]="targetLayerIndex">
+          <option *ngFor="let layer of layerOptions" [ngValue]="layer">
+            {{ layerLabel(layer) }}
+          </option>
+        </select>
+      </label>
+    </div>
+
     <div class="decorations-panel__list-container">
       <div class="decorations-panel__list" role="list">
         <button
           type="button"
           class="decorations-panel__card"
           *ngFor="let decoration of filteredDecorations"
-          (click)="onAddDecoration(decoration.modelFileName)"
+          (click)="onAddDecoration(decoration)"
         >
           <span class="decorations-panel__thumbnail" aria-hidden="true">
             <img

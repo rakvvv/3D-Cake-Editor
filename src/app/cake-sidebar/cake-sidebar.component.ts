@@ -2,6 +2,7 @@ import { Component, Input, OnInit, output } from '@angular/core';
 import { DecorationsService } from '../services/decorations.service';
 import { PaintService } from '../services/paint.service';
 import { CakeOptions } from '../models/cake.options';
+import { AddDecorationRequest } from '../models/add-decoration-request';
 import { LayersPanelComponent } from './layers-panel/layers-panel.component';
 import { DecorationsPanelComponent } from './decorations-panel/decorations-panel.component';
 import { PaintPanelComponent } from './paint-panel/paint-panel.component';
@@ -32,7 +33,7 @@ export class CakeSidebarComponent implements OnInit {
   @Input() pendingValidationLabel: string | null = null;
   @Input() options!: CakeOptions;
 
-  readonly addDecorationEvent = output<string>();
+  readonly addDecorationEvent = output<AddDecorationRequest>();
   readonly saveSceneEvent = output<void>();
   readonly validateDecorations = output<void>();
   readonly cakeOptionsChange = output<CakeOptions>();

@@ -7,6 +7,7 @@ import {PaintService} from '../services/paint.service';
 import {TransformControlsService} from '../services/transform-controls-service';
 import {CakeOptions} from '../models/cake.options';
 import {DecorationValidationIssue} from '../models/decoration-validation';
+import {AddDecorationRequest} from '../models/add-decoration-request';
 
 @Component({
   selector: 'app-cake-editor',
@@ -55,7 +56,6 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   public contextMenuY = 0;
   public contextMenuHasSelection = false;
   public contextMenuCanSnap = false;
-  public contextMenuCanDetach = false;
   public contextMenuIsLocked = false;
 
   private pendingValidationAction: (() => void) | null = null;
@@ -108,8 +108,8 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  onAddDecoration(templateId: string): void {
-    void this.sceneService.addDecorationFromModel(templateId);
+  onAddDecoration(request: AddDecorationRequest): void {
+    void this.sceneService.addDecorationFromModel(request.modelFileName, request.preferredSurface, request.targetLayerIndex);
   }
 
   updateCakeOptions(newOptions: CakeOptions): void {
@@ -245,12 +245,6 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.showStatus(result.message);
   }
 
-  onContextDetachFromCake(): void {
-    this.hideContextMenu();
-    const result = this.sceneService.detachSelectedDecorationFromCake();
-    this.showStatus(result.message);
-  }
-
   onContextDeleteDecoration(): void {
     this.hideContextMenu();
     const result = this.sceneService.deleteSelectedDecoration();
@@ -365,7 +359,6 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     const isSnapped = this.sceneService.isSelectedDecorationSnapped();
     this.contextMenuHasSelection = !!selected;
     this.contextMenuCanSnap = !!selected && !isSnapped;
-    this.contextMenuCanDetach = !!selected && isSnapped;
     this.contextMenuIsLocked = !!selected && this.sceneService.isSelectedDecorationLocked();
 
     this.contextMenuVisible = true;
@@ -377,7 +370,6 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.contextMenuVisible = false;
     this.contextMenuHasSelection = false;
     this.contextMenuCanSnap = false;
-    this.contextMenuCanDetach = false;
     this.contextMenuIsLocked = false;
   }
 

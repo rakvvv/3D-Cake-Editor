@@ -753,7 +753,11 @@ export class ThreeSceneService {
     }
   }
 
-  public async addDecorationFromModel(identifier: string): Promise<void> {
+  public async addDecorationFromModel(
+    identifier: string,
+    preferredSurface?: 'TOP' | 'SIDE',
+    targetLayerIndex?: number
+  ): Promise<void> {
     if (!this.cakeBase) {
       return;
     }
@@ -762,7 +766,9 @@ export class ThreeSceneService {
       identifier,
       this.scene,
       this.cakeBase,
-      this.objects
+      this.objects,
+      preferredSurface,
+      targetLayerIndex
     );
     if (decoration) {
       this.paintService.registerDecorationAddition(decoration);
