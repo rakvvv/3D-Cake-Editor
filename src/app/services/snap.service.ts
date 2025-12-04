@@ -83,21 +83,8 @@ export class SnapService {
     const worldBounds = this.computeWorldBoundingBox(object);
     const pivotWorld = object.getWorldPosition(new THREE.Vector3());
     const anchorWorld = this.getAnchorPointForNormal(worldBounds, surfaceWorldNormal, object, pivotWorld);
-    const embeddingAllowance = this.isPaintStroke(object) ? 0 : this.computeEmbeddingAllowance(worldBounds);
-    const offset = this.computeOffsetDistance(object, surfaceWorldNormal, surfaceWorldPosition);
     const anchorOffsetAlongNormal = surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition));
-    const minimumOffset = 0;
-    const unlimitedEmbedding = !Number.isFinite(embeddingAllowance);
-    const adjustedOffset = unlimitedEmbedding
-      ? offset
-      : THREE.MathUtils.clamp(
-          offset - embeddingAllowance,
-          -embeddingAllowance,
-          Math.max(offset, minimumOffset),
-        );
-    const effectiveOffset = unlimitedEmbedding
-      ? offset - anchorOffsetAlongNormal
-      : adjustedOffset - anchorOffsetAlongNormal;
+    const effectiveOffset = -anchorOffsetAlongNormal;
     const anchorDelta = anchorWorld.clone().sub(pivotWorld);
     const finalWorldPosition = surfaceWorldPosition
       .clone()
@@ -114,9 +101,8 @@ export class SnapService {
     object.userData['isSnapped'] = true;
 
     const localNormal = closest.normal.clone().normalize();
-    const offsetDistance = this.isPaintStroke(object)
-      ? Math.max(minimumOffset, effectiveOffset)
-      : finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal);
+    const rawOffsetDistance = finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal);
+    const offsetDistance = Math.max(0, rawOffsetDistance);
     this.writeSnapInfo(object, {
       layerIndex: closest.layerIndex,
       surfaceType: closest.surfaceType,
@@ -525,22 +511,28 @@ export class SnapService {
     const desiredWorldPosition = object.getWorldPosition(new THREE.Vector3());
     const desiredLocalPosition = this.cakeBase.worldToLocal(desiredWorldPosition.clone());
 
-    const projection =
+    const projectionBase =
       snapInfo.surfaceType === 'TOP'
-        ? this.projectPointToTopSurface(desiredLocalPosition, layer, metadata, localNormal, snapInfo.offset)
-        : this.projectPointToSideSurface(desiredLocalPosition, layer, metadata, localNormal, snapInfo.offset);
+        ? this.projectPointToTopSurface(desiredLocalPosition, layer, metadata, localNormal, 0)
+        : this.projectPointToSideSurface(desiredLocalPosition, layer, metadata, localNormal, 0);
 
-    object.position.copy(projection.position);
+    const userOffset = desiredLocalPosition.clone().sub(projectionBase.position).dot(projectionBase.normal);
+    const maxOffset = Math.max(0, snapInfo.offset ?? 0);
+    // Treat the stored offset as a ceiling/wall: allow embedding (negative offsets) but block moving outward past the surface.
+    const clampedOffset = Math.min(maxOffset, userOffset);
+    const finalPosition = projectionBase.position.clone().add(projectionBase.normal.clone().multiplyScalar(clampedOffset));
+
+    object.position.copy(finalPosition);
     object.updateMatrixWorld(true);
 
-    const worldNormal = this.getWorldNormal(projection.normal.clone());
+    const worldNormal = this.getWorldNormal(projectionBase.normal.clone());
     const updatedInfo: SnapUserData = {
       ...snapInfo,
-      normal: projection.normal.clone().normalize().toArray(),
+      normal: projectionBase.normal.clone().normalize().toArray(),
     };
     this.writeSnapInfo(object, updatedInfo);
     if (!this.isPaintStroke(object)) {
-      const relativeRotation = this.getRelativeQuaternion(updatedInfo, projection.normal.clone());
+      const relativeRotation = this.getRelativeQuaternion(updatedInfo, projectionBase.normal.clone());
       this.applyOrientationForSurface(
         object,
         worldNormal,
@@ -1074,95 +1066,6 @@ export class SnapService {
     }
   }
 
-  private computeOffsetDistance(
-    object: THREE.Object3D,
-    normalWorld: THREE.Vector3,
-    surfaceWorldPosition: THREE.Vector3,
-  ): number {
-    object.updateMatrixWorld(true);
-
-    const normal = normalWorld.clone().normalize();
-    const pivot = surfaceWorldPosition.clone();
-
-    const clearance = 0;
-    let minProjection = Infinity;
-
-    const corners: THREE.Vector3[] = [
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-    ];
-
-    const updateCorners = (box: THREE.Box3, matrixWorld: THREE.Matrix4 | null) => {
-      const transform = matrixWorld ?? new THREE.Matrix4();
-      corners[0].set(box.min.x, box.min.y, box.min.z).applyMatrix4(transform);
-      corners[1].set(box.min.x, box.min.y, box.max.z).applyMatrix4(transform);
-      corners[2].set(box.min.x, box.max.y, box.min.z).applyMatrix4(transform);
-      corners[3].set(box.min.x, box.max.y, box.max.z).applyMatrix4(transform);
-      corners[4].set(box.max.x, box.min.y, box.min.z).applyMatrix4(transform);
-      corners[5].set(box.max.x, box.min.y, box.max.z).applyMatrix4(transform);
-      corners[6].set(box.max.x, box.max.y, box.min.z).applyMatrix4(transform);
-      corners[7].set(box.max.x, box.max.y, box.max.z).applyMatrix4(transform);
-
-      for (const corner of corners) {
-        const projection = normal.dot(corner.clone().sub(pivot));
-        if (projection < minProjection) {
-          minProjection = projection;
-        }
-      }
-    };
-
-    const tempBox = new THREE.Box3();
-    const instanceMatrix = new THREE.Matrix4();
-    const worldMatrix = new THREE.Matrix4();
-
-    object.traverse((child) => {
-      if ((child as THREE.InstancedMesh).isInstancedMesh) {
-        const instanced = child as THREE.InstancedMesh;
-        const geometry = instanced.geometry;
-        if (!geometry.boundingBox) {
-          geometry.computeBoundingBox();
-        }
-        if (!geometry.boundingBox) {
-          return;
-        }
-
-        for (let i = 0; i < instanced.count; i++) {
-          instanced.getMatrixAt(i, instanceMatrix);
-          worldMatrix.multiplyMatrices(instanced.matrixWorld, instanceMatrix);
-          tempBox.copy(geometry.boundingBox);
-          updateCorners(tempBox, worldMatrix);
-        }
-        return;
-      }
-
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const geometry = mesh.geometry;
-        if (!geometry.boundingBox) {
-          geometry.computeBoundingBox();
-        }
-        if (!geometry.boundingBox) {
-          return;
-        }
-
-        tempBox.copy(geometry.boundingBox);
-        updateCorners(tempBox, mesh.matrixWorld);
-      }
-    });
-
-    if (!isFinite(minProjection)) {
-      return clearance;
-    }
-
-    return Math.max(clearance, -minProjection + clearance);
-  }
-
   private computeWorldBoundingBox(object: THREE.Object3D): THREE.Box3 {
     object.updateMatrixWorld(true);
     const box = new THREE.Box3();
@@ -1238,22 +1141,6 @@ export class SnapService {
     // Preserve local offsets for instanced/attached objects by converting back to world space anchor
     object.updateMatrixWorld(true);
     return bestCorner.clone();
-  }
-
-  private computeEmbeddingAllowance(bounds: THREE.Box3): number {
-    if (bounds.isEmpty()) {
-      return 0;
-    }
-
-    if (!Number.isFinite(this.maxEmbeddingDepth)) {
-      return Number.POSITIVE_INFINITY;
-    }
-
-    const size = bounds.getSize(new THREE.Vector3());
-    const smallestDimension = Math.min(size.x, size.y, size.z);
-    const clamped = Math.max(0, smallestDimension * 0.5);
-
-    return Math.min(this.maxEmbeddingDepth, clamped);
   }
 
   private getBoxCorners(box: THREE.Box3): THREE.Vector3[] {
