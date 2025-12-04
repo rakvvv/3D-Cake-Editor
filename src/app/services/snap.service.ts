@@ -36,7 +36,7 @@ export interface SnappedDecorationState {
 })
 export class SnapService {
   private readonly attachmentTolerance = 0.75;
-  private readonly maxEmbeddingDepth = 0.05;
+  private readonly maxEmbeddingDepth = Number.POSITIVE_INFINITY;
 
   private cakeBase: THREE.Object3D | null = null;
   private readonly identityRotation: [number, number, number, number] = [0, 0, 0, 1];
@@ -85,18 +85,19 @@ export class SnapService {
     const worldBounds = this.computeWorldBoundingBox(object);
     const embeddingAllowance = this.isPaintStroke(object) ? 0 : this.computeEmbeddingAllowance(worldBounds);
     const offset = this.computeOffsetDistance(object, surfaceWorldNormal, surfaceWorldPosition);
-    const anchorOffsetAlongNormal = Math.max(0, surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition)));
-    const minimumOffset = 0.0005;
-    const adjustedOffset = THREE.MathUtils.clamp(
-      offset - embeddingAllowance,
-      -embeddingAllowance,
-      Math.max(offset, minimumOffset),
-    );
-    const effectiveOffset = THREE.MathUtils.clamp(
-      adjustedOffset - anchorOffsetAlongNormal,
-      -embeddingAllowance,
-      Math.max(adjustedOffset, minimumOffset),
-    );
+    const anchorOffsetAlongNormal = surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition));
+    const minimumOffset = 0;
+    const unlimitedEmbedding = !Number.isFinite(embeddingAllowance);
+    const adjustedOffset = unlimitedEmbedding
+      ? offset
+      : THREE.MathUtils.clamp(
+          offset - embeddingAllowance,
+          -embeddingAllowance,
+          Math.max(offset, minimumOffset),
+        );
+    const effectiveOffset = unlimitedEmbedding
+      ? offset - anchorOffsetAlongNormal
+      : adjustedOffset - anchorOffsetAlongNormal;
     const anchorDelta = anchorWorld.clone().sub(pivotWorld);
     const finalWorldPosition = surfaceWorldPosition
       .clone()
@@ -115,11 +116,7 @@ export class SnapService {
     const localNormal = closest.normal.clone().normalize();
     const offsetDistance = this.isPaintStroke(object)
       ? Math.max(minimumOffset, effectiveOffset)
-      : THREE.MathUtils.clamp(
-          finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal),
-          -embeddingAllowance,
-          Math.max(minimumOffset, effectiveOffset),
-        );
+      : finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal);
     this.writeSnapInfo(object, {
       layerIndex: closest.layerIndex,
       surfaceType: closest.surfaceType,
@@ -1087,7 +1084,7 @@ export class SnapService {
     const normal = normalWorld.clone().normalize();
     const pivot = surfaceWorldPosition.clone();
 
-    const clearance = 0.0005;
+    const clearance = 0;
     let minProjection = Infinity;
 
     const corners: THREE.Vector3[] = [
@@ -1214,6 +1211,10 @@ export class SnapService {
   private computeEmbeddingAllowance(bounds: THREE.Box3): number {
     if (bounds.isEmpty()) {
       return 0;
+    }
+
+    if (!Number.isFinite(this.maxEmbeddingDepth)) {
+      return Number.POSITIVE_INFINITY;
     }
 
     const size = bounds.getSize(new THREE.Vector3());
