@@ -533,7 +533,7 @@ export class SnapService {
         : this.projectPointToSideSurface(desiredLocalPosition, layer, metadata, localNormal, 0);
 
     const userOffset = desiredLocalPosition.clone().sub(projectionBase.position).dot(projectionBase.normal);
-    const outwardLimit = snapInfo.surfaceType === 'TOP' ? 0.15 : 0.1;
+    const outwardLimit = snapInfo.surfaceType === 'TOP' ? 0.35 : 0.25;
     const clampedOffset = THREE.MathUtils.clamp(userOffset, -this.maxEmbeddingDepth, outwardLimit);
     let finalPosition = projectionBase.position.clone().add(projectionBase.normal.clone().multiplyScalar(clampedOffset));
 
@@ -546,7 +546,7 @@ export class SnapService {
     }
 
     if (snapInfo.surfaceType === 'SIDE') {
-      const outwardMargin = 0.01;
+      const outwardMargin = 0.06;
       if (metadata.shape === 'cylinder') {
         const layerRadius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
         const maxRadius = layerRadius + outwardMargin;
@@ -765,27 +765,13 @@ export class SnapService {
 
     for (const state of states) {
       const object = state.object;
-      const snapshot = { ...state.info } as SnapUserData;
-
-      if (metadata) {
-        snapshot.layerIndex = this.clampLayerIndex(snapshot.layerIndex, metadata);
-      }
+      const snapshot = metadata
+        ? this.normalizeSnapInfo({ ...state.info } as SnapUserData, metadata)
+        : ({ ...state.info } as SnapUserData);
 
       object.userData['isSnapped'] = true;
       this.writeSnapInfo(object, snapshot);
       this.cakeBase.attach(object);
-
-      const closest = this.getClosestPointForObject(object).info;
-      if (closest.surfaceType !== 'NONE') {
-        const adjustedNormal = closest.normal.clone().normalize().toArray() as [number, number, number];
-        const adjustedLayerIndex = metadata ? this.clampLayerIndex(closest.layerIndex, metadata) : snapshot.layerIndex;
-        this.writeSnapInfo(object, {
-          ...snapshot,
-          layerIndex: adjustedLayerIndex,
-          surfaceType: closest.surfaceType,
-          normal: adjustedNormal,
-        });
-      }
 
       this.enforceSnappedPosition(object);
     }
