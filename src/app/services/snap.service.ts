@@ -41,7 +41,10 @@ export class SnapService {
   private cakeBase: THREE.Object3D | null = null;
   private readonly identityRotation: [number, number, number, number] = [0, 0, 0, 1];
 
-  public snapDecorationToCake(object: THREE.Object3D): {
+  public snapDecorationToCake(
+    object: THREE.Object3D,
+    preferredSurface?: 'TOP' | 'SIDE',
+  ): {
     success: boolean;
     surfaceType: 'TOP' | 'SIDE' | 'NONE';
     message: string;
@@ -63,7 +66,8 @@ export class SnapService {
       };
     }
 
-    const closestCandidate = this.getClosestPointForObject(object);
+    const allowedSurfaces = preferredSurface ? [preferredSurface] : undefined;
+    const closestCandidate = this.getClosestPointForObject(object, allowedSurfaces);
     const closest = closestCandidate.info;
 
     if (closest.surfaceType === 'NONE' || !isFinite(closest.distance)) {
@@ -267,14 +271,23 @@ export class SnapService {
     return null;
   }
 
-  private getClosestPointForObject(object: THREE.Object3D): { info: ClosestPointInfo; worldPoint: THREE.Vector3 } {
+  private getClosestPointForObject(
+    object: THREE.Object3D,
+    allowedSurfaces?: Array<'TOP' | 'SIDE'>,
+  ): { info: ClosestPointInfo; worldPoint: THREE.Vector3 } {
     const pivotWorld = object.getWorldPosition(new THREE.Vector3());
     let bestInfo = this.getClosestPointOnCake(pivotWorld);
+    if (allowedSurfaces && !allowedSurfaces.includes(bestInfo.surfaceType)) {
+      bestInfo = { ...bestInfo, surfaceType: 'NONE' };
+    }
     let bestWorldPoint = pivotWorld.clone();
 
     const snapPoints = this.extractSnapPoints(object);
     for (const snapPoint of snapPoints) {
       const info = this.getClosestPointOnCake(snapPoint);
+      if (allowedSurfaces && !allowedSurfaces.includes(info.surfaceType)) {
+        continue;
+      }
       if (info.surfaceType !== 'NONE' && info.distance < bestInfo.distance) {
         bestInfo = info;
         bestWorldPoint = snapPoint.clone();
@@ -289,6 +302,9 @@ export class SnapService {
 
       for (const candidate of candidates) {
         const info = this.getClosestPointOnCake(candidate);
+        if (allowedSurfaces && !allowedSurfaces.includes(info.surfaceType)) {
+          continue;
+        }
         if (info.surfaceType !== 'NONE' && info.distance < bestInfo.distance) {
           bestInfo = info;
           bestWorldPoint = candidate.clone();
@@ -517,9 +533,8 @@ export class SnapService {
         : this.projectPointToSideSurface(desiredLocalPosition, layer, metadata, localNormal, 0);
 
     const userOffset = desiredLocalPosition.clone().sub(projectionBase.position).dot(projectionBase.normal);
-    const maxOffset = Math.max(0, snapInfo.offset ?? 0);
-    // Treat the stored offset as a ceiling/wall: allow embedding (negative offsets) but block moving outward past the surface.
-    const clampedOffset = Math.min(maxOffset, userOffset);
+    const outwardLimit = snapInfo.surfaceType === 'TOP' ? 0.15 : 0.1;
+    const clampedOffset = THREE.MathUtils.clamp(userOffset, -this.maxEmbeddingDepth, outwardLimit);
     let finalPosition = projectionBase.position.clone().add(projectionBase.normal.clone().multiplyScalar(clampedOffset));
 
     if (snapInfo.surfaceType === 'TOP') {
@@ -531,7 +546,7 @@ export class SnapService {
     }
 
     if (snapInfo.surfaceType === 'SIDE') {
-      const outwardMargin = 0.02;
+      const outwardMargin = 0.01;
       if (metadata.shape === 'cylinder') {
         const layerRadius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
         const maxRadius = layerRadius + outwardMargin;
@@ -557,6 +572,7 @@ export class SnapService {
     const worldNormal = this.getWorldNormal(projectionBase.normal.clone());
     const updatedInfo: SnapUserData = {
       ...snapInfo,
+      offset: Math.max(0, clampedOffset),
       normal: projectionBase.normal.clone().normalize().toArray(),
     };
     this.writeSnapInfo(object, updatedInfo);

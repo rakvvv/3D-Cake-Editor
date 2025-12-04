@@ -1233,6 +1233,20 @@ export class ThreeSceneService {
     return { success: result.success, message: result.message };
   }
 
+  public snapSelectedDecorationToSurface(surface: 'TOP' | 'SIDE'): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const result = this.snapService.snapDecorationToCake(selected, surface);
+    if (result.success) {
+      this.updateBoxHelper();
+    }
+
+    return { success: result.success, message: result.message };
+  }
+
   public alignSelectedDecorationToSurface(): { success: boolean; message: string } {
     const selected = this.transformControlsService.getSelectedObject();
     if (!selected) {

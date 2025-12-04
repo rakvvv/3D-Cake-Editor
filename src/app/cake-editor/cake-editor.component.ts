@@ -208,6 +208,18 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     this.showStatus(result.message);
   }
 
+  onContextSnapToTop(): void {
+    this.hideContextMenu();
+    const result = this.sceneService.snapSelectedDecorationToSurface('TOP');
+    this.showStatus(result.message);
+  }
+
+  onContextSnapToSide(): void {
+    this.hideContextMenu();
+    const result = this.sceneService.snapSelectedDecorationToSurface('SIDE');
+    this.showStatus(result.message);
+  }
+
   onContextAlignToSurface(): void {
     this.hideContextMenu();
     const result = this.sceneService.alignSelectedDecorationToSurface();
