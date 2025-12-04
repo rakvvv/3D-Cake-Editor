@@ -273,6 +273,7 @@ export class ThreeSceneService {
 
     if (snappedState.length) {
       this.snapService.restoreSnappedDecorations(snappedState);
+      this.transformControlsService.syncLockedSelectionSnapshot();
       this.updateBoxHelper();
     }
 

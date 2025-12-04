@@ -245,9 +245,9 @@ export class TransformManagerService {
     const selectedObject = this.selectionService.getSelectedObject();
     if (selectedObject && this.transformControls) {
       if (this.lockedSelection.object === selectedObject) {
-        selectedObject.position.copy(this.lockedSelection.position);
-        selectedObject.quaternion.copy(this.lockedSelection.quaternion);
-        selectedObject.scale.copy(this.lockedSelection.scale);
+        this.lockedSelection.position.copy(selectedObject.position);
+        this.lockedSelection.quaternion.copy(selectedObject.quaternion);
+        this.lockedSelection.scale.copy(selectedObject.scale);
         selectedObject.updateMatrixWorld(true);
         this.snapService.enforceSnappedPosition(selectedObject);
         return;
@@ -260,6 +260,16 @@ export class TransformManagerService {
       }
     }
   };
+
+  public syncLockedSelectionSnapshot(): void {
+    if (!this.lockedSelection.object) {
+      return;
+    }
+
+    this.lockedSelection.position.copy(this.lockedSelection.object.position);
+    this.lockedSelection.quaternion.copy(this.lockedSelection.object.quaternion);
+    this.lockedSelection.scale.copy(this.lockedSelection.object.scale);
+  }
 
   private onDraggingChanged = (event: THREE.Event) => {
     const draggingValue = (event as THREE.Event & { value: boolean }).value;

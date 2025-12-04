@@ -71,6 +71,10 @@ export class TransformControlsService {
     return this.transformManager.isDragging();
   }
 
+  public syncLockedSelectionSnapshot(): void {
+    this.transformManager.syncLockedSelectionSnapshot();
+  }
+
   public dispose(): void {
     this.transformManager.dispose();
   }
