@@ -520,7 +520,36 @@ export class SnapService {
     const maxOffset = Math.max(0, snapInfo.offset ?? 0);
     // Treat the stored offset as a ceiling/wall: allow embedding (negative offsets) but block moving outward past the surface.
     const clampedOffset = Math.min(maxOffset, userOffset);
-    const finalPosition = projectionBase.position.clone().add(projectionBase.normal.clone().multiplyScalar(clampedOffset));
+    let finalPosition = projectionBase.position.clone().add(projectionBase.normal.clone().multiplyScalar(clampedOffset));
+
+    if (snapInfo.surfaceType === 'TOP') {
+      const bottomLayer = metadata.layerDimensions[0];
+      const minimumY = bottomLayer?.bottom ?? -metadata.totalHeight / 2;
+      if (finalPosition.y < minimumY) {
+        finalPosition = new THREE.Vector3(finalPosition.x, minimumY, finalPosition.z);
+      }
+    }
+
+    if (snapInfo.surfaceType === 'SIDE') {
+      const outwardMargin = 0.02;
+      if (metadata.shape === 'cylinder') {
+        const layerRadius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
+        const maxRadius = layerRadius + outwardMargin;
+        const radialLength = Math.sqrt(finalPosition.x * finalPosition.x + finalPosition.z * finalPosition.z);
+        if (radialLength > maxRadius && radialLength > 1e-6) {
+          const scale = maxRadius / radialLength;
+          finalPosition = new THREE.Vector3(finalPosition.x * scale, finalPosition.y, finalPosition.z * scale);
+        }
+      } else {
+        const halfWidth = layer.halfWidth ?? (metadata.maxWidth ? metadata.maxWidth / 2 : metadata.width ? metadata.width / 2 : 0.5);
+        const halfDepth = layer.halfDepth ?? (metadata.maxDepth ? metadata.maxDepth / 2 : metadata.depth ? metadata.depth / 2 : 0.5);
+        const maxX = halfWidth + outwardMargin;
+        const maxZ = halfDepth + outwardMargin;
+        const clampedX = THREE.MathUtils.clamp(finalPosition.x, -maxX, maxX);
+        const clampedZ = THREE.MathUtils.clamp(finalPosition.z, -maxZ, maxZ);
+        finalPosition = new THREE.Vector3(clampedX, finalPosition.y, clampedZ);
+      }
+    }
 
     object.position.copy(finalPosition);
     object.updateMatrixWorld(true);
