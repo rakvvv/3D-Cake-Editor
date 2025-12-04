@@ -22,6 +22,15 @@ export interface SnapInfoSnapshot {
   offset: number;
   roll: number;
   rotation?: [number, number, number, number];
+  coords?: SurfaceCoordinates;
+}
+
+export interface SurfaceCoordinates {
+  angleRad: number;
+  radiusNorm?: number;
+  heightNorm?: number;
+  xNorm?: number;
+  zNorm?: number;
 }
 
 interface SnapUserData extends SnapInfoSnapshot {}
@@ -107,6 +116,9 @@ export class SnapService {
     const localNormal = closest.normal.clone().normalize();
     const rawOffsetDistance = finalLocalPosition.clone().sub(surfaceLocalPoint).dot(localNormal);
     const offsetDistance = Math.max(0, rawOffsetDistance);
+    const layers = this.getScaledLayers(metadata);
+    const layer = this.findLayerInfo(layers, closest.layerIndex);
+    const coords = this.computeSurfaceCoordinates(finalLocalPosition, closest.surfaceType, layer, metadata);
     this.writeSnapInfo(object, {
       layerIndex: closest.layerIndex,
       surfaceType: closest.surfaceType,
@@ -114,6 +126,7 @@ export class SnapService {
       offset: offsetDistance,
       roll: 0,
       rotation: [...this.identityRotation],
+      coords,
     });
 
     if (!this.isPaintStroke(object)) {
@@ -524,17 +537,25 @@ export class SnapService {
     const layers = this.getScaledLayers(metadata);
     const layer = this.findLayerInfo(layers, snapInfo.layerIndex);
 
-    const desiredWorldPosition = object.getWorldPosition(new THREE.Vector3());
-    const desiredLocalPosition = this.cakeBase.worldToLocal(desiredWorldPosition.clone());
-
-    const projectionBase =
-      snapInfo.surfaceType === 'TOP'
-        ? this.projectPointToTopSurface(desiredLocalPosition, layer, metadata, localNormal, 0)
-        : this.projectPointToSideSurface(desiredLocalPosition, layer, metadata, localNormal, 0);
-
-    const userOffset = desiredLocalPosition.clone().sub(projectionBase.position).dot(projectionBase.normal);
+    const storedProjection = this.buildProjectionFromSnap(snapInfo, layer, metadata, localNormal);
     const outwardLimit = snapInfo.surfaceType === 'TOP' ? 0.35 : 0.25;
-    const clampedOffset = THREE.MathUtils.clamp(userOffset, -this.maxEmbeddingDepth, outwardLimit);
+
+    let projectionBase = storedProjection;
+    let clampedOffset = THREE.MathUtils.clamp(snapInfo.offset ?? 0, -this.maxEmbeddingDepth, outwardLimit);
+
+    if (!projectionBase) {
+      const desiredWorldPosition = object.getWorldPosition(new THREE.Vector3());
+      const desiredLocalPosition = this.cakeBase.worldToLocal(desiredWorldPosition.clone());
+
+      projectionBase =
+        snapInfo.surfaceType === 'TOP'
+          ? this.projectPointToTopSurface(desiredLocalPosition, layer, metadata, localNormal, 0)
+          : this.projectPointToSideSurface(desiredLocalPosition, layer, metadata, localNormal, 0);
+
+      const userOffset = desiredLocalPosition.clone().sub(projectionBase.position).dot(projectionBase.normal);
+      clampedOffset = THREE.MathUtils.clamp(userOffset, -this.maxEmbeddingDepth, outwardLimit);
+    }
+
     let finalPosition = projectionBase.position.clone().add(projectionBase.normal.clone().multiplyScalar(clampedOffset));
 
     if (snapInfo.surfaceType === 'TOP') {
@@ -572,7 +593,7 @@ export class SnapService {
     const worldNormal = this.getWorldNormal(projectionBase.normal.clone());
     const updatedInfo: SnapUserData = {
       ...snapInfo,
-      offset: Math.max(0, clampedOffset),
+      offset: clampedOffset,
       normal: projectionBase.normal.clone().normalize().toArray(),
     };
     this.writeSnapInfo(object, updatedInfo);
@@ -787,6 +808,7 @@ export class SnapService {
       ...info,
       normal: [...info.normal] as [number, number, number],
       rotation: info.rotation ? [...info.rotation] as [number, number, number, number] : undefined,
+      coords: info.coords ? { ...info.coords } : undefined,
     };
   }
 
@@ -796,7 +818,7 @@ export class SnapService {
       return null;
     }
 
-    const { layerIndex, surfaceType, normal, offset, roll, rotation } = data as Partial<SnapUserData>;
+    const { layerIndex, surfaceType, normal, offset, roll, rotation, coords } = data as Partial<SnapUserData>;
     if (
       typeof layerIndex !== 'number' ||
       (surfaceType !== 'TOP' && surfaceType !== 'SIDE') ||
@@ -813,6 +835,7 @@ export class SnapService {
       normal: [normal[0], normal[1], normal[2]],
       offset,
       roll: typeof roll === 'number' ? roll : 0,
+      coords: coords ? { ...coords } : undefined,
       rotation: Array.isArray(rotation) && rotation.length === 4
         ? [rotation[0], rotation[1], rotation[2], rotation[3]]
         : undefined,
@@ -848,11 +871,16 @@ export class SnapService {
     return THREE.MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
   }
 
+  private normalizeAngle(angle: number): number {
+    return THREE.MathUtils.euclideanModulo(angle, Math.PI * 2);
+  }
+
   private normalizeSnapInfo(info: SnapUserData, metadata: CakeMetadata): SnapUserData {
     const layerIndex = this.clampLayerIndex(info.layerIndex, metadata);
     const normal = new THREE.Vector3().fromArray(info.normal).normalize();
     const offset = THREE.MathUtils.clamp(info.offset ?? 0, -this.maxEmbeddingDepth, Infinity);
     const surfaceType = info.surfaceType;
+    const coords = this.normalizeSurfaceCoordinates(info.coords, metadata);
 
     const { quaternion, roll } = this.sanitizeRotation(info, surfaceType, normal.clone());
 
@@ -862,6 +890,7 @@ export class SnapService {
       normal: normal.toArray() as [number, number, number],
       offset,
       roll,
+      coords,
       rotation: this.serializeQuaternion(quaternion),
     };
   }
@@ -980,6 +1009,123 @@ export class SnapService {
     const adjustedUp = new THREE.Vector3().crossVectors(forward, right).normalize();
     const basis = new THREE.Matrix4().makeBasis(right, adjustedUp, forward);
     return new THREE.Quaternion().setFromRotationMatrix(basis);
+  }
+
+  private computeSurfaceCoordinates(
+    localPoint: THREE.Vector3,
+    surfaceType: 'TOP' | 'SIDE',
+    layer: ScaledLayerInfo,
+    metadata: CakeMetadata,
+  ): SurfaceCoordinates {
+    const angleRad = Math.atan2(localPoint.z, localPoint.x);
+
+    if (metadata.shape === 'cylinder') {
+      const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
+      const radiusNorm = radius > 1e-6 ? localPoint.clone().setY(0).length() / radius : 0;
+
+      if (surfaceType === 'TOP') {
+        return { angleRad, radiusNorm };
+      }
+
+      const heightSpan = layer.top + (layer.topOffset ?? 0) - layer.bottom;
+      const heightNorm = heightSpan > 1e-6 ? (localPoint.y - layer.bottom) / heightSpan : 0.5;
+      return { angleRad, radiusNorm: 1, heightNorm };
+    }
+
+    const halfWidth = layer.halfWidth ?? (metadata.maxWidth ? metadata.maxWidth / 2 : metadata.width ? metadata.width / 2 : 0.5);
+    const halfDepth = layer.halfDepth ?? (metadata.maxDepth ? metadata.maxDepth / 2 : metadata.depth ? metadata.depth / 2 : 0.5);
+    const xNorm = halfWidth > 1e-6 ? localPoint.x / halfWidth : 0;
+    const zNorm = halfDepth > 1e-6 ? localPoint.z / halfDepth : 0;
+
+    if (surfaceType === 'TOP') {
+      return { angleRad, xNorm, zNorm };
+    }
+
+    const heightSpan = layer.top + (layer.topOffset ?? 0) - layer.bottom;
+    const heightNorm = heightSpan > 1e-6 ? (localPoint.y - layer.bottom) / heightSpan : 0.5;
+    return { angleRad, xNorm, zNorm, heightNorm };
+  }
+
+  private normalizeSurfaceCoordinates(
+    coords: SurfaceCoordinates | undefined,
+    metadata: CakeMetadata,
+  ): SurfaceCoordinates | undefined {
+    if (!coords) {
+      return undefined;
+    }
+
+    const angle = this.normalizeAngle(coords.angleRad);
+    const radiusNorm = coords.radiusNorm !== undefined ? THREE.MathUtils.clamp(coords.radiusNorm, 0, 4) : undefined;
+    const heightNorm = coords.heightNorm !== undefined ? THREE.MathUtils.clamp(coords.heightNorm, -0.25, 1.25) : undefined;
+    const xNorm = coords.xNorm !== undefined ? THREE.MathUtils.clamp(coords.xNorm, -4, 4) : undefined;
+    const zNorm = coords.zNorm !== undefined ? THREE.MathUtils.clamp(coords.zNorm, -4, 4) : undefined;
+
+    return { angleRad: angle, radiusNorm, heightNorm, xNorm, zNorm };
+  }
+
+  private buildProjectionFromSnap(
+    snapInfo: SnapUserData,
+    layer: ScaledLayerInfo,
+    metadata: CakeMetadata,
+    localNormal: THREE.Vector3,
+  ): { position: THREE.Vector3; normal: THREE.Vector3 } | null {
+    const coords = snapInfo.coords;
+    if (!coords) {
+      return null;
+    }
+
+    const topHeight = layer.top + (layer.topOffset ?? 0);
+    const normalFromAngle = new THREE.Vector3(Math.cos(coords.angleRad), 0, Math.sin(coords.angleRad)).normalize();
+
+    if (metadata.shape === 'cylinder') {
+      const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
+      if (snapInfo.surfaceType === 'TOP') {
+        const radial = coords.radiusNorm !== undefined ? radius * coords.radiusNorm : radius;
+        const position = new THREE.Vector3(normalFromAngle.x * radial, topHeight, normalFromAngle.z * radial);
+        const normal = new THREE.Vector3(0, 1, 0);
+        return { position, normal };
+      }
+
+      const heightSpan = topHeight - layer.bottom;
+      const heightNorm = coords.heightNorm !== undefined ? coords.heightNorm : 0.5;
+      const clampedHeight = THREE.MathUtils.clamp(heightNorm, -0.25, 1.25);
+      const y = layer.bottom + clampedHeight * heightSpan;
+      const position = new THREE.Vector3(normalFromAngle.x * radius, y, normalFromAngle.z * radius);
+      const normal = normalFromAngle.clone();
+      return { position, normal };
+    }
+
+    const halfWidth = layer.halfWidth ?? (metadata.maxWidth ? metadata.maxWidth / 2 : metadata.width ? metadata.width / 2 : 0.5);
+    const halfDepth = layer.halfDepth ?? (metadata.maxDepth ? metadata.maxDepth / 2 : metadata.depth ? metadata.depth / 2 : 0.5);
+
+    if (snapInfo.surfaceType === 'TOP') {
+      const x = (coords.xNorm ?? Math.cos(coords.angleRad)) * halfWidth;
+      const z = (coords.zNorm ?? Math.sin(coords.angleRad)) * halfDepth;
+      const position = new THREE.Vector3(x, topHeight, z);
+      const normal = new THREE.Vector3(0, 1, 0);
+      return { position, normal };
+    }
+
+    const heightSpan = topHeight - layer.bottom;
+    const heightNorm = coords.heightNorm !== undefined ? coords.heightNorm : 0.5;
+    const clampedHeight = THREE.MathUtils.clamp(heightNorm, -0.25, 1.25);
+    const y = layer.bottom + clampedHeight * heightSpan;
+
+    const dominantAxis = Math.abs(localNormal.x) >= Math.abs(localNormal.z) ? 'x' : 'z';
+    let position: THREE.Vector3;
+    let normal: THREE.Vector3;
+
+    if (dominantAxis === 'x') {
+      const sign = Math.sign(localNormal.x) || 1;
+      position = new THREE.Vector3(sign * halfWidth, y, (coords.zNorm ?? 0) * halfDepth);
+      normal = new THREE.Vector3(sign, 0, 0);
+    } else {
+      const sign = Math.sign(localNormal.z) || 1;
+      position = new THREE.Vector3((coords.xNorm ?? 0) * halfWidth, y, sign * halfDepth);
+      normal = new THREE.Vector3(0, 0, sign);
+    }
+
+    return { position, normal };
   }
 
   private projectPointToTopSurface(
