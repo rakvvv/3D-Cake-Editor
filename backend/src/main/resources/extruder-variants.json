@@ -1,0 +1,23 @@
+[
+  {
+    "id": "cream-dot",
+    "name": "Kropka",
+    "modelFileName": "cream_dot.glb",
+    "scaleMultiplier": 1.85,
+    "thumbnailUrl": "/assets/extruder/thumbnails/cream-dot.svg"
+  },
+  {
+    "id": "cream-shell",
+    "name": "Muszelka",
+    "modelFileName": "cream_shell.glb",
+    "scaleMultiplier": 2,
+    "thumbnailUrl": "/assets/extruder/thumbnails/cream-shell.svg"
+  },
+  {
+    "id": "cream-wave",
+    "name": "Fala",
+    "modelFileName": "cream_wave.glb",
+    "scaleMultiplier": 2,
+    "thumbnailUrl": "/assets/extruder/thumbnails/cream-wave.svg"
+  }
+]

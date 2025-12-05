@@ -1,10 +1,12 @@
 import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Subject } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Subject, firstValueFrom } from 'rxjs';
 import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
 import { SnapService } from './snap.service';
+import { ExtruderVariantInfo } from '../models/extruderVariantInfo';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -13,6 +15,7 @@ type ExtruderVariantData = {
   name: string;
   sourceId: string;
   scaleMultiplier?: number;
+  thumbnailUrl?: string;
 };
 
 type ExtruderInstanceState = {
@@ -76,11 +79,6 @@ export class PaintService {
   private penSegmentGeometryCache = new Map<number, THREE.CylinderGeometry>();
 
   private extruderBrushId = 'cream_dot.glb';
-  private readonly extruderVariantSources: { id: string; name: string; scaleMultiplier: number }[] = [
-    { id: 'cream_dot.glb', name: 'Kropka', scaleMultiplier: 1.85 },
-    { id: 'cream_shell.glb', name: 'Muszelka', scaleMultiplier: 2 },
-    { id: 'cream_wave.glb', name: 'Fala', scaleMultiplier: 2 },
-  ];
   private extruderVariantSelection: number | 'random' = 'random';
   private extruderVariants: ExtruderVariantData[] | null = null;
   private extruderVariantsPromise: Promise<ExtruderVariantData[]> | null = null;
@@ -127,6 +125,7 @@ export class PaintService {
   constructor(
     private readonly transformManager: TransformManagerService,
     private readonly snapService: SnapService,
+    private readonly http: HttpClient,
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -983,31 +982,45 @@ export class PaintService {
     }
 
     const variants: ExtruderVariantData[] = [];
+    const sources = await this.fetchExtruderVariantSources();
 
-    for (const source of this.extruderVariantSources) {
+    for (const source of sources) {
       try {
-        const variant = await this.loadExtruderVariantFromFile(source.id, source.name, source.scaleMultiplier);
+        const variant = await this.loadExtruderVariantFromFile(source);
         if (variant) {
           variants.push(variant);
         }
       } catch (error) {
-        console.error(`Paint: nie udało się załadować końcówki kremu ${source.id}`, error);
+        console.error(`Paint: nie udało się załadować końcówki kremu ${source.modelFileName || source.id}`, error);
       }
     }
 
     return variants;
   }
 
-  private async loadExtruderVariantFromFile(
-    fileId: string,
-    fallbackName: string,
-    scaleMultiplier: number,
-  ): Promise<ExtruderVariantData | null> {
+  private async fetchExtruderVariantSources(): Promise<ExtruderVariantInfo[]> {
+    if (!this.isBrowser) {
+      return [];
+    }
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<ExtruderVariantInfo[]>(`/api/extruder-variants`),
+      );
+      return Array.isArray(response) ? response : [];
+    } catch (error) {
+      console.error('Paint: nie udało się pobrać wariantów ekstrudera', error);
+      return [];
+    }
+  }
+
+  private async loadExtruderVariantFromFile(source: ExtruderVariantInfo): Promise<ExtruderVariantData | null> {
     if (!this.isBrowser) {
       return null;
     }
 
-    const model = await DecorationFactory.loadDecorationModel(`/models/${fileId}`);
+    const modelId = source.modelFileName || source.id;
+    const model = await DecorationFactory.loadDecorationModel(`/models/${modelId}`);
     model.updateMatrixWorld(true);
 
     const mesh = this.findFirstMesh(model);
@@ -1040,9 +1053,10 @@ export class PaintService {
       geometry,
       material,
       size,
-      name: mesh.name || fallbackName,
-      sourceId: fileId,
-      scaleMultiplier,
+      name: mesh.name || source.name,
+      sourceId: modelId,
+      scaleMultiplier: source.scaleMultiplier,
+      thumbnailUrl: source.thumbnailUrl,
     };
   }
 
@@ -1064,6 +1078,10 @@ export class PaintService {
   private getExtruderVariantThumbnail(variantIndex: number, variant: ExtruderVariantData): string | null {
     if (typeof document === 'undefined') {
       return null;
+    }
+
+    if (variant.thumbnailUrl) {
+      return variant.thumbnailUrl;
     }
 
     const cacheKey = `${variant.sourceId}:${variantIndex}`;
