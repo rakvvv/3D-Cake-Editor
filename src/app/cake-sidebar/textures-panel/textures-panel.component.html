@@ -15,16 +15,23 @@
     Nie udało się wczytać listy tekstur.
   </div>
 
-  <div class="texture-grid" *ngIf="!isLoading && !hasError">
+  <div
+    *ngIf="!isLoading && !hasError && textureSets.length === 0"
+    class="textures-panel__state"
+  >
+    Brak dostępnych zestawów tekstur.
+  </div>
+
+  <div class="texture-grid" *ngIf="!isLoading && !hasError && textureSets.length > 0">
     <article class="texture-card" *ngFor="let set of textureSets">
       <div
         class="texture-card__thumb"
-        [class.texture-card__thumb--placeholder]="!set.thumbnail"
-        [style.backgroundImage]="set.thumbnail ? 'url(' + set.thumbnail + ')' : 'none'"
+        [class.texture-card__thumb--placeholder]="!set.thumbnailUrl"
+        [style.backgroundImage]="set.thumbnailUrl ? 'url(' + set.thumbnailUrl + ')' : 'none'"
         role="img"
         [attr.aria-label]="set.label"
       >
-        <span *ngIf="!set.thumbnail" class="texture-card__placeholder">{{ set.label }}</span>
+        <span *ngIf="!set.thumbnailUrl" class="texture-card__placeholder">{{ set.label }}</span>
       </div>
       <div class="texture-card__body">
         <div>

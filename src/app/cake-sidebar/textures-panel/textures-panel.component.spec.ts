@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TexturesPanelComponent } from './textures-panel.component';
 import { CakeOptions } from '../../models/cake.options';
+import { environment } from '../../../environments/environment';
 
 const baseOptions: CakeOptions = {
   cake_size: 1,
@@ -49,17 +50,17 @@ describe('TexturesPanelComponent', () => {
     httpMock.verify();
   });
 
-  it('ładuje zestawy tekstur z assets i emituje zmiany', () => {
+  it('ładuje zestawy tekstur z API i emituje zmiany', () => {
     fixture.detectChanges();
 
-    const request = httpMock.expectOne('/assets/textures/index.json');
+    const request = httpMock.expectOne(`${environment.apiBaseUrl}/textures`);
     expect(request.request.method).toBe('GET');
     request.flush({
       sets: [
         {
           id: 'vanilla',
           label: 'Wanilia',
-          thumbnail: null,
+          thumbnailUrl: null,
           cake: { baseColor: '/cake.png' },
           glaze: { baseColor: '/glaze.png' },
         },
@@ -86,5 +87,19 @@ describe('TexturesPanelComponent', () => {
     buttons[1].nativeElement.click();
     expect(emitted?.glaze_textures?.baseColor).toBe('/glaze.png');
     expect(emitted?.glaze_color).toBe('#ffffff');
+  });
+
+  it('pokazuje stan błędu gdy API zwróci błąd', () => {
+    fixture.detectChanges();
+
+    const request = httpMock.expectOne(`${environment.apiBaseUrl}/textures`);
+    request.error(new ProgressEvent('Network error'));
+
+    fixture.detectChanges();
+
+    const errorState = fixture.debugElement.query(
+      By.css('.textures-panel__state--error'),
+    );
+    expect(errorState.nativeElement.textContent).toContain('Nie udało się wczytać listy tekstur');
   });
 });

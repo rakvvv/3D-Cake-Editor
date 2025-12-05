@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
 import * as THREE from 'three';
 import { PaintService } from './paint.service';
 import { DecorationFactory } from '../factories/decoration.factory';
@@ -51,6 +52,7 @@ describe('PaintService', () => {
     const snapServiceSpy = jasmine.createSpyObj<SnapService>('SnapService', ['snapDecorationToCake']);
     snapServiceSpy.snapDecorationToCake.and.returnValue({ success: true, surfaceType: 'TOP', message: '' });
     TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
       providers: [
         PaintService,
         { provide: TransformManagerService, useValue: transformManagerSpy },

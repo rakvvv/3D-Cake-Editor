@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { CakeOptions, TextureMaps } from '../../models/cake.options';
+import { environment } from '../../../environments/environment';
 
 interface TextureSet {
   id: string;
   label: string;
-  thumbnail?: string | null;
+  thumbnailUrl?: string | null;
   cake?: TextureMaps | null;
   glaze?: TextureMaps | null;
 }
@@ -30,6 +31,7 @@ export class TexturesPanelComponent implements OnInit {
   public textureSets: TextureSet[] = [];
   public isLoading = true;
   public hasError = false;
+  private readonly texturesUrl = `${environment.apiBaseUrl}/textures`;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -71,7 +73,7 @@ export class TexturesPanelComponent implements OnInit {
     this.hasError = false;
     try {
       const response = await firstValueFrom(
-        this.http.get<TextureIndexResponse>('/assets/textures/index.json'),
+        this.http.get<TextureIndexResponse>(this.texturesUrl),
       );
       this.textureSets = response?.sets ?? [];
     } catch (error) {
