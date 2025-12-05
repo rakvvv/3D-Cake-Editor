@@ -3,11 +3,16 @@ import { SimpleChange } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { PaintPanelComponent } from './paint-panel.component';
 import { PaintService } from '../../services/paint.service';
+import { BehaviorSubject } from 'rxjs';
+import { DecorationsService } from '../../services/decorations.service';
+import { DecorationInfo } from '../../models/decorationInfo';
 
 describe('PaintPanelComponent', () => {
   let fixture: ComponentFixture<PaintPanelComponent>;
   let component: PaintPanelComponent;
   let paintService: jasmine.SpyObj<PaintService>;
+  let decorationsService: Partial<DecorationsService>;
+  let decorations$: BehaviorSubject<DecorationInfo[]>;
 
   beforeEach(async () => {
     paintService = jasmine.createSpyObj<PaintService>(
@@ -41,6 +46,14 @@ describe('PaintPanelComponent', () => {
     paintService.getExtruderVariantPreviews.and.resolveTo([]);
     paintService.insertExtruderPreset.and.resolveTo();
 
+    decorations$ = new BehaviorSubject<DecorationInfo[]>([
+      { id: 'trawa', name: 'Trawa', modelFileName: 'trawa.glb', type: 'SIDE', thumbnailUrl: '/thumb.svg' },
+    ]);
+    decorationsService = {
+      decorations$: decorations$.asObservable(),
+      getDecorations: () => decorations$.value,
+    };
+
     await TestBed.configureTestingModule({
       imports: [PaintPanelComponent],
     }).compileComponents();
@@ -48,11 +61,15 @@ describe('PaintPanelComponent', () => {
     fixture = TestBed.createComponent(PaintPanelComponent);
     component = fixture.componentInstance;
     component.paintService = paintService;
+    component.decorationsService = decorationsService as DecorationsService;
     fixture.detectChanges();
   });
 
   it('pozostawia przełącznik trybu malowania aktywny', () => {
-    component.ngOnChanges({ paintService: new SimpleChange(null, paintService, true) });
+    component.ngOnChanges({
+      paintService: new SimpleChange(null, paintService, true),
+      decorationsService: new SimpleChange(null, decorationsService, true),
+    });
     fixture.detectChanges();
 
     const toggleButton = fixture.debugElement.query(By.css('.paint-panel__toggle')).nativeElement as HTMLButtonElement;

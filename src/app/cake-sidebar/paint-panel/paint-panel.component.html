@@ -17,18 +17,27 @@
         </option>
       </select>
     </div>
-    <div class="sidebar-panel__control sidebar-panel__control--inline" *ngIf="selectedTool === 'decoration'">
-      <label class="sidebar-panel__label sidebar-panel__label--wrap" for="brush-select">Wybierz pędzel</label>
-      <select
-        id="brush-select"
-        class="sidebar-panel__select"
-        [(ngModel)]="selectedBrush"
-        (change)="onBrushChange()"
-      >
-        <option *ngFor="let brush of brushList" [value]="brush.id">
-          {{ brush.name }}
-        </option>
-      </select>
+    <div class="paint-panel__brushes" *ngIf="selectedTool === 'decoration'">
+      <p class="paint-panel__hint paint-panel__hint--inline">Wybierz końcówkę dekoracji 3D do malowania.</p>
+      <div class="paint-panel__tiles" *ngIf="brushOptions.length; else brushesFallback">
+        <button
+          type="button"
+          class="paint-panel__tile"
+          *ngFor="let brush of brushOptions"
+          [class.paint-panel__tile--selected]="selectedBrush === brush.modelFileName"
+          (click)="onBrushSelect(brush)"
+        >
+          <span class="paint-panel__tile-thumb" aria-hidden="true">
+            <img *ngIf="brush.thumbnailUrl" [src]="brush.thumbnailUrl" [alt]="brush.name" />
+            <span *ngIf="!brush.thumbnailUrl" class="paint-panel__tile-placeholder">{{ brush.name }}</span>
+          </span>
+          <span class="paint-panel__tile-name">{{ brush.name }}</span>
+          <span class="paint-panel__tile-meta">ID: {{ brush.id }}</span>
+        </button>
+      </div>
+      <ng-template #brushesFallback>
+        <p class="paint-panel__hint">Brak dostępnych pędzli 3D.</p>
+      </ng-template>
     </div>
 
     <div class="paint-panel__extruder" *ngIf="selectedTool === 'extruder'">

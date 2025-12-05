@@ -96,6 +96,12 @@
   font-weight: 600;
 }
 
+.paint-panel__tile-meta {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-text-muted, #5a6072);
+}
+
 .paint-panel__preset {
   margin-top: var(--space-2, 8px);
 }

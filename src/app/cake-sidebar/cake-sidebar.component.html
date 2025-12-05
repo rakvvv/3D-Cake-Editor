@@ -171,6 +171,7 @@
           <div class="sidebar__panel">
             <app-paint-panel
               [paintService]="paintService"
+              [decorationsService]="decorationsService"
               (paintModeChange)="paintModeChange.emit($event)"
               (brushChange)="brushChange.emit($event)"
             ></app-paint-panel>

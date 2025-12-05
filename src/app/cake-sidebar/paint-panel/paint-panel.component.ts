@@ -1,6 +1,9 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
+import { DecorationInfo } from '../../models/decorationInfo';
+import { DecorationsService } from '../../services/decorations.service';
 import { PaintService } from '../../services/paint.service';
 
 type SidebarPaintTool = 'decoration' | 'pen' | 'extruder';
@@ -12,6 +15,13 @@ type ExtruderVariantCard = {
   thumbnail?: string | null;
 };
 
+type BrushOption = {
+  id: string;
+  modelFileName: string;
+  name: string;
+  thumbnailUrl?: string;
+};
+
 @Component({
   selector: 'app-paint-panel',
   standalone: true,
@@ -19,17 +29,14 @@ type ExtruderVariantCard = {
   templateUrl: './paint-panel.component.html',
   styleUrls: ['./paint-panel.component.css']
 })
-export class PaintPanelComponent implements OnChanges {
+export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   @Input() paintService!: PaintService;
+  @Input() decorationsService?: DecorationsService;
   @Output() paintModeChange = new EventEmitter<boolean>();
   @Output() brushChange = new EventEmitter<string>();
 
-  brushList: { id: string; name: string }[] = [
-    { id: 'trawa.glb', name: 'Trawa' },
-    { id: 'chocolate_kiss.glb', name: 'Stożek' },
-  ];
-
-  selectedBrush = this.brushList[0].id;
+  brushOptions: BrushOption[] = [];
+  selectedBrush: string | null = null;
   paintTools: { id: SidebarPaintTool; name: string }[] = [
     { id: 'decoration', name: 'Dekoracje 3D' },
     { id: 'pen', name: 'Pisak' },
@@ -48,17 +55,24 @@ export class PaintPanelComponent implements OnChanges {
   ];
   selectedPreset: ExtruderPreset = 'circle';
 
+  private decorationsSubscription?: Subscription;
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
-      this.selectedBrush = this.paintService.currentBrush || this.brushList[0].id;
-      const activeTool = this.paintService.paintTool;
-      this.selectedTool = activeTool as SidebarPaintTool;
-      this.penSize = this.paintService.penSize;
-      this.penThickness = this.paintService.penThickness;
-      this.penColor = this.paintService.penColor;
-      this.extruderVariant = this.paintService.getExtruderVariantSelection() ?? 'random';
-      this.loadExtruderVariants();
+      this.syncPaintServiceState();
     }
+
+    if (changes['decorationsService']) {
+      this.subscribeToDecorations();
+    }
+  }
+
+  ngOnInit(): void {
+    this.subscribeToDecorations();
+  }
+
+  ngOnDestroy(): void {
+    this.decorationsSubscription?.unsubscribe();
   }
 
   togglePaintMode(): void {
@@ -73,6 +87,13 @@ export class PaintPanelComponent implements OnChanges {
     if (!this.paintService) {
       return;
     }
+    if (!this.selectedBrush) {
+      this.ensureBrushSelection();
+    }
+    if (!this.selectedBrush) {
+      return;
+    }
+
     this.paintService.setPaintTool('decoration');
     this.paintService.setCurrentBrush(this.selectedBrush);
     this.brushChange.emit(this.selectedBrush);
@@ -89,6 +110,10 @@ export class PaintPanelComponent implements OnChanges {
       this.paintService.setExtruderVariantSelection(this.extruderVariant);
       this.loadExtruderVariants();
     } else {
+      this.ensureBrushSelection();
+      if (!this.selectedBrush) {
+        return;
+      }
       this.paintService.setCurrentBrush(this.selectedBrush);
     }
   }
@@ -163,5 +188,75 @@ export class PaintPanelComponent implements OnChanges {
       console.error('PaintPanel: nie udało się pobrać wariantów ekstrudera', error);
       this.extruderVariantCards = [];
     }
+  }
+
+  onBrushSelect(brush: BrushOption): void {
+    this.selectedBrush = brush.modelFileName;
+    this.onBrushChange();
+  }
+
+  private syncPaintServiceState(): void {
+    const activeTool = this.paintService.paintTool;
+    this.selectedTool = activeTool as SidebarPaintTool;
+    this.selectedBrush = this.paintService.currentBrush ?? this.selectedBrush;
+    this.penSize = this.paintService.penSize;
+    this.penThickness = this.paintService.penThickness;
+    this.penColor = this.paintService.penColor;
+    this.extruderVariant = this.paintService.getExtruderVariantSelection() ?? 'random';
+    this.loadExtruderVariants();
+    this.ensureBrushSelection();
+  }
+
+  private subscribeToDecorations(): void {
+    this.decorationsSubscription?.unsubscribe();
+    if (!this.decorationsService) {
+      this.brushOptions = [];
+      return;
+    }
+
+    this.decorationsSubscription = this.decorationsService.decorations$.subscribe((decorations) => {
+      this.updateBrushOptions(decorations);
+    });
+    this.updateBrushOptions(this.decorationsService.getDecorations());
+  }
+
+  private updateBrushOptions(decorations: DecorationInfo[]): void {
+    const uniqueBrushes = new Map<string, BrushOption>();
+    decorations.forEach((decoration) => {
+      const option = this.mapDecorationToBrush(decoration);
+      uniqueBrushes.set(option.modelFileName, option);
+    });
+    this.brushOptions = Array.from(uniqueBrushes.values());
+    this.ensureBrushSelection();
+  }
+
+  private ensureBrushSelection(): void {
+    if (!this.paintService) {
+      return;
+    }
+
+    if (!this.brushOptions.length) {
+      this.selectedBrush = null;
+      return;
+    }
+
+    const available = this.brushOptions.map((brush) => brush.modelFileName);
+    const preferred = this.selectedBrush ?? this.paintService.currentBrush;
+    if (preferred && available.includes(preferred)) {
+      this.selectedBrush = preferred;
+    } else {
+      this.selectedBrush = available[0];
+    }
+
+    this.paintService.setCurrentBrush(this.selectedBrush);
+  }
+
+  private mapDecorationToBrush(decoration: DecorationInfo): BrushOption {
+    return {
+      id: decoration.id,
+      modelFileName: decoration.modelFileName,
+      name: decoration.name,
+      thumbnailUrl: decoration.thumbnailUrl,
+    };
   }
 }
