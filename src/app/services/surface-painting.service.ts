@@ -358,9 +358,41 @@ export class SurfacePaintingService {
     gradient.addColorStop(1, this.gradientEnd);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
+    this.softWrapGradientSeams();
     if (this.gradientTexture) {
       this.gradientTexture.needsUpdate = true;
     }
+  }
+
+  /**
+   * Softly blends the left/right and top/bottom edges of the gradient canvas to reduce
+   * visible seams on cylindrical UVs when using non-vertical directions.
+   */
+  private softWrapGradientSeams(): void {
+    if (!this.gradientCanvas || !this.gradientContext) {
+      return;
+    }
+    if (this.gradientDirection === 'vertical' || this.gradientDirection === 'radial') {
+      return;
+    }
+    const { width, height } = this.gradientCanvas;
+    const ctx = this.gradientContext;
+    const bleed = 8;
+    const temp = document.createElement('canvas');
+    temp.width = bleed;
+    temp.height = height;
+    const tempCtx = temp.getContext('2d');
+    if (!tempCtx) {
+      return;
+    }
+    // Copy left edge to the temp canvas then paste onto the right edge
+    tempCtx.clearRect(0, 0, bleed, height);
+    tempCtx.drawImage(this.gradientCanvas, 0, 0, bleed, height, 0, 0, bleed, height);
+    ctx.drawImage(temp, width - bleed, 0);
+    // Copy right edge back onto the left to soften the wrap
+    tempCtx.clearRect(0, 0, bleed, height);
+    tempCtx.drawImage(this.gradientCanvas, width - bleed, 0, bleed, height, 0, 0, bleed, height);
+    ctx.drawImage(temp, 0, 0);
   }
 
   private stampBrush(uv: THREE.Vector2): void {
@@ -386,6 +418,9 @@ export class SurfacePaintingService {
     }
     const spacing = this.computeStampSpacing();
     if (!prev) {
+      return [current];
+    }
+    if (Math.abs(prev.x - current.x) > 0.25 || Math.abs(prev.y - current.y) > 0.25) {
       return [current];
     }
     const distance = prev.distanceTo(current);
@@ -418,7 +453,7 @@ export class SurfacePaintingService {
     }
     const sizePx = this.computeBrushSizePx();
     const diameter = sizePx;
-    const spacingPx = diameter * 0.4;
+    const spacingPx = diameter * 0.25;
     return spacingPx / this.paintCanvas.width;
   }
 
@@ -444,14 +479,18 @@ export class SurfacePaintingService {
     const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
 
     const anchor = hit.point.clone();
-    const clusterSpacing = 0.02;
+    const clusterSpacing = 0.05;
     if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchor) < clusterSpacing) {
+      return;
+    }
+    if (Math.random() < 0.15) {
       return;
     }
     this.lastSprinklePoint = anchor.clone();
 
-    const count = Math.max(4, Math.round(this.sprinkleDensity * 1.5));
-    const scatterRadius = THREE.MathUtils.lerp(0.015, 0.05, Math.min(this.sprinkleDensity / 20, 1));
+    const densityFactor = THREE.MathUtils.clamp(this.sprinkleDensity / 20, 0, 1);
+    const count = Math.max(3, Math.round(THREE.MathUtils.lerp(4, 14, densityFactor)));
+    const scatterRadius = THREE.MathUtils.lerp(0.03, 0.09, densityFactor);
 
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
