@@ -1,0 +1,80 @@
+.surface-paint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.surface-paint__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.surface-paint__title {
+  font-weight: 600;
+}
+
+.surface-paint__toggle {
+  background: #3f51b5;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+.surface-paint__modes {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.surface-paint__modes button {
+  flex: 1;
+  padding: 0.4rem 0.2rem;
+  border-radius: 6px;
+  border: 1px solid #d5d5d5;
+  background: #f7f7f7;
+  cursor: pointer;
+}
+
+.surface-paint__mode--active {
+  background: #ffedf5;
+  border-color: #ff7eb6;
+}
+
+.surface-paint__section {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+}
+
+.surface-paint__section label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.surface-paint__section input[type='color'],
+.surface-paint__section select,
+.surface-paint__section input[type='range'] {
+  width: 100%;
+}
+
+.surface-paint__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.surface-paint__actions button {
+  border-radius: 6px;
+  border: 1px solid #d5d5d5;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+}
+
+.surface-paint__value {
+  font-size: 0.8rem;
+  color: #666;
+  text-align: right;
+}
