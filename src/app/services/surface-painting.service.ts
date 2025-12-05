@@ -225,11 +225,39 @@ export class SurfacePaintingService {
       shader.uniforms['paintMap'] = uniforms.paintMap;
       shader.uniforms['gradientMap'] = uniforms.gradientMap;
       shader.uniforms['useGradient'] = uniforms.useGradient;
+
       shader.fragmentShader =
-        `uniform sampler2D paintMap;\nuniform sampler2D gradientMap;\nuniform bool useGradient;\n` + shader.fragmentShader;
+        `uniform sampler2D paintMap;\n` +
+        `uniform sampler2D gradientMap;\n` +
+        `uniform bool useGradient;\n` +
+        shader.fragmentShader;
+
+      const overlayChunk = `
+      vec2 paintingUv = vec2(0.0);
+      bool hasPaintingUv = false;
+      #ifdef USE_MAP
+        paintingUv = vMapUv;
+        hasPaintingUv = true;
+      #elif defined(USE_UV)
+        paintingUv = vUv;
+        hasPaintingUv = true;
+      #endif
+      if (hasPaintingUv) {
+        vec4 paintSample = texture2D(paintMap, paintingUv);
+        vec3 paintLinear = pow(paintSample.rgb, vec3(2.2));
+        if (useGradient) {
+          vec4 gradSample = texture2D(gradientMap, paintingUv);
+          vec3 gradLinear = pow(gradSample.rgb, vec3(2.2));
+          diffuseColor.rgb = mix(diffuseColor.rgb, gradLinear, gradSample.a);
+        }
+        diffuseColor.rgb = mix(diffuseColor.rgb, paintLinear, paintSample.a);
+      }
+    `;
+
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <map_fragment>',
-        `#include <map_fragment>\n      vec2 paintingUv = vec2(0.0);\n      bool hasPaintingUv = false;\n      #ifdef USE_MAP\n        paintingUv = vMapUv;\n        hasPaintingUv = true;\n      #elif defined(USE_UV)\n        paintingUv = vUv;\n        hasPaintingUv = true;\n      #endif\n      if (hasPaintingUv) {\n        vec4 paintSample = texture2D(paintMap, paintingUv);\n        vec3 paintLinear = pow(paintSample.rgb, vec3(2.2));\n        if (useGradient) {\n          vec4 gradSample = texture2D(gradientMap, paintingUv);\n          vec3 gradLinear = pow(gradSample.rgb, vec3(2.2));\n          diffuseColor.rgb = mix(diffuseColor.rgb, gradLinear, gradSample.a);\n        }\n        diffuseColor.rgb = mix(diffuseColor.rgb, paintLinear, paintSample.a);\n      }`);
+        `#include <map_fragment>\n${overlayChunk}`,
+      );
     };
     material.needsUpdate = true;
     this.shaderUniforms = uniforms;
