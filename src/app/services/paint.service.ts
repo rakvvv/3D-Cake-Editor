@@ -1556,7 +1556,18 @@ export class PaintService {
 
   private finalizePaintRoot(object: THREE.Object3D): void {
     this.recenterPivot(object);
-    this.trySnapPaintStroke(object);
+    const isDecorationStroke = object.userData['isPaintDecoration'] === true;
+
+    if (isDecorationStroke) {
+      object.traverse((child) => {
+        child.userData = { ...child.userData, isSnapped: true };
+      });
+      this.attachToCake(object);
+      object.userData['isSnapped'] = true;
+    } else {
+      this.trySnapPaintStroke(object);
+    }
+
     object.userData['paintParent'] = object.parent ?? null;
     object.updateMatrixWorld(true);
   }
