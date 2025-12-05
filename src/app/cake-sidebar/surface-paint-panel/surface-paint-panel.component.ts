@@ -16,13 +16,7 @@ export class SurfacePaintPanelComponent {
     { id: 'gradient', label: 'Gradient' },
     { id: 'sprinkles', label: 'Posypka' },
   ];
-  public directions: { id: GradientDirection; label: string }[] = [
-    { id: 'vertical', label: 'Pionowy' },
-    { id: 'horizontal', label: 'Poziomy' },
-    { id: 'diag1', label: 'Skośny ↘︎' },
-    { id: 'diag2', label: 'Skośny ↙︎' },
-    { id: 'radial', label: 'Radialny' },
-  ];
+  public directions: { id: GradientDirection; label: string }[] = [{ id: 'vertical', label: 'Pionowy' }];
   public sprinkleShapes: { id: SprinkleShape; label: string }[] = [
     { id: 'stick', label: 'Patyczki' },
     { id: 'ball', label: 'Kuleczki' },

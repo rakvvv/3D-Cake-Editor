@@ -3,12 +3,12 @@ import { isPlatformBrowser } from '@angular/common';
 import * as THREE from 'three';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
-export type GradientDirection = 'vertical' | 'horizontal' | 'diag1' | 'diag2' | 'radial';
+export type GradientDirection = 'vertical';
 export type SprinkleShape = 'stick' | 'ball';
 
 const SPRINKLE_PALETTE = ['#ff6b81', '#ffd66b', '#6bffb0', '#6bb8ff', '#ffffff'];
 
-const SPRINKLE_MAX_COUNT = 2000;
+const SPRINKLE_MAX_COUNT = 8000;
 
 interface SprinklesState {
   mesh: THREE.InstancedMesh | null;
@@ -30,6 +30,7 @@ export class SurfacePaintingService {
   public brushColor = '#ff6b6b';
   public gradientEnabled = false;
   public gradientDirection: GradientDirection = 'vertical';
+  public gradientFlip = false;
   public gradientStart = '#ffffff';
   public gradientEnd = '#ffe3f3';
   public sprinkleDensity = 6;
@@ -50,13 +51,9 @@ export class SurfacePaintingService {
   private painting = false;
   private sprinklesState: SprinklesState = { mesh: null, count: 0 };
   private nextSprinkleIndex = 0;
-  private shaderUniforms: PaintingShaderUniforms | null = null;
-  private overlayMaterial: THREE.MeshStandardMaterial | null = null;
   private cakeGroup: THREE.Group | null = null;
   private lastSprinklePoint: THREE.Vector3 | null = null;
-  private gradientAnchorStart: THREE.Vector2 | null = null;
-  private gradientAnchorEnd: THREE.Vector2 | null = null;
-  private overlayMeshes: THREE.Mesh[] = [];
+  private paintedMaterials: THREE.Material[] = [];
 
   constructor(@Inject(PLATFORM_ID) platformId: object) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -68,10 +65,8 @@ export class SurfacePaintingService {
 
   public attachCake(cake: THREE.Group | null): void {
     this.disposeSprinkles();
-    this.removeOverlayMeshes();
     this.cakeGroup = cake;
-    this.setupOverlayMaterial();
-    this.addOverlayMeshes();
+    this.applyPaintingShader();
     this.updateGradientTexture();
     this.clearPaint();
   }
@@ -89,10 +84,6 @@ export class SurfacePaintingService {
     this.painting = true;
     this.lastUv = null;
     this.lastSprinklePoint = null;
-    if (this.mode === 'gradient') {
-      this.gradientAnchorStart = null;
-      this.gradientAnchorEnd = null;
-    }
   }
 
   public endStroke(): void {
@@ -103,16 +94,12 @@ export class SurfacePaintingService {
 
   public applyGradientSettings(): void {
     this.gradientEnabled = true;
-    this.gradientAnchorStart = null;
-    this.gradientAnchorEnd = null;
     this.updateGradientTexture();
     this.flagMaterialUpdate();
   }
 
   public disableGradient(): void {
     this.gradientEnabled = false;
-    this.gradientAnchorStart = null;
-    this.gradientAnchorEnd = null;
     this.flagMaterialUpdate();
   }
 
@@ -161,18 +148,6 @@ export class SurfacePaintingService {
     if (!hit.uv) {
       return;
     }
-
-    const uv = hit.uv.clone();
-    if (!this.gradientAnchorStart) {
-      this.gradientAnchorStart = uv.clone();
-    }
-    this.gradientAnchorEnd = uv;
-
-    // Avoid degenerate gradients by nudging the end slightly when identical
-    if (this.gradientAnchorStart.distanceTo(this.gradientAnchorEnd) < 0.001) {
-      this.gradientAnchorEnd = this.gradientAnchorEnd.clone().addScalar(0.01).clamp(new THREE.Vector2(0, 0), new THREE.Vector2(1, 1));
-    }
-
     this.gradientEnabled = true;
     this.updateGradientTexture();
     this.flagMaterialUpdate();
@@ -222,19 +197,10 @@ export class SurfacePaintingService {
     ctx.fillRect(0, 0, width, height);
   }
 
-  private setupOverlayMaterial(): void {
-    if (!this.paintTexture || !this.gradientTexture) {
+  private applyPaintingShader(): void {
+    if (!this.paintTexture || !this.gradientTexture || !this.cakeGroup) {
       return;
     }
-
-    const material = new THREE.MeshStandardMaterial({
-      color: '#ffffff',
-      transparent: true,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-    });
 
     const uniforms: PaintingShaderUniforms = {
       paintMap: { value: this.paintTexture },
@@ -242,48 +208,65 @@ export class SurfacePaintingService {
       useGradient: { value: this.gradientEnabled },
     };
 
-    material.onBeforeCompile = (shader) => {
-      shader.defines = shader.defines ?? {};
-      shader.defines.USE_UV = '';
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <common>',
-        '#include <common>\nvarying vec2 vPaintingUv;',
-      );
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <uv_vertex>',
-        '#include <uv_vertex>\n  vPaintingUv = (uv);',
-      );
-      shader.uniforms['paintMap'] = uniforms.paintMap;
-      shader.uniforms['gradientMap'] = uniforms.gradientMap;
-      shader.uniforms['useGradient'] = uniforms.useGradient;
+    this.paintedMaterials = [];
+    this.cakeGroup.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!(mesh as { isMesh?: boolean }).isMesh || !mesh.material) {
+        return;
+      }
+      const materialArray = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materialArray.forEach((mat) => {
+        if ((mat as { __surfacePaintApplied?: boolean }).__surfacePaintApplied) {
+          this.paintedMaterials.push(mat);
+          return;
+        }
+        mat.onBeforeCompile = (shader) => {
+          shader.defines = shader.defines ?? {};
+          shader.defines.USE_UV = '';
+          shader.vertexShader = shader.vertexShader.replace(
+            '#include <common>',
+            '#include <common>\nvarying vec2 vPaintingUv;',
+          );
+          shader.vertexShader = shader.vertexShader.replace(
+            '#include <uv_vertex>',
+            '#include <uv_vertex>\n  vPaintingUv = (uv);',
+          );
+          shader.uniforms['paintMap'] = uniforms.paintMap;
+          shader.uniforms['gradientMap'] = uniforms.gradientMap;
+          shader.uniforms['useGradient'] = uniforms.useGradient;
 
-      shader.fragmentShader =
-        `uniform sampler2D paintMap;\n` +
-        `uniform sampler2D gradientMap;\n` +
-        `uniform bool useGradient;\n` +
-        `varying vec2 vPaintingUv;\n` +
-        shader.fragmentShader;
+          shader.fragmentShader =
+            `uniform sampler2D paintMap;\n` +
+            `uniform sampler2D gradientMap;\n` +
+            `uniform bool useGradient;\n` +
+            `varying vec2 vPaintingUv;\n` +
+            shader.fragmentShader;
 
-      const overlayChunk = `
+          const overlayChunk = `
       vec2 paintingUv = vPaintingUv;
       vec4 paintSample = texture2D(paintMap, paintingUv);
       vec3 paintLinear = pow(paintSample.rgb, vec3(2.2));
       vec4 gradSample = texture2D(gradientMap, paintingUv);
       vec3 gradLinear = pow(gradSample.rgb, vec3(2.2));
-      vec3 baseColor = useGradient ? gradLinear : vec3(0.0);
-      float baseAlpha = useGradient ? gradSample.a : 0.0;
-      vec3 mixedColor = mix(baseColor, paintLinear, paintSample.a);
-      float finalAlpha = max(baseAlpha, paintSample.a);
-      diffuseColor = vec4(mixedColor, finalAlpha);
+      vec3 overlayColor = paintLinear;
+      float overlayAlpha = paintSample.a;
+      if (useGradient) {
+        overlayColor = mix(gradLinear, overlayColor, overlayAlpha);
+        overlayAlpha = max(overlayAlpha, gradSample.a);
+      }
+      diffuseColor.rgb = mix(diffuseColor.rgb, overlayColor, overlayAlpha);
     `;
 
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <map_fragment>',
-        `#include <map_fragment>\n${overlayChunk}`,
-      );
-    };
-    material.needsUpdate = true;
-    this.overlayMaterial = material;
+          shader.fragmentShader = shader.fragmentShader.replace(
+            '#include <map_fragment>',
+            `#include <map_fragment>\n${overlayChunk}`,
+          );
+        };
+        (mat as { __surfacePaintApplied?: boolean }).__surfacePaintApplied = true;
+        mat.needsUpdate = true;
+        this.paintedMaterials.push(mat);
+      });
+    });
     this.shaderUniforms = uniforms;
   }
 
@@ -302,75 +285,16 @@ export class SurfacePaintingService {
     }
 
     let gradient: CanvasGradient;
-    if (this.gradientAnchorStart && this.gradientAnchorEnd) {
-      const startPx = new THREE.Vector2(
-        this.gradientAnchorStart.x * width,
-        (1 - this.gradientAnchorStart.y) * height,
-      );
-      const endPx = new THREE.Vector2(
-        this.gradientAnchorEnd.x * width,
-        (1 - this.gradientAnchorEnd.y) * height,
-      );
-      gradient = ctx.createLinearGradient(startPx.x, startPx.y, endPx.x, endPx.y);
-    } else {
-      switch (this.gradientDirection) {
-        case 'horizontal':
-          gradient = ctx.createLinearGradient(0, height / 2, width, height / 2);
-          break;
-        case 'diag1':
-          gradient = ctx.createLinearGradient(0, 0, width, height);
-          break;
-        case 'diag2':
-          gradient = ctx.createLinearGradient(width, 0, 0, height);
-          break;
-        case 'radial':
-          gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
-          break;
-        case 'vertical':
-        default:
-          gradient = ctx.createLinearGradient(width / 2, 0, width / 2, height);
-          break;
-      }
-    }
+    const startY = this.gradientFlip ? height : 0;
+    const endY = this.gradientFlip ? 0 : height;
+    gradient = ctx.createLinearGradient(width / 2, startY, width / 2, endY);
     gradient.addColorStop(0, this.gradientStart);
     gradient.addColorStop(1, this.gradientEnd);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
-    this.softWrapGradientSeams();
     if (this.gradientTexture) {
       this.gradientTexture.needsUpdate = true;
     }
-  }
-
-  /**
-   * Softly blends the left/right and top/bottom edges of the gradient canvas to reduce
-   * visible seams on cylindrical UVs when using non-vertical directions.
-   */
-  private softWrapGradientSeams(): void {
-    if (!this.gradientCanvas || !this.gradientContext) {
-      return;
-    }
-    if (this.gradientDirection === 'vertical' || this.gradientDirection === 'radial') {
-      return;
-    }
-    const { width, height } = this.gradientCanvas;
-    const ctx = this.gradientContext;
-    const bleed = 8;
-    const temp = document.createElement('canvas');
-    temp.width = bleed;
-    temp.height = height;
-    const tempCtx = temp.getContext('2d');
-    if (!tempCtx) {
-      return;
-    }
-    // Copy left edge to the temp canvas then paste onto the right edge
-    tempCtx.clearRect(0, 0, bleed, height);
-    tempCtx.drawImage(this.gradientCanvas, 0, 0, bleed, height, 0, 0, bleed, height);
-    ctx.drawImage(temp, width - bleed, 0);
-    // Copy right edge back onto the left to soften the wrap
-    tempCtx.clearRect(0, 0, bleed, height);
-    tempCtx.drawImage(this.gradientCanvas, width - bleed, 0, bleed, height, 0, 0, bleed, height);
-    ctx.drawImage(temp, 0, 0);
   }
 
   private stampBrush(uv: THREE.Vector2): void {
@@ -523,44 +447,7 @@ export class SurfacePaintingService {
     if (this.shaderUniforms) {
       this.shaderUniforms.useGradient.value = this.gradientEnabled;
     }
-    if (this.overlayMaterial) {
-      this.overlayMaterial.needsUpdate = true;
-    }
-  }
-
-  private addOverlayMeshes(): void {
-    if (!this.cakeGroup || !this.overlayMaterial) {
-      return;
-    }
-
-    const layerMeshes: THREE.Mesh[] = [];
-    this.cakeGroup.traverse((child) => {
-      const mesh = child as THREE.Mesh;
-      if (!(mesh as { isMesh?: boolean }).isMesh) {
-        return;
-      }
-      if (!mesh.userData['isCakeLayer']) {
-        return;
-      }
-      layerMeshes.push(mesh);
-    });
-
-    layerMeshes.forEach((source, index) => {
-      const overlay = new THREE.Mesh(source.geometry, this.overlayMaterial!);
-      overlay.name = `${source.name || 'CakeLayer'}_paintOverlay_${index}`;
-      overlay.position.copy(source.position);
-      overlay.rotation.copy(source.rotation);
-      overlay.scale.copy(source.scale);
-      overlay.renderOrder = source.renderOrder + 1;
-      overlay.userData['isPaintOverlay'] = true;
-      this.cakeGroup?.add(overlay);
-      this.overlayMeshes.push(overlay);
-    });
-  }
-
-  private removeOverlayMeshes(): void {
-    this.overlayMeshes.forEach((mesh) => mesh.parent?.remove(mesh));
-    this.overlayMeshes = [];
+    this.paintedMaterials.forEach((mat) => (mat.needsUpdate = true));
   }
 
   private disposeSprinkles(): void {

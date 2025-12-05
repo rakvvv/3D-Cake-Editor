@@ -40,6 +40,9 @@
       <option *ngFor="let dir of directions" [value]="dir.id">{{ dir.label }}</option>
     </select>
 
+    <label>Odwróć (góra → dół / dół → góra)</label>
+    <input type="checkbox" [(ngModel)]="painting.gradientFlip" />
+
     <label>Kolor początkowy</label>
     <input type="color" [(ngModel)]="painting.gradientStart" />
 
