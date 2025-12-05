@@ -132,20 +132,19 @@ export class ThreeObjectsFactory {
     applyRepeat(bumpMap);
 
     const material = new THREE.MeshStandardMaterial({
-      map: map ?? undefined,
-      normalMap: normalMap ?? undefined,
-      roughnessMap: roughnessMap ?? undefined,
-      displacementMap: undefined,
-      displacementScale: 0,
-      bumpMap: bumpMap ?? undefined,
-      bumpScale: bumpMap ? 0.2 : 0,
       roughness: 0.7,
-      metalnessMap: metallicMap ?? undefined,
+      bumpScale: bumpMap ? 0.2 : 0,
       metalness: metallicMap ? 0.2 : 0,
-      emissiveMap: emissiveMap ?? undefined,
       emissive: emissiveMap ? new THREE.Color('#ffffff') : new THREE.Color('#000000'),
       emissiveIntensity: emissiveMap ? 0.4 : 0,
     });
+
+    if (map) material.map = map;
+    if (normalMap) material.normalMap = normalMap;
+    if (roughnessMap) material.roughnessMap = roughnessMap;
+    if (bumpMap) material.bumpMap = bumpMap;
+    if (metallicMap) material.metalnessMap = metallicMap;
+    if (emissiveMap) material.emissiveMap = emissiveMap;
 
     material.color = new THREE.Color(options.cake_color);
     return material;
@@ -747,19 +746,18 @@ export class ThreeObjectsFactory {
 
     const surfaceMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color(color),
-      map: map ?? undefined,
-      normalMap: normalMap ?? undefined,
-      roughnessMap: roughnessMap ?? undefined,
-      displacementMap: undefined,
-      displacementScale: 0,
       roughness: 0.25,
-      metalnessMap: metallicMap ?? undefined,
       metalness: metallicMap ? 0.25 : 0.15,
       envMapIntensity: 0.8,
-      emissiveMap: emissiveMap ?? undefined,
       emissive: emissiveMap ? new THREE.Color('#ffffff') : new THREE.Color('#000000'),
       emissiveIntensity: emissiveMap ? 0.35 : 0,
     });
+
+    if (map) surfaceMaterial.map = map;
+    if (normalMap) surfaceMaterial.normalMap = normalMap;
+    if (roughnessMap) surfaceMaterial.roughnessMap = roughnessMap;
+    if (metallicMap) surfaceMaterial.metalnessMap = metallicMap;
+    if (emissiveMap) surfaceMaterial.emissiveMap = emissiveMap;
 
     surfaceMaterial.normalScale = new THREE.Vector2(0.8, 0.8);
     surfaceMaterial.side = THREE.DoubleSide;

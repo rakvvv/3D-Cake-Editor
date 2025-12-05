@@ -229,8 +229,7 @@ export class SurfacePaintingService {
         `uniform sampler2D paintMap;\nuniform sampler2D gradientMap;\nuniform bool useGradient;\n` + shader.fragmentShader;
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <map_fragment>',
-        `#include <map_fragment>\n      vec2 paintingUv = vec2(0.0);\n      bool hasPaintingUv = false;\n      #ifdef USE_MAP\n        paintingUv = vMapUv;\n        hasPaintingUv = true;\n      #elif defined(USE_UV)\n        paintingUv = vUv;\n        hasPaintingUv = true;\n      #endif\n      if (hasPaintingUv) {\n        if (useGradient) {\n          vec4 gradSample = texture2D(gradientMap, paintingUv);\n          gradSample.rgb = SRGBToLinear(gradSample.rgb);\n          diffuseColor.rgb = mix(diffuseColor.rgb, gradSample.rgb, gradSample.a);\n        }\n        vec4 paintSample = texture2D(paintMap, paintingUv);\n        paintSample.rgb = SRGBToLinear(paintSample.rgb);\n        diffuseColor.rgb = mix(diffuseColor.rgb, paintSample.rgb, paintSample.a);\n      }`,
-      );
+        `#include <map_fragment>\n      vec2 paintingUv = vec2(0.0);\n      bool hasPaintingUv = false;\n      #ifdef USE_MAP\n        paintingUv = vMapUv;\n        hasPaintingUv = true;\n      #elif defined(USE_UV)\n        paintingUv = vUv;\n        hasPaintingUv = true;\n      #endif\n      if (hasPaintingUv) {\n        vec4 paintSample = texture2D(paintMap, paintingUv);\n        vec3 paintLinear = pow(paintSample.rgb, vec3(2.2));\n        if (useGradient) {\n          vec4 gradSample = texture2D(gradientMap, paintingUv);\n          vec3 gradLinear = pow(gradSample.rgb, vec3(2.2));\n          diffuseColor.rgb = mix(diffuseColor.rgb, gradLinear, gradSample.a);\n        }\n        diffuseColor.rgb = mix(diffuseColor.rgb, paintLinear, paintSample.a);\n      }`);
     };
     material.needsUpdate = true;
     this.shaderUniforms = uniforms;
