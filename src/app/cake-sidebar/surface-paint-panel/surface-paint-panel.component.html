@@ -18,17 +18,12 @@
   </div>
 
   <div *ngIf="painting.mode === 'brush'" class="surface-paint__section">
-    <label>Rodzaj pędzla</label>
-    <select [(ngModel)]="painting.brushKind">
-      <option *ngFor="let kind of brushKinds" [value]="kind.id">{{ kind.label }}</option>
-    </select>
-
     <label>Kolor</label>
     <input type="color" [(ngModel)]="painting.brushColor" />
 
     <label>Rozmiar</label>
-    <input type="range" min="10" max="200" [(ngModel)]="painting.brushSize" />
-    <span class="surface-paint__value">{{ painting.brushSize | number: '1.0-0' }} px</span>
+    <input type="range" min="0" max="100" [(ngModel)]="painting.brushSize" />
+    <span class="surface-paint__value">{{ painting.brushSize | number: '1.0-0' }} / 100</span>
 
     <label>Nieprzezroczystość</label>
     <input type="range" min="0.05" max="1" step="0.05" [(ngModel)]="painting.brushOpacity" />

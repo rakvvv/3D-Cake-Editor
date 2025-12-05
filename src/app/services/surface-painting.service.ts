@@ -4,13 +4,7 @@ import * as THREE from 'three';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
 export type GradientDirection = 'vertical' | 'horizontal' | 'diag1' | 'diag2' | 'radial';
-export type BrushKind = 'soft' | 'cream';
 export type SprinkleShape = 'stick' | 'ball';
-
-const BRUSH_TEXTURES: Record<BrushKind, string> = {
-  soft: '/assets/brush/brush_1.png',
-  cream: '/assets/brush/brush_2.png',
-};
 
 const SPRINKLE_PALETTE = ['#ff6b81', '#ffd66b', '#6bffb0', '#6bb8ff', '#ffffff'];
 
@@ -31,8 +25,7 @@ interface PaintingShaderUniforms {
 export class SurfacePaintingService {
   public enabled = false;
   public mode: PaintingMode = 'brush';
-  public brushKind: BrushKind = 'soft';
-  public brushSize = 90;
+  public brushSize = 50;
   public brushOpacity = 0.8;
   public brushColor = '#ff6b6b';
   public gradientEnabled = false;
@@ -51,7 +44,8 @@ export class SurfacePaintingService {
   private gradientContext?: CanvasRenderingContext2D | null;
   private paintTexture?: THREE.CanvasTexture;
   private gradientTexture?: THREE.CanvasTexture;
-  private brushImages = new Map<BrushKind, HTMLImageElement>();
+  private brushMaskCanvas?: HTMLCanvasElement;
+  private brushMaskContext?: CanvasRenderingContext2D | null;
   private lastUv: THREE.Vector2 | null = null;
   private painting = false;
   private sprinklesState: SprinklesState = { mesh: null, count: 0 };
@@ -67,7 +61,7 @@ export class SurfacePaintingService {
     this.isBrowser = isPlatformBrowser(platformId);
     if (this.isBrowser) {
       this.ensureCanvases();
-      this.loadBrushes();
+      this.ensureBrushMask();
     }
   }
 
@@ -176,13 +170,9 @@ export class SurfacePaintingService {
     }
 
     const currentUv = hit.uv.clone();
-    const brushImage = this.brushImages.get(this.brushKind);
-    if (!brushImage || !brushImage.complete) {
-      return;
-    }
 
     const stamps = this.interpolateStamps(this.lastUv, currentUv);
-    stamps.forEach((uv) => this.stampBrush(uv, brushImage));
+    stamps.forEach((uv) => this.stampBrush(uv));
     this.paintTexture.needsUpdate = true;
     this.lastUv = currentUv;
   }
@@ -227,12 +217,29 @@ export class SurfacePaintingService {
     this.gradientTexture.colorSpace = THREE.SRGBColorSpace;
   }
 
-  private loadBrushes(): void {
-    Object.entries(BRUSH_TEXTURES).forEach(([key, path]) => {
-      const image = new Image();
-      image.src = path;
-      this.brushImages.set(key as BrushKind, image);
-    });
+  private ensureBrushMask(): void {
+    if (this.brushMaskCanvas) {
+      return;
+    }
+    this.brushMaskCanvas = document.createElement('canvas');
+    this.brushMaskCanvas.width = 128;
+    this.brushMaskCanvas.height = 128;
+    this.brushMaskContext = this.brushMaskCanvas.getContext('2d');
+    this.regenerateBrushMask();
+  }
+
+  private regenerateBrushMask(): void {
+    if (!this.brushMaskContext || !this.brushMaskCanvas) {
+      return;
+    }
+    const ctx = this.brushMaskContext;
+    const { width, height } = this.brushMaskCanvas;
+    ctx.clearRect(0, 0, width, height);
+    const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
   }
 
   private extractCakeMaterial(group: THREE.Group | null): THREE.MeshStandardMaterial | null {
@@ -356,38 +363,36 @@ export class SurfacePaintingService {
     }
   }
 
-  private stampBrush(uv: THREE.Vector2, brush: HTMLImageElement): void {
-    if (!this.paintCanvas || !this.paintContext) {
+  private stampBrush(uv: THREE.Vector2): void {
+    if (!this.paintCanvas || !this.paintContext || !this.brushMaskCanvas) {
       return;
     }
-    const sizePx = (this.brushSize / 100) * this.paintCanvas.width;
+    const sizePx = this.computeBrushSizePx();
     const x = uv.x * this.paintCanvas.width - sizePx / 2;
     const y = (1 - uv.y) * this.paintCanvas.height - sizePx / 2;
     this.paintContext.save();
     this.paintContext.globalAlpha = this.brushOpacity;
-    this.paintContext.fillStyle = this.brushColor;
     this.paintContext.globalCompositeOperation = 'source-over';
-    this.paintContext.drawImage(brush, x, y, sizePx, sizePx);
-    if (this.brushOpacity < 1) {
-      this.paintContext.globalCompositeOperation = 'source-in';
-      this.paintContext.fillRect(x, y, sizePx, sizePx);
-    } else {
-      this.paintContext.globalCompositeOperation = 'source-in';
-      this.paintContext.fillRect(x, y, sizePx, sizePx);
-    }
+    this.paintContext.drawImage(this.brushMaskCanvas, x, y, sizePx, sizePx);
+    this.paintContext.globalCompositeOperation = 'source-in';
+    this.paintContext.fillStyle = this.brushColor;
+    this.paintContext.fillRect(x, y, sizePx, sizePx);
     this.paintContext.restore();
   }
 
   private interpolateStamps(prev: THREE.Vector2 | null, current: THREE.Vector2): THREE.Vector2[] {
+    if (!this.paintCanvas) {
+      return [current];
+    }
+    const spacing = this.computeStampSpacing();
     if (!prev) {
       return [current];
     }
     const distance = prev.distanceTo(current);
-    const step = 0.01 * (this.brushSize / 50);
-    if (distance < step) {
+    if (distance < spacing) {
       return [current];
     }
-    const count = Math.floor(distance / step);
+    const count = Math.floor(distance / spacing);
     const result: THREE.Vector2[] = [];
     for (let i = 1; i <= count; i++) {
       const t = i / count;
@@ -395,6 +400,26 @@ export class SurfacePaintingService {
     }
     result.push(current);
     return result;
+  }
+
+  private computeBrushSizePx(): number {
+    if (!this.paintCanvas) {
+      return 0;
+    }
+    const minSize = 10;
+    const maxSize = 180;
+    const normalized = THREE.MathUtils.clamp(this.brushSize, 0, 100) / 100;
+    return THREE.MathUtils.lerp(minSize, maxSize, normalized);
+  }
+
+  private computeStampSpacing(): number {
+    if (!this.paintCanvas) {
+      return 0.01;
+    }
+    const sizePx = this.computeBrushSizePx();
+    const diameter = sizePx;
+    const spacingPx = diameter * 0.4;
+    return spacingPx / this.paintCanvas.width;
   }
 
   private placeSprinkles(hit: THREE.Intersection, scene: THREE.Scene): void {
@@ -418,46 +443,35 @@ export class SurfacePaintingService {
     tangent.normalize();
     const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
 
-    const basePoint = hit.point.clone();
-    const lastPoint = this.lastSprinklePoint;
-    const step = 0.025;
-    const segmentPoints: THREE.Vector3[] = [];
-    if (!lastPoint) {
-      segmentPoints.push(basePoint);
-    } else {
-      const distance = lastPoint.distanceTo(basePoint);
-      const segments = Math.max(1, Math.floor(distance / step));
-      for (let i = 1; i <= segments; i++) {
-        const t = i / segments;
-        segmentPoints.push(lastPoint.clone().lerp(basePoint, t));
-      }
+    const anchor = hit.point.clone();
+    const clusterSpacing = 0.02;
+    if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchor) < clusterSpacing) {
+      return;
     }
-    this.lastSprinklePoint = basePoint;
+    this.lastSprinklePoint = anchor.clone();
 
-    const densityCount = Math.max(1, Math.round(this.sprinkleDensity));
-    const scatterRadius = 0.04;
+    const count = Math.max(4, Math.round(this.sprinkleDensity * 1.5));
+    const scatterRadius = THREE.MathUtils.lerp(0.015, 0.05, Math.min(this.sprinkleDensity / 20, 1));
 
-    for (const anchor of segmentPoints) {
-      for (let i = 0; i < densityCount; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const radius = Math.sqrt(Math.random()) * scatterRadius;
-        const offset = tangent.clone().multiplyScalar(Math.cos(angle) * radius).add(
-          bitangent.clone().multiplyScalar(Math.sin(angle) * radius),
-        );
-        const position = anchor.clone().add(offset).add(normal.clone().multiplyScalar(0.003));
-        const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale, Math.random());
-        const shapeMatrix = new THREE.Matrix4();
-        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-        const randomTwist = new THREE.Quaternion().setFromAxisAngle(normal, Math.random() * Math.PI * 2);
-        quat.multiply(randomTwist);
-        shapeMatrix.compose(position, quat, new THREE.Vector3(scale, scale, scale));
-        const targetIndex = this.nextSprinkleIndex % SPRINKLE_MAX_COUNT;
-        mesh.setMatrixAt(targetIndex, shapeMatrix);
-        const color = new THREE.Color(SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]);
-        mesh.setColorAt(targetIndex, color);
-        this.nextSprinkleIndex++;
-        this.sprinklesState.count = Math.min(this.sprinklesState.count + 1, SPRINKLE_MAX_COUNT);
-      }
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.sqrt(Math.random()) * scatterRadius;
+      const offset = tangent.clone().multiplyScalar(Math.cos(angle) * radius).add(
+        bitangent.clone().multiplyScalar(Math.sin(angle) * radius),
+      );
+      const position = anchor.clone().add(offset).add(normal.clone().multiplyScalar(0.003));
+      const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale, Math.random());
+      const shapeMatrix = new THREE.Matrix4();
+      const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+      const randomTwist = new THREE.Quaternion().setFromAxisAngle(normal, Math.random() * Math.PI * 2);
+      quat.multiply(randomTwist);
+      shapeMatrix.compose(position, quat, new THREE.Vector3(scale, scale, scale));
+      const targetIndex = this.nextSprinkleIndex % SPRINKLE_MAX_COUNT;
+      mesh.setMatrixAt(targetIndex, shapeMatrix);
+      const color = new THREE.Color(SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]);
+      mesh.setColorAt(targetIndex, color);
+      this.nextSprinkleIndex++;
+      this.sprinklesState.count = Math.min(this.sprinklesState.count + 1, SPRINKLE_MAX_COUNT);
     }
 
     mesh.count = this.sprinklesState.count;

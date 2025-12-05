@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { SurfacePaintingService, PaintingMode, BrushKind, GradientDirection, SprinkleShape } from '../../services/surface-painting.service';
+import { SurfacePaintingService, PaintingMode, GradientDirection, SprinkleShape } from '../../services/surface-painting.service';
 
 @Component({
   selector: 'app-surface-paint-panel',
@@ -15,10 +15,6 @@ export class SurfacePaintPanelComponent {
     { id: 'brush', label: 'Pędzel' },
     { id: 'gradient', label: 'Gradient' },
     { id: 'sprinkles', label: 'Posypka' },
-  ];
-  public brushKinds: { id: BrushKind; label: string }[] = [
-    { id: 'soft', label: 'Miękki' },
-    { id: 'cream', label: 'Kremowy' },
   ];
   public directions: { id: GradientDirection; label: string }[] = [
     { id: 'vertical', label: 'Pionowy' },
