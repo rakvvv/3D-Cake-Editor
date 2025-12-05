@@ -134,7 +134,7 @@ export class ThreeSceneService {
         return;
       }
 
-      if (this.surfacePainting.enabled && this.cakeBase && this.surfacePainting.mode !== 'gradient') {
+      if (this.surfacePainting.enabled && this.cakeBase) {
         const rect = this.renderer.domElement.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;

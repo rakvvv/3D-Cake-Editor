@@ -55,9 +55,13 @@ export class SurfacePaintingService {
   private lastUv: THREE.Vector2 | null = null;
   private painting = false;
   private sprinklesState: SprinklesState = { mesh: null, count: 0 };
+  private nextSprinkleIndex = 0;
   private shaderUniforms: PaintingShaderUniforms | null = null;
   private cakeMaterial: THREE.MeshStandardMaterial | null = null;
   private cakeGroup: THREE.Group | null = null;
+  private lastSprinklePoint: THREE.Vector3 | null = null;
+  private gradientAnchorStart: THREE.Vector2 | null = null;
+  private gradientAnchorEnd: THREE.Vector2 | null = null;
 
   constructor(@Inject(PLATFORM_ID) platformId: object) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -101,21 +105,31 @@ export class SurfacePaintingService {
   public startStroke(): void {
     this.painting = true;
     this.lastUv = null;
+    this.lastSprinklePoint = null;
+    if (this.mode === 'gradient') {
+      this.gradientAnchorStart = null;
+      this.gradientAnchorEnd = null;
+    }
   }
 
   public endStroke(): void {
     this.painting = false;
     this.lastUv = null;
+    this.lastSprinklePoint = null;
   }
 
   public applyGradientSettings(): void {
     this.gradientEnabled = true;
+    this.gradientAnchorStart = null;
+    this.gradientAnchorEnd = null;
     this.updateGradientTexture();
     this.flagMaterialUpdate();
   }
 
   public disableGradient(): void {
     this.gradientEnabled = false;
+    this.gradientAnchorStart = null;
+    this.gradientAnchorEnd = null;
     this.flagMaterialUpdate();
   }
 
@@ -128,6 +142,8 @@ export class SurfacePaintingService {
       this.paintTexture.needsUpdate = true;
     }
     this.sprinklesState.count = 0;
+    this.nextSprinkleIndex = 0;
+    this.lastSprinklePoint = null;
     if (this.sprinklesState.mesh) {
       this.sprinklesState.mesh.parent?.remove(this.sprinklesState.mesh);
       this.sprinklesState.mesh.geometry.dispose();
@@ -146,6 +162,7 @@ export class SurfacePaintingService {
     }
 
     if (this.mode === 'gradient') {
+      this.applyGradientFromHit(hit);
       return;
     }
 
@@ -168,6 +185,27 @@ export class SurfacePaintingService {
     stamps.forEach((uv) => this.stampBrush(uv, brushImage));
     this.paintTexture.needsUpdate = true;
     this.lastUv = currentUv;
+  }
+
+  private applyGradientFromHit(hit: THREE.Intersection): void {
+    if (!hit.uv) {
+      return;
+    }
+
+    const uv = hit.uv.clone();
+    if (!this.gradientAnchorStart) {
+      this.gradientAnchorStart = uv.clone();
+    }
+    this.gradientAnchorEnd = uv;
+
+    // Avoid degenerate gradients by nudging the end slightly when identical
+    if (this.gradientAnchorStart.distanceTo(this.gradientAnchorEnd) < 0.001) {
+      this.gradientAnchorEnd = this.gradientAnchorEnd.clone().addScalar(0.01).clamp(new THREE.Vector2(0, 0), new THREE.Vector2(1, 1));
+    }
+
+    this.gradientEnabled = true;
+    this.updateGradientTexture();
+    this.flagMaterialUpdate();
   }
 
   private ensureCanvases(): void {
@@ -222,6 +260,16 @@ export class SurfacePaintingService {
       useGradient: { value: this.gradientEnabled },
     };
     material.onBeforeCompile = (shader) => {
+      shader.defines = shader.defines ?? {};
+      shader.defines.USE_UV = '';
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <common>',
+        '#include <common>\nvarying vec2 vPaintingUv;',
+      );
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <uv_vertex>',
+        '#include <uv_vertex>\n  vPaintingUv = (uv);',
+      );
       shader.uniforms['paintMap'] = uniforms.paintMap;
       shader.uniforms['gradientMap'] = uniforms.gradientMap;
       shader.uniforms['useGradient'] = uniforms.useGradient;
@@ -230,28 +278,19 @@ export class SurfacePaintingService {
         `uniform sampler2D paintMap;\n` +
         `uniform sampler2D gradientMap;\n` +
         `uniform bool useGradient;\n` +
+        `varying vec2 vPaintingUv;\n` +
         shader.fragmentShader;
 
       const overlayChunk = `
-      vec2 paintingUv = vec2(0.0);
-      bool hasPaintingUv = false;
-      #ifdef USE_MAP
-        paintingUv = vMapUv;
-        hasPaintingUv = true;
-      #elif defined(USE_UV)
-        paintingUv = vUv;
-        hasPaintingUv = true;
-      #endif
-      if (hasPaintingUv) {
-        vec4 paintSample = texture2D(paintMap, paintingUv);
-        vec3 paintLinear = pow(paintSample.rgb, vec3(2.2));
-        if (useGradient) {
-          vec4 gradSample = texture2D(gradientMap, paintingUv);
-          vec3 gradLinear = pow(gradSample.rgb, vec3(2.2));
-          diffuseColor.rgb = mix(diffuseColor.rgb, gradLinear, gradSample.a);
-        }
-        diffuseColor.rgb = mix(diffuseColor.rgb, paintLinear, paintSample.a);
+      vec2 paintingUv = vPaintingUv;
+      vec4 paintSample = texture2D(paintMap, paintingUv);
+      vec3 paintLinear = pow(paintSample.rgb, vec3(2.2));
+      if (useGradient) {
+        vec4 gradSample = texture2D(gradientMap, paintingUv);
+        vec3 gradLinear = pow(gradSample.rgb, vec3(2.2));
+        diffuseColor.rgb = mix(diffuseColor.rgb, gradLinear, gradSample.a);
       }
+      diffuseColor.rgb = mix(diffuseColor.rgb, paintLinear, paintSample.a);
     `;
 
       shader.fragmentShader = shader.fragmentShader.replace(
@@ -278,23 +317,35 @@ export class SurfacePaintingService {
     }
 
     let gradient: CanvasGradient;
-    switch (this.gradientDirection) {
-      case 'horizontal':
-        gradient = ctx.createLinearGradient(0, height / 2, width, height / 2);
-        break;
-      case 'diag1':
-        gradient = ctx.createLinearGradient(0, 0, width, height);
-        break;
-      case 'diag2':
-        gradient = ctx.createLinearGradient(width, 0, 0, height);
-        break;
-      case 'radial':
-        gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
-        break;
-      case 'vertical':
-      default:
-        gradient = ctx.createLinearGradient(width / 2, 0, width / 2, height);
-        break;
+    if (this.gradientAnchorStart && this.gradientAnchorEnd) {
+      const startPx = new THREE.Vector2(
+        this.gradientAnchorStart.x * width,
+        (1 - this.gradientAnchorStart.y) * height,
+      );
+      const endPx = new THREE.Vector2(
+        this.gradientAnchorEnd.x * width,
+        (1 - this.gradientAnchorEnd.y) * height,
+      );
+      gradient = ctx.createLinearGradient(startPx.x, startPx.y, endPx.x, endPx.y);
+    } else {
+      switch (this.gradientDirection) {
+        case 'horizontal':
+          gradient = ctx.createLinearGradient(0, height / 2, width, height / 2);
+          break;
+        case 'diag1':
+          gradient = ctx.createLinearGradient(0, 0, width, height);
+          break;
+        case 'diag2':
+          gradient = ctx.createLinearGradient(width, 0, 0, height);
+          break;
+        case 'radial':
+          gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 2);
+          break;
+        case 'vertical':
+        default:
+          gradient = ctx.createLinearGradient(width / 2, 0, width / 2, height);
+          break;
+      }
     }
     gradient.addColorStop(0, this.gradientStart);
     gradient.addColorStop(1, this.gradientEnd);
@@ -351,7 +402,7 @@ export class SurfacePaintingService {
       this.createSprinklesMesh(scene);
     }
     const mesh = this.sprinklesState.mesh;
-    if (!mesh || this.sprinklesState.count >= SPRINKLE_MAX_COUNT) {
+    if (!mesh) {
       return;
     }
 
@@ -367,22 +418,48 @@ export class SurfacePaintingService {
     tangent.normalize();
     const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
 
-    const densityCount = Math.max(1, Math.round(this.sprinkleDensity));
-    for (let i = 0; i < densityCount && this.sprinklesState.count < SPRINKLE_MAX_COUNT; i++) {
-      const uvJitter = (Math.random() - 0.5) * 0.01;
-      const offset = tangent.clone().multiplyScalar(uvJitter * 2).add(bitangent.clone().multiplyScalar(uvJitter * 2));
-      const position = hit.point.clone().add(offset).add(normal.clone().multiplyScalar(0.003));
-      const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale, Math.random());
-      const shapeMatrix = new THREE.Matrix4();
-      const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-      const randomTwist = new THREE.Quaternion().setFromAxisAngle(normal, Math.random() * Math.PI * 2);
-      quat.multiply(randomTwist);
-      shapeMatrix.compose(position, quat, new THREE.Vector3(scale, scale, scale));
-      mesh.setMatrixAt(this.sprinklesState.count, shapeMatrix);
-      const color = new THREE.Color(SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]);
-      mesh.setColorAt(this.sprinklesState.count, color);
-      this.sprinklesState.count++;
+    const basePoint = hit.point.clone();
+    const lastPoint = this.lastSprinklePoint;
+    const step = 0.025;
+    const segmentPoints: THREE.Vector3[] = [];
+    if (!lastPoint) {
+      segmentPoints.push(basePoint);
+    } else {
+      const distance = lastPoint.distanceTo(basePoint);
+      const segments = Math.max(1, Math.floor(distance / step));
+      for (let i = 1; i <= segments; i++) {
+        const t = i / segments;
+        segmentPoints.push(lastPoint.clone().lerp(basePoint, t));
+      }
     }
+    this.lastSprinklePoint = basePoint;
+
+    const densityCount = Math.max(1, Math.round(this.sprinkleDensity));
+    const scatterRadius = 0.04;
+
+    for (const anchor of segmentPoints) {
+      for (let i = 0; i < densityCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = Math.sqrt(Math.random()) * scatterRadius;
+        const offset = tangent.clone().multiplyScalar(Math.cos(angle) * radius).add(
+          bitangent.clone().multiplyScalar(Math.sin(angle) * radius),
+        );
+        const position = anchor.clone().add(offset).add(normal.clone().multiplyScalar(0.003));
+        const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale, Math.random());
+        const shapeMatrix = new THREE.Matrix4();
+        const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+        const randomTwist = new THREE.Quaternion().setFromAxisAngle(normal, Math.random() * Math.PI * 2);
+        quat.multiply(randomTwist);
+        shapeMatrix.compose(position, quat, new THREE.Vector3(scale, scale, scale));
+        const targetIndex = this.nextSprinkleIndex % SPRINKLE_MAX_COUNT;
+        mesh.setMatrixAt(targetIndex, shapeMatrix);
+        const color = new THREE.Color(SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]);
+        mesh.setColorAt(targetIndex, color);
+        this.nextSprinkleIndex++;
+        this.sprinklesState.count = Math.min(this.sprinklesState.count + 1, SPRINKLE_MAX_COUNT);
+      }
+    }
+
     mesh.count = this.sprinklesState.count;
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) {
@@ -400,6 +477,8 @@ export class SurfacePaintingService {
     mesh.name = 'Sprinkles';
     mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(SPRINKLE_MAX_COUNT * 3), 3);
     this.sprinklesState = { mesh, count: 0 };
+    this.nextSprinkleIndex = 0;
+    this.lastSprinklePoint = null;
     scene.add(mesh);
   }
 
