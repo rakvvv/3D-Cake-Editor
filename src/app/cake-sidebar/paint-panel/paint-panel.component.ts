@@ -224,10 +224,10 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   private updateBrushOptions(decorations: DecorationInfo[]): void {
     const uniqueBrushes = new Map<string, BrushOption>();
     decorations
-      .filter((decoration) => decoration.paintable !== false)
+      .filter((decoration) => decoration.paintable === true)
       .forEach((decoration) => {
-      const option = this.mapDecorationToBrush(decoration);
-      uniqueBrushes.set(option.modelFileName, option);
+        const option = this.mapDecorationToBrush(decoration);
+        uniqueBrushes.set(option.modelFileName, option);
       });
     this.brushOptions = Array.from(uniqueBrushes.values());
     this.ensureBrushSelection();

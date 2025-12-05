@@ -375,6 +375,7 @@ export class PaintService {
       this.activeDecorationGroup.userData['isPaintDecoration'] = true;
       this.activeDecorationGroup.userData['displayName'] = 'Dekoracja malowana';
       this.activeDecorationGroup.userData['isPaintStroke'] = true;
+      this.activeDecorationGroup.userData['paintStrokeType'] = 'decoration';
       scene.add(this.activeDecorationGroup);
       this.redoStack = [];
     }
@@ -803,6 +804,7 @@ export class PaintService {
     if (!this.activeExtruderStrokeGroup) {
       this.activeExtruderStrokeGroup = new THREE.Group();
       this.activeExtruderStrokeGroup.userData['isPaintStroke'] = true;
+      this.activeExtruderStrokeGroup.userData['paintStrokeType'] = 'extruder';
       this.activeExtruderStrokeGroup.userData['snapPoints'] = [] as number[][];
       scene.add(this.activeExtruderStrokeGroup);
       this.redoStack = [];
@@ -1281,6 +1283,7 @@ export class PaintService {
     if (!this.activePenStrokeGroup) {
       this.activePenStrokeGroup = new THREE.Group();
       this.activePenStrokeGroup.userData['isPaintStroke'] = true;
+      this.activePenStrokeGroup.userData['paintStrokeType'] = 'pen';
       scene.add(this.activePenStrokeGroup);
       this.redoStack = [];
       this.activePenStrokePoints = [];
@@ -1556,9 +1559,10 @@ export class PaintService {
 
   private finalizePaintRoot(object: THREE.Object3D): void {
     this.recenterPivot(object);
-    const isDecorationStroke = object.userData['isPaintDecoration'] === true;
+    const strokeType = object.userData['paintStrokeType'];
+    const skipSnap = strokeType === 'decoration' || strokeType === 'extruder' || strokeType === 'pen';
 
-    if (isDecorationStroke) {
+    if (skipSnap) {
       object.traverse((child) => {
         child.userData = { ...child.userData, isSnapped: true };
       });

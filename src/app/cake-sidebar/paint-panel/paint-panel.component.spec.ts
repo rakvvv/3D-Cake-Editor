@@ -96,4 +96,15 @@ describe('PaintPanelComponent', () => {
     const toggleButton = fixture.debugElement.query(By.css('.paint-panel__toggle')).nativeElement as HTMLButtonElement;
     expect(toggleButton.disabled).toBeFalse();
   });
+
+  it('pokazuje tylko dekoracje z flagą paintable', () => {
+    component.ngOnChanges({
+      paintService: new SimpleChange(null, paintService, true),
+      decorationsService: new SimpleChange(null, decorationsService, true),
+    });
+
+    expect(component.brushOptions.length).toBe(2);
+    const ids = component.brushOptions.map((option) => option.id);
+    expect(ids).toEqual(['trawa', 'stożek']);
+  });
 });
