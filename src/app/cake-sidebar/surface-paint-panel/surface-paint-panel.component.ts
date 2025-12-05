@@ -30,6 +30,9 @@ export class SurfacePaintPanelComponent {
 
   setMode(mode: PaintingMode): void {
     this.painting.mode = mode;
+    if (mode === 'gradient') {
+      this.painting.applyGradientSettings();
+    }
   }
 
   applyGradient(): void {

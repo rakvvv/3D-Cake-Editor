@@ -48,6 +48,7 @@ export class SurfacePaintingService {
   private sprinkleMaterial: THREE.MeshStandardMaterial | null = null;
   private sprinkleEntries: THREE.Object3D[] = [];
   private paintEntries: THREE.Object3D[] = [];
+  private shaderUniforms?: PaintingShaderUniforms;
 
   constructor(@Inject(PLATFORM_ID) platformId: object, private readonly paintService: PaintService) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -279,7 +280,7 @@ export class SurfacePaintingService {
 
   private createBrushStroke(scene: THREE.Scene): void {
     const maxInstances = 6000;
-    const geometry = new THREE.SphereGeometry(0.01, 16, 12);
+    const geometry = new THREE.SphereGeometry(0.012, 18, 14);
     const material = new THREE.MeshStandardMaterial({
       color: new THREE.Color(this.brushColor),
       metalness: 0.05,
@@ -313,7 +314,7 @@ export class SurfacePaintingService {
     }
 
     const radius = this.computeBrushRadius();
-    const spacingOffset = normal.clone().multiplyScalar(radius * 0.35);
+    const spacingOffset = normal.clone().multiplyScalar(radius * 0.8);
     const position = point.clone().add(spacingOffset);
 
     const tangent = new THREE.Vector3().crossVectors(normal, new THREE.Vector3(0, 1, 0));
@@ -329,7 +330,7 @@ export class SurfacePaintingService {
     const tilt = new THREE.Quaternion().setFromAxisAngle(tiltAxis, THREE.MathUtils.degToRad(10 + Math.random() * 25));
     baseQuat.multiply(tilt).multiply(twist);
 
-    const scale = new THREE.Vector3(radius, radius * 0.6, radius);
+    const scale = new THREE.Vector3(radius, radius * 0.75, radius);
     const matrix = new THREE.Matrix4();
     matrix.compose(position, baseQuat, scale);
 
@@ -342,15 +343,15 @@ export class SurfacePaintingService {
   }
 
   private computeBrushRadius(): number {
-    const min = 0.006;
-    const max = 0.04;
+    const min = 0.01;
+    const max = 0.07;
     const normalized = THREE.MathUtils.clamp(this.brushSize, 0, 100) / 100;
     return THREE.MathUtils.lerp(min, max, normalized);
   }
 
   private computeBrushWorldSpacing(): number {
     const radius = this.computeBrushRadius();
-    return radius * 0.6;
+    return radius * 0.55;
   }
 
   private placeSprinkles(hit: THREE.Intersection, scene: THREE.Scene): void {
