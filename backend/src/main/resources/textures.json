@@ -3,7 +3,7 @@
     {
       "id": "chocolate-cake-02",
       "label": "Czekoladowa polewa",
-      "thumbnail": null,
+      "thumbnailUrl": null,
       "glaze": {
         "baseColor": "/assets/textures/Chocolate 02_Albedo.jpg",
         "roughness": "/assets/textures/Chocolate 02_Roughness.jpg",
@@ -16,7 +16,7 @@
     {
       "id": "chocolate-cake-03",
       "label": "Biała Czekolada polewa",
-      "thumbnail": null,
+      "thumbnailUrl": null,
       "glaze": {
         "baseColor": "/assets/textures/Chocolate 03_Albedo.jpg",
         "roughness": "/assets/textures/Chocolate 03_Roughness.jpg",
@@ -29,7 +29,7 @@
     {
       "id": "frosting",
       "label": "krem",
-      "thumbnail": null,
+      "thumbnailUrl": null,
       "cake": {
         "baseColor": "/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg",
         "normal": "/assets/textures/Pink_Cake_Frosting_01-normal.jpg",
@@ -40,7 +40,7 @@
     {
       "id": "pink-candy",
       "label": "Różowa cukierkowa polewa",
-      "thumbnail": null,
+      "thumbnailUrl": null,
       "glaze": {
         "baseColor": "/assets/textures/Pink_Candy_BaseColor.jpg",
         "normal": "/assets/textures/Pink_Candy_Normal.jpg",
@@ -56,7 +56,7 @@
     {
       "id": "food-chocolate-glaze",
       "label": "frosting czekoladowy",
-      "thumbnail": null,
+      "thumbnailUrl": null,
       "cake": {
         "baseColor": "/assets/textures/Food_Chocolate_basecolor.jpg",
         "normal": "/assets/textures/Food_Chocolate_normal.jpg",
