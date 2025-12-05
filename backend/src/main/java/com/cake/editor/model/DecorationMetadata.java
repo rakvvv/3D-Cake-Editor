@@ -6,16 +6,18 @@ public class DecorationMetadata {
     private String modelFileName;
     private String type;
     private String thumbnailUrl;
+    private Boolean paintable;
 
     public DecorationMetadata() {
     }
 
-    public DecorationMetadata(String id, String name, String modelFileName, String type, String thumbnailUrl) {
+    public DecorationMetadata(String id, String name, String modelFileName, String type, String thumbnailUrl, Boolean paintable) {
         this.id = id;
         this.name = name;
         this.modelFileName = modelFileName;
         this.type = type;
         this.thumbnailUrl = thumbnailUrl;
+        this.paintable = paintable;
     }
 
     public String getId() {
@@ -56,5 +58,13 @@ public class DecorationMetadata {
 
     public void setThumbnailUrl(String thumbnailUrl) {
         this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public Boolean getPaintable() {
+        return paintable;
+    }
+
+    public void setPaintable(Boolean paintable) {
+        this.paintable = paintable;
     }
 }

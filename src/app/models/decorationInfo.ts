@@ -6,4 +6,5 @@ export interface DecorationInfo {
   modelFileName: string;
   type: DecorationPlacementType;
   thumbnailUrl?: string;
+  paintable?: boolean;
 }

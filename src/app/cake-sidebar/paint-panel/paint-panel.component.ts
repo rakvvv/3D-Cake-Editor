@@ -20,6 +20,7 @@ type BrushOption = {
   modelFileName: string;
   name: string;
   thumbnailUrl?: string;
+  paintable?: boolean;
 };
 
 @Component({
@@ -222,10 +223,12 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
 
   private updateBrushOptions(decorations: DecorationInfo[]): void {
     const uniqueBrushes = new Map<string, BrushOption>();
-    decorations.forEach((decoration) => {
+    decorations
+      .filter((decoration) => decoration.paintable)
+      .forEach((decoration) => {
       const option = this.mapDecorationToBrush(decoration);
       uniqueBrushes.set(option.modelFileName, option);
-    });
+      });
     this.brushOptions = Array.from(uniqueBrushes.values());
     this.ensureBrushSelection();
   }
@@ -257,6 +260,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
       modelFileName: decoration.modelFileName,
       name: decoration.name,
       thumbnailUrl: decoration.thumbnailUrl,
+      paintable: decoration.paintable,
     };
   }
 }

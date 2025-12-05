@@ -1562,12 +1562,23 @@ export class PaintService {
   }
 
   private trySnapPaintStroke(object: THREE.Object3D): void {
+    const initialMatrix = object.matrixWorld.clone();
+    const initialPosition = new THREE.Vector3().setFromMatrixPosition(initialMatrix);
+
     object.traverse((child) => {
       child.userData = { ...child.userData, isSnapped: true };
     });
 
     this.attachToCake(object);
-    this.snapService.snapDecorationToCake(object);
+    const snapResult = this.snapService.snapDecorationToCake(object);
+    const snappedPosition = object.getWorldPosition(new THREE.Vector3());
+    const displacement = snappedPosition.distanceTo(initialPosition);
+
+    if (!snapResult.success || displacement > 0.2) {
+      this.applyWorldMatrix(object, initialMatrix);
+      this.attachToCake(object);
+    }
+
     object.userData['isSnapped'] = true;
   }
 
@@ -1665,6 +1676,14 @@ export class PaintService {
     this.cakeBaseRef.updateMatrixWorld(true);
     this.sceneRef?.updateMatrixWorld(true);
     this.cakeBaseRef.attach(object);
+  }
+
+  private applyWorldMatrix(object: THREE.Object3D, matrix: THREE.Matrix4): void {
+    object.matrix.copy(matrix);
+    object.matrix.decompose(object.position, object.quaternion, object.scale);
+    object.matrixWorld.copy(matrix);
+    object.matrixWorldNeedsUpdate = false;
+    object.updateMatrixWorld(true);
   }
 
   private getPaintParent(object: THREE.Object3D): THREE.Object3D | null {

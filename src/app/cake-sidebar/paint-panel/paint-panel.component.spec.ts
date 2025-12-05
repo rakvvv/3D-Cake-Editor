@@ -47,7 +47,28 @@ describe('PaintPanelComponent', () => {
     paintService.insertExtruderPreset.and.resolveTo();
 
     decorations$ = new BehaviorSubject<DecorationInfo[]>([
-      { id: 'trawa', name: 'Trawa', modelFileName: 'trawa.glb', type: 'SIDE', thumbnailUrl: '/thumb.svg' },
+      {
+        id: 'trawa',
+        name: 'Trawa',
+        modelFileName: 'trawa.glb',
+        type: 'SIDE',
+        thumbnailUrl: '/thumb.svg',
+        paintable: true,
+      },
+      {
+        id: 'stożek',
+        name: 'Stożek',
+        modelFileName: 'chocolate_kiss.glb',
+        type: 'BOTH',
+        paintable: true,
+      },
+      {
+        id: 'nie-pedzel',
+        name: 'Nie do pędzla',
+        modelFileName: 'not-brush.glb',
+        type: 'TOP',
+        paintable: false,
+      },
     ]);
     decorationsService = {
       decorations$: decorations$.asObservable(),
