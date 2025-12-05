@@ -47,9 +47,6 @@ describe('CakeEditorComponent', () => {
       rotateSelectedDecorationByDegrees: jasmine
         .createSpy('rotateSelectedDecorationByDegrees')
         .and.returnValue({ message: '' }),
-      detachSelectedDecorationFromCake: jasmine
-        .createSpy('detachSelectedDecorationFromCake')
-        .and.returnValue({ message: '' }),
       deleteSelectedDecoration: jasmine
         .createSpy('deleteSelectedDecoration')
         .and.returnValue({ message: '' }),

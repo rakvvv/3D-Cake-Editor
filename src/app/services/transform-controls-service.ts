@@ -51,12 +51,28 @@ export class TransformControlsService {
     return this.selectionService.getSelectedObject();
   }
 
+  public lockSelectedObject(): { success: boolean; message: string } {
+    return this.transformManager.lockSelectedObject();
+  }
+
+  public unlockSelectedObject(): { success: boolean; message: string } {
+    return this.transformManager.unlockSelectedObject();
+  }
+
+  public isSelectionLocked(): boolean {
+    return this.transformManager.isSelectionLocked();
+  }
+
   public deselectObject(): void {
     this.transformManager.deselectObject();
   }
 
   public isDragging(): boolean {
     return this.transformManager.isDragging();
+  }
+
+  public syncLockedSelectionSnapshot(): void {
+    this.transformManager.syncLockedSelectionSnapshot();
   }
 
   public dispose(): void {

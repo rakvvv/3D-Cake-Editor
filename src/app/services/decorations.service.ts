@@ -6,6 +6,7 @@ import { TransformControlsService } from './transform-controls-service';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { CakeMetadata } from '../factories/three-objects.factory';
 import { DecorationInfo } from '../models/decorationInfo';
+import { SnapService } from './snap.service';
 
 @Injectable({ providedIn: 'root' })
 export class DecorationsService {
@@ -16,6 +17,7 @@ export class DecorationsService {
 
   constructor(
     private transformControlsService: TransformControlsService,
+    private snapService: SnapService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
@@ -39,7 +41,9 @@ export class DecorationsService {
     identifier: string,
     scene: THREE.Scene,
     cakeBase: THREE.Object3D | null,
-    objects: THREE.Object3D[]
+    objects: THREE.Object3D[],
+    preferredSurface?: 'TOP' | 'SIDE',
+    targetLayerIndex?: number
   ): Promise<THREE.Object3D | undefined> {
     if (!isPlatformBrowser(this.platformId)) {
       return;
@@ -78,16 +82,16 @@ export class DecorationsService {
       decoration.userData['isSnapped'] = false;
 
       const metadata = cakeBase.userData['metadata'] as CakeMetadata | undefined;
-      const worldScale = cakeBase.getWorldScale(new THREE.Vector3());
-      const topHeight = metadata
-        ? metadata.totalHeight * worldScale.y
-        : cakeBase.position.y + 2;
-
-      decoration.position.set(
-        (Math.random() - 0.5) * 5,
-        topHeight + 2 + Math.random(),
-        (Math.random() - 0.5) * 5
+      const { initialPosition, preferredSurface: resolvedSurface } = this.getInitialPlacement(
+        metadata,
+        cakeBase,
+        decoInfo.type,
+        preferredSurface,
+        targetLayerIndex
       );
+
+      decoration.position.copy(initialPosition);
+      decoration.updateMatrixWorld(true);
 
       scene.add(decoration);
 
@@ -96,10 +100,74 @@ export class DecorationsService {
       }
 
       this.transformControlsService.attachObject(decoration);
+
+      const snapResult = this.snapService.snapDecorationToCake(decoration, resolvedSurface);
+      if (!snapResult.success) {
+        console.warn('Nie udało się automatycznie przyczepić dekoracji:', snapResult.message);
+      }
+
       return decoration;
     } catch (error) {
       console.error(`Błąd ładowania dekoracji ${identifier}:`, error);
       return;
     }
+  }
+
+  private getInitialPlacement(
+    metadata: CakeMetadata | undefined,
+    cakeBase: THREE.Object3D,
+    type: DecorationInfo['type'],
+    preferredSurface?: 'TOP' | 'SIDE',
+    targetLayerIndex?: number,
+  ): { initialPosition: THREE.Vector3; preferredSurface?: 'TOP' | 'SIDE' } {
+    if (!metadata) {
+      return {
+        initialPosition: new THREE.Vector3().setFromMatrixPosition(cakeBase.matrixWorld),
+        preferredSurface: undefined,
+      };
+    }
+
+    const layerIndex = targetLayerIndex ?? metadata.layerDimensions.length - 1;
+    const safeLayerIndex = Math.min(Math.max(layerIndex, 0), metadata.layerDimensions.length - 1);
+    const targetLayer = metadata.layerDimensions[safeLayerIndex];
+    if (!targetLayer) {
+      return {
+        initialPosition: new THREE.Vector3().setFromMatrixPosition(cakeBase.matrixWorld),
+        preferredSurface: undefined,
+      };
+    }
+    const topY = targetLayer.topY + (metadata.glazeTopOffset ?? 0);
+    const midY = (targetLayer.bottomY + topY) / 2;
+
+    const surfacePreference = preferredSurface ?? (type === 'SIDE' ? 'SIDE' : type === 'TOP' ? 'TOP' : undefined);
+
+    if (metadata.shape === 'cylinder') {
+      const radius = targetLayer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
+      const outward = radius + 0.05;
+
+      if (surfacePreference === 'SIDE') {
+        const local = new THREE.Vector3(outward, midY, 0);
+        return { initialPosition: cakeBase.localToWorld(local), preferredSurface: 'SIDE' };
+      }
+
+      if (surfacePreference === 'TOP' || !surfacePreference) {
+        const local = new THREE.Vector3(0, topY + 0.05, 0);
+        return { initialPosition: cakeBase.localToWorld(local), preferredSurface: surfacePreference ?? undefined };
+      }
+    }
+
+    const halfWidth = targetLayer.width ? targetLayer.width / 2 : metadata.width ? metadata.width / 2 : 0.5;
+    const halfDepth = targetLayer.depth ? targetLayer.depth / 2 : metadata.depth ? metadata.depth / 2 : 0.5;
+    const offsetX = halfWidth + 0.05;
+
+    if (surfacePreference === 'SIDE') {
+      const local = new THREE.Vector3(offsetX, midY, 0);
+      return { initialPosition: cakeBase.localToWorld(local), preferredSurface: 'SIDE' };
+    }
+
+    return {
+      initialPosition: cakeBase.localToWorld(new THREE.Vector3(0, topY + 0.05, 0)),
+      preferredSurface: surfacePreference ?? 'TOP',
+    };
   }
 }

@@ -122,6 +122,25 @@
   color: #fff;
 }
 
+.decorations-panel__placement {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.decorations-panel__placement-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.decorations-panel__placement-label {
+  font-size: 0.9rem;
+  color: #333;
+}
+
 @media (min-width: 780px) {
   .decorations-panel__filters {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);

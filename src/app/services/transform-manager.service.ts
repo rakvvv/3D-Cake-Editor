@@ -107,7 +107,10 @@ export class TransformManagerService {
     const locked = this.isTransformLocked(object);
     this.transformControls.enabled = !locked;
     if (locked) {
-      this.lockedSelection.object = null;
+      this.lockedSelection.object = object;
+      this.lockedSelection.position.copy(object.position);
+      this.lockedSelection.quaternion.copy(object.quaternion);
+      this.lockedSelection.scale.copy(object.scale);
       this.transformControls.detach();
       this.selectionService.selectObject(object, this.transformControls, this.boxHelperCallback, false);
       return;
@@ -136,6 +139,47 @@ export class TransformManagerService {
 
   public getTransformControls(): TransformControls | null {
     return this.transformControls || null;
+  }
+
+  public lockSelectedObject(): { success: boolean; message: string } {
+    const selected = this.selectionService.getSelectedObject();
+    if (!selected || !this.transformControls) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    selected.userData['isTransformLocked'] = true;
+    this.lockedSelection.object = selected;
+    this.lockedSelection.position.copy(selected.position);
+    this.lockedSelection.quaternion.copy(selected.quaternion);
+    this.lockedSelection.scale.copy(selected.scale);
+    this.transformControls.enabled = false;
+    this.transformControls.detach();
+    this.selectionService.selectObject(selected, this.transformControls, this.boxHelperCallback, false);
+
+    return { success: true, message: 'Dekoracja została zablokowana przed przypadkowym przesunięciem.' };
+  }
+
+  public unlockSelectedObject(): { success: boolean; message: string } {
+    const selected = this.selectionService.getSelectedObject();
+    if (!selected || !this.transformControls) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    if (!selected.userData['isTransformLocked']) {
+      return { success: false, message: 'Ta dekoracja nie jest zablokowana.' };
+    }
+
+    selected.userData['isTransformLocked'] = false;
+    this.lockedSelection.object = null;
+    this.transformControls.enabled = true;
+    this.selectionService.selectObject(selected, this.transformControls, this.boxHelperCallback, true);
+
+    return { success: true, message: 'Zablokowanie dekoracji zostało wyłączone.' };
+  }
+
+  public isSelectionLocked(): boolean {
+    const selected = this.selectionService.getSelectedObject();
+    return Boolean(selected?.userData['isTransformLocked']);
   }
 
   public removeDecorationObject(object: THREE.Object3D): void {
@@ -201,9 +245,9 @@ export class TransformManagerService {
     const selectedObject = this.selectionService.getSelectedObject();
     if (selectedObject && this.transformControls) {
       if (this.lockedSelection.object === selectedObject) {
-        selectedObject.position.copy(this.lockedSelection.position);
-        selectedObject.quaternion.copy(this.lockedSelection.quaternion);
-        selectedObject.scale.copy(this.lockedSelection.scale);
+        this.lockedSelection.position.copy(selectedObject.position);
+        this.lockedSelection.quaternion.copy(selectedObject.quaternion);
+        this.lockedSelection.scale.copy(selectedObject.scale);
         selectedObject.updateMatrixWorld(true);
         this.snapService.enforceSnappedPosition(selectedObject);
         return;
@@ -211,10 +255,21 @@ export class TransformManagerService {
 
       const mode = this.transformControls.mode;
       if (mode === 'translate' || mode === 'scale') {
+        this.snapService.updateSnapFromObjectPosition(selectedObject);
         this.snapService.enforceSnappedPosition(selectedObject);
       }
     }
   };
+
+  public syncLockedSelectionSnapshot(): void {
+    if (!this.lockedSelection.object) {
+      return;
+    }
+
+    this.lockedSelection.position.copy(this.lockedSelection.object.position);
+    this.lockedSelection.quaternion.copy(this.lockedSelection.object.quaternion);
+    this.lockedSelection.scale.copy(this.lockedSelection.object.scale);
+  }
 
   private onDraggingChanged = (event: THREE.Event) => {
     const draggingValue = (event as THREE.Event & { value: boolean }).value;
@@ -283,6 +338,10 @@ export class TransformManagerService {
   };
 
   private isTransformLocked(object: THREE.Object3D): boolean {
-    return object.userData['isPaintStroke'] === true || object.userData['isPaintDecoration'] === true;
+    return (
+      object.userData['isPaintStroke'] === true ||
+      object.userData['isPaintDecoration'] === true ||
+      object.userData['isTransformLocked'] === true
+    );
   }
 }
