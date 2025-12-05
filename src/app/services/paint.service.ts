@@ -7,6 +7,7 @@ import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
 import { SnapService } from './snap.service';
 import { ExtruderVariantInfo } from '../models/extruderVariantInfo';
+import { environment } from '../../environments/environment';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -95,6 +96,7 @@ export class PaintService {
   private readonly extruderBaseRotation = new THREE.Euler(0, 0, 0);
 
   private readonly isBrowser: boolean;
+  private readonly apiBaseUrl = environment.apiBaseUrl;
 
   private sceneRef: THREE.Scene | null = null;
   private cakeBaseRef: THREE.Object3D | null = null;
@@ -1005,7 +1007,7 @@ export class PaintService {
 
     try {
       const response = await firstValueFrom(
-        this.http.get<ExtruderVariantInfo[]>(`/api/extruder-variants`),
+        this.http.get<ExtruderVariantInfo[]>(`${this.apiBaseUrl}/extruder-variants`),
       );
       return Array.isArray(response) ? response : [];
     } catch (error) {

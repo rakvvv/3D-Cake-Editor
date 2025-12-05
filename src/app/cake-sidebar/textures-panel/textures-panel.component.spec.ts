@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TexturesPanelComponent } from './textures-panel.component';
 import { CakeOptions } from '../../models/cake.options';
+import { environment } from '../../../environments/environment';
 
 const baseOptions: CakeOptions = {
   cake_size: 1,
@@ -52,7 +53,7 @@ describe('TexturesPanelComponent', () => {
   it('ładuje zestawy tekstur z API i emituje zmiany', () => {
     fixture.detectChanges();
 
-    const request = httpMock.expectOne('/api/textures');
+    const request = httpMock.expectOne(`${environment.apiBaseUrl}/textures`);
     expect(request.request.method).toBe('GET');
     request.flush({
       sets: [
@@ -91,7 +92,7 @@ describe('TexturesPanelComponent', () => {
   it('pokazuje stan błędu gdy API zwróci błąd', () => {
     fixture.detectChanges();
 
-    const request = httpMock.expectOne('/api/textures');
+    const request = httpMock.expectOne(`${environment.apiBaseUrl}/textures`);
     request.error(new ProgressEvent('Network error'));
 
     fixture.detectChanges();
