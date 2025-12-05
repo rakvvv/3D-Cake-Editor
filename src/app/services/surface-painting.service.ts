@@ -51,11 +51,12 @@ export class SurfacePaintingService {
   private sprinklesState: SprinklesState = { mesh: null, count: 0 };
   private nextSprinkleIndex = 0;
   private shaderUniforms: PaintingShaderUniforms | null = null;
-  private cakeMaterial: THREE.MeshStandardMaterial | null = null;
+  private overlayMaterial: THREE.MeshStandardMaterial | null = null;
   private cakeGroup: THREE.Group | null = null;
   private lastSprinklePoint: THREE.Vector3 | null = null;
   private gradientAnchorStart: THREE.Vector2 | null = null;
   private gradientAnchorEnd: THREE.Vector2 | null = null;
+  private overlayMeshes: THREE.Mesh[] = [];
 
   constructor(@Inject(PLATFORM_ID) platformId: object) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -66,23 +67,11 @@ export class SurfacePaintingService {
   }
 
   public attachCake(cake: THREE.Group | null): void {
-    if (this.sprinklesState.mesh) {
-      this.sprinklesState.mesh.parent?.remove(this.sprinklesState.mesh);
-      this.sprinklesState.mesh.geometry.dispose();
-      if (Array.isArray(this.sprinklesState.mesh.material)) {
-        this.sprinklesState.mesh.material.forEach((m) => m.dispose());
-      } else {
-        this.sprinklesState.mesh.material.dispose();
-      }
-      this.sprinklesState = { mesh: null, count: 0 };
-    }
+    this.disposeSprinkles();
+    this.removeOverlayMeshes();
     this.cakeGroup = cake;
-    const targetMaterial = this.extractCakeMaterial(cake);
-    if (!targetMaterial) {
-      return;
-    }
-    this.cakeMaterial = targetMaterial;
-    this.setupMaterialShader(targetMaterial);
+    this.setupOverlayMaterial();
+    this.addOverlayMeshes();
     this.updateGradientTexture();
     this.clearPaint();
   }
@@ -138,16 +127,7 @@ export class SurfacePaintingService {
     this.sprinklesState.count = 0;
     this.nextSprinkleIndex = 0;
     this.lastSprinklePoint = null;
-    if (this.sprinklesState.mesh) {
-      this.sprinklesState.mesh.parent?.remove(this.sprinklesState.mesh);
-      this.sprinklesState.mesh.geometry.dispose();
-      if (Array.isArray(this.sprinklesState.mesh.material)) {
-        this.sprinklesState.mesh.material.forEach((m) => m.dispose());
-      } else {
-        this.sprinklesState.mesh.material.dispose();
-      }
-      this.sprinklesState = { mesh: null, count: 0 };
-    }
+    this.disposeSprinkles();
   }
 
   public async handlePointer(hit: THREE.Intersection, scene: THREE.Scene): Promise<void> {
@@ -242,30 +222,26 @@ export class SurfacePaintingService {
     ctx.fillRect(0, 0, width, height);
   }
 
-  private extractCakeMaterial(group: THREE.Group | null): THREE.MeshStandardMaterial | null {
-    if (!group) {
-      return null;
-    }
-    const targetMesh = group.children.find((child) => child instanceof THREE.Mesh) as THREE.Mesh | undefined;
-    if (!targetMesh) {
-      return null;
-    }
-    const material = targetMesh.material;
-    if (Array.isArray(material)) {
-      return material.find((m): m is THREE.MeshStandardMaterial => m instanceof THREE.MeshStandardMaterial) ?? null;
-    }
-    return material instanceof THREE.MeshStandardMaterial ? material : null;
-  }
-
-  private setupMaterialShader(material: THREE.MeshStandardMaterial): void {
+  private setupOverlayMaterial(): void {
     if (!this.paintTexture || !this.gradientTexture) {
       return;
     }
+
+    const material = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    });
+
     const uniforms: PaintingShaderUniforms = {
       paintMap: { value: this.paintTexture },
       gradientMap: { value: this.gradientTexture },
       useGradient: { value: this.gradientEnabled },
     };
+
     material.onBeforeCompile = (shader) => {
       shader.defines = shader.defines ?? {};
       shader.defines.USE_UV = '';
@@ -292,12 +268,13 @@ export class SurfacePaintingService {
       vec2 paintingUv = vPaintingUv;
       vec4 paintSample = texture2D(paintMap, paintingUv);
       vec3 paintLinear = pow(paintSample.rgb, vec3(2.2));
-      if (useGradient) {
-        vec4 gradSample = texture2D(gradientMap, paintingUv);
-        vec3 gradLinear = pow(gradSample.rgb, vec3(2.2));
-        diffuseColor.rgb = mix(diffuseColor.rgb, gradLinear, gradSample.a);
-      }
-      diffuseColor.rgb = mix(diffuseColor.rgb, paintLinear, paintSample.a);
+      vec4 gradSample = texture2D(gradientMap, paintingUv);
+      vec3 gradLinear = pow(gradSample.rgb, vec3(2.2));
+      vec3 baseColor = useGradient ? gradLinear : vec3(0.0);
+      float baseAlpha = useGradient ? gradSample.a : 0.0;
+      vec3 mixedColor = mix(baseColor, paintLinear, paintSample.a);
+      float finalAlpha = max(baseAlpha, paintSample.a);
+      diffuseColor = vec4(mixedColor, finalAlpha);
     `;
 
       shader.fragmentShader = shader.fragmentShader.replace(
@@ -306,6 +283,7 @@ export class SurfacePaintingService {
       );
     };
     material.needsUpdate = true;
+    this.overlayMaterial = material;
     this.shaderUniforms = uniforms;
   }
 
@@ -441,8 +419,8 @@ export class SurfacePaintingService {
     if (!this.paintCanvas) {
       return 0;
     }
-    const minSize = 10;
-    const maxSize = 180;
+    const minSize = 12;
+    const maxSize = 160;
     const normalized = THREE.MathUtils.clamp(this.brushSize, 0, 100) / 100;
     return THREE.MathUtils.lerp(minSize, maxSize, normalized);
   }
@@ -453,7 +431,7 @@ export class SurfacePaintingService {
     }
     const sizePx = this.computeBrushSizePx();
     const diameter = sizePx;
-    const spacingPx = diameter * 0.25;
+    const spacingPx = diameter * 0.18;
     return spacingPx / this.paintCanvas.width;
   }
 
@@ -479,18 +457,24 @@ export class SurfacePaintingService {
     const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
 
     const anchor = hit.point.clone();
-    const clusterSpacing = 0.05;
+    const clusterSpacing = 0.12;
+    const firstCluster = !this.lastSprinklePoint;
     if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchor) < clusterSpacing) {
       return;
     }
-    if (Math.random() < 0.15) {
+    if (!firstCluster && Math.random() < 0.4) {
       return;
     }
     this.lastSprinklePoint = anchor.clone();
 
     const densityFactor = THREE.MathUtils.clamp(this.sprinkleDensity / 20, 0, 1);
-    const count = Math.max(3, Math.round(THREE.MathUtils.lerp(4, 14, densityFactor)));
-    const scatterRadius = THREE.MathUtils.lerp(0.03, 0.09, densityFactor);
+    const baseCount = firstCluster
+      ? THREE.MathUtils.lerp(5, 12, densityFactor)
+      : THREE.MathUtils.lerp(3, 7, densityFactor);
+    const count = Math.max(3, Math.round(baseCount));
+    const scatterRadius = firstCluster
+      ? THREE.MathUtils.lerp(0.08, 0.15, densityFactor)
+      : THREE.MathUtils.lerp(0.08, 0.12, densityFactor);
 
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -539,8 +523,56 @@ export class SurfacePaintingService {
     if (this.shaderUniforms) {
       this.shaderUniforms.useGradient.value = this.gradientEnabled;
     }
-    if (this.cakeMaterial) {
-      this.cakeMaterial.needsUpdate = true;
+    if (this.overlayMaterial) {
+      this.overlayMaterial.needsUpdate = true;
+    }
+  }
+
+  private addOverlayMeshes(): void {
+    if (!this.cakeGroup || !this.overlayMaterial) {
+      return;
+    }
+
+    const layerMeshes: THREE.Mesh[] = [];
+    this.cakeGroup.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!(mesh as { isMesh?: boolean }).isMesh) {
+        return;
+      }
+      if (!mesh.userData['isCakeLayer']) {
+        return;
+      }
+      layerMeshes.push(mesh);
+    });
+
+    layerMeshes.forEach((source, index) => {
+      const overlay = new THREE.Mesh(source.geometry, this.overlayMaterial!);
+      overlay.name = `${source.name || 'CakeLayer'}_paintOverlay_${index}`;
+      overlay.position.copy(source.position);
+      overlay.rotation.copy(source.rotation);
+      overlay.scale.copy(source.scale);
+      overlay.renderOrder = source.renderOrder + 1;
+      overlay.userData['isPaintOverlay'] = true;
+      this.cakeGroup?.add(overlay);
+      this.overlayMeshes.push(overlay);
+    });
+  }
+
+  private removeOverlayMeshes(): void {
+    this.overlayMeshes.forEach((mesh) => mesh.parent?.remove(mesh));
+    this.overlayMeshes = [];
+  }
+
+  private disposeSprinkles(): void {
+    if (this.sprinklesState.mesh) {
+      this.sprinklesState.mesh.parent?.remove(this.sprinklesState.mesh);
+      this.sprinklesState.mesh.geometry.dispose();
+      if (Array.isArray(this.sprinklesState.mesh.material)) {
+        this.sprinklesState.mesh.material.forEach((m) => m.dispose());
+      } else {
+        this.sprinklesState.mesh.material.dispose();
+      }
+      this.sprinklesState = { mesh: null, count: 0 };
     }
   }
 }
