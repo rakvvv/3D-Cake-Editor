@@ -144,6 +144,12 @@ export class ThreeSceneService {
           this.onClickDown(event);
           return;
         }
+        const firstHit = intersectsCake[0];
+
+        if (!this.isPaintable(firstHit.object)) {
+          this.onClickDown(event);
+          return;
+        }
 
         this.surfacePainting.startStroke();
         this.sceneInitService.setOrbitEnabled(false);
@@ -198,7 +204,13 @@ export class ThreeSceneService {
         if (!intersectsCake.length) {
           return;
         }
-        void this.surfacePainting.handlePointer(intersectsCake[0], this.scene);
+        const firstHit = intersectsCake[0];
+
+        if (!this.isPaintable(firstHit.object)) {
+          // Opcja A: Przerywamy ten konkretny "krok" malowania (pędzel nie stawia kropki, ale jak zjedziesz z polewy to maluje dalej)
+          return;
+        }
+          void this.surfacePainting.handlePointer(intersectsCake[0], this.scene);
         return;
       }
 
@@ -1662,5 +1674,26 @@ export class ThreeSceneService {
     } else if (material && typeof material.dispose === 'function') {
       material.dispose();
     }
+  }
+
+  private isPaintable(object: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = object;
+
+    while (current) {
+      if (current.userData['isCakeGlaze'] || current.userData['isCakeWafer']) {
+        return false;
+      }
+      if (current.userData['isCakeLayer']) {
+        return true;
+      }
+
+      if (current.name === 'CakeBase') {
+        return false;
+      }
+
+      current = current.parent;
+    }
+
+    return false;
   }
 }

@@ -64,8 +64,19 @@
         "metallic": "/assets/textures/Food_Chocolate_metallic.jpg",
         "displacement": "/assets/textures/Food_Chocolate_height.jpg",
         "ambientOcclusion": "/assets/textures/Food_Chocolate_ambientocclusion.jpg",
-        "repeat": 2.8,
-        "affectDrips": true
+        "repeat": 2
+      }
+    },
+    {
+      "id": "chocolate-cake-03",
+      "label": "krem2",
+      "thumbnailUrl": null,
+      "cake": {
+        "baseColor": "/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg",
+        "roughness": "/assets/textures/Pink_Cake_Frosting_01-bump.jpg",
+        "normal": "/assets/textures/Pink_Cake_Frosting_01-normal.jpg",
+        "displacement": "/assets/textures/Chocolate 03_Displacement.jpg",
+        "repeat": 0.4
       }
     }
   ]
