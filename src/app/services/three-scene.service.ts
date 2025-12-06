@@ -1374,7 +1374,7 @@ export class ThreeSceneService {
       return { success: false, message: placement.error };
     }
 
-    const { anchor, projection } = placement;
+    const { anchor } = placement;
     const existingOccupant = this.getAnchorOccupant(anchor.id);
     if (existingOccupant) {
       return { success: false, message: 'Ta kotwica jest już zajęta inną dekoracją.' };
@@ -1404,19 +1404,12 @@ export class ThreeSceneService {
       decoration.scale.setScalar(anchor.defaultScale);
     }
 
-    this.applyAnchorPlacement(decoration, projection, anchor.id);
-    const snapResult = this.snapService.snapDecorationToCake(decoration, anchor.surface);
+    this.applyAnchorPlacement(decoration, anchor);
 
-    if (anchor.defaultRotationDeg !== undefined) {
-      this.snapService.rotateDecorationByDegrees(decoration, anchor.defaultRotationDeg);
-    }
+    this.paintService.registerDecorationAddition(decoration);
+    this.emitOutlineChanged();
 
-    if (snapResult.success) {
-      this.paintService.registerDecorationAddition(decoration);
-      this.emitOutlineChanged();
-    }
-
-    return { success: snapResult.success, message: snapResult.message };
+    return { success: true, message: 'Dekoracja umieszczona na kotwicy.' };
   }
 
   public moveSelectionToAnchor(anchorId: string): { success: boolean; message: string } {
@@ -1430,7 +1423,7 @@ export class ThreeSceneService {
       return { success: false, message: placement.error };
     }
 
-    const { anchor, projection } = placement;
+    const { anchor } = placement;
     const decorationType = selected.userData['decorationType'] as DecorationPlacementType | undefined;
     const decorationId =
       (selected.userData['modelFileName'] as string | undefined) ??
@@ -1450,17 +1443,10 @@ export class ThreeSceneService {
       selected.scale.setScalar(anchor.defaultScale);
     }
 
-    this.applyAnchorPlacement(selected, projection, anchor.id);
-    const snapResult = this.snapService.snapDecorationToCake(selected, anchor.surface);
-    if (snapResult.success && anchor.defaultRotationDeg !== undefined) {
-      this.snapService.rotateDecorationByDegrees(selected, anchor.defaultRotationDeg);
-    }
+    this.applyAnchorPlacement(selected, anchor);
+    this.updateBoxHelper();
 
-    if (snapResult.success) {
-      this.updateBoxHelper();
-    }
-
-    return { success: snapResult.success, message: snapResult.message };
+    return { success: true, message: 'Dekoracja przeniesiona na kotwicę.' };
   }
 
   public exportAnchorsFromSelection(): AnchorPoint[] {
@@ -1503,57 +1489,18 @@ export class ThreeSceneService {
     return { anchor, projection };
   }
 
-  private applyAnchorPlacement(
-    object: THREE.Object3D,
-    projection: { position: THREE.Vector3; normal: THREE.Vector3 },
-    anchorId?: string,
-  ): void {
+  private applyAnchorPlacement(object: THREE.Object3D, anchor: AnchorPoint): void {
     if (!this.cakeBase) {
       return;
     }
 
-    const localNormal = projection.normal.clone().normalize();
-    const worldNormal = localNormal.clone().transformDirection(this.cakeBase.matrixWorld).normalize();
-    const clearance = this.computeAnchorClearance(object, worldNormal);
-    const localTarget = projection.position.clone().add(localNormal.multiplyScalar(clearance));
-    const worldTarget = this.cakeBase.localToWorld(localTarget);
-
     const previousAnchorId = object.userData['anchorId'] as string | undefined;
-    if (previousAnchorId && previousAnchorId !== anchorId) {
+    if (previousAnchorId && previousAnchorId !== anchor.id) {
       this.clearAnchorOccupant(previousAnchorId, object);
     }
 
-    if (anchorId) {
-      this.registerAnchorOccupant(anchorId, object);
-    } else {
-      delete object.userData['anchorId'];
-    }
-
-    object.position.copy(worldTarget);
-    object.updateMatrixWorld(true);
-  }
-
-  private computeAnchorClearance(object: THREE.Object3D, worldNormal: THREE.Vector3): number {
-    const box = new THREE.Box3().setFromObject(object);
-    if (box.isEmpty()) {
-      return 0.05;
-    }
-
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const halfSize = size.multiplyScalar(0.5);
-    const absNormal = new THREE.Vector3(
-      Math.abs(worldNormal.x),
-      Math.abs(worldNormal.y),
-      Math.abs(worldNormal.z),
-    ).normalize();
-    const projectedHalfExtent = absNormal.dot(halfSize);
-
-    const sphere = new THREE.Sphere();
-    box.getBoundingSphere(sphere);
-    const safeRadius = sphere.radius * 0.5;
-
-    return Math.max(projectedHalfExtent, safeRadius) + 0.02;
+    this.registerAnchorOccupant(anchor.id, object);
+    this.snapService.attachDecorationToAnchor(object, anchor);
   }
 
   private getAnchorOccupant(anchorId: string): THREE.Object3D | null {

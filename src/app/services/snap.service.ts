@@ -138,6 +138,60 @@ export class SnapService {
     };
   }
 
+  public attachDecorationToAnchor(
+    object: THREE.Object3D,
+    anchor: AnchorPoint,
+  ): void {
+    if (!this.cakeBase) {
+      console.warn('Brak tortu - nie można przypiąć do anchora.');
+      return;
+    }
+
+    const metadata = this.getCakeMetadata();
+    if (!metadata) return;
+
+    // 1. Oblicz pozycję 3D (Lokalną względem tortu) na podstawie danych Anchora
+    const projection = this.projectAnchor(anchor, metadata);
+
+    if (!projection) {
+      console.warn('Nie udało się obliczyć pozycji anchora.');
+      return;
+    }
+
+    // 2. Dołącz obiekt do tortu (parenting), aby współrzędne lokalne działały poprawnie
+    if (object.parent !== this.cakeBase) {
+      this.cakeBase.attach(object);
+    }
+
+    // 3. Ustaw pozycję obiektu w wyliczonym miejscu
+    object.position.copy(projection.position);
+    object.updateMatrixWorld(true);
+
+    // 4. WAŻNE: Zapisz dane SnapInfo "na sztywno" na podstawie Anchora.
+    // Dzięki temu pomijamy zgadywanie "gdzie jest najbliżej".
+    this.writeSnapInfo(object, {
+      layerIndex: anchor.layerIndex,
+      surfaceType: anchor.surface,
+      normal: projection.normal.toArray(), // Normalna zwrócona z projekcji
+      offset: 0, // Domyślnie na powierzchni (0 offsetu)
+      roll: 0,
+      rotation: [...this.identityRotation],
+      coords: anchor.coordinates, // Przypisujemy dokładne koordynaty z anchora
+    });
+
+    object.userData['isSnapped'] = true;
+
+    // 5. Ustaw orientację (obrót) dekoracji, aby przylegała do powierzchni
+    // Używamy normalnej wyliczonej z Anchora, a nie szukanej raycastem
+    const worldNormal = this.getWorldNormal(projection.normal);
+    this.applyOrientationForSurface(object, worldNormal, anchor.surface);
+
+    // Opcjonalnie: zastosuj domyślny obrót z anchora jeśli istnieje
+    if (anchor.defaultRotationDeg) {
+      this.rotateDecorationByDegrees(object, anchor.defaultRotationDeg);
+    }
+  }
+
   public alignDecorationToSurface(object: THREE.Object3D): {
     success: boolean;
     message: string;
