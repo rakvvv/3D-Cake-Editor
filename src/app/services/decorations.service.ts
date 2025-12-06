@@ -37,6 +37,17 @@ export class DecorationsService {
     this.decorationsSubject.next(this.decorations);
   }
 
+  public getDecorationInfo(identifier: string): DecorationInfo | undefined {
+    const existing = this.decorationsInfo.get(identifier);
+    if (existing) {
+      return existing;
+    }
+
+    return this.decorations.find(
+      (decoration) => decoration.modelFileName === identifier || decoration.name === identifier,
+    );
+  }
+
   public async addDecorationFromModel(
     identifier: string,
     scene: THREE.Scene,

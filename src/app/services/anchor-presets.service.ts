@@ -126,6 +126,7 @@ export class AnchorPresetsService {
     this.pendingDecorationSubject.next(decoration);
     const highlightId = decoration?.modelFileName ?? decoration?.id ?? null;
     this.setHighlightedDecoration(highlightId);
+    this.refreshMarkerColors();
   }
 
   public getPendingDecoration(): DecorationInfo | null {
@@ -192,6 +193,9 @@ export class AnchorPresetsService {
   }
 
   private resolveMarkerColor(anchor: AnchorPoint): number {
+    if (!this.isAnchorCompatibleWithPending(anchor)) {
+      return 0x9ca3af;
+    }
     if (this.highlightDecorationId) {
       if (anchor.allowedDecorationIds?.length) {
         return anchor.allowedDecorationIds.includes(this.highlightDecorationId)
@@ -201,6 +205,35 @@ export class AnchorPresetsService {
       return 0x60a5fa;
     }
     return 0x4b5563;
+  }
+
+  private isAnchorCompatibleWithPending(anchor: AnchorPoint): boolean {
+    const decoration = this.pendingDecorationSubject.value;
+    if (!decoration) {
+      return true;
+    }
+
+    const allowedSurfaces = this.mapPlacementTypeToSurfaces(decoration.type);
+    if (allowedSurfaces.length && !allowedSurfaces.includes(anchor.surface)) {
+      return false;
+    }
+
+    if (anchor.allowedDecorationIds?.length) {
+      const candidates = [decoration.modelFileName, decoration.id].filter((id): id is string => !!id);
+      return candidates.some((candidate) => anchor.allowedDecorationIds!.includes(candidate));
+    }
+
+    return true;
+  }
+
+  private mapPlacementTypeToSurfaces(type?: DecorationInfo['type']): Array<'TOP' | 'SIDE'> {
+    if (type === 'TOP') {
+      return ['TOP'];
+    }
+    if (type === 'SIDE') {
+      return ['SIDE'];
+    }
+    return [];
   }
 
   private refreshMarkerColors(): void {

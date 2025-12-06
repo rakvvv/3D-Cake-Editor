@@ -15,7 +15,7 @@ import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.fa
 import { TextFactory } from '../factories/text.factory';
 import { SnapService, SnappedDecorationState, SnapInfoSnapshot } from './snap.service';
 import { DecorationValidationIssue } from '../models/decoration-validation';
-import { DecorationInfo } from '../models/decorationInfo';
+import { DecorationInfo, DecorationPlacementType } from '../models/decorationInfo';
 import { environment } from '../../environments/environment';
 import { SceneOutlineNode } from '../models/scene-outline';
 import { DecorationFactory } from '../factories/decoration.factory';
@@ -1352,12 +1352,25 @@ export class ThreeSceneService {
     decorationId: string,
     anchorId: string,
   ): Promise<{ success: boolean; message: string }> {
+    const decorationInfo = this.decorationsService.getDecorationInfo(decorationId);
+    if (!decorationInfo) {
+      return { success: false, message: 'Nie znaleziono dekoracji do umieszczenia na kotwicy.' };
+    }
+
     const placement = this.prepareAnchorPlacement(anchorId);
     if ('error' in placement) {
       return { success: false, message: placement.error };
     }
 
     const { anchor, projection } = placement;
+    const compatibilityError = this.validateAnchorCompatibility(
+      anchor,
+      decorationInfo.type,
+      [decorationInfo.id, decorationInfo.modelFileName],
+    );
+    if (compatibilityError) {
+      return { success: false, message: compatibilityError };
+    }
     const decoration = await this.decorationsService.addDecorationFromModel(
       decorationId,
       this.scene,
@@ -1402,6 +1415,16 @@ export class ThreeSceneService {
     }
 
     const { anchor, projection } = placement;
+    const decorationType = selected.userData['decorationType'] as DecorationPlacementType | undefined;
+    const decorationId =
+      (selected.userData['modelFileName'] as string | undefined) ??
+      (selected.userData['displayName'] as string | undefined) ??
+      selected.name;
+
+    const compatibilityError = this.validateAnchorCompatibility(anchor, decorationType, [decorationId]);
+    if (compatibilityError) {
+      return { success: false, message: compatibilityError };
+    }
     if (anchor.defaultScale && anchor.defaultScale > 0) {
       selected.scale.setScalar(anchor.defaultScale);
     }
@@ -1472,6 +1495,43 @@ export class ThreeSceneService {
     );
     object.position.copy(worldTarget);
     object.updateMatrixWorld(true);
+  }
+
+  private validateAnchorCompatibility(
+    anchor: AnchorPoint,
+    decorationType?: DecorationPlacementType,
+    decorationIdentifiers: Array<string | undefined> = [],
+  ): string | null {
+    const allowedSurfaces = this.mapPlacementTypeToSurfaces(decorationType);
+    if (allowedSurfaces.length && !allowedSurfaces.includes(anchor.surface)) {
+      if (decorationType === 'TOP') {
+        return 'Ta dekoracja może być umieszczona tylko na górze tortu.';
+      }
+      if (decorationType === 'SIDE') {
+        return 'Ta dekoracja może być umieszczona tylko na boku tortu.';
+      }
+      return 'Ta dekoracja nie może być umieszczona na wybranej kotwicy.';
+    }
+
+    if (anchor.allowedDecorationIds?.length) {
+      const candidates = decorationIdentifiers.filter((id): id is string => !!id);
+      const matches = candidates.some((candidate) => anchor.allowedDecorationIds!.includes(candidate));
+      if (!matches) {
+        return 'Ta kotwica nie jest dostępna dla wybranej dekoracji.';
+      }
+    }
+
+    return null;
+  }
+
+  private mapPlacementTypeToSurfaces(type?: DecorationPlacementType): Array<'TOP' | 'SIDE'> {
+    if (type === 'TOP') {
+      return ['TOP'];
+    }
+    if (type === 'SIDE') {
+      return ['SIDE'];
+    }
+    return [];
   }
 
   public alignSelectedDecorationToSurface(): { success: boolean; message: string } {

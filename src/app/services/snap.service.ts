@@ -1216,7 +1216,8 @@ export class SnapService {
       const heightNorm = coords.heightNorm !== undefined ? coords.heightNorm : 0.5;
       const clampedHeight = THREE.MathUtils.clamp(heightNorm, -0.25, 1.25);
       const y = layer.bottom + clampedHeight * heightSpan;
-      const position = new THREE.Vector3(normalFromAngle.x * radius, y, normalFromAngle.z * radius);
+      const radial = coords.radiusNorm !== undefined ? radius * coords.radiusNorm : radius;
+      const position = new THREE.Vector3(normalFromAngle.x * radial, y, normalFromAngle.z * radial);
       const normal = normalFromAngle.clone();
       return { position, normal };
     }
@@ -1225,8 +1226,11 @@ export class SnapService {
     const halfDepth = layer.halfDepth ?? (metadata.maxDepth ? metadata.maxDepth / 2 : metadata.depth ? metadata.depth / 2 : 0.5);
 
     if (snapInfo.surfaceType === 'TOP') {
-      const x = (coords.xNorm ?? Math.cos(coords.angleRad)) * halfWidth;
-      const z = (coords.zNorm ?? Math.sin(coords.angleRad)) * halfDepth;
+      const radialFactor = coords.radiusNorm ?? 1;
+      const radialX = Math.cos(coords.angleRad) * radialFactor;
+      const radialZ = Math.sin(coords.angleRad) * radialFactor;
+      const x = (coords.xNorm ?? radialX) * halfWidth;
+      const z = (coords.zNorm ?? radialZ) * halfDepth;
       const position = new THREE.Vector3(x, topHeight, z);
       const normal = new THREE.Vector3(0, 1, 0);
       return { position, normal };
@@ -1240,14 +1244,15 @@ export class SnapService {
     const dominantAxis = Math.abs(localNormal.x) >= Math.abs(localNormal.z) ? 'x' : 'z';
     let position: THREE.Vector3;
     let normal: THREE.Vector3;
+    const radiusFactor = coords.radiusNorm ?? 1;
 
     if (dominantAxis === 'x') {
       const sign = Math.sign(localNormal.x) || 1;
-      position = new THREE.Vector3(sign * halfWidth, y, (coords.zNorm ?? 0) * halfDepth);
+      position = new THREE.Vector3(sign * halfWidth * radiusFactor, y, (coords.zNorm ?? 0) * halfDepth);
       normal = new THREE.Vector3(sign, 0, 0);
     } else {
       const sign = Math.sign(localNormal.z) || 1;
-      position = new THREE.Vector3((coords.xNorm ?? 0) * halfWidth, y, sign * halfDepth);
+      position = new THREE.Vector3((coords.xNorm ?? 0) * halfWidth, y, sign * halfDepth * radiusFactor);
       normal = new THREE.Vector3(0, 0, sign);
     }
 
