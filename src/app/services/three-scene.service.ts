@@ -140,20 +140,20 @@ export class ThreeSceneService {
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-        if (!intersectsCake.length || this.transformControlsService.isDragging()) {
+        const paintHit = this.pickPaintableHit(intersectsCake);
+        if (!paintHit || this.transformControlsService.isDragging()) {
           this.onClickDown(event);
           return;
         }
-        const firstHit = intersectsCake[0];
 
-        if (!this.isPaintable(firstHit.object)) {
+        if (!this.isPaintable(paintHit.object)) {
           this.onClickDown(event);
           return;
         }
 
         this.surfacePainting.startStroke();
         this.sceneInitService.setOrbitEnabled(false);
-        void this.surfacePainting.handlePointer(intersectsCake[0], this.scene);
+        void this.surfacePainting.handlePointer(paintHit, this.scene);
         return;
       }
 
@@ -201,16 +201,15 @@ export class ThreeSceneService {
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-        if (!intersectsCake.length) {
+        const paintHit = this.pickPaintableHit(intersectsCake);
+        if (!paintHit) {
           return;
         }
-        const firstHit = intersectsCake[0];
-
-        if (!this.isPaintable(firstHit.object)) {
+        if (!this.isPaintable(paintHit.object)) {
           // Opcja A: Przerywamy ten konkretny "krok" malowania (pędzel nie stawia kropki, ale jak zjedziesz z polewy to maluje dalej)
           return;
         }
-          void this.surfacePainting.handlePointer(intersectsCake[0], this.scene);
+          void this.surfacePainting.handlePointer(paintHit, this.scene);
         return;
       }
 
@@ -1758,6 +1757,22 @@ export class ThreeSceneService {
       current = current.parent;
     }
 
+    return false;
+  }
+
+  private pickPaintableHit(intersects: THREE.Intersection[]): THREE.Intersection | null {
+    if (!intersects.length) return null;
+    return intersects.find((intersection) => !this.isPaintStroke(intersection.object)) ?? intersects[0];
+  }
+
+  private isPaintStroke(object: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      if (current.userData?.['isPaintStroke']) {
+        return true;
+      }
+      current = current.parent ?? null;
+    }
     return false;
   }
 }

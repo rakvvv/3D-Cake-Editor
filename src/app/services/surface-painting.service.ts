@@ -178,11 +178,13 @@ export class SurfacePaintingService {
 
   public setSprinkleColorMode(useRandom: boolean): void {
     this.sprinkleUseRandomColors = useRandom;
+    this.refreshSprinkleMaterialColor();
   }
 
   public setSprinkleColor(color: string): void {
     this.sprinkleUseRandomColors = false;
     this.sprinkleColor = this.sanitizeHexColor(color, this.sprinkleColor);
+    this.refreshSprinkleMaterialColor();
   }
 
   public clearBrushStrokes(): void {
@@ -661,6 +663,7 @@ export class SurfacePaintingService {
       this.prepareSprinkleStroke(scene);
     }
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup) return;
+    this.refreshSprinkleMaterialColor();
 
     const anchorGroup = this.paintAnchor;
     if (anchorGroup) anchorGroup.updateMatrixWorld(true);
@@ -741,7 +744,18 @@ export class SurfacePaintingService {
         flatShading: true,
         envMapIntensity: 0.4,
       });
+      this.refreshSprinkleMaterialColor();
     }
+  }
+
+  private refreshSprinkleMaterialColor(): void {
+    if (!this.sprinkleMaterial) return;
+    const emissiveHex = this.sprinkleUseRandomColors ? '#ffffff' : this.sprinkleColor;
+    this.tempColor.set(emissiveHex).convertSRGBToLinear();
+    this.sprinkleMaterial.emissive.copy(this.tempColor).multiplyScalar(0.35);
+    this.sprinkleMaterial.emissiveIntensity = 1.0;
+    this.sprinkleMaterial.color.set('#ffffff');
+    this.sprinkleMaterial.needsUpdate = true;
   }
 
   private createStarGeometry(): THREE.BufferGeometry {
