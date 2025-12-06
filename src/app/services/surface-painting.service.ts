@@ -13,6 +13,9 @@ const DEFAULT_SPRINKLE_COLOR = SPRINKLE_PALETTE[0];
 interface PaintingShaderUniforms {
   gradientMap: { value: THREE.Texture };
   useGradient: { value: boolean };
+  gradientMinY: { value: number };
+  gradientHeight: { value: number };
+  gradientFlip: { value: number };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -21,7 +24,7 @@ export class SurfacePaintingService {
   public mode: PaintingMode = 'brush';
 
   // Parametry pędzla
-  public brushSize = 60;
+  public brushSize = 90;
   public brushOpacity = 1.0;
   public brushColor = '#ff6b6b';
 
@@ -61,6 +64,7 @@ export class SurfacePaintingService {
   private readonly TEXTURE_ROUGH_URL = '/assets/textures/Pink_Cake_Frosting_01-bump.jpg';
   private lastStrokeDir: THREE.Vector3 | null = null;
   private cakeGroup: THREE.Group | null = null;
+  private paintAnchor: THREE.Group | null = null;
   private lastSprinklePoint: THREE.Vector3 | null = null;
   private sprinkleStrokeGroup: THREE.Group | null = null;
   private sprinkleStrokeMesh: THREE.InstancedMesh | null = null;
@@ -90,6 +94,7 @@ export class SurfacePaintingService {
       this.clearPaint();
     }
     this.cakeGroup = cake;
+    this.ensurePaintAnchor();
     this.applyPaintingShader();
     this.reattachPaintEntries();
     this.updateGradientTexture();
@@ -218,14 +223,24 @@ export class SurfacePaintingService {
     this.ensureCanvases();
     if (!this.gradientTexture || !this.cakeGroup) return;
 
+    const bbox = new THREE.Box3().setFromObject(this.cakeGroup);
+    const gradientHeight = Math.max(0.001, bbox.max.y - bbox.min.y);
+    const gradientMinY = bbox.min.y;
+
     if (!this.shaderUniforms) {
       this.shaderUniforms = {
         gradientMap: { value: this.gradientTexture },
         useGradient: { value: this.gradientEnabled },
+        gradientMinY: { value: gradientMinY },
+        gradientHeight: { value: gradientHeight },
+        gradientFlip: { value: this.gradientFlip ? 1 : 0 },
       };
     } else {
       this.shaderUniforms.gradientMap.value = this.gradientTexture;
       this.shaderUniforms.useGradient.value = this.gradientEnabled;
+      this.shaderUniforms.gradientMinY.value = gradientMinY;
+      this.shaderUniforms.gradientHeight.value = gradientHeight;
+      this.shaderUniforms.gradientFlip.value = this.gradientFlip ? 1 : 0;
     }
 
     const uniforms = this.shaderUniforms;
@@ -256,14 +271,34 @@ export class SurfacePaintingService {
   }
 
   private reattachPaintEntries(): void {
-    const targetScene = (this.cakeGroup?.parent as THREE.Scene) ?? null;
-    if (!targetScene) return;
+    const anchor = this.ensurePaintAnchor();
+    if (!anchor) return;
 
     [...this.paintEntries, ...this.sprinkleEntries].forEach((entry) => {
       if (!entry.parent) {
-        targetScene.add(entry);
+        anchor.add(entry);
       }
     });
+  }
+
+  private ensurePaintAnchor(scene?: THREE.Scene): THREE.Group | null {
+    if (this.paintAnchor && this.paintAnchor.parent) {
+      return this.paintAnchor;
+    }
+
+    const parent = this.cakeGroup ?? null;
+    const targetScene = scene ?? (this.cakeGroup?.parent as THREE.Scene) ?? null;
+    if (!parent || !targetScene) {
+      return null;
+    }
+
+    const anchor = this.paintAnchor ?? new THREE.Group();
+    anchor.name = 'Cake Paint Anchor';
+    anchor.userData['displayName'] = 'Malowanie tortu';
+    anchor.userData['isPaintAnchor'] = true;
+    parent.add(anchor);
+    this.paintAnchor = anchor;
+    return anchor;
   }
 
   private patchMaterialForGradient(mat: THREE.Material): void {
@@ -279,14 +314,32 @@ export class SurfacePaintingService {
       originalCompile?.(shader, renderer);
       shader.uniforms['gradientMap'] = this.shaderUniforms!.gradientMap;
       shader.uniforms['useGradient'] = this.shaderUniforms!.useGradient;
+      shader.uniforms['gradientMinY'] = this.shaderUniforms!.gradientMinY;
+      shader.uniforms['gradientHeight'] = this.shaderUniforms!.gradientHeight;
+      shader.uniforms['gradientFlip'] = this.shaderUniforms!.gradientFlip;
+
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <worldpos_vertex>',
+        `#include <worldpos_vertex>
+         vWorldPosition = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;
+        `,
+      );
+
+      shader.vertexShader = `varying vec3 vWorldPosition;\n${shader.vertexShader}`;
+      shader.fragmentShader = `varying vec3 vWorldPosition;\n${shader.fragmentShader}`;
+
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <dithering_fragment>',
         `
+          float gradientV = clamp((vWorldPosition.y - gradientMinY) / gradientHeight, 0.0, 1.0);
           #ifdef USE_UV
-            vec4 gradientSample = texture2D( gradientMap, vUv );
-            vec3 gradientColor = mix( vec3( 1.0 ), gradientSample.rgb, useGradient ? 1.0 : 0.0 );
-            diffuseColor.rgb *= gradientColor;
+            vec2 gradUV = vec2(vUv.x, gradientFlip > 0.5 ? 1.0 - gradientV : gradientV);
+          #else
+            vec2 gradUV = vec2(0.5, gradientFlip > 0.5 ? 1.0 - gradientV : gradientV);
           #endif
+          vec4 gradientSample = texture2D( gradientMap, gradUV );
+          vec3 gradientColor = mix( vec3( 1.0 ), gradientSample.rgb, useGradient ? 1.0 : 0.0 );
+          diffuseColor.rgb *= gradientColor;
           #include <dithering_fragment>
         `,
       );
@@ -450,6 +503,8 @@ export class SurfacePaintingService {
   }
 
   private createBrushStroke(scene: THREE.Scene): void {
+    const anchor = this.ensurePaintAnchor(scene);
+    if (!anchor) return;
     const maxInstances = 20000;
     const geometry = new THREE.PlaneGeometry(1, 1);
     const alphaMask = this.getBrushAlphaMask();
@@ -490,7 +545,7 @@ export class SurfacePaintingService {
     group.userData['displayName'] = 'Malowanie pędzlem';
     group.userData['isPaintStroke'] = true;
     group.add(mesh);
-    scene.add(group);
+    anchor.add(group);
 
     this.brushStrokeGroup = group;
     this.brushStrokeMesh = mesh;
@@ -557,9 +612,9 @@ export class SurfacePaintingService {
   }
 
   private computeBrushRadius(): number {
-    const min = 0.03;
-    const max = 0.09;
-    const normalized = THREE.MathUtils.clamp(this.brushSize, 0, 100) / 100;
+    const min = 0.04;
+    const max = 0.12;
+    const normalized = THREE.MathUtils.clamp(this.brushSize, 0, 150) / 150;
     return THREE.MathUtils.lerp(min, max, normalized);
   }
 
@@ -618,7 +673,7 @@ export class SurfacePaintingService {
       const colorValue = this.sprinkleUseRandomColors
         ? SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]
         : this.sprinkleColor;
-      this.tempColor.set(colorValue);
+      this.tempColor.set(colorValue).convertSRGBToLinear();
       this.sprinkleStrokeMesh.setColorAt(this.sprinkleStrokeIndex, this.tempColor);
       this.sprinkleStrokeIndex++;
     }
@@ -642,7 +697,7 @@ export class SurfacePaintingService {
         vertexColors: true,
         color: '#ffffff',
         emissive: new THREE.Color('#ffffff'),
-        emissiveIntensity: 0.65,
+        emissiveIntensity: 0.1,
         toneMapped: false,
         flatShading: true,
         envMapIntensity: 0.4,
@@ -678,10 +733,8 @@ export class SurfacePaintingService {
   private prepareSprinkleStroke(scene?: THREE.Scene): void {
     this.ensureSprinkleResources();
     if (this.sprinkleStrokeMesh && this.sprinkleStrokeShape === this.sprinkleShape) return;
-    const derivedScene = (this.cakeGroup?.parent as THREE.Scene) ?? null;
-    if (!scene && !this.sprinkleStrokeGroup && !derivedScene) return;
-    const targetScene = scene ?? (this.sprinkleStrokeGroup?.parent as THREE.Scene) ?? derivedScene;
-    if (!targetScene) return;
+    const anchor = this.ensurePaintAnchor(scene);
+    if (!anchor) return;
     if (this.sprinkleStrokeGroup) this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
 
     const capacity = 5000;
@@ -699,7 +752,7 @@ export class SurfacePaintingService {
     group.userData['isPaintDecoration'] = true;
     group.userData['isPaintStroke'] = true;
     group.add(mesh);
-    targetScene.add(group);
+    anchor.add(group);
 
     this.sprinkleStrokeGroup = group;
     this.sprinkleStrokeMesh = mesh;
@@ -728,6 +781,12 @@ export class SurfacePaintingService {
     if (this.shaderUniforms) {
       this.shaderUniforms.useGradient.value = this.gradientEnabled;
       if (this.gradientTexture) this.shaderUniforms.gradientMap.value = this.gradientTexture;
+      const bbox = this.cakeGroup ? new THREE.Box3().setFromObject(this.cakeGroup) : null;
+      if (bbox) {
+        this.shaderUniforms.gradientMinY.value = bbox.min.y;
+        this.shaderUniforms.gradientHeight.value = Math.max(0.001, bbox.max.y - bbox.min.y);
+      }
+      this.shaderUniforms.gradientFlip.value = this.gradientFlip ? 1 : 0;
     }
     this.paintedMaterials.forEach((mat) => (mat.needsUpdate = true));
   }

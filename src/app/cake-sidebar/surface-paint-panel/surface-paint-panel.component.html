@@ -22,8 +22,8 @@
     <input type="color" [(ngModel)]="painting.brushColor" />
 
     <label>Rozmiar</label>
-    <input type="range" min="0" max="100" [(ngModel)]="painting.brushSize" />
-    <span class="surface-paint__value">{{ painting.brushSize | number: '1.0-0' }} / 100</span>
+    <input type="range" min="0" max="150" [(ngModel)]="painting.brushSize" />
+    <span class="surface-paint__value">{{ painting.brushSize | number: '1.0-0' }} / 150</span>
 
     <label>Nieprzezroczystość</label>
     <input type="range" min="0.05" max="1" step="0.05" [(ngModel)]="painting.brushOpacity" />
