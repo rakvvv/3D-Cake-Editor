@@ -181,6 +181,7 @@ export class SurfacePaintingService {
   }
 
   public setSprinkleColor(color: string): void {
+    this.sprinkleUseRandomColors = false;
     this.sprinkleColor = this.sanitizeHexColor(color, this.sprinkleColor);
   }
 
@@ -269,8 +270,11 @@ export class SurfacePaintingService {
     const anchor = this.ensurePaintAnchor();
     if (!anchor) return;
 
+    this.paintEntries = this.paintEntries.filter((entry) => !entry.userData?.['removedByUndo']);
+    this.sprinkleEntries = this.sprinkleEntries.filter((entry) => !entry.userData?.['removedByUndo']);
+
     [...this.paintEntries, ...this.sprinkleEntries].forEach((entry) => {
-      if (!entry.parent) {
+      if (!entry.parent && !entry.userData?.['removedByUndo']) {
         anchor.add(entry);
       }
     });

@@ -346,6 +346,7 @@ export class PaintService {
 
     const lastObject = this.undoStack.pop()!;
     lastObject.parent?.remove(lastObject);
+    lastObject.userData['removedByUndo'] = true;
     this.redoStack.push(lastObject);
     this.notifySceneChanged();
   }
@@ -358,6 +359,7 @@ export class PaintService {
     const object = this.redoStack.pop()!;
     const targetParent = this.getPaintParent(object) ?? this.sceneRef;
     targetParent.add(object);
+    delete object.userData['removedByUndo'];
     this.undoStack.push(object);
     this.notifySceneChanged();
   }
