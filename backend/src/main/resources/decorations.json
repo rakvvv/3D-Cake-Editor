@@ -32,14 +32,6 @@
     "paintable": true
   },
   {
-    "id": "czekoladowa-ozdoba",
-    "name": "Czekoladowa ozdoba",
-    "modelFileName": "chocolate_kiss.glb",
-    "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
-  },
-  {
     "id": "borowka",
     "name": "Borówka",
     "modelFileName": "borowka.glb",
@@ -132,6 +124,228 @@
     "name": "Truskawka",
     "modelFileName": "truskawka_pol.glb",
     "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "cream-dot",
+    "name": "Krem kropka",
+    "modelFileName": "cream_dot.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "figurine-cat",
+    "name": "Figurka kot",
+    "modelFileName": "figurka_kot.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "figurine-bear-1",
+    "name": "Figurka miś 1",
+    "modelFileName": "figurka_mis1.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "figurine-bear-2",
+    "name": "Figurka miś 2",
+    "modelFileName": "figurka_mis2.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "figurine-penguin",
+    "name": "Figurka pingwin",
+    "modelFileName": "figurka_pingwin.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "figurine-frog",
+    "name": "Figurka żaba",
+    "modelFileName": "figurka_zaba.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+
+  {
+    "id": "star-side-1",
+    "name": "Gwiazdka boczna 1",
+    "modelFileName": "gwiazdka_bok.glb",
+    "type": "SIDE",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "star-side-2",
+    "name": "Gwiazdka boczna 2",
+    "modelFileName": "gwiazdka2_bok.glb",
+    "type": "SIDE",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "star-side-3",
+    "name": "Gwiazdka boczna 3",
+    "modelFileName": "gwiazdka3_bok.glb",
+    "type": "SIDE",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+
+  {
+    "id": "bow-1",
+    "name": "Kokardka 1",
+    "modelFileName": "kokardka.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "bow-2",
+    "name": "Kokardka 2",
+    "modelFileName": "kokardka2.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+
+  {
+    "id": "cream-ball-left",
+    "name": "Kula kremu w lewo",
+    "modelFileName": "krem_kula_w_lewo.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "cream-ball-right",
+    "name": "Kula kremu w prawo",
+    "modelFileName": "krem_kula_w_prawo.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "cream-star-top",
+    "name": "Krem z gwiazdą",
+    "modelFileName": "krem_z_gwiazda.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "cream-2",
+    "name": "Krem 2",
+    "modelFileName": "krem2.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "cream-3",
+    "name": "Krem 3",
+    "modelFileName": "krem3.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "cream-4",
+    "name": "Krem 4",
+    "modelFileName": "krem4.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "cream-5",
+    "name": "Krem 5",
+    "modelFileName": "krem5.glb",
+    "type": "BOTH",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+
+  {
+    "id": "leaf-with-cream-side",
+    "name": "Liść z kremem (bok)",
+    "modelFileName": "lisczkremem_bok.glb",
+    "type": "SIDE",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": true
+  },
+  {
+    "id": "bear-side",
+    "name": "Miś boczny",
+    "modelFileName": "mis_bok.glb",
+    "type": "SIDE",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+
+  {
+    "id": "ring-1",
+    "name": "Obręcz 1",
+    "modelFileName": "obrecz1.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "ring-2",
+    "name": "Obręcz 2",
+    "modelFileName": "obrecz2.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "ring-3",
+    "name": "Obręcz 3",
+    "modelFileName": "obrecz3.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "ring-4",
+    "name": "Obręcz 4",
+    "modelFileName": "obrecz4.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "ring-5",
+    "name": "Obręcz 5",
+    "modelFileName": "obrecz5.glb",
+    "type": "TOP",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+
+  {
+    "id": "cherry-side",
+    "name": "Wiśnia boczna",
+    "modelFileName": "wisnia_bok.glb",
+    "type": "SIDE",
+    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "paintable": false
+  },
+  {
+    "id": "ribbons-side",
+    "name": "Wstążki boczne",
+    "modelFileName": "wstazki_bok.glb",
+    "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false
   }

@@ -1,0 +1,78 @@
+<div class="surface-paint">
+  <div class="surface-paint__header">
+    <div class="surface-paint__title">Malowanie powierzchni</div>
+    <button type="button" class="surface-paint__toggle" (click)="toggle()">
+      {{ painting.enabled ? 'Wyłącz' : 'Włącz' }}
+    </button>
+  </div>
+
+  <div class="surface-paint__modes">
+    <button
+      type="button"
+      *ngFor="let mode of modes"
+      [class.surface-paint__mode--active]="painting.mode === mode.id"
+      (click)="setMode(mode.id)"
+    >
+      {{ mode.label }}
+    </button>
+  </div>
+
+  <div *ngIf="painting.mode === 'brush'" class="surface-paint__section">
+    <label>Kolor</label>
+    <input type="color" [(ngModel)]="painting.brushColor" />
+
+    <label>Rozmiar</label>
+    <input type="range" min="0" max="100" [(ngModel)]="painting.brushSize" />
+    <span class="surface-paint__value">{{ painting.brushSize | number: '1.0-0' }} / 100</span>
+
+    <label>Nieprzezroczystość</label>
+    <input type="range" min="0.05" max="1" step="0.05" [(ngModel)]="painting.brushOpacity" />
+    <span class="surface-paint__value">{{ painting.brushOpacity | number: '1.2-2' }}</span>
+
+    <div class="surface-paint__actions">
+      <button type="button" (click)="painting.endStroke(); painting.clearPaint()">Wyczyść</button>
+    </div>
+  </div>
+
+  <div *ngIf="painting.mode === 'gradient'" class="surface-paint__section">
+    <label>Kierunek</label>
+    <select [(ngModel)]="painting.gradientDirection">
+      <option *ngFor="let dir of directions" [value]="dir.id">{{ dir.label }}</option>
+    </select>
+
+    <label>Odwróć (góra → dół / dół → góra)</label>
+    <input type="checkbox" [(ngModel)]="painting.gradientFlip" />
+
+    <label>Kolor początkowy</label>
+    <input type="color" [(ngModel)]="painting.gradientStart" />
+
+    <label>Kolor końcowy</label>
+    <input type="color" [(ngModel)]="painting.gradientEnd" />
+
+    <div class="surface-paint__actions">
+      <button type="button" (click)="applyGradient()">Zastosuj gradient</button>
+      <button type="button" (click)="disableGradient()">Usuń gradient</button>
+    </div>
+  </div>
+
+  <div *ngIf="painting.mode === 'sprinkles'" class="surface-paint__section">
+    <label>Kształt</label>
+    <select [(ngModel)]="painting.sprinkleShape" (ngModelChange)="painting.clearPaint()">
+      <option *ngFor="let shape of sprinkleShapes" [value]="shape.id">{{ shape.label }}</option>
+    </select>
+
+    <label>Gęstość</label>
+    <input type="range" min="1" max="20" [(ngModel)]="painting.sprinkleDensity" />
+    <span class="surface-paint__value">{{ painting.sprinkleDensity | number: '1.0-0' }}</span>
+
+    <label>Minimalne powiększenie</label>
+    <input type="range" min="0.4" max="1.5" step="0.05" [(ngModel)]="painting.sprinkleMinScale" />
+
+    <label>Maksymalne powiększenie</label>
+    <input type="range" min="0.7" max="2" step="0.05" [(ngModel)]="painting.sprinkleMaxScale" />
+
+    <div class="surface-paint__actions">
+      <button type="button" (click)="painting.clearPaint()">Usuń posypkę</button>
+    </div>
+  </div>
+</div>

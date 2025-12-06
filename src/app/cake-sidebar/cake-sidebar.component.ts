@@ -6,6 +6,7 @@ import { AddDecorationRequest } from '../models/add-decoration-request';
 import { LayersPanelComponent } from './layers-panel/layers-panel.component';
 import { DecorationsPanelComponent } from './decorations-panel/decorations-panel.component';
 import { PaintPanelComponent } from './paint-panel/paint-panel.component';
+import { SurfacePaintPanelComponent } from './surface-paint-panel/surface-paint-panel.component';
 import { ExportPanelComponent } from './export-panel/export-panel.component';
 import { SceneOutlineComponent } from './scene-outline/scene-outline.component';
 import { TexturesPanelComponent } from './textures-panel/textures-panel.component';
@@ -22,6 +23,7 @@ type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'outline' | 'pain
     DecorationsPanelComponent,
     SceneOutlineComponent,
     PaintPanelComponent,
+    SurfacePaintPanelComponent,
     ExportPanelComponent,
   ],
   templateUrl: './cake-sidebar.component.html',

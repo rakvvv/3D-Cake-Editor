@@ -137,6 +137,12 @@
   padding: 8px 10px 10px;
 }
 
+.sidebar__panel-separator {
+  height: 1px;
+  background: #e6e6e6;
+  margin: 10px 0;
+}
+
 .sidebar__panel--outline {
   padding: 8px 10px 10px;
   background: var(--color-surface);
