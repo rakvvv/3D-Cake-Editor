@@ -600,7 +600,9 @@ export class SurfacePaintingService {
     const baseOffset = 0.0015;
     const sortingOffset = (this.brushStrokeIndex * 0.000002);
     const positionWorld = point.clone().add(worldNormal.clone().multiplyScalar(baseOffset + sortingOffset));
-    const positionLocal = anchor ? anchor.worldToLocal(positionWorld) : positionWorld;
+    const positionLocal = anchorGroup
+      ? anchorGroup.worldToLocal(positionWorld)
+      : positionWorld;
     matrix.setPosition(positionLocal);
 
     // --- POPRAWKA 3: KSZTAŁT ---
