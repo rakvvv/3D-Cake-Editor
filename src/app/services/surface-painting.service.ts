@@ -150,8 +150,16 @@ export class SurfacePaintingService {
   }
 
   public clearPaint(): void {
+    this.clearSprinkles();
+    this.clearBrushStrokes();
+  }
+
+  public clearSprinkles(): void {
     this.lastSprinklePoint = null;
     this.disposeSprinkles();
+  }
+
+  public clearBrushStrokes(): void {
     this.disposePaintStrokes();
   }
 
@@ -253,13 +261,13 @@ export class SurfacePaintingService {
       shader.uniforms['gradientMap'] = this.shaderUniforms!.gradientMap;
       shader.uniforms['useGradient'] = this.shaderUniforms!.useGradient;
       shader.fragmentShader = shader.fragmentShader.replace(
-        'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
+        '#include <dithering_fragment>',
         `
-          vec4 gradientSample = texture2D(gradientMap, vUv);
-          vec3 gradientColor = mix(vec3(1.0), gradientSample.rgb, useGradient ? 1.0 : 0.0);
-          vec3 finalColor = outgoingLight * gradientColor;
-          gl_FragColor = vec4( finalColor, diffuseColor.a );
-        `
+          vec4 gradientSample = texture2D( gradientMap, vUv );
+          vec3 gradientColor = mix( vec3( 1.0 ), gradientSample.rgb, useGradient ? 1.0 : 0.0 );
+          diffuseColor.rgb *= gradientColor;
+          #include <dithering_fragment>
+        `,
       );
     };
     if (!typed.userData) typed.userData = {};
@@ -610,6 +618,11 @@ export class SurfacePaintingService {
         metalness: 0.08,
         roughness: 0.32,
         vertexColors: true,
+        color: '#ffffff',
+        emissive: new THREE.Color('#1a1a1a'),
+        emissiveIntensity: 0.35,
+        toneMapped: false,
+        flatShading: true,
       });
     }
   }
