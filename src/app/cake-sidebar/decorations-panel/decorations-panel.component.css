@@ -141,6 +141,83 @@
   color: #333;
 }
 
+.decorations-panel__anchors {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px dashed var(--color-border, #d8dce5);
+  border-radius: var(--radius-md, 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.decorations-panel__anchors-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.decorations-panel__anchors-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.decorations-panel__anchors-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.decorations-panel__anchor-modes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.decorations-panel__anchor-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.decorations-panel__hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #5a6072);
+  margin: 0;
+}
+
+.decorations-panel__admin {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--color-border, #d8dce5);
+  border-radius: var(--radius-md, 12px);
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.decorations-panel__admin-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.decorations-panel__admin-output {
+  width: 100%;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.85rem;
+  padding: 8px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--color-border, #d8dce5);
+  background: #fff;
+  resize: vertical;
+}
+
 @media (min-width: 780px) {
   .decorations-panel__filters {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);

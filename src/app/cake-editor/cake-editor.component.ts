@@ -8,6 +8,8 @@ import {TransformControlsService} from '../services/transform-controls-service';
 import {CakeOptions} from '../models/cake.options';
 import {DecorationValidationIssue} from '../models/decoration-validation';
 import {AddDecorationRequest} from '../models/add-decoration-request';
+import {AnchorPresetsService} from '../services/anchor-presets.service';
+import {Subscription} from 'rxjs';
 
 @Component({
   selector: 'app-cake-editor',
@@ -60,6 +62,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
+  private anchorClickSubscription?: Subscription;
 
   private readonly handleDocumentClick = () => this.hideContextMenu();
   private readonly handleKeyDown = (event: KeyboardEvent) => {
@@ -81,12 +84,16 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     private transformService: TransformControlsService,
     private decorationsService: DecorationsService,
     private paintService: PaintService,
+    private anchorPresetsService: AnchorPresetsService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
   ngAfterViewInit(): void {
     this.initializeScene();
     if (isPlatformBrowser(this.platformId)) {
+      this.anchorClickSubscription = this.anchorPresetsService.anchorClicks$.subscribe((anchorId) => {
+        void this.handleAnchorClick(anchorId);
+      });
       const containerEl = this.container.nativeElement as HTMLElement;
       containerEl.addEventListener('contextmenu', this.contextMenuListener);
       document.addEventListener('click', this.handleDocumentClick);
@@ -99,6 +106,8 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
       window.clearTimeout(this.statusTimeoutId);
       this.statusTimeoutId = null;
     }
+
+    this.anchorClickSubscription?.unsubscribe();
 
     if (isPlatformBrowser(this.platformId)) {
       document.removeEventListener('click', this.handleDocumentClick);
@@ -300,6 +309,27 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     if (isPlatformBrowser(this.platformId)) {
       this.sceneService.init(this.container.nativeElement, this.options);
     }
+  }
+
+  private async handleAnchorClick(anchorId: string): Promise<void> {
+    const mode = this.anchorPresetsService.getActionMode();
+    if (mode === 'move') {
+      const result = this.sceneService.moveSelectionToAnchor(anchorId);
+      this.showStatus(result.message);
+      return;
+    }
+
+    const pendingDecoration = this.anchorPresetsService.getPendingDecoration();
+    if (!pendingDecoration) {
+      this.showStatus('Wybierz dekorację, aby dodać ją na kotwicy.');
+      return;
+    }
+
+    const result = await this.sceneService.spawnDecorationAtAnchor(
+      pendingDecoration.modelFileName,
+      anchorId,
+    );
+    this.showStatus(result.message);
   }
 
   private triggerDownload(blob: Blob, filename: string): void {

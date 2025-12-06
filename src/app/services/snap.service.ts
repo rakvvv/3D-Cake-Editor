@@ -4,6 +4,7 @@ import { ClosestPointInfo } from '../models/cake.points';
 import { CakeMetadata } from '../factories/three-objects.factory';
 import { DecorationPlacementType } from '../models/decorationInfo';
 import { DecorationValidationIssue } from '../models/decoration-validation';
+import { AnchorPoint, AnchorSurfaceCoordinates } from '../models/anchors';
 
 interface ScaledLayerInfo {
   index: number;
@@ -25,13 +26,7 @@ export interface SnapInfoSnapshot {
   coords?: SurfaceCoordinates;
 }
 
-export interface SurfaceCoordinates {
-  angleRad: number;
-  radiusNorm?: number;
-  heightNorm?: number;
-  xNorm?: number;
-  zNorm?: number;
-}
+export type SurfaceCoordinates = AnchorSurfaceCoordinates;
 
 interface SnapUserData extends SnapInfoSnapshot {}
 
@@ -218,6 +213,10 @@ export class SnapService {
     return this.cakeBase;
   }
 
+  public getCakeMetadataSnapshot(): CakeMetadata | null {
+    return this.getCakeMetadata() ?? null;
+  }
+
   public validateDecorations(objects: THREE.Object3D[]): DecorationValidationIssue[] {
     const issues: DecorationValidationIssue[] = [];
 
@@ -282,6 +281,84 @@ export class SnapService {
     }
 
     return null;
+  }
+
+  public projectAnchor(
+    anchor: AnchorPoint,
+    metadata: CakeMetadata,
+  ): { position: THREE.Vector3; normal: THREE.Vector3 } | null {
+    const layers = this.getScaledLayers(metadata);
+    const layer = this.findLayerInfo(layers, anchor.layerIndex);
+    const coords = this.normalizeSurfaceCoordinates(anchor.coordinates, metadata) ?? anchor.coordinates;
+    const safeAngle = coords.angleRad ?? 0;
+    const layerIndex = this.clampLayerIndex(anchor.layerIndex, metadata);
+
+    const localNormal = anchor.surface === 'TOP'
+      ? new THREE.Vector3(0, 1, 0)
+      : new THREE.Vector3(Math.cos(safeAngle), 0, Math.sin(safeAngle)).normalize();
+
+    const projection = this.buildProjectionFromSnap(
+      {
+        layerIndex,
+        surfaceType: anchor.surface,
+        normal: localNormal.toArray() as [number, number, number],
+        offset: 0,
+        roll: 0,
+        coords,
+      },
+      layer,
+      metadata,
+      localNormal,
+    );
+
+    if (!projection) {
+      return null;
+    }
+
+    return { position: projection.position, normal: projection.normal };
+  }
+
+  public buildAnchorFromDecoration(
+    object: THREE.Object3D,
+    metadata: CakeMetadata,
+    id: string,
+    label?: string,
+  ): AnchorPoint | null {
+    if (!object.userData['isSnapped']) {
+      return null;
+    }
+
+    const snapInfo = this.readSnapInfo(object);
+    if (!snapInfo) {
+      return null;
+    }
+
+    const normalized = this.normalizeSnapInfo(snapInfo, metadata);
+    const layers = this.getScaledLayers(metadata);
+    const layer = this.findLayerInfo(layers, normalized.layerIndex);
+
+    let coords = normalized.coords;
+    if (!coords) {
+      const localPosition = this.cakeBase
+        ? this.cakeBase.worldToLocal(object.getWorldPosition(new THREE.Vector3()))
+        : new THREE.Vector3();
+      coords = this.computeSurfaceCoordinates(localPosition, normalized.surfaceType, layer, metadata);
+    }
+
+    const rotationDeg = Math.round(THREE.MathUtils.radToDeg(normalized.roll) * 1000) / 1000;
+    const averageScale = (object.scale.x + object.scale.y + object.scale.z) / 3;
+    const decorationId = (object.userData['modelFileName'] as string | undefined) ?? undefined;
+
+    return {
+      id,
+      label,
+      surface: normalized.surfaceType,
+      layerIndex: normalized.layerIndex,
+      coordinates: coords ?? { angleRad: 0 },
+      defaultRotationDeg: rotationDeg,
+      defaultScale: Math.round(averageScale * 1000) / 1000,
+      allowedDecorationIds: decorationId ? [decorationId] : undefined,
+    };
   }
 
   private getClosestPointForObject(

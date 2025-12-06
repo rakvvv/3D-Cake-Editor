@@ -19,6 +19,8 @@ import { DecorationInfo } from '../models/decorationInfo';
 import { environment } from '../../environments/environment';
 import { SceneOutlineNode } from '../models/scene-outline';
 import { DecorationFactory } from '../factories/decoration.factory';
+import { AnchorPresetsService } from './anchor-presets.service';
+import { AnchorPoint } from '../models/anchors';
 
 interface DecorationClipboardEntry {
   template: THREE.Object3D;
@@ -72,6 +74,7 @@ export class ThreeSceneService {
     private surfacePainting: SurfacePaintingService,
     private exportService: ExportService,
     private snapService: SnapService,
+    private anchorPresetsService: AnchorPresetsService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
@@ -325,6 +328,7 @@ export class ThreeSceneService {
     this.scene.add(cake);
     this.objects.push(cake);
     this.snapService.setCakeBase(cake);
+    this.anchorPresetsService.setContext(this.scene, this.cakeBase, this.cakeMetadata);
     const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * this.options.cake_size : this.options.cake_size;
     this.transformControlsService.updateCakeSize(effectiveSize);
     this.sceneInitService.updateOrbitForCake(effectiveSize);
@@ -378,6 +382,7 @@ export class ThreeSceneService {
     this.cakeBase = null;
     this.cakeLayers = [];
     this.cakeMetadata = null;
+    this.anchorPresetsService.setContext(this.scene, null, null);
     this.snapService.setCakeBase(null);
   }
 
@@ -883,6 +888,11 @@ export class ThreeSceneService {
     this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
+    const anchorHit = this.anchorPresetsService.pickAnchor(this.raycaster);
+    if (anchorHit) {
+      this.anchorPresetsService.emitAnchorClick(anchorHit.id);
+      return null;
+    }
     const intersects = this.raycaster.intersectObjects(
       this.objects.filter((obj) => obj !== this.cakeBase && !obj.userData['isPainted']),
       true,
@@ -892,6 +902,7 @@ export class ThreeSceneService {
       if (attach) {
         this.transformControlsService.deselectObject();
         this.hideBoxHelper();
+        this.anchorPresetsService.setHighlightedDecoration(null);
       }
       return null;
     }
@@ -921,6 +932,8 @@ export class ThreeSceneService {
 
     if (attach) {
       this.transformControlsService.attachObject(selected);
+      const modelId = (selected.userData['modelFileName'] as string | undefined) ?? null;
+      this.anchorPresetsService.setHighlightedDecoration(modelId);
       this.emitOutlineChanged();
     }
 
@@ -1130,6 +1143,8 @@ export class ThreeSceneService {
 
     this.transformControlsService.attachObject(target);
     this.showBoxHelperFor(target);
+    const modelId = (target.userData['modelFileName'] as string | undefined) ?? null;
+    this.anchorPresetsService.setHighlightedDecoration(modelId);
     return true;
   }
 
@@ -1297,6 +1312,7 @@ export class ThreeSceneService {
 
     this.transformControlsService.deselectObject();
     this.hideBoxHelper();
+    this.anchorPresetsService.setHighlightedDecoration(null);
     return true;
   }
 
@@ -1330,6 +1346,132 @@ export class ThreeSceneService {
     }
 
     return { success: result.success, message: result.message };
+  }
+
+  public async spawnDecorationAtAnchor(
+    decorationId: string,
+    anchorId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const placement = this.prepareAnchorPlacement(anchorId);
+    if ('error' in placement) {
+      return { success: false, message: placement.error };
+    }
+
+    const { anchor, projection } = placement;
+    const decoration = await this.decorationsService.addDecorationFromModel(
+      decorationId,
+      this.scene,
+      this.cakeBase,
+      this.objects,
+      anchor.surface,
+      anchor.layerIndex,
+    );
+
+    if (!decoration) {
+      return { success: false, message: 'Nie udało się wczytać dekoracji dla kotwicy.' };
+    }
+
+    if (anchor.defaultScale && anchor.defaultScale > 0) {
+      decoration.scale.setScalar(anchor.defaultScale);
+    }
+
+    this.applyAnchorPlacement(decoration, projection);
+    const snapResult = this.snapService.snapDecorationToCake(decoration, anchor.surface);
+
+    if (anchor.defaultRotationDeg !== undefined) {
+      this.snapService.rotateDecorationByDegrees(decoration, anchor.defaultRotationDeg);
+    }
+
+    if (snapResult.success) {
+      this.paintService.registerDecorationAddition(decoration);
+      this.emitOutlineChanged();
+    }
+
+    return { success: snapResult.success, message: snapResult.message };
+  }
+
+  public moveSelectionToAnchor(anchorId: string): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const placement = this.prepareAnchorPlacement(anchorId);
+    if ('error' in placement) {
+      return { success: false, message: placement.error };
+    }
+
+    const { anchor, projection } = placement;
+    if (anchor.defaultScale && anchor.defaultScale > 0) {
+      selected.scale.setScalar(anchor.defaultScale);
+    }
+
+    this.applyAnchorPlacement(selected, projection);
+    const snapResult = this.snapService.snapDecorationToCake(selected, anchor.surface);
+    if (snapResult.success && anchor.defaultRotationDeg !== undefined) {
+      this.snapService.rotateDecorationByDegrees(selected, anchor.defaultRotationDeg);
+    }
+
+    if (snapResult.success) {
+      this.updateBoxHelper();
+    }
+
+    return { success: snapResult.success, message: snapResult.message };
+  }
+
+  public exportAnchorsFromSelection(): AnchorPoint[] {
+    if (!this.cakeMetadata) {
+      return [];
+    }
+
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return [];
+    }
+
+    const anchor = this.snapService.buildAnchorFromDecoration(
+      selected,
+      this.cakeMetadata,
+      selected.uuid,
+      (selected.userData['displayName'] as string | undefined) ?? selected.name,
+    );
+
+    return anchor ? [anchor] : [];
+  }
+
+  private prepareAnchorPlacement(
+    anchorId: string,
+  ): { anchor: AnchorPoint; projection: { position: THREE.Vector3; normal: THREE.Vector3 } } | { error: string } {
+    if (!this.cakeBase || !this.cakeMetadata) {
+      return { error: 'Brak tortu do umieszczenia dekoracji na kotwicy.' };
+    }
+
+    const anchor = this.anchorPresetsService.getAnchor(anchorId);
+    if (!anchor) {
+      return { error: 'Nie znaleziono wskazanej kotwicy.' };
+    }
+
+    const projection = this.snapService.projectAnchor(anchor, this.cakeMetadata);
+    if (!projection) {
+      return { error: 'Nie można obliczyć pozycji kotwicy dla bieżącego tortu.' };
+    }
+
+    return { anchor, projection };
+  }
+
+  private applyAnchorPlacement(
+    object: THREE.Object3D,
+    projection: { position: THREE.Vector3; normal: THREE.Vector3 },
+  ): void {
+    if (!this.cakeBase) {
+      return;
+    }
+
+    const worldTarget = this.cakeBase.localToWorld(
+      projection.position.clone().add(projection.normal.clone().multiplyScalar(0.05)),
+    );
+    object.position.copy(worldTarget);
+    object.updateMatrixWorld(true);
   }
 
   public alignSelectedDecorationToSurface(): { success: boolean; message: string } {

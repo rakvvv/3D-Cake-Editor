@@ -1,0 +1,46 @@
+[
+  {
+    "id": "top-demo",
+    "name": "Górne dekoracje demo",
+    "anchors": [
+      {
+        "id": "top-center",
+        "label": "Środek",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": { "angleRad": 0, "radiusNorm": 0 },
+        "defaultRotationDeg": 0
+      },
+      {
+        "id": "top-front",
+        "label": "Front",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": { "angleRad": 0, "radiusNorm": 0.65 },
+        "defaultRotationDeg": 0
+      }
+    ]
+  },
+  {
+    "id": "side-demo",
+    "name": "Boczny wieniec demo",
+    "anchors": [
+      {
+        "id": "side-front",
+        "label": "Front",
+        "surface": "SIDE",
+        "layerIndex": 0,
+        "coordinates": { "angleRad": 0, "heightNorm": 0.5, "radiusNorm": 1 },
+        "defaultRotationDeg": 0
+      },
+      {
+        "id": "side-back",
+        "label": "Tył",
+        "surface": "SIDE",
+        "layerIndex": 0,
+        "coordinates": { "angleRad": 3.14, "heightNorm": 0.5, "radiusNorm": 1 },
+        "defaultRotationDeg": 180
+      }
+    ]
+  }
+]
