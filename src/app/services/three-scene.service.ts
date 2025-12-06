@@ -1647,22 +1647,52 @@ export class ThreeSceneService {
       return {};
     }
 
-    const copy: Record<string, unknown> = {};
-    Object.entries(source).forEach(([key, value]) => {
-      if (key === 'paintParent' || value instanceof THREE.Object3D) {
+    return (this.sanitizeUserData(source, new WeakSet()) as Record<string, unknown>) ?? {};
+  }
+
+  private sanitizeUserData(value: any, seen: WeakSet<object>): unknown {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+
+    if (typeof value !== 'object') {
+      return value;
+    }
+
+    if (value instanceof THREE.Object3D) {
+      return undefined;
+    }
+
+    if (seen.has(value)) {
+      return undefined;
+    }
+
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      const arr: unknown[] = [];
+      value.forEach((entry) => {
+        const sanitized = this.sanitizeUserData(entry, seen);
+        if (sanitized !== undefined) {
+          arr.push(sanitized);
+        }
+      });
+      return arr;
+    }
+
+    const result: Record<string, unknown> = {};
+    Object.entries(value).forEach(([key, entry]) => {
+      if (key === 'paintParent') {
         return;
       }
 
-      if (Array.isArray(value)) {
-        copy[key] = value.slice();
-      } else if (value && typeof value === 'object') {
-        copy[key] = { ...(value as Record<string, unknown>) };
-      } else {
-        copy[key] = value;
+      const sanitized = this.sanitizeUserData(entry, seen);
+      if (sanitized !== undefined) {
+        result[key] = sanitized;
       }
     });
 
-    return copy;
+    return result;
   }
 
   private cloneSnapInfo(info: SnapInfoSnapshot): SnapInfoSnapshot {

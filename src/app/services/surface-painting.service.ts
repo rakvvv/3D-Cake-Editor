@@ -87,6 +87,7 @@ export class SurfacePaintingService {
     }
     this.cakeGroup = cake;
     this.applyPaintingShader();
+    this.reattachPaintEntries();
     this.updateGradientTexture();
   }
 
@@ -138,11 +139,13 @@ export class SurfacePaintingService {
   public applyGradientSettings(): void {
     this.gradientEnabled = true;
     this.updateGradientTexture();
+    this.applyPaintingShader();
     this.flagMaterialUpdate();
   }
 
   public disableGradient(): void {
     this.gradientEnabled = false;
+    this.applyPaintingShader();
     this.flagMaterialUpdate();
   }
 
@@ -185,6 +188,7 @@ export class SurfacePaintingService {
   }
 
   private applyPaintingShader(): void {
+    this.ensureCanvases();
     if (!this.gradientTexture || !this.cakeGroup) return;
 
     if (!this.shaderUniforms) {
@@ -221,6 +225,17 @@ export class SurfacePaintingService {
         mat.needsUpdate = true;
         this.paintedMaterials.push(mat);
       });
+    });
+  }
+
+  private reattachPaintEntries(): void {
+    const targetScene = (this.cakeGroup?.parent as THREE.Scene) ?? null;
+    if (!targetScene) return;
+
+    [...this.paintEntries, ...this.sprinkleEntries].forEach((entry) => {
+      if (!entry.parent) {
+        targetScene.add(entry);
+      }
     });
   }
 
