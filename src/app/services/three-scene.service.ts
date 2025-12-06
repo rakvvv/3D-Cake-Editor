@@ -1608,7 +1608,18 @@ export class ThreeSceneService {
   }
 
   private duplicateDecoration(object: THREE.Object3D): THREE.Object3D {
+    const originalUserData = new Map<THREE.Object3D, any>();
+
+    object.traverse((node) => {
+      originalUserData.set(node, node.userData);
+      node.userData = this.cloneUserData(node.userData);
+    });
+
     const clone = object.clone(true);
+
+    originalUserData.forEach((data, node) => {
+      node.userData = data;
+    });
     const meshes: THREE.Mesh[] = [];
 
     clone.traverse((node) => {

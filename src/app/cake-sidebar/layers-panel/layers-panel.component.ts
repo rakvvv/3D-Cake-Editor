@@ -111,7 +111,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
 
   private applyOptions(options: CakeOptions): void {
     this.cakeSize = options.cake_size;
-    this.cakeColor = options.cake_color;
+    this.cakeColor = options.cake_color || '#ffffff';
     this.cakeText = options.cake_text;
     this.cakeTextValue = options.cake_text_value;
     this.cakeTextPosition = options.cake_text_position;
@@ -122,7 +122,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
     this.cakeShape = options.shape;
     this.cakeLayerSizes = [...options.layerSizes];
     this.glazeEnabled = options.glaze_enabled;
-    this.glazeColor = options.glaze_color;
+    this.glazeColor = options.glaze_color || '#ffffff';
     this.glazeThickness = options.glaze_thickness;
     this.glazeDripLength = options.glaze_drip_length;
     this.glazeSeed = options.glaze_seed;
