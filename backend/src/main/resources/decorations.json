@@ -5,7 +5,16 @@
     "modelFileName": "Numer_1.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/numer-1.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "boczna-ozdoba",
@@ -13,7 +22,16 @@
     "modelFileName": "custom.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/side-ornament.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "czekoladowa-ozdoba",
@@ -21,7 +39,16 @@
     "modelFileName": "chocolate_kiss.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "trawa",
@@ -29,7 +56,16 @@
     "modelFileName": "trawa.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/grass.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "borowka",
@@ -37,7 +73,16 @@
     "modelFileName": "borowka.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "kiwi",
@@ -45,7 +90,16 @@
     "modelFileName": "kiwi.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "kwiat1",
@@ -53,7 +107,16 @@
     "modelFileName": "kwiatek1_1.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "kwiat2",
@@ -61,7 +124,16 @@
     "modelFileName": "kwiatek1_2.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "kwiat3",
@@ -69,7 +141,16 @@
     "modelFileName": "kwiatek2_.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "kwiat4",
@@ -77,7 +158,16 @@
     "modelFileName": "kwiatek5.2.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "kwiat5",
@@ -85,7 +175,16 @@
     "modelFileName": "kwiatek6.2.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "kwiat6",
@@ -93,7 +192,16 @@
     "modelFileName": "kwiatek7.2.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "kwiat7",
@@ -101,7 +209,16 @@
     "modelFileName": "kwiatek8_.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "lisc1",
@@ -109,7 +226,16 @@
     "modelFileName": "lisc_.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "mandarynka",
@@ -117,7 +243,16 @@
     "modelFileName": "mandarynka.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "truskawka",
@@ -125,7 +260,16 @@
     "modelFileName": "truskawka_pol.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "cream-dot",
@@ -133,7 +277,16 @@
     "modelFileName": "cream_dot.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "figurine-cat",
@@ -141,7 +294,16 @@
     "modelFileName": "figurka_kot.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "figurine-bear-1",
@@ -149,7 +311,16 @@
     "modelFileName": "figurka_mis1.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "figurine-bear-2",
@@ -157,7 +328,16 @@
     "modelFileName": "figurka_mis2.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "figurine-penguin",
@@ -165,7 +345,16 @@
     "modelFileName": "figurka_pingwin.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "figurine-frog",
@@ -173,9 +362,17 @@
     "modelFileName": "figurka_zaba.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
-
   {
     "id": "star-side-1",
     "name": "Gwiazdka boczna 1",
@@ -183,7 +380,16 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
-    "initialScale": 0.18
+    "initialScale": 0.18,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "star-side-2",
@@ -192,7 +398,16 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
-    "initialScale": 0.18
+    "initialScale": 0.18,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "star-side-3",
@@ -201,16 +416,33 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
-    "initialScale": 0.18
+    "initialScale": 0.18,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
-
   {
     "id": "bow-1",
     "name": "Kokardka 1",
     "modelFileName": "kokardka.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "bow-2",
@@ -218,16 +450,33 @@
     "modelFileName": "kokardka2.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
-
   {
     "id": "cream-ball-left",
     "name": "Kula kremu w lewo",
     "modelFileName": "krem_kula_w_lewo.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "cream-ball-right",
@@ -235,7 +484,16 @@
     "modelFileName": "krem_kula_w_prawo.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "cream-star-top",
@@ -243,7 +501,16 @@
     "modelFileName": "krem_z_gwiazda.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "cream-2",
@@ -251,7 +518,16 @@
     "modelFileName": "krem2.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "cream-3",
@@ -259,7 +535,16 @@
     "modelFileName": "krem3.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "cream-4",
@@ -267,7 +552,16 @@
     "modelFileName": "krem4.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "cream-5",
@@ -275,16 +569,33 @@
     "modelFileName": "krem5.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
-
   {
     "id": "leaf-with-cream-side",
     "name": "Liść z kremem (bok)",
     "modelFileName": "lisczkremem_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "bear-side",
@@ -292,16 +603,33 @@
     "modelFileName": "mis_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
-
   {
     "id": "ring-1",
     "name": "Obręcz 1",
     "modelFileName": "obrecz1.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "ring-2",
@@ -309,7 +637,16 @@
     "modelFileName": "obrecz2.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "ring-3",
@@ -317,7 +654,16 @@
     "modelFileName": "obrecz3.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "ring-4",
@@ -325,7 +671,16 @@
     "modelFileName": "obrecz4.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "ring-5",
@@ -333,16 +688,33 @@
     "modelFileName": "obrecz5.glb",
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
-
   {
     "id": "cherry-side",
     "name": "Wiśnia boczna",
     "modelFileName": "wisnia_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   },
   {
     "id": "ribbons-side",
@@ -350,6 +722,15 @@
     "modelFileName": "wstazki_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false
+    "paintable": false,
+    "material": {
+      "roughness": 0.6,
+      "metalness": 0.05
+    },
+    "initialRotation": [
+      0,
+      0,
+      0
+    ]
   }
 ]

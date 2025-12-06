@@ -8,4 +8,9 @@ export interface DecorationInfo {
   thumbnailUrl?: string;
   paintable?: boolean;
   initialScale?: number;
+  material?: {
+    roughness?: number;
+    metalness?: number;
+  };
+  initialRotation?: [number, number, number];
 }
