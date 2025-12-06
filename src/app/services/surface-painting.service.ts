@@ -5,7 +5,7 @@ import { PaintService } from './paint.service';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
 export type GradientDirection = 'vertical';
-export type SprinkleShape = 'stick' | 'ball';
+export type SprinkleShape = 'stick' | 'ball' | 'star';
 
 const SPRINKLE_PALETTE = ['#ff6b81', '#ffd66b', '#6bffb0', '#6bb8ff', '#ffffff'];
 
@@ -65,11 +65,12 @@ export class SurfacePaintingService {
   private sprinkleStrokeCapacity = 0;
   private sprinkleStrokeShape: SprinkleShape | null = null;
   private paintedMaterials: THREE.Material[] = [];
-  private sprinkleGeometryCache: { stick: THREE.BufferGeometry; ball: THREE.BufferGeometry } | null = null;
+  private sprinkleGeometryCache: { stick: THREE.BufferGeometry; ball: THREE.BufferGeometry; star: THREE.BufferGeometry } | null = null;
   private sprinkleMaterial: THREE.MeshStandardMaterial | null = null;
   private sprinkleEntries: THREE.Object3D[] = [];
   private paintEntries: THREE.Object3D[] = [];
   private shaderUniforms?: PaintingShaderUniforms;
+  private readonly tempMatrix = new THREE.Matrix4();
 
   constructor(@Inject(PLATFORM_ID) platformId: object, private readonly paintService: PaintService) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -78,13 +79,15 @@ export class SurfacePaintingService {
     }
   }
 
-  public attachCake(cake: THREE.Group | null): void {
+  public attachCake(cake: THREE.Group | null, resetPaint = false): void {
     this.loadCakeTextures();
-    this.disposeSprinkles();
+    if (resetPaint) {
+      this.disposeSprinkles();
+      this.clearPaint();
+    }
     this.cakeGroup = cake;
     this.applyPaintingShader();
     this.updateGradientTexture();
-    this.clearPaint();
   }
 
   public setEnabled(enabled: boolean): void {
@@ -210,15 +213,43 @@ export class SurfacePaintingService {
       const materialArray = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       materialArray.forEach((mat) => {
         const typed = mat as any;
-        if (typed.__surfacePaintApplied) {
-          this.paintedMaterials.push(mat);
-          return;
+        if (!typed.userData) typed.userData = {};
+        if (!typed.userData.__surfacePaintApplied) {
+          this.patchMaterialForGradient(mat as THREE.Material);
+          typed.userData.__surfacePaintApplied = true;
         }
-        typed.__surfacePaintApplied = true;
         mat.needsUpdate = true;
         this.paintedMaterials.push(mat);
       });
     });
+  }
+
+  private patchMaterialForGradient(mat: THREE.Material): void {
+    if (!this.shaderUniforms) return;
+    const typed = mat as THREE.MeshStandardMaterial;
+    const originalCompile = typed.onBeforeCompile?.bind(typed);
+    if (typed.userData?.__gradientPatched) {
+      typed.needsUpdate = true;
+      return;
+    }
+
+    typed.onBeforeCompile = (shader) => {
+      originalCompile?.(shader);
+      shader.uniforms.gradientMap = this.shaderUniforms!.gradientMap;
+      shader.uniforms.useGradient = this.shaderUniforms!.useGradient;
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
+        `
+          vec4 gradientSample = texture2D(gradientMap, vUv);
+          vec3 gradientColor = mix(vec3(1.0), gradientSample.rgb, useGradient ? 1.0 : 0.0);
+          vec3 finalColor = outgoingLight * gradientColor;
+          gl_FragColor = vec4( finalColor, diffuseColor.a );
+        `
+      );
+    };
+    if (!typed.userData) typed.userData = {};
+    typed.userData.__gradientPatched = true;
+    typed.needsUpdate = true;
   }
 
   private updateGradientTexture(): void {
@@ -439,10 +470,10 @@ export class SurfacePaintingService {
     yAxis.negate();
     const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
 
-    const matrix = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
+    const matrix = this.tempMatrix.identity().makeBasis(xAxis, yAxis, zAxis);
 
     // Stały, minimalny offset (bez lewitowania)
-    const baseOffset = 0.003;
+    const baseOffset = 0.0015;
     const sortingOffset = (this.brushStrokeIndex * 0.000002);
     const position = point.clone().add(normal.clone().multiplyScalar(baseOffset + sortingOffset));
     matrix.setPosition(position);
@@ -556,11 +587,38 @@ export class SurfacePaintingService {
       this.sprinkleGeometryCache = {
         stick: new THREE.CapsuleGeometry(0.005, 0.024, 4, 10),
         ball: new THREE.SphereGeometry(0.008, 14, 12),
+        star: this.createStarGeometry(),
       };
     }
     if (!this.sprinkleMaterial) {
-      this.sprinkleMaterial = new THREE.MeshStandardMaterial({ metalness: 0.08, roughness: 0.32 });
+      this.sprinkleMaterial = new THREE.MeshStandardMaterial({
+        metalness: 0.08,
+        roughness: 0.32,
+        vertexColors: true,
+      });
     }
+  }
+
+  private createStarGeometry(): THREE.BufferGeometry {
+    const points: THREE.Vector2[] = [];
+    const spikes = 5;
+    const outerRadius = 0.012;
+    const innerRadius = 0.0065;
+    for (let i = 0; i < spikes * 2; i++) {
+      const radius = i % 2 === 0 ? outerRadius : innerRadius;
+      const angle = (i / (spikes * 2)) * Math.PI * 2;
+      points.push(new THREE.Vector2(Math.cos(angle) * radius, Math.sin(angle) * radius));
+    }
+    const shape = new THREE.Shape(points);
+    const extrude = new THREE.ExtrudeGeometry(shape, {
+      depth: 0.004,
+      bevelEnabled: true,
+      bevelThickness: 0.002,
+      bevelSize: 0.0015,
+      bevelSegments: 2,
+    });
+    extrude.center();
+    return new THREE.BufferGeometry().copy(extrude.toNonIndexed());
   }
 
   private prepareSprinkleStroke(scene?: THREE.Scene): void {
@@ -597,7 +655,10 @@ export class SurfacePaintingService {
   }
 
   private flagMaterialUpdate(): void {
-    if (this.shaderUniforms) this.shaderUniforms.useGradient.value = this.gradientEnabled;
+    if (this.shaderUniforms) {
+      this.shaderUniforms.useGradient.value = this.gradientEnabled;
+      if (this.gradientTexture) this.shaderUniforms.gradientMap.value = this.gradientTexture;
+    }
     this.paintedMaterials.forEach((mat) => (mat.needsUpdate = true));
   }
 
@@ -605,7 +666,11 @@ export class SurfacePaintingService {
     const allEntries = [...this.sprinkleEntries];
     if (this.sprinkleStrokeGroup) allEntries.push(this.sprinkleStrokeGroup);
     const sharedGeometries = this.sprinkleGeometryCache
-      ? new Set<THREE.BufferGeometry>([this.sprinkleGeometryCache.stick, this.sprinkleGeometryCache.ball])
+      ? new Set<THREE.BufferGeometry>([
+        this.sprinkleGeometryCache.stick,
+        this.sprinkleGeometryCache.ball,
+        this.sprinkleGeometryCache.star,
+      ])
       : null;
     const sharedMaterial = this.sprinkleMaterial ?? null;
 

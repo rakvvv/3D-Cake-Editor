@@ -1612,7 +1612,7 @@ export class ThreeSceneService {
     const meshes: THREE.Mesh[] = [];
 
     clone.traverse((node) => {
-      node.userData = { ...node.userData };
+      node.userData = this.cloneUserData(node.userData);
 
       if ((node as THREE.Mesh).isMesh) {
         const mesh = node as THREE.Mesh;
@@ -1640,6 +1640,29 @@ export class ThreeSceneService {
     clone.userData['isSnapped'] = false;
 
     return clone;
+  }
+
+  private cloneUserData(source: any): Record<string, unknown> {
+    if (!source || typeof source !== 'object') {
+      return {};
+    }
+
+    const copy: Record<string, unknown> = {};
+    Object.entries(source).forEach(([key, value]) => {
+      if (key === 'paintParent' || value instanceof THREE.Object3D) {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        copy[key] = value.slice();
+      } else if (value && typeof value === 'object') {
+        copy[key] = { ...(value as Record<string, unknown>) };
+      } else {
+        copy[key] = value;
+      }
+    });
+
+    return copy;
   }
 
   private cloneSnapInfo(info: SnapInfoSnapshot): SnapInfoSnapshot {

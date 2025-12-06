@@ -71,7 +71,9 @@ export class DecorationsService {
       box.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z);
       const desiredSize = 1.5;
-      if (maxDim > 0) {
+      if (decoInfo.initialScale && decoInfo.initialScale > 0) {
+        decoration.scale.setScalar(decoInfo.initialScale);
+      } else if (maxDim > 0) {
         const scaleFactor = desiredSize / maxDim;
         decoration.scale.setScalar(scaleFactor);
       }

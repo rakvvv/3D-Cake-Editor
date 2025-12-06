@@ -7,4 +7,5 @@ export interface DecorationInfo {
   type: DecorationPlacementType;
   thumbnailUrl?: string;
   paintable?: boolean;
+  initialScale?: number;
 }

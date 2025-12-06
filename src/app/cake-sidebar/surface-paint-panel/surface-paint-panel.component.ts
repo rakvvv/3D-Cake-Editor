@@ -20,6 +20,7 @@ export class SurfacePaintPanelComponent {
   public sprinkleShapes: { id: SprinkleShape; label: string }[] = [
     { id: 'stick', label: 'Patyczki' },
     { id: 'ball', label: 'Kuleczki' },
+    { id: 'star', label: 'Gwiazdki' },
   ];
 
   constructor(public readonly painting: SurfacePaintingService) {}
