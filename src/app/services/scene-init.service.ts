@@ -20,6 +20,8 @@ export class SceneInitService {
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
 
     this.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
@@ -57,6 +59,10 @@ export class SceneInitService {
     this.scene.add(ambient);
     const directional = new THREE.DirectionalLight(0xffffff, 1);
     directional.position.set(10, 20, 10);
+    directional.castShadow = true;
+    directional.shadow.mapSize.set(2048, 2048);
+    directional.shadow.camera.near = 0.1;
+    directional.shadow.camera.far = 100;
     this.scene.add(directional);
 
     this.animate();
