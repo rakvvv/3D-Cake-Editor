@@ -78,6 +78,7 @@ export class SurfacePaintingService {
   private paintEntries: THREE.Object3D[] = [];
   private shaderUniforms?: PaintingShaderUniforms;
   private readonly tempMatrix = new THREE.Matrix4();
+  private readonly tempMatrixInverse = new THREE.Matrix4();
   private readonly tempColor = new THREE.Color();
 
   constructor(@Inject(PLATFORM_ID) platformId: object, private readonly paintService: PaintService) {
@@ -258,14 +259,8 @@ export class SurfacePaintingService {
 
       const materialArray = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       materialArray.forEach((mat) => {
-        const typed = mat as any;
-        if (!typed.userData) typed.userData = {};
-        if (!typed.userData.__surfacePaintApplied) {
-          this.patchMaterialForGradient(mat as THREE.Material);
-          typed.userData.__surfacePaintApplied = true;
-        }
-        mat.needsUpdate = true;
-        this.paintedMaterials.push(mat);
+        if (!(mat as any).userData) (mat as any).userData = {};
+        this.patchMaterialForGradient(mat as THREE.Material);
       });
     });
   }
@@ -303,50 +298,65 @@ export class SurfacePaintingService {
 
   private patchMaterialForGradient(mat: THREE.Material): void {
     if (!this.shaderUniforms) return;
+
     const typed = mat as THREE.MeshStandardMaterial;
-    const originalCompile = typed.onBeforeCompile?.bind(typed);
-    if (typed.userData?.['__gradientPatched']) {
+
+    // jeśli już spatchowane – tylko odśwież
+    if ((typed as any).__surfacePaintApplied) {
+      this.paintedMaterials.push(typed);
       typed.needsUpdate = true;
       return;
     }
 
-    typed.onBeforeCompile = (shader, renderer) => {
+    const originalCompile = typed.onBeforeCompile?.bind(typed);
+    const uniforms = this.shaderUniforms;
+
+    typed.onBeforeCompile = (shader: any, renderer: THREE.WebGLRenderer) => {
+      // wywołujemy poprzednią wersję z dwoma argumentami
       originalCompile?.(shader, renderer);
-      shader.uniforms['gradientMap'] = this.shaderUniforms!.gradientMap;
-      shader.uniforms['useGradient'] = this.shaderUniforms!.useGradient;
-      shader.uniforms['gradientMinY'] = this.shaderUniforms!.gradientMinY;
-      shader.uniforms['gradientHeight'] = this.shaderUniforms!.gradientHeight;
-      shader.uniforms['gradientFlip'] = this.shaderUniforms!.gradientFlip;
+
+      shader.defines = shader.defines ?? {};
+      shader.defines['USE_UV'] = '';
+
+      // --- vertex: dodajemy własne UV do malowania ---
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <common>',
+        '#include <common>\nvarying vec2 vPaintingUv;',
+      );
 
       shader.vertexShader = shader.vertexShader.replace(
-        '#include <worldpos_vertex>',
-        `#include <worldpos_vertex>
-         vWorldPosition = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;
-        `,
+        '#include <uv_vertex>',
+        '#include <uv_vertex>\n  vPaintingUv = uv;',
       );
 
-      shader.vertexShader = `varying vec3 vWorldPosition;\n${shader.vertexShader}`;
-      shader.fragmentShader = `varying vec3 vWorldPosition;\n${shader.fragmentShader}`;
+      // --- uniforms gradientu ---
+      shader.uniforms['gradientMap'] = uniforms.gradientMap;
+      shader.uniforms['useGradient'] = uniforms.useGradient;
+
+      // --- fragment: deklaracje + miksowanie koloru ---
+      shader.fragmentShader =
+        'uniform sampler2D gradientMap;\n' +
+        'uniform bool useGradient;\n' +
+        'varying vec2 vPaintingUv;\n' +
+        shader.fragmentShader;
+
+      const overlayChunk = `
+      vec4 gradSample = texture2D(gradientMap, vPaintingUv);
+      vec3 gradLinear = pow(gradSample.rgb, vec3(2.2));
+      if (useGradient) {
+        diffuseColor.rgb = mix(diffuseColor.rgb, gradLinear, gradSample.a);
+      }
+    `;
 
       shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <dithering_fragment>',
-        `
-          float gradientV = clamp((vWorldPosition.y - gradientMinY) / gradientHeight, 0.0, 1.0);
-          #ifdef USE_UV
-            vec2 gradUV = vec2(vUv.x, gradientFlip > 0.5 ? 1.0 - gradientV : gradientV);
-          #else
-            vec2 gradUV = vec2(0.5, gradientFlip > 0.5 ? 1.0 - gradientV : gradientV);
-          #endif
-          vec4 gradientSample = texture2D( gradientMap, gradUV );
-          vec3 gradientColor = mix( vec3( 1.0 ), gradientSample.rgb, useGradient ? 1.0 : 0.0 );
-          diffuseColor.rgb *= gradientColor;
-          #include <dithering_fragment>
-        `,
+        '#include <map_fragment>',
+        '#include <map_fragment>\n' + overlayChunk,
       );
     };
-    if (!typed.userData) typed.userData = {};
-    typed.userData['__gradientPatched'] = true;
+
+    (typed as any).__surfacePaintApplied = true;
     typed.needsUpdate = true;
+    this.paintedMaterials.push(typed);
   }
 
   private updateGradientTexture(): void {
@@ -562,10 +572,25 @@ export class SurfacePaintingService {
     if (!this.brushStrokeMesh) return;
     if (this.brushStrokeIndex >= this.brushStrokeCapacity) return;
 
+    const anchor = this.paintAnchor;
+    if (anchor) anchor.updateMatrixWorld(true);
+    const anchorInverse = anchor
+      ? this.tempMatrixInverse.copy(anchor.matrixWorld).invert()
+      : null;
+
     const radius = this.computeBrushRadius();
 
-    const zAxis = normal.clone();
-    const yAxis = direction.clone().projectOnPlane(zAxis).normalize();
+    const worldNormal = normal.clone();
+    const worldDirection = direction.clone();
+    const zAxis = anchorInverse
+      ? worldNormal.transformDirection(anchorInverse).normalize()
+      : worldNormal;
+    const yAxis = (anchorInverse
+      ? worldDirection.transformDirection(anchorInverse)
+      : worldDirection
+    )
+      .projectOnPlane(zAxis)
+      .normalize();
     yAxis.negate();
     const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
 
@@ -574,8 +599,9 @@ export class SurfacePaintingService {
     // Stały, minimalny offset (bez lewitowania)
     const baseOffset = 0.0015;
     const sortingOffset = (this.brushStrokeIndex * 0.000002);
-    const position = point.clone().add(normal.clone().multiplyScalar(baseOffset + sortingOffset));
-    matrix.setPosition(position);
+    const positionWorld = point.clone().add(worldNormal.clone().multiplyScalar(baseOffset + sortingOffset));
+    const positionLocal = anchor ? anchor.worldToLocal(positionWorld) : positionWorld;
+    matrix.setPosition(positionLocal);
 
     // --- POPRAWKA 3: KSZTAŁT ---
 
@@ -630,6 +656,12 @@ export class SurfacePaintingService {
     }
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup) return;
 
+    const anchor = this.paintAnchor;
+    if (anchor) anchor.updateMatrixWorld(true);
+    const anchorInverse = anchor
+      ? this.tempMatrixInverse.copy(anchor.matrixWorld).invert()
+      : null;
+
     const normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
     if (hit.object) {
       hit.object.updateMatrixWorld();
@@ -668,7 +700,8 @@ export class SurfacePaintingService {
       const tilt = new THREE.Quaternion().setFromAxisAngle(tiltAxis, tiltAmount);
       baseQuat.multiply(tilt).multiply(twist);
 
-      const matrix = new THREE.Matrix4().compose(position, baseQuat, new THREE.Vector3(scale, scale, scale));
+      const matrixWorld = new THREE.Matrix4().compose(position, baseQuat, new THREE.Vector3(scale, scale, scale));
+      const matrix = anchorInverse ? matrixWorld.premultiply(anchorInverse) : matrixWorld;
       this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, matrix);
       const colorValue = this.sprinkleUseRandomColors
         ? SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]
