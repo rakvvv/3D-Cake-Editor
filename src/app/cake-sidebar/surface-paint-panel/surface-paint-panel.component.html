@@ -71,6 +71,34 @@
     <label>Maksymalne powiększenie</label>
     <input type="range" min="0.7" max="2" step="0.05" [(ngModel)]="painting.sprinkleMaxScale" />
 
+    <label>Kolory posypki</label>
+    <div class="surface-paint__inline">
+      <label>
+        <input
+          type="radio"
+          name="sprinkle-colors"
+          [checked]="painting.sprinkleUseRandomColors"
+          (change)="painting.setSprinkleColorMode(true)"
+        />
+        Losowe
+      </label>
+      <label>
+        <input
+          type="radio"
+          name="sprinkle-colors"
+          [checked]="!painting.sprinkleUseRandomColors"
+          (change)="painting.setSprinkleColorMode(false)"
+        />
+        Własny kolor
+      </label>
+      <input
+        type="color"
+        [disabled]="painting.sprinkleUseRandomColors"
+        [(ngModel)]="painting.sprinkleColor"
+        (ngModelChange)="painting.setSprinkleColor($event)"
+      />
+    </div>
+
     <div class="surface-paint__actions">
       <button type="button" (click)="painting.clearSprinkles()">Usuń posypkę</button>
     </div>

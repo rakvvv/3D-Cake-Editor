@@ -160,9 +160,13 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
   }
 
   updateCakeOptions(): void {
+    const safeCakeColor = this.sanitizeColor(this.cakeColor);
+    const safeGlazeColor = this.sanitizeColor(this.glazeColor);
+    this.cakeColor = safeCakeColor;
+    this.glazeColor = safeGlazeColor;
     this.cakeOptionsChange.emit({
       cake_size: this.cakeSize,
-      cake_color: this.cakeColor,
+      cake_color: safeCakeColor,
       cake_text: this.cakeText,
       cake_text_value: this.cakeTextValue,
       cake_text_position: this.cakeTextPosition,
@@ -173,7 +177,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
       shape: this.cakeShape,
       layerSizes: [...this.cakeLayerSizes],
       glaze_enabled: this.glazeEnabled,
-      glaze_color: this.glazeColor,
+      glaze_color: safeGlazeColor,
       glaze_thickness: this.glazeThickness,
       glaze_drip_length: this.glazeDripLength,
       glaze_seed: this.glazeSeed,

@@ -8,6 +8,7 @@ export type GradientDirection = 'vertical';
 export type SprinkleShape = 'stick' | 'ball' | 'star';
 
 const SPRINKLE_PALETTE = ['#ff6b81', '#ffd66b', '#6bffb0', '#6bb8ff', '#ffffff'];
+const DEFAULT_SPRINKLE_COLOR = SPRINKLE_PALETTE[0];
 
 interface PaintingShaderUniforms {
   gradientMap: { value: THREE.Texture };
@@ -34,6 +35,8 @@ export class SurfacePaintingService {
   public sprinkleShape: SprinkleShape = 'stick';
   public sprinkleMinScale = 0.7;
   public sprinkleMaxScale = 1.2;
+  public sprinkleUseRandomColors = true;
+  public sprinkleColor = DEFAULT_SPRINKLE_COLOR;
 
   private readonly isBrowser: boolean;
   private gradientCanvas?: HTMLCanvasElement;
@@ -71,6 +74,7 @@ export class SurfacePaintingService {
   private paintEntries: THREE.Object3D[] = [];
   private shaderUniforms?: PaintingShaderUniforms;
   private readonly tempMatrix = new THREE.Matrix4();
+  private readonly tempColor = new THREE.Color();
 
   constructor(@Inject(PLATFORM_ID) platformId: object, private readonly paintService: PaintService) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -164,6 +168,14 @@ export class SurfacePaintingService {
     this.finalizeCurrentSprinkleStroke();
     this.sprinkleShape = shape;
     this.prepareSprinkleStroke();
+  }
+
+  public setSprinkleColorMode(useRandom: boolean): void {
+    this.sprinkleUseRandomColors = useRandom;
+  }
+
+  public setSprinkleColor(color: string): void {
+    this.sprinkleColor = this.sanitizeHexColor(color, this.sprinkleColor);
   }
 
   public clearBrushStrokes(): void {
@@ -574,15 +586,15 @@ export class SurfacePaintingService {
     const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
 
     const anchor = hit.point.clone();
-    const clusterSpacing = 0.1;
+    const clusterSpacing = 0.12;
     const isFirstCluster = !this.lastSprinklePoint;
     if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchor) < clusterSpacing) return;
     if (!isFirstCluster && Math.random() < 0.4) return;
     this.lastSprinklePoint = anchor.clone();
 
     const densityFactor = THREE.MathUtils.clamp(this.sprinkleDensity / 20, 0, 1);
-    const count = Math.max(3, Math.round(THREE.MathUtils.lerp(4, 10, densityFactor)));
-    const scatterRadius = THREE.MathUtils.lerp(0.1, 0.18, densityFactor);
+    const count = Math.max(2, Math.round(THREE.MathUtils.lerp(3, 7, densityFactor)));
+    const scatterRadius = THREE.MathUtils.lerp(0.08, 0.16, densityFactor);
 
     for (let i = 0; i < count; i++) {
       if (this.sprinkleStrokeIndex >= this.sprinkleStrokeCapacity) break;
@@ -603,10 +615,11 @@ export class SurfacePaintingService {
 
       const matrix = new THREE.Matrix4().compose(position, baseQuat, new THREE.Vector3(scale, scale, scale));
       this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, matrix);
-      this.sprinkleStrokeMesh.setColorAt(
-        this.sprinkleStrokeIndex,
-        new THREE.Color(SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]),
-      );
+      const colorValue = this.sprinkleUseRandomColors
+        ? SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]
+        : this.sprinkleColor;
+      this.tempColor.set(colorValue);
+      this.sprinkleStrokeMesh.setColorAt(this.sprinkleStrokeIndex, this.tempColor);
       this.sprinkleStrokeIndex++;
     }
     this.sprinkleStrokeMesh.count = Math.max(this.sprinkleStrokeMesh.count, this.sprinkleStrokeIndex);
@@ -671,7 +684,7 @@ export class SurfacePaintingService {
     if (!targetScene) return;
     if (this.sprinkleStrokeGroup) this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
 
-    const capacity = 8000;
+    const capacity = 5000;
     const geometry = this.sprinkleGeometryCache![this.sprinkleShape];
     const material = this.sprinkleMaterial!;
     const mesh = new THREE.InstancedMesh(geometry, material, capacity);
@@ -717,6 +730,11 @@ export class SurfacePaintingService {
       if (this.gradientTexture) this.shaderUniforms.gradientMap.value = this.gradientTexture;
     }
     this.paintedMaterials.forEach((mat) => (mat.needsUpdate = true));
+  }
+
+  private sanitizeHexColor(value: string, fallback: string = DEFAULT_SPRINKLE_COLOR): string {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return /^#([0-9a-fA-F]{6})$/.test(normalized) ? normalized : fallback;
   }
 
   private disposeSprinkles(): void {
