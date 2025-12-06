@@ -159,6 +159,13 @@ export class SurfacePaintingService {
     this.disposeSprinkles();
   }
 
+  public setSprinkleShape(shape: SprinkleShape): void {
+    if (this.sprinkleShape === shape) return;
+    this.finalizeCurrentSprinkleStroke();
+    this.sprinkleShape = shape;
+    this.prepareSprinkleStroke();
+  }
+
   public clearBrushStrokes(): void {
     this.disposePaintStrokes();
   }
@@ -263,9 +270,11 @@ export class SurfacePaintingService {
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <dithering_fragment>',
         `
-          vec4 gradientSample = texture2D( gradientMap, vUv );
-          vec3 gradientColor = mix( vec3( 1.0 ), gradientSample.rgb, useGradient ? 1.0 : 0.0 );
-          diffuseColor.rgb *= gradientColor;
+          #ifdef USE_UV
+            vec4 gradientSample = texture2D( gradientMap, vUv );
+            vec3 gradientColor = mix( vec3( 1.0 ), gradientSample.rgb, useGradient ? 1.0 : 0.0 );
+            diffuseColor.rgb *= gradientColor;
+          #endif
           #include <dithering_fragment>
         `,
       );
@@ -615,14 +624,15 @@ export class SurfacePaintingService {
     }
     if (!this.sprinkleMaterial) {
       this.sprinkleMaterial = new THREE.MeshStandardMaterial({
-        metalness: 0.08,
-        roughness: 0.32,
+        metalness: 0,
+        roughness: 0.18,
         vertexColors: true,
         color: '#ffffff',
-        emissive: new THREE.Color('#1a1a1a'),
-        emissiveIntensity: 0.35,
+        emissive: new THREE.Color('#ffffff'),
+        emissiveIntensity: 0.65,
         toneMapped: false,
         flatShading: true,
+        envMapIntensity: 0.4,
       });
     }
   }
@@ -646,7 +656,10 @@ export class SurfacePaintingService {
       bevelSegments: 2,
     });
     extrude.center();
-    return new THREE.BufferGeometry().copy(extrude.toNonIndexed());
+    if (extrude.index) {
+      extrude.toNonIndexed();
+    }
+    return new THREE.BufferGeometry().copy(extrude);
   }
 
   private prepareSprinkleStroke(scene?: THREE.Scene): void {
@@ -680,6 +693,22 @@ export class SurfacePaintingService {
     this.sprinkleStrokeIndex = 0;
     this.sprinkleStrokeCapacity = capacity;
     this.sprinkleStrokeShape = this.sprinkleShape;
+  }
+
+  private finalizeCurrentSprinkleStroke(): void {
+    if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh) {
+      if (this.sprinkleStrokeIndex > 0) {
+        this.paintService.registerDecorationAddition(this.sprinkleStrokeGroup);
+        this.sprinkleEntries.push(this.sprinkleStrokeGroup);
+      } else {
+        this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
+      }
+    }
+    this.sprinkleStrokeGroup = null;
+    this.sprinkleStrokeMesh = null;
+    this.sprinkleStrokeIndex = 0;
+    this.sprinkleStrokeCapacity = 0;
+    this.sprinkleStrokeShape = null;
   }
 
   private flagMaterialUpdate(): void {

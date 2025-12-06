@@ -57,7 +57,7 @@
 
   <div *ngIf="painting.mode === 'sprinkles'" class="surface-paint__section">
     <label>Kształt</label>
-    <select [(ngModel)]="painting.sprinkleShape" (ngModelChange)="painting.clearSprinkles()">
+    <select [ngModel]="painting.sprinkleShape" (ngModelChange)="painting.setSprinkleShape($event)">
       <option *ngFor="let shape of sprinkleShapes" [value]="shape.id">{{ shape.label }}</option>
     </select>
 

@@ -111,7 +111,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
 
   private applyOptions(options: CakeOptions): void {
     this.cakeSize = options.cake_size;
-    this.cakeColor = options.cake_color || '#ffffff';
+    this.cakeColor = this.sanitizeColor(options.cake_color);
     this.cakeText = options.cake_text;
     this.cakeTextValue = options.cake_text_value;
     this.cakeTextPosition = options.cake_text_position;
@@ -122,7 +122,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
     this.cakeShape = options.shape;
     this.cakeLayerSizes = [...options.layerSizes];
     this.glazeEnabled = options.glaze_enabled;
-    this.glazeColor = options.glaze_color || '#ffffff';
+    this.glazeColor = this.sanitizeColor(options.glaze_color);
     this.glazeThickness = options.glaze_thickness;
     this.glazeDripLength = options.glaze_drip_length;
     this.glazeSeed = options.glaze_seed;
@@ -134,6 +134,11 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
     this.waferTextureZoom = options.wafer_texture_zoom;
     this.waferTextureOffsetX = options.wafer_texture_offset_x;
     this.waferTextureOffsetY = options.wafer_texture_offset_y;
+  }
+
+  private sanitizeColor(value: string | null | undefined): string {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return /^#([0-9a-fA-F]{6})$/.test(normalized) ? normalized : '#ffffff';
   }
 
   private clampLayerSize(value: number, min: number, max: number): number {
