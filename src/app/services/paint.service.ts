@@ -174,7 +174,9 @@ export class PaintService {
       return;
     }
 
-    const hit = intersects[0];
+    const hit =
+      intersects.find((intersection) => !this.isPaintStroke(intersection.object)) ??
+      intersects[0];
     const pointOnCakeWorld = hit.point.clone();
     const normal = this.getWorldNormal(hit) ?? new THREE.Vector3(0, 1, 0);
 
@@ -236,6 +238,15 @@ export class PaintService {
     this.extruderLastPlacedPoint = null;
     this.extruderLastNormal = null;
     this.extruderFirstInstance = null;
+  }
+
+  private isPaintStroke(object: THREE.Object3D | null): boolean {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      if (current.userData?.['isPaintStroke']) return true;
+      current = current.parent;
+    }
+    return false;
   }
 
   public endStroke(): void {
@@ -335,6 +346,7 @@ export class PaintService {
 
     const lastObject = this.undoStack.pop()!;
     lastObject.parent?.remove(lastObject);
+    lastObject.userData['removedByUndo'] = true;
     this.redoStack.push(lastObject);
     this.notifySceneChanged();
   }
@@ -347,6 +359,7 @@ export class PaintService {
     const object = this.redoStack.pop()!;
     const targetParent = this.getPaintParent(object) ?? this.sceneRef;
     targetParent.add(object);
+    delete object.userData['removedByUndo'];
     this.undoStack.push(object);
     this.notifySceneChanged();
   }

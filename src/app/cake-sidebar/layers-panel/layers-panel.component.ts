@@ -111,7 +111,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
 
   private applyOptions(options: CakeOptions): void {
     this.cakeSize = options.cake_size;
-    this.cakeColor = options.cake_color;
+    this.cakeColor = this.sanitizeColor(options.cake_color);
     this.cakeText = options.cake_text;
     this.cakeTextValue = options.cake_text_value;
     this.cakeTextPosition = options.cake_text_position;
@@ -122,7 +122,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
     this.cakeShape = options.shape;
     this.cakeLayerSizes = [...options.layerSizes];
     this.glazeEnabled = options.glaze_enabled;
-    this.glazeColor = options.glaze_color;
+    this.glazeColor = this.sanitizeColor(options.glaze_color);
     this.glazeThickness = options.glaze_thickness;
     this.glazeDripLength = options.glaze_drip_length;
     this.glazeSeed = options.glaze_seed;
@@ -134,6 +134,11 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
     this.waferTextureZoom = options.wafer_texture_zoom;
     this.waferTextureOffsetX = options.wafer_texture_offset_x;
     this.waferTextureOffsetY = options.wafer_texture_offset_y;
+  }
+
+  private sanitizeColor(value: string | null | undefined): string {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return /^#([0-9a-fA-F]{6})$/.test(normalized) ? normalized : '#ffffff';
   }
 
   private clampLayerSize(value: number, min: number, max: number): number {
@@ -155,9 +160,13 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
   }
 
   updateCakeOptions(): void {
+    const safeCakeColor = this.sanitizeColor(this.cakeColor);
+    const safeGlazeColor = this.sanitizeColor(this.glazeColor);
+    this.cakeColor = safeCakeColor;
+    this.glazeColor = safeGlazeColor;
     this.cakeOptionsChange.emit({
       cake_size: this.cakeSize,
-      cake_color: this.cakeColor,
+      cake_color: safeCakeColor,
       cake_text: this.cakeText,
       cake_text_value: this.cakeTextValue,
       cake_text_position: this.cakeTextPosition,
@@ -168,7 +177,7 @@ export class LayersPanelComponent implements OnDestroy, OnChanges {
       shape: this.cakeShape,
       layerSizes: [...this.cakeLayerSizes],
       glaze_enabled: this.glazeEnabled,
-      glaze_color: this.glazeColor,
+      glaze_color: safeGlazeColor,
       glaze_thickness: this.glazeThickness,
       glaze_drip_length: this.glazeDripLength,
       glaze_seed: this.glazeSeed,

@@ -182,7 +182,8 @@
     "modelFileName": "gwiazdka_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "initialScale": 0.18
   },
   {
     "id": "star-side-2",
@@ -190,7 +191,8 @@
     "modelFileName": "gwiazdka2_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "initialScale": 0.18
   },
   {
     "id": "star-side-3",
@@ -198,7 +200,8 @@
     "modelFileName": "gwiazdka3_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true
+    "paintable": true,
+    "initialScale": 0.18
   },
 
   {

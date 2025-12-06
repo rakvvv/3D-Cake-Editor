@@ -78,3 +78,10 @@
   color: #666;
   text-align: right;
 }
+
+.surface-paint__inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

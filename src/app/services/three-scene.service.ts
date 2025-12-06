@@ -140,20 +140,20 @@ export class ThreeSceneService {
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-        if (!intersectsCake.length || this.transformControlsService.isDragging()) {
+        const paintHit = this.pickPaintableHit(intersectsCake);
+        if (!paintHit || this.transformControlsService.isDragging()) {
           this.onClickDown(event);
           return;
         }
-        const firstHit = intersectsCake[0];
 
-        if (!this.isPaintable(firstHit.object)) {
+        if (!this.isPaintable(paintHit.object)) {
           this.onClickDown(event);
           return;
         }
 
         this.surfacePainting.startStroke();
         this.sceneInitService.setOrbitEnabled(false);
-        void this.surfacePainting.handlePointer(intersectsCake[0], this.scene);
+        void this.surfacePainting.handlePointer(paintHit, this.scene);
         return;
       }
 
@@ -201,16 +201,15 @@ export class ThreeSceneService {
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-        if (!intersectsCake.length) {
+        const paintHit = this.pickPaintableHit(intersectsCake);
+        if (!paintHit) {
           return;
         }
-        const firstHit = intersectsCake[0];
-
-        if (!this.isPaintable(firstHit.object)) {
+        if (!this.isPaintable(paintHit.object)) {
           // Opcja A: Przerywamy ten konkretny "krok" malowania (pędzel nie stawia kropki, ale jak zjedziesz z polewy to maluje dalej)
           return;
         }
-          void this.surfacePainting.handlePointer(intersectsCake[0], this.scene);
+          void this.surfacePainting.handlePointer(paintHit, this.scene);
         return;
       }
 
@@ -1608,11 +1607,22 @@ export class ThreeSceneService {
   }
 
   private duplicateDecoration(object: THREE.Object3D): THREE.Object3D {
+    const originalUserData = new Map<THREE.Object3D, any>();
+
+    object.traverse((node) => {
+      originalUserData.set(node, node.userData);
+      node.userData = this.cloneUserData(node.userData);
+    });
+
     const clone = object.clone(true);
+
+    originalUserData.forEach((data, node) => {
+      node.userData = data;
+    });
     const meshes: THREE.Mesh[] = [];
 
     clone.traverse((node) => {
-      node.userData = { ...node.userData };
+      node.userData = this.cloneUserData(node.userData);
 
       if ((node as THREE.Mesh).isMesh) {
         const mesh = node as THREE.Mesh;
@@ -1640,6 +1650,59 @@ export class ThreeSceneService {
     clone.userData['isSnapped'] = false;
 
     return clone;
+  }
+
+  private cloneUserData(source: any): Record<string, unknown> {
+    if (!source || typeof source !== 'object') {
+      return {};
+    }
+
+    return (this.sanitizeUserData(source, new WeakSet()) as Record<string, unknown>) ?? {};
+  }
+
+  private sanitizeUserData(value: any, seen: WeakSet<object>): unknown {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+
+    if (typeof value !== 'object') {
+      return value;
+    }
+
+    if (value instanceof THREE.Object3D) {
+      return undefined;
+    }
+
+    if (seen.has(value)) {
+      return undefined;
+    }
+
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      const arr: unknown[] = [];
+      value.forEach((entry) => {
+        const sanitized = this.sanitizeUserData(entry, seen);
+        if (sanitized !== undefined) {
+          arr.push(sanitized);
+        }
+      });
+      return arr;
+    }
+
+    const result: Record<string, unknown> = {};
+    Object.entries(value).forEach(([key, entry]) => {
+      if (key === 'paintParent') {
+        return;
+      }
+
+      const sanitized = this.sanitizeUserData(entry, seen);
+      if (sanitized !== undefined) {
+        result[key] = sanitized;
+      }
+    });
+
+    return result;
   }
 
   private cloneSnapInfo(info: SnapInfoSnapshot): SnapInfoSnapshot {
@@ -1694,6 +1757,22 @@ export class ThreeSceneService {
       current = current.parent;
     }
 
+    return false;
+  }
+
+  private pickPaintableHit(intersects: THREE.Intersection[]): THREE.Intersection | null {
+    if (!intersects.length) return null;
+    return intersects.find((intersection) => !this.isPaintStroke(intersection.object)) ?? intersects[0];
+  }
+
+  private isPaintStroke(object: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      if (current.userData?.['isPaintStroke']) {
+        return true;
+      }
+      current = current.parent ?? null;
+    }
     return false;
   }
 }

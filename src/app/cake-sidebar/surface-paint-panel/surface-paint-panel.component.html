@@ -22,15 +22,15 @@
     <input type="color" [(ngModel)]="painting.brushColor" />
 
     <label>Rozmiar</label>
-    <input type="range" min="0" max="100" [(ngModel)]="painting.brushSize" />
-    <span class="surface-paint__value">{{ painting.brushSize | number: '1.0-0' }} / 100</span>
+    <input type="range" min="0" max="150" [(ngModel)]="painting.brushSize" />
+    <span class="surface-paint__value">{{ painting.brushSize | number: '1.0-0' }} / 150</span>
 
     <label>Nieprzezroczystość</label>
     <input type="range" min="0.05" max="1" step="0.05" [(ngModel)]="painting.brushOpacity" />
     <span class="surface-paint__value">{{ painting.brushOpacity | number: '1.2-2' }}</span>
 
     <div class="surface-paint__actions">
-      <button type="button" (click)="painting.endStroke(); painting.clearPaint()">Wyczyść</button>
+      <button type="button" (click)="painting.endStroke(); painting.clearBrushStrokes()">Wyczyść</button>
     </div>
   </div>
 
@@ -57,7 +57,7 @@
 
   <div *ngIf="painting.mode === 'sprinkles'" class="surface-paint__section">
     <label>Kształt</label>
-    <select [(ngModel)]="painting.sprinkleShape" (ngModelChange)="painting.clearPaint()">
+    <select [ngModel]="painting.sprinkleShape" (ngModelChange)="painting.setSprinkleShape($event)">
       <option *ngFor="let shape of sprinkleShapes" [value]="shape.id">{{ shape.label }}</option>
     </select>
 
@@ -71,8 +71,36 @@
     <label>Maksymalne powiększenie</label>
     <input type="range" min="0.7" max="2" step="0.05" [(ngModel)]="painting.sprinkleMaxScale" />
 
+    <label>Kolory posypki</label>
+    <div class="surface-paint__inline">
+      <label>
+        <input
+          type="radio"
+          name="sprinkle-colors"
+          [checked]="painting.sprinkleUseRandomColors"
+          (change)="painting.setSprinkleColorMode(true)"
+        />
+        Losowe
+      </label>
+      <label>
+        <input
+          type="radio"
+          name="sprinkle-colors"
+          [checked]="!painting.sprinkleUseRandomColors"
+          (change)="painting.setSprinkleColorMode(false)"
+        />
+        Własny kolor
+      </label>
+      <input
+        type="color"
+        [disabled]="painting.sprinkleUseRandomColors"
+        [(ngModel)]="painting.sprinkleColor"
+        (ngModelChange)="painting.setSprinkleColor($event)"
+      />
+    </div>
+
     <div class="surface-paint__actions">
-      <button type="button" (click)="painting.clearPaint()">Usuń posypkę</button>
+      <button type="button" (click)="painting.clearSprinkles()">Usuń posypkę</button>
     </div>
   </div>
 </div>
