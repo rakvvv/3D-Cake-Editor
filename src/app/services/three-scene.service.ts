@@ -60,6 +60,7 @@ export class ThreeSceneService {
   private mouse = new THREE.Vector2();
   private boxHelper: THREE.BoxHelper | null = null;
   private clipboard: DecorationClipboardEntry | null = null;
+  private readonly anchorOccupants = new Map<string, THREE.Object3D>();
   private readonly outlineChanged = new Subject<void>();
   public readonly outlineChanges$ = this.outlineChanged.asObservable();
 
@@ -888,10 +889,16 @@ export class ThreeSceneService {
     this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const anchorHit = this.anchorPresetsService.pickAnchor(this.raycaster);
-    if (anchorHit) {
-      this.anchorPresetsService.emitAnchorClick(anchorHit.id);
-      return null;
+    const canClickAnchors =
+      this.anchorPresetsService.areMarkersVisible() &&
+      (this.anchorPresetsService.getActionMode() === 'move' || !this.transformControlsService.getSelectedObject());
+
+    if (canClickAnchors) {
+      const anchorHit = this.anchorPresetsService.pickAnchor(this.raycaster);
+      if (anchorHit) {
+        this.anchorPresetsService.emitAnchorClick(anchorHit.id);
+        return null;
+      }
     }
     const intersects = this.raycaster.intersectObjects(
       this.objects.filter((obj) => obj !== this.cakeBase && !obj.userData['isPainted']),
@@ -989,6 +996,11 @@ export class ThreeSceneService {
       this.snapService.clearSnapInfo(child);
       this.disposeObjectResources(child);
     });
+
+    const anchorId = object.userData['anchorId'] as string | undefined;
+    if (anchorId) {
+      this.clearAnchorOccupant(anchorId, object);
+    }
 
     this.emitOutlineChanged();
   }
@@ -1363,6 +1375,10 @@ export class ThreeSceneService {
     }
 
     const { anchor, projection } = placement;
+    const existingOccupant = this.getAnchorOccupant(anchor.id);
+    if (existingOccupant) {
+      return { success: false, message: 'Ta kotwica jest już zajęta inną dekoracją.' };
+    }
     const compatibilityError = this.validateAnchorCompatibility(
       anchor,
       decorationInfo.type,
@@ -1388,7 +1404,7 @@ export class ThreeSceneService {
       decoration.scale.setScalar(anchor.defaultScale);
     }
 
-    this.applyAnchorPlacement(decoration, projection);
+    this.applyAnchorPlacement(decoration, projection, anchor.id);
     const snapResult = this.snapService.snapDecorationToCake(decoration, anchor.surface);
 
     if (anchor.defaultRotationDeg !== undefined) {
@@ -1425,11 +1441,16 @@ export class ThreeSceneService {
     if (compatibilityError) {
       return { success: false, message: compatibilityError };
     }
+    const occupant = this.getAnchorOccupant(anchor.id);
+    if (occupant && occupant !== selected) {
+      return { success: false, message: 'Ta kotwica jest już zajęta inną dekoracją.' };
+    }
+
     if (anchor.defaultScale && anchor.defaultScale > 0) {
       selected.scale.setScalar(anchor.defaultScale);
     }
 
-    this.applyAnchorPlacement(selected, projection);
+    this.applyAnchorPlacement(selected, projection, anchor.id);
     const snapResult = this.snapService.snapDecorationToCake(selected, anchor.surface);
     if (snapResult.success && anchor.defaultRotationDeg !== undefined) {
       this.snapService.rotateDecorationByDegrees(selected, anchor.defaultRotationDeg);
@@ -1485,16 +1506,97 @@ export class ThreeSceneService {
   private applyAnchorPlacement(
     object: THREE.Object3D,
     projection: { position: THREE.Vector3; normal: THREE.Vector3 },
+    anchorId?: string,
   ): void {
     if (!this.cakeBase) {
       return;
     }
 
-    const worldTarget = this.cakeBase.localToWorld(
-      projection.position.clone().add(projection.normal.clone().multiplyScalar(0.05)),
-    );
+    const localNormal = projection.normal.clone().normalize();
+    const worldNormal = localNormal.clone().transformDirection(this.cakeBase.matrixWorld).normalize();
+    const clearance = this.computeAnchorClearance(object, worldNormal);
+    const localTarget = projection.position.clone().add(localNormal.multiplyScalar(clearance));
+    const worldTarget = this.cakeBase.localToWorld(localTarget);
+
+    const previousAnchorId = object.userData['anchorId'] as string | undefined;
+    if (previousAnchorId && previousAnchorId !== anchorId) {
+      this.clearAnchorOccupant(previousAnchorId, object);
+    }
+
+    if (anchorId) {
+      this.registerAnchorOccupant(anchorId, object);
+    } else {
+      delete object.userData['anchorId'];
+    }
+
     object.position.copy(worldTarget);
     object.updateMatrixWorld(true);
+  }
+
+  private computeAnchorClearance(object: THREE.Object3D, worldNormal: THREE.Vector3): number {
+    const box = new THREE.Box3().setFromObject(object);
+    if (box.isEmpty()) {
+      return 0.05;
+    }
+
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const halfSize = size.multiplyScalar(0.5);
+    const absNormal = new THREE.Vector3(
+      Math.abs(worldNormal.x),
+      Math.abs(worldNormal.y),
+      Math.abs(worldNormal.z),
+    ).normalize();
+    const projectedHalfExtent = absNormal.dot(halfSize);
+
+    const sphere = new THREE.Sphere();
+    box.getBoundingSphere(sphere);
+    const safeRadius = sphere.radius * 0.5;
+
+    return Math.max(projectedHalfExtent, safeRadius) + 0.02;
+  }
+
+  private getAnchorOccupant(anchorId: string): THREE.Object3D | null {
+    const occupant = this.anchorOccupants.get(anchorId);
+    if (!occupant) {
+      return null;
+    }
+
+    const stillPresent = this.scene.getObjectById(occupant.id);
+    if (!stillPresent) {
+      this.anchorOccupants.delete(anchorId);
+      return null;
+    }
+
+    return occupant;
+  }
+
+  private registerAnchorOccupant(anchorId: string, object: THREE.Object3D): void {
+    const existing = object.userData['anchorId'] as string | undefined;
+    if (existing && existing !== anchorId) {
+      this.anchorOccupants.delete(existing);
+    }
+
+    this.anchorOccupants.forEach((candidate, id) => {
+      if (candidate === object && id !== anchorId) {
+        this.anchorOccupants.delete(id);
+      }
+    });
+
+    object.userData['anchorId'] = anchorId;
+    this.anchorOccupants.set(anchorId, object);
+  }
+
+  private clearAnchorOccupant(anchorId: string, object?: THREE.Object3D): void {
+    const occupant = this.anchorOccupants.get(anchorId);
+    if (occupant && object && occupant !== object) {
+      return;
+    }
+
+    this.anchorOccupants.delete(anchorId);
+    if (object && object.userData['anchorId'] === anchorId) {
+      delete object.userData['anchorId'];
+    }
   }
 
   private validateAnchorCompatibility(
@@ -1850,6 +1952,7 @@ export class ThreeSceneService {
 
     delete clone.userData['snapInfo'];
     clone.userData['isSnapped'] = false;
+    delete clone.userData['anchorId'];
 
     return clone;
   }

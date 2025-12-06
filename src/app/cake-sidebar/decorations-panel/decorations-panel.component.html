@@ -144,6 +144,10 @@
       </button>
     </div>
 
+    <p class="decorations-panel__hint" *ngIf="!adminMode">
+      Tryb administratora (eksport kotwic) włączysz, dodając <code>?admin=1</code> do adresu strony.
+    </p>
+
     <div class="decorations-panel__admin" *ngIf="adminMode">
       <h4 class="decorations-panel__admin-title">Tryb administratora</h4>
       <p class="decorations-panel__hint">Eksport kotwic działa dla zaznaczonych, przypiętych dekoracji.</p>
