@@ -243,15 +243,15 @@ export class SurfacePaintingService {
     if (!this.shaderUniforms) return;
     const typed = mat as THREE.MeshStandardMaterial;
     const originalCompile = typed.onBeforeCompile?.bind(typed);
-    if (typed.userData?.__gradientPatched) {
+    if (typed.userData?.['__gradientPatched']) {
       typed.needsUpdate = true;
       return;
     }
 
-    typed.onBeforeCompile = (shader) => {
-      originalCompile?.(shader);
-      shader.uniforms.gradientMap = this.shaderUniforms!.gradientMap;
-      shader.uniforms.useGradient = this.shaderUniforms!.useGradient;
+    typed.onBeforeCompile = (shader, renderer) => {
+      originalCompile?.(shader, renderer);
+      shader.uniforms['gradientMap'] = this.shaderUniforms!.gradientMap;
+      shader.uniforms['useGradient'] = this.shaderUniforms!.useGradient;
       shader.fragmentShader = shader.fragmentShader.replace(
         'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
         `
@@ -263,7 +263,7 @@ export class SurfacePaintingService {
       );
     };
     if (!typed.userData) typed.userData = {};
-    typed.userData.__gradientPatched = true;
+    typed.userData['__gradientPatched'] = true;
     typed.needsUpdate = true;
   }
 
