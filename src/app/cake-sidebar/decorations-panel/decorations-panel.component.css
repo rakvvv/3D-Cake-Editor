@@ -218,6 +218,13 @@
   resize: vertical;
 }
 
+.decorations-panel__author {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
 @media (min-width: 780px) {
   .decorations-panel__filters {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);

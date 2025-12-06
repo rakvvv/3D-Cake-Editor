@@ -20,7 +20,7 @@ import { environment } from '../../environments/environment';
 import { SceneOutlineNode } from '../models/scene-outline';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { AnchorPresetsService } from './anchor-presets.service';
-import { AnchorPoint } from '../models/anchors';
+import { AnchorPoint, AnchorPreset } from '../models/anchors';
 
 interface DecorationClipboardEntry {
   template: THREE.Object3D;
@@ -1467,6 +1467,42 @@ export class ThreeSceneService {
     );
 
     return anchor ? [anchor] : [];
+  }
+
+  public buildCakePresetPayload(): { options: CakeOptions; metadata: CakeMetadata | null } {
+    return {
+      options: this.options,
+      metadata: this.cakeMetadata,
+    };
+  }
+
+  public buildAnchorPresetFromSelection(): AnchorPreset | null {
+    if (!this.cakeMetadata) {
+      return null;
+    }
+
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return null;
+    }
+
+    const displayName = (selected.userData['displayName'] as string | undefined) ?? selected.name;
+    const anchor = this.snapService.buildAnchorFromDecoration(
+      selected,
+      this.cakeMetadata,
+      selected.uuid,
+      displayName,
+    );
+
+    if (!anchor) {
+      return null;
+    }
+
+    return {
+      id: `preset-${selected.uuid}`,
+      name: `Sloty: ${displayName}`,
+      anchors: [anchor],
+    };
   }
 
   private prepareAnchorPlacement(

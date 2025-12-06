@@ -12,6 +12,7 @@ import { SceneOutlineComponent } from './scene-outline/scene-outline.component';
 import { TexturesPanelComponent } from './textures-panel/textures-panel.component';
 import { DecorationValidationIssue } from '../models/decoration-validation';
 import { ThreeSceneService } from '../services/three-scene.service';
+import { environment } from '../../environments/environment';
 type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'outline' | 'paint' | 'export';
 
 @Component({
@@ -47,6 +48,8 @@ export class CakeSidebarComponent implements OnInit {
   readonly exportGltf = output<void>();
   readonly screenshot = output<void>();
   readonly proceedDespiteWarnings = output<void>();
+
+  @Input() authorModeEnabled = environment.authorMode;
 
   private openPanels = new Set<SidebarPanelKey>(['layers']);
 

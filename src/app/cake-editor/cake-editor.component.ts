@@ -10,16 +10,20 @@ import {DecorationValidationIssue} from '../models/decoration-validation';
 import {AddDecorationRequest} from '../models/add-decoration-request';
 import {AnchorPresetsService} from '../services/anchor-presets.service';
 import {Subscription} from 'rxjs';
+import { environment } from '../../environments/environment';
+import { PresetExportDialogComponent } from '../preset-export-dialog/preset-export-dialog.component';
 
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, CakeSidebarComponent],
+  imports: [CommonModule, CakeSidebarComponent, PresetExportDialogComponent],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
 export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvasContainer') container!: ElementRef;
+
+  readonly authorModeEnabled = environment.authorMode;
 
   public options: CakeOptions = {
     cake_size: 1,

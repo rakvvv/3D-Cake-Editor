@@ -10,6 +10,7 @@ import { AddDecorationRequest, DecorationSurfaceTarget } from '../../models/add-
 import { AnchorPresetsService } from '../../services/anchor-presets.service';
 import { AnchorPreset } from '../../models/anchors';
 import { ThreeSceneService } from '../../services/three-scene.service';
+import { PresetDialogService } from '../../services/preset-dialog.service';
 
 @Component({
   selector: 'app-decorations-panel',
@@ -24,6 +25,7 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
   @Input() validationIssues: DecorationValidationIssue[] = [];
   @Input() pendingActionLabel: string | null = null;
   @Input() options?: CakeOptions;
+  @Input() authorModeEnabled = false;
   @Output() addDecoration = new EventEmitter<AddDecorationRequest>();
   @Output() validateDecorations = new EventEmitter<void>();
   @Output() transformModeChange = new EventEmitter<'translate' | 'rotate' | 'scale'>();
@@ -47,6 +49,7 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
   constructor(
     private readonly anchorPresetsService: AnchorPresetsService,
     private readonly sceneService: ThreeSceneService,
+    private readonly presetDialogService: PresetDialogService,
   ) {}
 
   ngOnInit(): void {
@@ -55,7 +58,9 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
     });
     this.decorations = this.decorationsService.getDecorations();
     this.syncTargetLayer();
-    this.adminMode = typeof window !== 'undefined' && window.location.search.toLowerCase().includes('admin');
+    this.adminMode = this.authorModeEnabled
+      && typeof window !== 'undefined'
+      && window.location.search.toLowerCase().includes('admin');
 
     void this.anchorPresetsService.loadPresets();
     this.anchorSubscriptions.push(
@@ -152,6 +157,23 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
   onExportAnchors(): void {
     const anchors = this.sceneService.exportAnchorsFromSelection();
     this.anchorExportJson = anchors.length ? JSON.stringify(anchors, null, 2) : '';
+    if (anchors.length) {
+      this.presetDialogService.open('Kotwice z zaznaczenia', anchors);
+    }
+  }
+
+  onSaveCakePreset(): void {
+    const payload = this.sceneService.buildCakePresetPayload();
+    this.presetDialogService.open('Preset tortu', payload);
+  }
+
+  onSaveSelectedSlotsPreset(): void {
+    const preset = this.sceneService.buildAnchorPresetFromSelection();
+    if (!preset) {
+      this.anchorInstruction = 'Zaznacz przyczepioną dekorację, aby wyeksportować sloty.';
+      return;
+    }
+    this.presetDialogService.open('Preset slotów kotwic', preset);
   }
 
   onValidateDecorations(): void {
