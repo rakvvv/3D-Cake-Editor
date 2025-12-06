@@ -92,7 +92,7 @@ export class SnapService {
     const pivotWorld = object.getWorldPosition(new THREE.Vector3());
     const anchorWorld = this.getAnchorPointForNormal(worldBounds, surfaceWorldNormal, object, pivotWorld);
     const anchorOffsetAlongNormal = surfaceWorldNormal.dot(anchorWorld.clone().sub(surfaceWorldPosition));
-    const effectiveOffset = -anchorOffsetAlongNormal;
+    const effectiveOffset = Math.max(0, -anchorOffsetAlongNormal);
     const anchorDelta = anchorWorld.clone().sub(pivotWorld);
     const finalWorldPosition = surfaceWorldPosition
       .clone()
