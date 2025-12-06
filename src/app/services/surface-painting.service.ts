@@ -572,10 +572,10 @@ export class SurfacePaintingService {
     if (!this.brushStrokeMesh) return;
     if (this.brushStrokeIndex >= this.brushStrokeCapacity) return;
 
-    const anchor = this.paintAnchor;
-    if (anchor) anchor.updateMatrixWorld(true);
-    const anchorInverse = anchor
-      ? this.tempMatrixInverse.copy(anchor.matrixWorld).invert()
+    const anchorGroup = this.paintAnchor;
+    if (anchorGroup) anchorGroup.updateMatrixWorld(true);
+    const anchorInverse = anchorGroup
+      ? this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert()
       : null;
 
     const radius = this.computeBrushRadius();
@@ -656,10 +656,10 @@ export class SurfacePaintingService {
     }
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup) return;
 
-    const anchor = this.paintAnchor;
-    if (anchor) anchor.updateMatrixWorld(true);
-    const anchorInverse = anchor
-      ? this.tempMatrixInverse.copy(anchor.matrixWorld).invert()
+    const anchorGroup = this.paintAnchor;
+    if (anchorGroup) anchorGroup.updateMatrixWorld(true);
+    const anchorInverse = anchorGroup
+      ? this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert()
       : null;
 
     const normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
@@ -672,12 +672,12 @@ export class SurfacePaintingService {
     tangent.normalize();
     const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
 
-    const anchor = hit.point.clone();
+    const anchorPoint = hit.point.clone();
     const clusterSpacing = 0.12;
     const isFirstCluster = !this.lastSprinklePoint;
-    if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchor) < clusterSpacing) return;
+    if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPoint) < clusterSpacing) return;
     if (!isFirstCluster && Math.random() < 0.4) return;
-    this.lastSprinklePoint = anchor.clone();
+    this.lastSprinklePoint = anchorPoint.clone();
 
     const densityFactor = THREE.MathUtils.clamp(this.sprinkleDensity / 20, 0, 1);
     const count = Math.max(2, Math.round(THREE.MathUtils.lerp(3, 7, densityFactor)));
@@ -690,7 +690,7 @@ export class SurfacePaintingService {
       const offset = tangent.clone().multiplyScalar(Math.cos(angle) * radius).add(
         bitangent.clone().multiplyScalar(Math.sin(angle) * radius),
       );
-      const position = anchor.clone().add(offset).add(normal.clone().multiplyScalar(0.006));
+      const position = anchorPoint.clone().add(offset).add(normal.clone().multiplyScalar(0.006));
       const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale + 0.4, Math.random());
 
       const baseQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
