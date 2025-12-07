@@ -7,6 +7,9 @@ import { DecorationValidationIssue } from '../../models/decoration-validation';
 import { Subscription } from 'rxjs';
 import { CakeOptions } from '../../models/cake.options';
 import { AddDecorationRequest, DecorationSurfaceTarget } from '../../models/add-decoration-request';
+import { QuickAttachService } from '../../services/quick-attach.service';
+import { ThreeSceneService } from '../../services/three-scene.service';
+import { QuickAttachPatternPreset } from '../../models/quick-attach';
 
 @Component({
   selector: 'app-decorations-panel',
@@ -31,18 +34,32 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
   decorations: DecorationInfo[] = [];
   placementSurface: DecorationSurfaceTarget = 'AUTO';
   targetLayerIndex = 0;
+  quickAttachPatternId: string | null = null;
+  quickAttachDecorationId: string | null = null;
+  quickAttachPreview = false;
+  quickAttachStatus: string | null = null;
+  quickAttachExportName = 'quick-attach-preset';
+  quickAttachExportJson: string | null = null;
   private subscription?: Subscription;
+
+  constructor(
+    private readonly quickAttachService: QuickAttachService,
+    private readonly sceneService: ThreeSceneService,
+  ) {}
 
   ngOnInit(): void {
     this.subscription = this.decorationsService?.decorations$.subscribe((decorations) => {
       this.decorations = decorations;
+      this.syncQuickAttachDefaults();
     });
     this.decorations = this.decorationsService.getDecorations();
     this.syncTargetLayer();
+    this.syncQuickAttachDefaults();
   }
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+    this.quickAttachService.clearMarkers();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -58,6 +75,14 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
         this.filterType === 'ALL' || decoration.type === this.filterType;
       return matchesText && matchesType;
     });
+  }
+
+  get quickAttachPresets(): ReadonlyArray<QuickAttachPatternPreset> {
+    return this.quickAttachService.presets;
+  }
+
+  get quickAttachAdminMode(): boolean {
+    return this.quickAttachService.adminMode;
   }
 
   onAddDecoration(decoration: DecorationInfo): void {
@@ -144,5 +169,66 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
 
   get hasValidationIssues(): boolean {
     return this.validationIssues.length > 0;
+  }
+
+  onQuickAttachPatternChange(patternId: string): void {
+    this.quickAttachPatternId = patternId;
+    this.refreshQuickAttachMarkers();
+  }
+
+  onQuickAttachDecorationChange(decorationId: string): void {
+    this.quickAttachDecorationId = decorationId;
+    this.refreshQuickAttachMarkers();
+  }
+
+  onToggleQuickAttachPreview(): void {
+    this.quickAttachPreview = !this.quickAttachPreview;
+    this.refreshQuickAttachMarkers();
+  }
+
+  async onApplyQuickAttachPattern(): Promise<void> {
+    if (!this.quickAttachPatternId || !this.quickAttachDecorationId) {
+      this.quickAttachStatus = 'Wybierz wzór oraz dekorację do zastosowania.';
+      return;
+    }
+
+    const result = await this.sceneService.applyQuickAttachPattern(
+      this.quickAttachPatternId,
+      this.quickAttachDecorationId,
+    );
+    this.quickAttachStatus = result.message;
+    this.refreshQuickAttachMarkers();
+  }
+
+  onExportQuickAttachPreset(): void {
+    if (!this.quickAttachDecorationId) {
+      this.quickAttachStatus = 'Wybierz dekorację do eksportu.';
+      return;
+    }
+
+    const name = this.quickAttachExportName?.trim() || 'quick-attach-preset';
+    const result = this.sceneService.exportQuickAttachPreset(name, this.quickAttachDecorationId);
+    this.quickAttachStatus = result.message;
+    this.quickAttachExportJson = result.json ?? null;
+  }
+
+  private refreshQuickAttachMarkers(): void {
+    if (!this.quickAttachPatternId || !this.quickAttachPreview) {
+      this.quickAttachService.clearMarkers();
+      return;
+    }
+
+    this.quickAttachService.setActiveDecoration(this.quickAttachDecorationId);
+    this.quickAttachService.setActivePattern(this.quickAttachPatternId, true);
+  }
+
+  private syncQuickAttachDefaults(): void {
+    if (!this.quickAttachPatternId && this.quickAttachPresets.length) {
+      this.quickAttachPatternId = this.quickAttachPresets[0].id;
+    }
+
+    if (!this.quickAttachDecorationId && this.decorations.length) {
+      this.quickAttachDecorationId = this.decorations[0].modelFileName;
+    }
   }
 }

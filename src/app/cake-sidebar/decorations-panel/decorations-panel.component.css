@@ -141,6 +141,63 @@
   color: #333;
 }
 
+.decorations-panel__quick-attach {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px dashed var(--color-border, #d8dce5);
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-background, #f8f9fb);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.decorations-panel__quick-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.decorations-panel__quick-title {
+  font-weight: 600;
+  color: var(--color-text, #1f2937);
+}
+
+.decorations-panel__quick-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.decorations-panel__quick-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.decorations-panel__quick-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.decorations-panel__export {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.decorations-panel__export-output {
+  width: 100%;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--color-border, #d8dce5);
+  padding: 8px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  background: #fff;
+  resize: vertical;
+}
+
 @media (min-width: 780px) {
   .decorations-panel__filters {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);

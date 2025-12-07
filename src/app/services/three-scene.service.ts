@@ -19,6 +19,8 @@ import { DecorationInfo } from '../models/decorationInfo';
 import { environment } from '../../environments/environment';
 import { SceneOutlineNode } from '../models/scene-outline';
 import { DecorationFactory } from '../factories/decoration.factory';
+import { QuickAttachPoint } from '../models/quick-attach';
+import { QuickAttachService } from './quick-attach.service';
 
 interface DecorationClipboardEntry {
   template: THREE.Object3D;
@@ -72,6 +74,7 @@ export class ThreeSceneService {
     private surfacePainting: SurfacePaintingService,
     private exportService: ExportService,
     private snapService: SnapService,
+    private quickAttachService: QuickAttachService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
@@ -114,6 +117,11 @@ export class ThreeSceneService {
       (object) => this.removeDecoration(object),
       () => this.copySelectedDecoration(),
       () => this.pasteDecoration(),
+    );
+
+    this.quickAttachService.registerScene(this.scene);
+    this.quickAttachService.registerPlacementHandler((decorationId, point) =>
+      this.addDecorationAtQuickAttach(decorationId, point)
     );
 
     const grid = new THREE.GridHelper(50, 50);
@@ -815,9 +823,9 @@ export class ThreeSceneService {
     identifier: string,
     preferredSurface?: 'TOP' | 'SIDE',
     targetLayerIndex?: number
-  ): Promise<void> {
+  ): Promise<THREE.Object3D | null> {
     if (!this.cakeBase) {
-      return;
+      return null;
     }
 
     const decoration = await this.decorationsService.addDecorationFromModel(
@@ -831,7 +839,60 @@ export class ThreeSceneService {
     if (decoration) {
       this.paintService.registerDecorationAddition(decoration);
       this.emitOutlineChanged();
+      return decoration;
     }
+
+    return null;
+  }
+
+  public async addDecorationAtQuickAttach(
+    decorationId: string,
+    point: QuickAttachPoint,
+  ): Promise<THREE.Object3D | null> {
+    const decoration = await this.addDecorationFromModel(decorationId, point.surface, point.layerIndex);
+    if (!decoration) {
+      return null;
+    }
+
+    this.snapService.applyQuickAttachPoint(decoration, point);
+
+    return decoration;
+  }
+
+  public async applyQuickAttachPattern(
+    patternId: string,
+    decorationId: string,
+  ): Promise<{ success: boolean; message: string; count: number }> {
+    this.quickAttachService.setActiveDecoration(decorationId);
+    const preserveMarkers = this.quickAttachService.markerObjects.length > 0;
+    this.quickAttachService.setActivePattern(patternId, preserveMarkers);
+    const count = await this.quickAttachService.applyActivePattern();
+    if (!count) {
+      return { success: false, message: 'Nie udało się zastosować wzoru.', count: 0 };
+    }
+
+    return { success: true, message: `Dodano ${count} dekoracji według wzoru.`, count };
+  }
+
+  public exportQuickAttachPreset(
+    name: string,
+    decorationId: string,
+  ): { success: boolean; message: string; json?: string } {
+    const decorations = this.collectQuickAttachSelection();
+    if (!decorations.length) {
+      return { success: false, message: 'Najpierw zaznacz dekorację do eksportu.' };
+    }
+
+    const preset = this.quickAttachService.buildPresetFromDecorations(name, decorationId, decorations);
+    if (!preset) {
+      return { success: false, message: 'Nie udało się utworzyć punktów wzoru z zaznaczeń.' };
+    }
+
+    return {
+      success: true,
+      message: `Wyeksportowano ${preset.points.length} punktów wzoru.`,
+      json: JSON.stringify(preset, null, 2),
+    };
   }
 
   public exportOBJ(): string {
@@ -884,7 +945,10 @@ export class ThreeSceneService {
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
     const intersects = this.raycaster.intersectObjects(
-      this.objects.filter((obj) => obj !== this.cakeBase && !obj.userData['isPainted']),
+      [
+        ...this.objects.filter((obj) => obj !== this.cakeBase && !obj.userData['isPainted']),
+        ...this.quickAttachService.markerObjects,
+      ],
       true,
     );
 
@@ -897,6 +961,12 @@ export class ThreeSceneService {
     }
 
     const candidate = this.findParentDecoration(intersects[0].object) ?? intersects[0].object;
+    if (this.quickAttachService.getMarkerPoint(candidate)) {
+      if (attach) {
+        void this.quickAttachService.handleMarkerClick(candidate);
+      }
+      return null;
+    }
     const selected = candidate === this.cakeBase ? null : candidate;
 
     if (!selected) {
@@ -1507,6 +1577,31 @@ export class ThreeSceneService {
       current = current.parent;
     }
     return null;
+  }
+
+  private collectQuickAttachSelection(): THREE.Object3D[] {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return [];
+    }
+
+    const root = this.findParentDecoration(selected) ?? selected;
+    const decorations = new Set<THREE.Object3D>();
+
+    const addIfDecoration = (object: THREE.Object3D) => {
+      if (this.isDecorationNode(object)) {
+        decorations.add(object);
+      }
+    };
+
+    addIfDecoration(root);
+    root.traverse((child) => {
+      if (child !== root) {
+        addIfDecoration(child);
+      }
+    });
+
+    return Array.from(decorations.values());
   }
 
   private isAttachedToCake(object: THREE.Object3D): boolean {

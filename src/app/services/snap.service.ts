@@ -4,6 +4,7 @@ import { ClosestPointInfo } from '../models/cake.points';
 import { CakeMetadata } from '../factories/three-objects.factory';
 import { DecorationPlacementType } from '../models/decorationInfo';
 import { DecorationValidationIssue } from '../models/decoration-validation';
+import { QuickAttachPoint } from '../models/quick-attach';
 
 interface ScaledLayerInfo {
   index: number;
@@ -34,6 +35,15 @@ export interface SurfaceCoordinates {
 }
 
 interface SnapUserData extends SnapInfoSnapshot {}
+
+interface QuickAttachProjection {
+  layerIndex: number;
+  coords: SurfaceCoordinates;
+  localPosition: THREE.Vector3;
+  worldPosition: THREE.Vector3;
+  localNormal: THREE.Vector3;
+  worldNormal: THREE.Vector3;
+}
 
 export interface SnappedDecorationState {
   object: THREE.Object3D;
@@ -727,6 +737,135 @@ export class SnapService {
     object.updateMatrixWorld(true);
 
     return { success: true, message };
+  }
+
+  public projectQuickAttachPoint(point: QuickAttachPoint): QuickAttachProjection | null {
+    if (!this.cakeBase) {
+      return null;
+    }
+
+    const metadata = this.getCakeMetadata();
+    if (!metadata) {
+      return null;
+    }
+
+    const layerIndex = this.clampLayerIndex(point.layerIndex ?? metadata.layerDimensions.length - 1, metadata);
+    const coords = this.normalizeSurfaceCoordinates(point.coords, metadata);
+    if (!coords) {
+      return null;
+    }
+
+    const snapInfo: SnapUserData = {
+      layerIndex,
+      surfaceType: point.surface,
+      normal:
+        point.surface === 'TOP'
+          ? [0, 1, 0]
+          : [Math.cos(coords.angleRad), 0, Math.sin(coords.angleRad)],
+      offset: point.offset ?? 0,
+      roll: point.rollRad ?? 0,
+      coords,
+      rotation: [...this.identityRotation],
+    };
+
+    const layers = this.getScaledLayers(metadata);
+    const layer = this.findLayerInfo(layers, snapInfo.layerIndex);
+    const localNormal = new THREE.Vector3().fromArray(snapInfo.normal).normalize();
+    const projection = this.buildProjectionFromSnap(snapInfo, layer, metadata, localNormal);
+    if (!projection) {
+      return null;
+    }
+
+    const offsetPosition = projection.position
+      .clone()
+      .add(projection.normal.clone().multiplyScalar(point.offset ?? 0));
+
+    return {
+      layerIndex,
+      coords,
+      localPosition: offsetPosition,
+      worldPosition: this.cakeBase.localToWorld(offsetPosition.clone()),
+      localNormal: projection.normal.clone(),
+      worldNormal: this.getWorldNormal(projection.normal.clone()),
+    };
+  }
+
+  public applyQuickAttachPoint(
+    object: THREE.Object3D,
+    point: QuickAttachPoint,
+  ): { success: boolean; message: string } {
+    const projection = this.projectQuickAttachPoint(point);
+    if (!projection || !this.cakeBase) {
+      return { success: false, message: 'Brak danych tortu lub punktu wzoru.' };
+    }
+
+    const metadata = this.getCakeMetadata();
+    if (!metadata) {
+      return { success: false, message: 'Brak danych tortu – nie można ustawić dekoracji.' };
+    }
+
+    const snapInfo: SnapUserData = this.normalizeSnapInfo(
+      {
+        layerIndex: projection.layerIndex,
+        surfaceType: point.surface,
+        normal: projection.localNormal.clone().normalize().toArray() as [number, number, number],
+        offset: point.offset ?? 0,
+        roll: point.rollRad ?? 0,
+        coords: { ...projection.coords },
+        rotation: [...this.identityRotation],
+      },
+      metadata,
+    );
+
+    this.writeSnapInfo(object, snapInfo);
+    object.userData['isSnapped'] = true;
+    this.cakeBase.attach(object);
+
+    const relativeRotation = this.getRelativeQuaternion(snapInfo, projection.localNormal.clone());
+    this.applyOrientationForSurface(object, projection.worldNormal.clone(), snapInfo.surfaceType, snapInfo.roll, relativeRotation);
+
+    object.position.copy(projection.localPosition.clone());
+    object.updateMatrixWorld(true);
+    this.enforceSnappedPosition(object);
+
+    if (point.scale && point.scale > 0) {
+      object.scale.multiplyScalar(point.scale);
+      object.updateMatrixWorld(true);
+    }
+
+    return { success: true, message: 'Dekoracja ustawiona w punkcie wzoru.' };
+  }
+
+  public buildQuickAttachPointFromObject(object: THREE.Object3D): QuickAttachPoint | null {
+    if (!this.cakeBase) {
+      return null;
+    }
+
+    const metadata = this.getCakeMetadata();
+    if (!metadata) {
+      return null;
+    }
+
+    this.updateSnapFromObjectPosition(object, true);
+    const snapInfo = this.readSnapInfo(object);
+    if (!snapInfo) {
+      return null;
+    }
+
+    const normalized = this.normalizeSnapInfo(snapInfo, metadata);
+    if (!normalized.coords) {
+      return null;
+    }
+
+    return {
+      id: object.name || object.uuid,
+      surface: normalized.surfaceType,
+      layerIndex: normalized.layerIndex,
+      coords: { ...normalized.coords },
+      offset: normalized.offset,
+      rollRad: normalized.roll ?? 0,
+      scale: ((object.scale?.x ?? 1) + (object.scale?.y ?? 1) + (object.scale?.z ?? 1)) / 3,
+    };
   }
 
   public resetDecorationOrientation(object: THREE.Object3D): void {

@@ -39,6 +39,71 @@
       </label>
     </div>
 
+    <div class="decorations-panel__quick-attach">
+      <header class="decorations-panel__quick-header">
+        <span class="decorations-panel__quick-title">Wzory szybkiego mocowania</span>
+      </header>
+      <div class="decorations-panel__quick-grid">
+        <label class="decorations-panel__quick-field">
+          <span>Wzór</span>
+          <select
+            class="sidebar-panel__select"
+            [ngModel]="quickAttachPatternId"
+            (ngModelChange)="onQuickAttachPatternChange($event)"
+          >
+            <option *ngFor="let preset of quickAttachPresets" [ngValue]="preset.id">{{ preset.label }}</option>
+          </select>
+        </label>
+
+        <label class="decorations-panel__quick-field">
+          <span>Dekoracja</span>
+          <select
+            class="sidebar-panel__select"
+            [ngModel]="quickAttachDecorationId"
+            (ngModelChange)="onQuickAttachDecorationChange($event)"
+          >
+            <option *ngFor="let decoration of decorations" [ngValue]="decoration.modelFileName">
+              {{ decoration.name }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <div class="decorations-panel__quick-actions">
+        <button type="button" class="sidebar-panel__button" (click)="onToggleQuickAttachPreview()">
+          {{ quickAttachPreview ? 'Ukryj punkty' : 'Pokaż punkty' }}
+        </button>
+        <button type="button" class="sidebar-panel__button" (click)="onApplyQuickAttachPattern()">
+          Zastosuj wzór
+        </button>
+      </div>
+
+      <p class="sidebar-panel__message" *ngIf="quickAttachStatus">{{ quickAttachStatus }}</p>
+
+      <div class="decorations-panel__export" *ngIf="quickAttachAdminMode">
+        <div class="decorations-panel__quick-grid">
+          <label class="decorations-panel__quick-field">
+            <span>Nazwa eksportu</span>
+            <input
+              class="sidebar-panel__input"
+              type="text"
+              [(ngModel)]="quickAttachExportName"
+              placeholder="quick-attach-preset"
+            />
+          </label>
+        </div>
+        <button type="button" class="sidebar-panel__button" (click)="onExportQuickAttachPreset()">
+          Eksportuj punkty zaznaczenia
+        </button>
+        <textarea
+          *ngIf="quickAttachExportJson"
+          class="decorations-panel__export-output"
+          readonly
+          rows="6"
+        >{{ quickAttachExportJson }}</textarea>
+      </div>
+    </div>
+
     <div class="decorations-panel__list-container">
       <div class="decorations-panel__list" role="list">
         <button
