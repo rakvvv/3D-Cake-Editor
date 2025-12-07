@@ -83,9 +83,9 @@ public class ApplicationProperties {
 
     public static class Jwt {
         @NotBlank
-        private String secret = "change-me";
+        private String secret = System.getenv().getOrDefault("APP_JWT_SECRET", "change-me");
 
-        private long expirationMs = 86400000;
+        private long expirationMs = 1_800_000; // 30 minutes
 
         public String getSecret() {
             return secret;

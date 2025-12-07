@@ -7,6 +7,7 @@ import com.cake.editor.model.CakeProject;
 import com.cake.editor.model.User;
 import com.cake.editor.repository.CakeProjectRepository;
 import com.cake.editor.service.CurrentUserService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -47,7 +48,7 @@ public class CakeProjectController {
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public CakeProjectDetailDto create(@RequestBody SaveCakeProjectRequest request) {
+    public CakeProjectDetailDto create(@Valid @RequestBody SaveCakeProjectRequest request) {
         User owner = currentUserService.requireCurrentUser();
 
         CakeProject project = new CakeProject();
@@ -60,7 +61,7 @@ public class CakeProjectController {
     }
 
     @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public CakeProjectDetailDto update(@PathVariable Long id, @RequestBody SaveCakeProjectRequest request) {
+    public CakeProjectDetailDto update(@PathVariable Long id, @Valid @RequestBody SaveCakeProjectRequest request) {
         User owner = currentUserService.requireCurrentUser();
         CakeProject project = projectRepository.findByIdAndOwner(id, owner)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));

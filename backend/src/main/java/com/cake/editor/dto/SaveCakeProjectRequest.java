@@ -1,7 +1,15 @@
 package com.cake.editor.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class SaveCakeProjectRequest {
+    @NotBlank
+    @Size(max = 200)
     private String name;
+
+    @NotBlank
+    @Size(max = 200000)
     private String dataJson;
 
     public String getName() {

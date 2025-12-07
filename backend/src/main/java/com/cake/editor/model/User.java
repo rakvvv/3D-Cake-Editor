@@ -40,7 +40,7 @@ public class User {
 
     private void normalizeEmail() {
         if (this.email != null) {
-            this.email = this.email.toLowerCase();
+            this.email = this.email.trim().toLowerCase();
         }
     }
 

@@ -36,5 +36,5 @@ app:
     allowed-headers:
       - "*"
   jwt:
-    secret: "super-secret-key-change-me"
-    expiration-ms: 86400000
+    secret: ${APP_JWT_SECRET:change-me}
+    expiration-ms: ${APP_JWT_EXPIRATION_MS:1800000}
