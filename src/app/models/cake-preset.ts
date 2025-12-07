@@ -47,30 +47,16 @@ export interface SurfacePaintingPreset {
   sprinkleStrokes?: SerializedSprinkleStroke[];
 }
 
-export interface SerializedBrushStrokePoint {
-  x: number;
-  y: number;
-  z: number;
-  nx: number;
-  ny: number;
-  nz: number;
-}
-
 export interface SerializedBrushStroke {
   id: string;
   mode: 'brush';
   color: string;
   brushSize: number;
-  points: SerializedBrushStrokePoint[];
-}
-
-export interface SerializedSprinkleStrokePoint {
-  x: number;
-  y: number;
-  z: number;
-  nx: number;
-  ny: number;
-  nz: number;
+  /**
+   * Flattened array of position + normal tuples:
+   * [x, y, z, nx, ny, nz, x, y, z, nx, ny, nz, ...]
+   */
+  pathData: number[];
 }
 
 export interface SerializedSprinkleStroke {
@@ -80,5 +66,9 @@ export interface SerializedSprinkleStroke {
   density: number;
   useRandomColors: boolean;
   color: string;
-  points: SerializedSprinkleStrokePoint[];
+  /**
+   * Flattened array of position + normal tuples:
+   * [x, y, z, nx, ny, nz, x, y, z, nx, ny, nz, ...]
+   */
+  pathData: number[];
 }

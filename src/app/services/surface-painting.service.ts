@@ -62,6 +62,7 @@ export class SurfacePaintingService {
   private brushStrokeMesh: THREE.InstancedMesh | null = null;
   private brushStrokeIndex = 0;
   private brushStrokeCapacity = 0;
+  private readonly RECORDING_DIST_SQ = 0.015 * 0.015;
   private textureLoader = new THREE.TextureLoader();
   private cakeNormalMap: THREE.Texture | null = null;
   private cakeRoughnessMap: THREE.Texture | null = null;
@@ -136,7 +137,7 @@ export class SurfacePaintingService {
         mode: 'brush',
         color: this.brushColor,
         brushSize: this.brushSize,
-        points: [],
+        pathData: [],
       };
     } else if (this.mode === 'sprinkles') {
       this.activeStroke = {
@@ -146,7 +147,7 @@ export class SurfacePaintingService {
         density: this.sprinkleDensity,
         useRandomColors: this.sprinkleUseRandomColors,
         color: this.sprinkleColor,
-        points: [],
+        pathData: [],
       };
       this.prepareSprinkleStroke();
     }
@@ -164,7 +165,7 @@ export class SurfacePaintingService {
     if (this.brushStrokeGroup && this.brushStrokeMesh && this.brushStrokeIndex > 0) {
       this.paintService.registerDecorationAddition(this.brushStrokeGroup);
       this.paintEntries.push(this.brushStrokeGroup);
-      if (finishedStroke?.mode === 'brush' && finishedStroke.points.length > 0) {
+      if (finishedStroke?.mode === 'brush' && finishedStroke.pathData.length > 0) {
         this.brushStrokes.push(finishedStroke);
         this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id;
       }
@@ -176,7 +177,7 @@ export class SurfacePaintingService {
     if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh && this.sprinkleStrokeIndex > 0) {
       this.paintService.registerDecorationAddition(this.sprinkleStrokeGroup);
       this.sprinkleEntries.push(this.sprinkleStrokeGroup);
-      if (finishedStroke?.mode === 'sprinkles' && finishedStroke.points.length > 0) {
+      if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length > 0) {
         this.sprinkleStrokes.push(finishedStroke);
         this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
       }
@@ -241,16 +242,22 @@ export class SurfacePaintingService {
       if (!Number.isNaN(numericId)) {
         this.nextStrokeId = Math.max(this.nextStrokeId, numericId + 1);
       }
+      this.activeStroke.pathData = [...stroke.pathData];
     }
-    stroke.points.forEach((p) => {
-      this.activeStroke?.points.push({ ...p });
+    for (let i = 0; i < stroke.pathData.length; i += 6) {
+      const x = stroke.pathData[i];
+      const y = stroke.pathData[i + 1];
+      const z = stroke.pathData[i + 2];
+      const nx = stroke.pathData[i + 3];
+      const ny = stroke.pathData[i + 4];
+      const nz = stroke.pathData[i + 5];
       const hit = {
-        point: new THREE.Vector3(p.x, p.y, p.z),
-        face: { normal: new THREE.Vector3(p.nx, p.ny, p.nz) } as THREE.Face,
+        point: new THREE.Vector3(x, y, z),
+        face: { normal: new THREE.Vector3(nx, ny, nz) } as THREE.Face,
         object: this.cakeGroup,
       } as unknown as THREE.Intersection;
       this.paintBrush(hit, scene);
-    });
+    }
     this.endStroke();
   }
 
@@ -273,16 +280,22 @@ export class SurfacePaintingService {
       if (!Number.isNaN(numericId)) {
         this.nextStrokeId = Math.max(this.nextStrokeId, numericId + 1);
       }
+      this.activeStroke.pathData = [...stroke.pathData];
     }
-    stroke.points.forEach((p) => {
-      this.activeStroke?.points.push({ ...p });
+    for (let i = 0; i < stroke.pathData.length; i += 6) {
+      const x = stroke.pathData[i];
+      const y = stroke.pathData[i + 1];
+      const z = stroke.pathData[i + 2];
+      const nx = stroke.pathData[i + 3];
+      const ny = stroke.pathData[i + 4];
+      const nz = stroke.pathData[i + 5];
       const hit = {
-        point: new THREE.Vector3(p.x, p.y, p.z),
-        face: { normal: new THREE.Vector3(p.nx, p.ny, p.nz) } as THREE.Face,
+        point: new THREE.Vector3(x, y, z),
+        face: { normal: new THREE.Vector3(nx, ny, nz) } as THREE.Face,
         object: this.cakeGroup,
       } as unknown as THREE.Intersection;
       this.placeSprinkles(hit, scene);
-    });
+    }
     this.endStroke();
     this.isReplayingSprinkles = false;
   }
@@ -354,17 +367,26 @@ export class SurfacePaintingService {
       }
 
       const p = hit.point;
-      const minDist = 0.005;
+      let shouldRecord = false;
 
-      if (!this.lastRecordedPoint || this.lastRecordedPoint.distanceToSquared(p) > minDist * minDist) {
-        this.activeStroke.points.push({
-          x: Number(p.x.toFixed(4)),
-          y: Number(p.y.toFixed(4)),
-          z: Number(p.z.toFixed(4)),
-          nx: Number(normal.x.toFixed(4)),
-          ny: Number(normal.y.toFixed(4)),
-          nz: Number(normal.z.toFixed(4)),
-        });
+      if (!this.lastRecordedPoint) {
+        shouldRecord = true;
+      } else {
+        const distSq = this.lastRecordedPoint.distanceToSquared(p);
+        if (distSq > this.RECORDING_DIST_SQ) {
+          shouldRecord = true;
+        }
+      }
+
+      if (shouldRecord) {
+        this.activeStroke.pathData.push(
+          this.round(p.x),
+          this.round(p.y),
+          this.round(p.z),
+          this.round(normal.x),
+          this.round(normal.y),
+          this.round(normal.z)
+        );
         this.lastRecordedPoint = p.clone();
       }
     }
@@ -396,6 +418,10 @@ export class SurfacePaintingService {
     this.gradientContext = this.gradientCanvas.getContext('2d');
     this.gradientTexture = new THREE.CanvasTexture(this.gradientCanvas);
     this.gradientTexture.colorSpace = THREE.SRGBColorSpace;
+  }
+
+  private round(val: number): number {
+    return Math.round(val * 10000) / 10000;
   }
 
   private applyPaintingShader(): void {
@@ -732,7 +758,7 @@ export class SurfacePaintingService {
   private createBrushStroke(scene: THREE.Scene): void {
     const anchor = this.ensurePaintAnchor(scene);
     if (!anchor) return;
-    const maxInstances = 20000;
+    const maxInstances = 10000;
     const geometry = new THREE.PlaneGeometry(1, 1);
     const alphaMask = this.getBrushAlphaMask();
 
@@ -902,14 +928,14 @@ export class SurfacePaintingService {
     this.lastSprinklePoint = anchorPoint.clone();
 
     if (this.activeStroke?.mode === 'sprinkles') {
-      this.activeStroke.points.push({
-        x: Number(anchorPoint.x.toFixed(4)),
-        y: Number(anchorPoint.y.toFixed(4)),
-        z: Number(anchorPoint.z.toFixed(4)),
-        nx: Number(normal.x.toFixed(4)),
-        ny: Number(normal.y.toFixed(4)),
-        nz: Number(normal.z.toFixed(4)),
-      });
+      this.activeStroke.pathData.push(
+        this.round(anchorPoint.x),
+        this.round(anchorPoint.y),
+        this.round(anchorPoint.z),
+        this.round(normal.x),
+        this.round(normal.y),
+        this.round(normal.z)
+      );
     }
 
     const densityFactor = THREE.MathUtils.clamp(this.sprinkleDensity / 20, 0, 1);
@@ -1014,7 +1040,7 @@ export class SurfacePaintingService {
     if (!anchor) return;
     if (this.sprinkleStrokeGroup) this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
 
-    const capacity = 5000;
+    const capacity = 3000;
     const geometry = this.sprinkleGeometryCache![this.sprinkleShape];
     const material = this.sprinkleMaterial!;
     const mesh = new THREE.InstancedMesh(geometry, material, capacity);
