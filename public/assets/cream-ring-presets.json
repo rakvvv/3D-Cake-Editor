@@ -5,9 +5,9 @@
     "mode": "RING",
     "layerIndex": -1,
     "position": "TOP_EDGE",
-    "segments": 96,
+    "segments": 70,
     "heightNorm": 1,
-    "radiusOffset": 0.02,
+    "radiusOffset": -0.03,
     "scale": 1.05
   },
   {
