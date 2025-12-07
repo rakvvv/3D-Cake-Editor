@@ -37,6 +37,17 @@ export class DecorationsService {
     this.decorationsSubject.next(this.decorations);
   }
 
+  public getDecorationInfo(identifier: string): DecorationInfo | undefined {
+    const existing = this.decorationsInfo.get(identifier);
+    if (existing) {
+      return existing;
+    }
+
+    return this.decorations.find(
+      (decoration) => decoration.modelFileName === identifier || decoration.name === identifier,
+    );
+  }
+
   public async addDecorationFromModel(
     identifier: string,
     scene: THREE.Scene,
@@ -78,6 +89,17 @@ export class DecorationsService {
         decoration.scale.setScalar(scaleFactor);
       }
 
+      if (decoInfo.initialRotation) {
+        const [x, y, z] = decoInfo.initialRotation;
+        decoration.rotation.set(
+          THREE.MathUtils.degToRad(x ?? 0),
+          THREE.MathUtils.degToRad(y ?? 0),
+          THREE.MathUtils.degToRad(z ?? 0),
+        );
+      }
+
+      this.applyMaterialOverrides(decoration, decoInfo.material);
+
       decoration.userData['decorationType'] = decoInfo.type;
       decoration.userData['isDecoration'] = true;
       decoration.userData['modelFileName'] = decoInfo.modelFileName;
@@ -113,6 +135,38 @@ export class DecorationsService {
       console.error(`Błąd ładowania dekoracji ${identifier}:`, error);
       return;
     }
+  }
+
+  public applyMaterialOverrides(object: THREE.Object3D, materialConfig?: DecorationInfo['material']): void {
+    if (!materialConfig) {
+      return;
+    }
+
+    object.traverse(child => {
+      if (!(child as THREE.Mesh).isMesh) {
+        return;
+      }
+
+      const mesh = child as THREE.Mesh;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+      materials.forEach(material => {
+        const hasUnlitExtension = !!(material as any).userData?.gltfExtensions?.KHR_materials_unlit;
+        if (hasUnlitExtension) {
+          return;
+        }
+
+        if (materialConfig.roughness !== undefined && 'roughness' in material) {
+          (material as any).roughness = materialConfig.roughness;
+          material.needsUpdate = true;
+        }
+
+        if (materialConfig.metalness !== undefined && 'metalness' in material) {
+          (material as any).metalness = materialConfig.metalness;
+          material.needsUpdate = true;
+        }
+      });
+    });
   }
 
   private getInitialPlacement(

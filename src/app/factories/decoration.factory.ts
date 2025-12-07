@@ -26,6 +26,7 @@ export class DecorationFactory {
         resolvedUrl,
         gltf => {
           const meshes = this.getAllMeshes(gltf.scene);
+          this.ensureLitMaterials(meshes);
           this.prepareMeshesForClick(meshes);
           gltf.scene.userData['clickableMeshes'] = meshes;
           resolve(gltf.scene);
@@ -135,5 +136,44 @@ export class DecorationFactory {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
     });
+  }
+
+  private static ensureLitMaterials(meshes: THREE.Mesh[]): void {
+    meshes.forEach(mesh => {
+      if (Array.isArray(mesh.material)) {
+        mesh.material = mesh.material.map(mat => this.ensureStandardMaterial(mat));
+      } else {
+        mesh.material = this.ensureStandardMaterial(mesh.material);
+      }
+    });
+  }
+
+  private static ensureStandardMaterial(material: THREE.Material): THREE.Material {
+    const hasUnlitExtension = !!(material as any).userData?.gltfExtensions?.KHR_materials_unlit;
+    if (hasUnlitExtension || (material as any).isMeshStandardMaterial) {
+      return material;
+    }
+
+    const source: any = material;
+    const standard = new THREE.MeshStandardMaterial({
+      name: material.name,
+      color: source.color ? source.color.clone() : new THREE.Color(0xffffff),
+      map: source.map ?? null,
+      normalMap: source.normalMap ?? null,
+      roughnessMap: source.roughnessMap ?? null,
+      metalnessMap: source.metalnessMap ?? null,
+      aoMap: source.aoMap ?? null,
+      emissive: source.emissive ? source.emissive.clone() : new THREE.Color(0x000000),
+      emissiveMap: source.emissiveMap ?? null,
+      roughness: source.roughness ?? 0.9,
+      metalness: source.metalness ?? 0,
+      transparent: material.transparent,
+      opacity: material.opacity,
+      alphaTest: source.alphaTest ?? 0,
+      side: material.side,
+    });
+
+    standard.needsUpdate = true;
+    return standard;
   }
 }

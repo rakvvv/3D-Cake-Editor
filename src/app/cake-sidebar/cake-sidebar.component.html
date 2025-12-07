@@ -103,11 +103,42 @@
               [validationSummary]="validationSummary"
               [validationIssues]="validationIssues"
               [pendingActionLabel]="pendingValidationLabel"
+              [authorModeEnabled]="authorModeEnabled"
               (addDecoration)="addDecorationEvent.emit($event)"
               (validateDecorations)="validateDecorations.emit()"
               (transformModeChange)="transformModeChange.emit($event)"
               (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
             ></app-decorations-panel>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="sidebar__section"
+        [class.sidebar__section--expanded]="isExpanded('presets')"
+      >
+        <button
+          type="button"
+          class="sidebar__toggle"
+          (click)="togglePanel('presets')"
+          [attr.aria-expanded]="isExpanded('presets')"
+          [attr.aria-controls]="panelRegionId('presets')"
+          [id]="panelToggleId('presets')"
+        >
+          <span class="sidebar__toggle-label">Gotowe torty</span>
+          <span aria-hidden="true" class="sidebar__toggle-icon"></span>
+        </button>
+
+        <div
+          class="sidebar__panel-wrapper"
+          [class.sidebar__panel-wrapper--expanded]="isExpanded('presets')"
+          role="region"
+          [attr.aria-labelledby]="panelToggleId('presets')"
+          [id]="panelRegionId('presets')"
+          [attr.aria-hidden]="!isExpanded('presets')"
+        >
+          <div class="sidebar__panel">
+            <app-presets-panel (applyPreset)="applyCakePreset.emit($event)"></app-presets-panel>
           </div>
         </div>
       </section>

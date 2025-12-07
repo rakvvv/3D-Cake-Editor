@@ -7,6 +7,10 @@ import { DecorationValidationIssue } from '../../models/decoration-validation';
 import { Subscription } from 'rxjs';
 import { CakeOptions } from '../../models/cake.options';
 import { AddDecorationRequest, DecorationSurfaceTarget } from '../../models/add-decoration-request';
+import { AnchorPresetsService } from '../../services/anchor-presets.service';
+import { AnchorPreset } from '../../models/anchors';
+import { ThreeSceneService } from '../../services/three-scene.service';
+import { PresetDialogService } from '../../services/preset-dialog.service';
 
 @Component({
   selector: 'app-decorations-panel',
@@ -21,6 +25,7 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
   @Input() validationIssues: DecorationValidationIssue[] = [];
   @Input() pendingActionLabel: string | null = null;
   @Input() options?: CakeOptions;
+  @Input() authorModeEnabled = false;
   @Output() addDecoration = new EventEmitter<AddDecorationRequest>();
   @Output() validateDecorations = new EventEmitter<void>();
   @Output() transformModeChange = new EventEmitter<'translate' | 'rotate' | 'scale'>();
@@ -31,7 +36,21 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
   decorations: DecorationInfo[] = [];
   placementSurface: DecorationSurfaceTarget = 'AUTO';
   targetLayerIndex = 0;
+  anchorsEnabled = false;
+  anchorMode: 'spawn' | 'move' = 'spawn';
+  anchorPresets: AnchorPreset[] = [];
+  activeAnchorPresetId: string | null = null;
+  anchorInstruction: string | null = null;
+  anchorExportJson = '';
+  adminMode = false;
   private subscription?: Subscription;
+  private anchorSubscriptions: Subscription[] = [];
+
+  constructor(
+    private readonly anchorPresetsService: AnchorPresetsService,
+    private readonly sceneService: ThreeSceneService,
+    private readonly presetDialogService: PresetDialogService,
+  ) {}
 
   ngOnInit(): void {
     this.subscription = this.decorationsService?.decorations$.subscribe((decorations) => {
@@ -39,10 +58,32 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
     });
     this.decorations = this.decorationsService.getDecorations();
     this.syncTargetLayer();
+    this.adminMode = this.authorModeEnabled
+      && typeof window !== 'undefined'
+      && window.location.search.toLowerCase().includes('admin');
+
+    void this.anchorPresetsService.loadPresets();
+    this.anchorSubscriptions.push(
+      this.anchorPresetsService.presets$.subscribe((presets) => {
+        this.anchorPresets = presets;
+      }),
+      this.anchorPresetsService.activePresetId$.subscribe((id) => {
+        this.activeAnchorPresetId = id;
+      }),
+      this.anchorPresetsService.markersVisible$.subscribe((visible) => {
+        this.anchorsEnabled = visible;
+        this.updateAnchorInstruction();
+      }),
+      this.anchorPresetsService.actionMode$.subscribe((mode) => {
+        this.anchorMode = mode;
+        this.updateAnchorInstruction();
+      }),
+    );
   }
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+    this.anchorSubscriptions.forEach((sub) => sub.unsubscribe());
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -61,6 +102,12 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onAddDecoration(decoration: DecorationInfo): void {
+    if (this.anchorsEnabled && this.anchorMode === 'spawn') {
+      this.anchorPresetsService.setPendingDecoration(decoration);
+      this.updateAnchorInstruction();
+      return;
+    }
+
     const surface = this.placementSurface === 'AUTO'
       ? this.getDefaultSurface(decoration.type)
       : this.placementSurface === 'TOP'
@@ -72,6 +119,85 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
       preferredSurface: surface,
       targetLayerIndex: this.getBoundLayerIndex(),
     });
+  }
+
+  onToggleAnchors(visible: boolean): void {
+    this.anchorsEnabled = visible;
+    this.anchorPresetsService.setMarkersVisible(visible);
+    if (!visible) {
+      this.anchorPresetsService.setPendingDecoration(null);
+      this.anchorInstruction = null;
+      return;
+    }
+    if (this.anchorMode === 'move') {
+      const selected = this.sceneService.getSelectedDecoration();
+      const modelId = (selected?.userData['modelFileName'] as string | undefined) ?? null;
+      this.anchorPresetsService.setHighlightedDecoration(modelId);
+    }
+    this.updateAnchorInstruction();
+  }
+
+  onAnchorPresetChange(presetId: string): void {
+    this.activeAnchorPresetId = presetId;
+    this.anchorPresetsService.setActivePreset(presetId);
+  }
+
+  onAnchorModeChange(mode: 'spawn' | 'move'): void {
+    this.anchorMode = mode;
+    this.anchorPresetsService.setActionMode(mode);
+    if (mode === 'move') {
+      this.anchorPresetsService.setPendingDecoration(null);
+      const selected = this.sceneService.getSelectedDecoration();
+      const modelId = (selected?.userData['modelFileName'] as string | undefined) ?? null;
+      this.anchorPresetsService.setHighlightedDecoration(modelId);
+    }
+    this.updateAnchorInstruction();
+  }
+
+  onExportAnchors(): void {
+    const anchors = this.sceneService.exportAnchorsFromSelection();
+    this.anchorExportJson = anchors.length ? JSON.stringify(anchors, null, 2) : '';
+    if (anchors.length) {
+      this.presetDialogService.open('Kotwice z zaznaczenia', anchors);
+    }
+  }
+
+  onSaveCakePreset(): void {
+    const payload = this.sceneService.buildCakePresetPayload();
+    this.presetDialogService.open('Preset tortu', payload);
+  }
+
+  onSaveSelectedSlotsPreset(): void {
+    const preset = this.sceneService.buildAnchorPresetFromSelection();
+    if (!preset) {
+      this.anchorInstruction = 'Zaznacz przyczepioną dekorację, aby wyeksportować sloty.';
+      return;
+    }
+    this.presetDialogService.open('Preset slotów kotwic', preset);
+  }
+
+  onSaveAllSlotsPreset(): void {
+    const preset = this.sceneService.exportAllAnchors();
+    if (!preset) {
+      this.anchorInstruction = 'Brak przypiętych dekoracji do eksportu.';
+      return;
+    }
+
+    this.presetDialogService.open('Wszystkie sloty dekoracji', preset);
+  }
+
+  onDownloadCakePresetFile(): void {
+    const preset = this.sceneService.buildDecoratedCakePreset('Preset tortu');
+    const serialized = JSON.stringify(preset, null, 2);
+    const blob = new Blob([serialized], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${preset.id}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    this.presetDialogService.open('Preset tortu (JSON)', preset);
   }
 
   onValidateDecorations(): void {
@@ -127,6 +253,23 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
       return 'SIDE';
     }
     return undefined;
+  }
+
+  private updateAnchorInstruction(): void {
+    if (!this.anchorsEnabled) {
+      this.anchorInstruction = null;
+      return;
+    }
+
+    if (this.anchorMode === 'spawn') {
+      const pending = this.anchorPresetsService.getPendingDecoration();
+      this.anchorInstruction = pending
+        ? `Kliknij kotwicę, aby dodać: ${pending.name}.`
+        : 'Wybierz dekorację, a następnie kliknij kotwicę, aby ją dodać.';
+      return;
+    }
+
+    this.anchorInstruction = 'Kliknij kotwicę, aby przenieść zaznaczoną dekorację.';
   }
 
   displayTypeLabel(type: DecorationPlacementType): string {

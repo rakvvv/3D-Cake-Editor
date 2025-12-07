@@ -15,10 +15,13 @@ import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.fa
 import { TextFactory } from '../factories/text.factory';
 import { SnapService, SnappedDecorationState, SnapInfoSnapshot } from './snap.service';
 import { DecorationValidationIssue } from '../models/decoration-validation';
-import { DecorationInfo } from '../models/decorationInfo';
+import { DecorationInfo, DecorationPlacementType } from '../models/decorationInfo';
 import { environment } from '../../environments/environment';
 import { SceneOutlineNode } from '../models/scene-outline';
 import { DecorationFactory } from '../factories/decoration.factory';
+import { AnchorPresetsService } from './anchor-presets.service';
+import { AnchorPoint, AnchorPreset } from '../models/anchors';
+import { DecoratedCakePreset, DecorationPresetEntry } from '../models/cake-preset';
 
 interface DecorationClipboardEntry {
   template: THREE.Object3D;
@@ -58,6 +61,7 @@ export class ThreeSceneService {
   private mouse = new THREE.Vector2();
   private boxHelper: THREE.BoxHelper | null = null;
   private clipboard: DecorationClipboardEntry | null = null;
+  private readonly anchorOccupants = new Map<string, THREE.Object3D>();
   private readonly outlineChanged = new Subject<void>();
   public readonly outlineChanges$ = this.outlineChanged.asObservable();
 
@@ -72,6 +76,7 @@ export class ThreeSceneService {
     private surfacePainting: SurfacePaintingService,
     private exportService: ExportService,
     private snapService: SnapService,
+    private anchorPresetsService: AnchorPresetsService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
@@ -325,6 +330,7 @@ export class ThreeSceneService {
     this.scene.add(cake);
     this.objects.push(cake);
     this.snapService.setCakeBase(cake);
+    this.anchorPresetsService.setContext(this.scene, this.cakeBase, this.cakeMetadata);
     const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * this.options.cake_size : this.options.cake_size;
     this.transformControlsService.updateCakeSize(effectiveSize);
     this.sceneInitService.updateOrbitForCake(effectiveSize);
@@ -378,6 +384,7 @@ export class ThreeSceneService {
     this.cakeBase = null;
     this.cakeLayers = [];
     this.cakeMetadata = null;
+    this.anchorPresetsService.setContext(this.scene, null, null);
     this.snapService.setCakeBase(null);
   }
 
@@ -883,6 +890,17 @@ export class ThreeSceneService {
     this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
     this.raycaster.setFromCamera(this.mouse, this.camera);
+    const canClickAnchors =
+      this.anchorPresetsService.areMarkersVisible() &&
+      (this.anchorPresetsService.getActionMode() === 'move' || !this.transformControlsService.getSelectedObject());
+
+    if (canClickAnchors) {
+      const anchorHit = this.anchorPresetsService.pickAnchor(this.raycaster);
+      if (anchorHit) {
+        this.anchorPresetsService.emitAnchorClick(anchorHit.id);
+        return null;
+      }
+    }
     const intersects = this.raycaster.intersectObjects(
       this.objects.filter((obj) => obj !== this.cakeBase && !obj.userData['isPainted']),
       true,
@@ -892,6 +910,7 @@ export class ThreeSceneService {
       if (attach) {
         this.transformControlsService.deselectObject();
         this.hideBoxHelper();
+        this.anchorPresetsService.setHighlightedDecoration(null);
       }
       return null;
     }
@@ -921,6 +940,8 @@ export class ThreeSceneService {
 
     if (attach) {
       this.transformControlsService.attachObject(selected);
+      const modelId = (selected.userData['modelFileName'] as string | undefined) ?? null;
+      this.anchorPresetsService.setHighlightedDecoration(modelId);
       this.emitOutlineChanged();
     }
 
@@ -977,6 +998,11 @@ export class ThreeSceneService {
       this.disposeObjectResources(child);
     });
 
+    const anchorId = object.userData['anchorId'] as string | undefined;
+    if (anchorId) {
+      this.clearAnchorOccupant(anchorId, object);
+    }
+
     this.emitOutlineChanged();
   }
 
@@ -991,6 +1017,12 @@ export class ThreeSceneService {
     this.hideBoxHelper();
 
     return { success: true, message: 'Dekoracja została usunięta.' };
+  }
+
+  private clearAllDecorations(): void {
+    const decorations = this.collectDecorationRoots();
+    decorations.forEach((object) => this.removeDecoration(object));
+    this.anchorOccupants.clear();
   }
 
   public copySelectedDecoration(): { success: boolean; message: string } {
@@ -1130,6 +1162,8 @@ export class ThreeSceneService {
 
     this.transformControlsService.attachObject(target);
     this.showBoxHelperFor(target);
+    const modelId = (target.userData['modelFileName'] as string | undefined) ?? null;
+    this.anchorPresetsService.setHighlightedDecoration(modelId);
     return true;
   }
 
@@ -1297,6 +1331,7 @@ export class ThreeSceneService {
 
     this.transformControlsService.deselectObject();
     this.hideBoxHelper();
+    this.anchorPresetsService.setHighlightedDecoration(null);
     return true;
   }
 
@@ -1330,6 +1365,385 @@ export class ThreeSceneService {
     }
 
     return { success: result.success, message: result.message };
+  }
+
+  public async spawnDecorationAtAnchor(
+    decorationId: string,
+    anchorId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const decorationInfo = this.decorationsService.getDecorationInfo(decorationId);
+    if (!decorationInfo) {
+      return { success: false, message: 'Nie znaleziono dekoracji do umieszczenia na kotwicy.' };
+    }
+
+    const placement = this.prepareAnchorPlacement(anchorId);
+    if ('error' in placement) {
+      return { success: false, message: placement.error };
+    }
+
+    const { anchor } = placement;
+    const existingOccupant = this.getAnchorOccupant(anchor.id);
+    if (existingOccupant) {
+      return { success: false, message: 'Ta kotwica jest już zajęta inną dekoracją.' };
+    }
+    const compatibilityError = this.validateAnchorCompatibility(
+      anchor,
+      decorationInfo.type,
+      [decorationInfo.id, decorationInfo.modelFileName],
+    );
+    if (compatibilityError) {
+      return { success: false, message: compatibilityError };
+    }
+    const decoration = await this.decorationsService.addDecorationFromModel(
+      decorationId,
+      this.scene,
+      this.cakeBase,
+      this.objects,
+      anchor.surface,
+      anchor.layerIndex,
+    );
+
+    if (!decoration) {
+      return { success: false, message: 'Nie udało się wczytać dekoracji dla kotwicy.' };
+    }
+
+    if (anchor.defaultScale && anchor.defaultScale > 0) {
+      decoration.scale.setScalar(anchor.defaultScale);
+    }
+
+    this.applyAnchorPlacement(decoration, anchor);
+
+    this.paintService.registerDecorationAddition(decoration);
+    this.emitOutlineChanged();
+
+    return { success: true, message: 'Dekoracja umieszczona na kotwicy.' };
+  }
+
+  public moveSelectionToAnchor(anchorId: string): { success: boolean; message: string } {
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return { success: false, message: 'Najpierw zaznacz dekorację.' };
+    }
+
+    const placement = this.prepareAnchorPlacement(anchorId);
+    if ('error' in placement) {
+      return { success: false, message: placement.error };
+    }
+
+    const { anchor } = placement;
+    const decorationType = selected.userData['decorationType'] as DecorationPlacementType | undefined;
+    const decorationId =
+      (selected.userData['modelFileName'] as string | undefined) ??
+      (selected.userData['displayName'] as string | undefined) ??
+      selected.name;
+
+    const compatibilityError = this.validateAnchorCompatibility(anchor, decorationType, [decorationId]);
+    if (compatibilityError) {
+      return { success: false, message: compatibilityError };
+    }
+    const occupant = this.getAnchorOccupant(anchor.id);
+    if (occupant && occupant !== selected) {
+      return { success: false, message: 'Ta kotwica jest już zajęta inną dekoracją.' };
+    }
+
+    if (anchor.defaultScale && anchor.defaultScale > 0) {
+      selected.scale.setScalar(anchor.defaultScale);
+    }
+
+    this.applyAnchorPlacement(selected, anchor);
+    this.updateBoxHelper();
+
+    return { success: true, message: 'Dekoracja przeniesiona na kotwicę.' };
+  }
+
+  public exportAnchorsFromSelection(): AnchorPoint[] {
+    if (!this.cakeMetadata) {
+      return [];
+    }
+
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return [];
+    }
+
+    const anchor = this.snapService.buildAnchorFromDecoration(
+      selected,
+      this.cakeMetadata,
+      selected.uuid,
+      (selected.userData['displayName'] as string | undefined) ?? selected.name,
+    );
+
+    return anchor ? [anchor] : [];
+  }
+
+  public exportAllAnchors(): AnchorPreset | null {
+    if (!this.cakeMetadata) {
+      return null;
+    }
+
+    const decorations = this.collectDecorationRoots();
+    const anchors: AnchorPoint[] = [];
+
+    decorations.forEach((decoration) => {
+      const displayName = (decoration.userData['displayName'] as string | undefined) ?? decoration.name;
+      const anchor = this.snapService.buildAnchorFromDecoration(
+        decoration,
+        this.cakeMetadata!,
+        decoration.uuid,
+        displayName,
+      );
+
+      if (anchor) {
+        anchors.push(anchor);
+      }
+    });
+
+    if (!anchors.length) {
+      return null;
+    }
+
+    return {
+      id: `preset-${Date.now()}`,
+      name: 'Wszystkie sloty dekoracji',
+      anchors,
+    };
+  }
+
+  public buildCakePresetPayload(): { options: CakeOptions; metadata: CakeMetadata | null } {
+    return {
+      options: this.options,
+      metadata: this.cakeMetadata,
+    };
+  }
+
+  public buildDecoratedCakePreset(name = 'Preset tortu'): DecoratedCakePreset {
+    const decorations = this.collectDecorationRoots();
+    const payload: DecoratedCakePreset = {
+      id: `cake-${Date.now()}`,
+      name,
+      options: this.cloneCakeOptions(this.options),
+      decorations: [],
+    };
+
+    const baseWorldQuaternion = this.cakeBase?.getWorldQuaternion(new THREE.Quaternion());
+
+    decorations.forEach((decoration) => {
+      const modelFileName = (decoration.userData['modelFileName'] as string | undefined) ?? decoration.name;
+      if (!modelFileName) {
+        return;
+      }
+
+      const worldPosition = decoration.getWorldPosition(new THREE.Vector3());
+      const localPosition = this.cakeBase
+        ? this.cakeBase.worldToLocal(worldPosition.clone())
+        : worldPosition;
+
+      const worldQuaternion = decoration.getWorldQuaternion(new THREE.Quaternion());
+      const localQuaternion = baseWorldQuaternion
+        ? baseWorldQuaternion.clone().invert().multiply(worldQuaternion)
+        : worldQuaternion;
+
+      const snapInfo = this.snapService.getSnapInfoSnapshot(decoration);
+      const entry: DecorationPresetEntry = {
+        modelFileName,
+        position: [localPosition.x, localPosition.y, localPosition.z],
+        rotation: [localQuaternion.x, localQuaternion.y, localQuaternion.z, localQuaternion.w],
+        scale: [decoration.scale.x, decoration.scale.y, decoration.scale.z],
+        snapInfo: snapInfo ? this.cloneSnapInfo(snapInfo) : undefined,
+        anchorId: decoration.userData['anchorId'] as string | undefined,
+      };
+
+      payload.decorations.push(entry);
+    });
+
+    return payload;
+  }
+
+  public buildAnchorPresetFromSelection(): AnchorPreset | null {
+    if (!this.cakeMetadata) {
+      return null;
+    }
+
+    const selected = this.transformControlsService.getSelectedObject();
+    if (!selected) {
+      return null;
+    }
+
+    const displayName = (selected.userData['displayName'] as string | undefined) ?? selected.name;
+    const anchor = this.snapService.buildAnchorFromDecoration(
+      selected,
+      this.cakeMetadata,
+      selected.uuid,
+      displayName,
+    );
+
+    if (!anchor) {
+      return null;
+    }
+
+    return {
+      id: `preset-${selected.uuid}`,
+      name: `Sloty: ${displayName}`,
+      anchors: [anchor],
+    };
+  }
+
+  public async applyDecoratedCakePreset(preset: DecoratedCakePreset): Promise<void> {
+    if (!preset?.options) {
+      return;
+    }
+
+    this.transformControlsService.deselectObject();
+    this.clearAllDecorations();
+
+    const optionsClone = this.cloneCakeOptions(preset.options);
+    this.updateCakeOptions(optionsClone);
+
+    if (!preset.decorations?.length) {
+      this.emitOutlineChanged();
+      return;
+    }
+
+    const results = await Promise.all(
+      preset.decorations.map((entry) => this.spawnDecorationFromPreset(entry)),
+    );
+
+    const snapStates: SnappedDecorationState[] = [];
+    results.forEach((result) => {
+      if (!result) {
+        return;
+      }
+
+      const { object, snapInfo, anchorId } = result;
+      if (snapInfo) {
+        snapStates.push({ object, info: this.cloneSnapInfo(snapInfo) });
+      }
+
+      if (anchorId) {
+        this.registerAnchorOccupant(anchorId, object);
+      }
+    });
+
+    if (snapStates.length) {
+      this.snapService.restoreSnappedDecorations(snapStates);
+    }
+
+    this.updateBoxHelper();
+    this.emitOutlineChanged();
+  }
+
+  private prepareAnchorPlacement(
+    anchorId: string,
+  ): { anchor: AnchorPoint; projection: { position: THREE.Vector3; normal: THREE.Vector3 } } | { error: string } {
+    if (!this.cakeBase || !this.cakeMetadata) {
+      return { error: 'Brak tortu do umieszczenia dekoracji na kotwicy.' };
+    }
+
+    const anchor = this.anchorPresetsService.getAnchor(anchorId);
+    if (!anchor) {
+      return { error: 'Nie znaleziono wskazanej kotwicy.' };
+    }
+
+    const projection = this.snapService.projectAnchor(anchor, this.cakeMetadata);
+    if (!projection) {
+      return { error: 'Nie można obliczyć pozycji kotwicy dla bieżącego tortu.' };
+    }
+
+    return { anchor, projection };
+  }
+
+  private applyAnchorPlacement(object: THREE.Object3D, anchor: AnchorPoint): void {
+    if (!this.cakeBase) {
+      return;
+    }
+
+    const previousAnchorId = object.userData['anchorId'] as string | undefined;
+    if (previousAnchorId && previousAnchorId !== anchor.id) {
+      this.clearAnchorOccupant(previousAnchorId, object);
+    }
+
+    this.registerAnchorOccupant(anchor.id, object);
+    this.snapService.attachDecorationToAnchor(object, anchor);
+  }
+
+  private getAnchorOccupant(anchorId: string): THREE.Object3D | null {
+    const occupant = this.anchorOccupants.get(anchorId);
+    if (!occupant) {
+      return null;
+    }
+
+    const stillPresent = this.scene.getObjectById(occupant.id);
+    if (!stillPresent) {
+      this.anchorOccupants.delete(anchorId);
+      return null;
+    }
+
+    return occupant;
+  }
+
+  private registerAnchorOccupant(anchorId: string, object: THREE.Object3D): void {
+    const existing = object.userData['anchorId'] as string | undefined;
+    if (existing && existing !== anchorId) {
+      this.anchorOccupants.delete(existing);
+    }
+
+    this.anchorOccupants.forEach((candidate, id) => {
+      if (candidate === object && id !== anchorId) {
+        this.anchorOccupants.delete(id);
+      }
+    });
+
+    object.userData['anchorId'] = anchorId;
+    this.anchorOccupants.set(anchorId, object);
+  }
+
+  private clearAnchorOccupant(anchorId: string, object?: THREE.Object3D): void {
+    const occupant = this.anchorOccupants.get(anchorId);
+    if (occupant && object && occupant !== object) {
+      return;
+    }
+
+    this.anchorOccupants.delete(anchorId);
+    if (object && object.userData['anchorId'] === anchorId) {
+      delete object.userData['anchorId'];
+    }
+  }
+
+  private validateAnchorCompatibility(
+    anchor: AnchorPoint,
+    decorationType?: DecorationPlacementType,
+    decorationIdentifiers: Array<string | undefined> = [],
+  ): string | null {
+    const allowedSurfaces = this.mapPlacementTypeToSurfaces(decorationType);
+    if (allowedSurfaces.length && !allowedSurfaces.includes(anchor.surface)) {
+      if (decorationType === 'TOP') {
+        return 'Ta dekoracja może być umieszczona tylko na górze tortu.';
+      }
+      if (decorationType === 'SIDE') {
+        return 'Ta dekoracja może być umieszczona tylko na boku tortu.';
+      }
+      return 'Ta dekoracja nie może być umieszczona na wybranej kotwicy.';
+    }
+
+    if (anchor.allowedDecorationIds?.length) {
+      const candidates = decorationIdentifiers.filter((id): id is string => !!id);
+      const matches = candidates.some((candidate) => anchor.allowedDecorationIds!.includes(candidate));
+      if (!matches) {
+        return 'Ta kotwica nie jest dostępna dla wybranej dekoracji.';
+      }
+    }
+
+    return null;
+  }
+
+  private mapPlacementTypeToSurfaces(type?: DecorationPlacementType): Array<'TOP' | 'SIDE'> {
+    if (type === 'TOP') {
+      return ['TOP'];
+    }
+    if (type === 'SIDE') {
+      return ['SIDE'];
+    }
+    return [];
   }
 
   public alignSelectedDecorationToSurface(): { success: boolean; message: string } {
@@ -1648,6 +2062,7 @@ export class ThreeSceneService {
 
     delete clone.userData['snapInfo'];
     clone.userData['isSnapped'] = false;
+    delete clone.userData['anchorId'];
 
     return clone;
   }
@@ -1716,6 +2131,75 @@ export class ThreeSceneService {
         ? [info.rotation[0], info.rotation[1], info.rotation[2], info.rotation[3]]
         : undefined,
     };
+  }
+
+  private async spawnDecorationFromPreset(entry: DecorationPresetEntry): Promise<{
+    object: THREE.Object3D;
+    snapInfo: SnapInfoSnapshot | null;
+    anchorId?: string;
+  } | null> {
+    const info = this.decorationsService.getDecorationInfo(entry.modelFileName);
+    const modelFileName = info?.modelFileName ?? entry.modelFileName;
+    const modelUrl = `/models/${modelFileName}`;
+
+    try {
+      const decoration = await DecorationFactory.loadDecorationModel(modelUrl);
+      decoration.userData['decorationType'] = info?.type ?? 'BOTH';
+      decoration.userData['isDecoration'] = true;
+      decoration.userData['modelFileName'] = modelFileName;
+
+      if (info?.initialRotation && !entry.rotation) {
+        const [x, y, z] = info.initialRotation;
+        decoration.rotation.set(
+          THREE.MathUtils.degToRad(x ?? 0),
+          THREE.MathUtils.degToRad(y ?? 0),
+          THREE.MathUtils.degToRad(z ?? 0),
+        );
+      }
+
+      if (entry.rotation) {
+        decoration.quaternion.set(entry.rotation[0], entry.rotation[1], entry.rotation[2], entry.rotation[3]);
+      }
+
+      if (entry.scale) {
+        decoration.scale.set(entry.scale[0], entry.scale[1], entry.scale[2]);
+      } else if (info?.initialScale && info.initialScale > 0) {
+        decoration.scale.setScalar(info.initialScale);
+      }
+
+      if (entry.position) {
+        decoration.position.set(entry.position[0], entry.position[1], entry.position[2]);
+      }
+
+      if (info?.material) {
+        this.decorationsService.applyMaterialOverrides(decoration, info.material);
+      }
+
+      if (this.cakeBase) {
+        this.cakeBase.add(decoration);
+      } else {
+        this.scene.add(decoration);
+      }
+      this.objects.push(decoration);
+
+      const snapInfo = entry.snapInfo ? this.cloneSnapInfo(entry.snapInfo) : null;
+      if (!snapInfo && this.cakeBase) {
+        this.cakeBase.attach(decoration);
+      }
+
+      if (entry.anchorId) {
+        decoration.userData['anchorId'] = entry.anchorId;
+      }
+
+      return { object: decoration, snapInfo, anchorId: entry.anchorId };
+    } catch (error) {
+      console.error('Nie udało się wczytać dekoracji z presetu:', error);
+      return null;
+    }
+  }
+
+  private cloneCakeOptions(options: CakeOptions): CakeOptions {
+    return JSON.parse(JSON.stringify(options));
   }
 
   private computePasteOffset(step: number): THREE.Vector3 {

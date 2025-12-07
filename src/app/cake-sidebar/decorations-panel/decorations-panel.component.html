@@ -39,6 +39,51 @@
       </label>
     </div>
 
+    <div class="decorations-panel__anchors">
+      <label class="decorations-panel__anchors-toggle">
+        <input type="checkbox" [ngModel]="anchorsEnabled" (ngModelChange)="onToggleAnchors($event)" />
+        <span>Pokaż kotwice dekoracji</span>
+      </label>
+
+      <div class="decorations-panel__anchors-body" *ngIf="anchorsEnabled">
+        <label class="decorations-panel__anchors-row">
+          <span class="decorations-panel__placement-label">Preset</span>
+          <select
+            class="sidebar-panel__select"
+            [ngModel]="activeAnchorPresetId"
+            (ngModelChange)="onAnchorPresetChange($event)"
+          >
+            <option *ngFor="let preset of anchorPresets" [ngValue]="preset.id">{{ preset.name }}</option>
+          </select>
+        </label>
+
+        <div class="decorations-panel__anchor-modes" role="group" aria-label="Tryb użycia kotwic">
+          <label class="decorations-panel__anchor-mode">
+            <input
+              type="radio"
+              name="anchorMode"
+              value="spawn"
+              [ngModel]="anchorMode"
+              (ngModelChange)="onAnchorModeChange($event)"
+            />
+            Dodawanie dekoracji
+          </label>
+          <label class="decorations-panel__anchor-mode">
+            <input
+              type="radio"
+              name="anchorMode"
+              value="move"
+              [ngModel]="anchorMode"
+              (ngModelChange)="onAnchorModeChange($event)"
+            />
+            Przenoszenie zaznaczonej
+          </label>
+        </div>
+
+        <p class="decorations-panel__hint" *ngIf="anchorInstruction">{{ anchorInstruction }}</p>
+      </div>
+    </div>
+
     <div class="decorations-panel__list-container">
       <div class="decorations-panel__list" role="list">
         <button
@@ -97,6 +142,40 @@
       >
         Kontynuuj: {{ pendingActionLabel }}
       </button>
+    </div>
+
+    <div class="decorations-panel__author" *ngIf="authorModeEnabled">
+      <button type="button" class="sidebar-panel__button" (click)="onSaveCakePreset()">
+        Zapisz tort jako preset
+      </button>
+      <button type="button" class="sidebar-panel__button" (click)="onSaveSelectedSlotsPreset()">
+        Zapisz zaznaczone dekoracje jako preset slotów
+      </button>
+      <button type="button" class="sidebar-panel__button" (click)="onSaveAllSlotsPreset()">
+        Zapisz wszystkie dekoracje jako preset slotów
+      </button>
+      <button type="button" class="sidebar-panel__button" (click)="onDownloadCakePresetFile()">
+        Pobierz plik z presetem tortu
+      </button>
+    </div>
+
+    <p class="decorations-panel__hint" *ngIf="authorModeEnabled && !adminMode">
+      Tryb administratora (eksport kotwic) włączysz, dodając <code>?admin=1</code> do adresu strony.
+    </p>
+
+    <div class="decorations-panel__admin" *ngIf="adminMode">
+      <h4 class="decorations-panel__admin-title">Tryb administratora</h4>
+      <p class="decorations-panel__hint">Eksport kotwic działa dla zaznaczonych, przypiętych dekoracji.</p>
+      <button type="button" class="sidebar-panel__button" (click)="onExportAnchors()">
+        Eksportuj kotwicę z zaznaczenia
+      </button>
+      <textarea
+        class="decorations-panel__admin-output"
+        readonly
+        rows="6"
+        placeholder="Brak danych – zaznacz przypiętą dekorację i kliknij eksport."
+        [value]="anchorExportJson"
+      ></textarea>
     </div>
   </div>
 </section>

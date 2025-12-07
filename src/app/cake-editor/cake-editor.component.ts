@@ -8,16 +8,23 @@ import {TransformControlsService} from '../services/transform-controls-service';
 import {CakeOptions} from '../models/cake.options';
 import {DecorationValidationIssue} from '../models/decoration-validation';
 import {AddDecorationRequest} from '../models/add-decoration-request';
+import {AnchorPresetsService} from '../services/anchor-presets.service';
+import {Subscription} from 'rxjs';
+import { environment } from '../../environments/environment';
+import { PresetExportDialogComponent } from '../preset-export-dialog/preset-export-dialog.component';
+import { DecoratedCakePreset } from '../models/cake-preset';
 
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, CakeSidebarComponent],
+  imports: [CommonModule, CakeSidebarComponent, PresetExportDialogComponent],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
 export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvasContainer') container!: ElementRef;
+
+  readonly authorModeEnabled = environment.authorMode;
 
   public options: CakeOptions = {
     cake_size: 1,
@@ -60,6 +67,7 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
+  private anchorClickSubscription?: Subscription;
 
   private readonly handleDocumentClick = () => this.hideContextMenu();
   private readonly handleKeyDown = (event: KeyboardEvent) => {
@@ -81,12 +89,16 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     private transformService: TransformControlsService,
     private decorationsService: DecorationsService,
     private paintService: PaintService,
+    private anchorPresetsService: AnchorPresetsService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
   ngAfterViewInit(): void {
     this.initializeScene();
     if (isPlatformBrowser(this.platformId)) {
+      this.anchorClickSubscription = this.anchorPresetsService.anchorClicks$.subscribe((anchorId) => {
+        void this.handleAnchorClick(anchorId);
+      });
       const containerEl = this.container.nativeElement as HTMLElement;
       containerEl.addEventListener('contextmenu', this.contextMenuListener);
       document.addEventListener('click', this.handleDocumentClick);
@@ -100,6 +112,8 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
       this.statusTimeoutId = null;
     }
 
+    this.anchorClickSubscription?.unsubscribe();
+
     if (isPlatformBrowser(this.platformId)) {
       document.removeEventListener('click', this.handleDocumentClick);
       document.removeEventListener('keydown', this.handleKeyDown);
@@ -110,6 +124,13 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
   onAddDecoration(request: AddDecorationRequest): void {
     void this.sceneService.addDecorationFromModel(request.modelFileName, request.preferredSurface, request.targetLayerIndex);
+  }
+
+  async onApplyCakePreset(preset: DecoratedCakePreset): Promise<void> {
+    await this.sceneService.applyDecoratedCakePreset(preset);
+    this.options = JSON.parse(JSON.stringify(preset.options));
+    this.validationIssues = [];
+    this.validationSummary = null;
   }
 
   updateCakeOptions(newOptions: CakeOptions): void {
@@ -300,6 +321,27 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     if (isPlatformBrowser(this.platformId)) {
       this.sceneService.init(this.container.nativeElement, this.options);
     }
+  }
+
+  private async handleAnchorClick(anchorId: string): Promise<void> {
+    const mode = this.anchorPresetsService.getActionMode();
+    if (mode === 'move') {
+      const result = this.sceneService.moveSelectionToAnchor(anchorId);
+      this.showStatus(result.message);
+      return;
+    }
+
+    const pendingDecoration = this.anchorPresetsService.getPendingDecoration();
+    if (!pendingDecoration) {
+      this.showStatus('Wybierz dekorację, aby dodać ją na kotwicy.');
+      return;
+    }
+
+    const result = await this.sceneService.spawnDecorationAtAnchor(
+      pendingDecoration.modelFileName,
+      anchorId,
+    );
+    this.showStatus(result.message);
   }
 
   private triggerDownload(blob: Blob, filename: string): void {

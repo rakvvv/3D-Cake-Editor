@@ -287,6 +287,14 @@ export class ThreeObjectsFactory {
       cake.add(wafer);
     }
 
+    cake.traverse(child => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
+
     cake.userData['metadata'] = metadata;
     cake.userData['material'] = material;
     cake.userData['layers'] = layers;
