@@ -9,7 +9,7 @@ import { SnapService } from './snap.service';
 import { CakeMetadata, LayerMetadata } from '../factories/three-objects.factory';
 import { ExtruderVariantInfo } from '../models/extruderVariantInfo';
 import { environment } from '../../environments/environment';
-import { CreamRingPreset, defaultCreamRingPresets, normalizePresetAngles } from '../models/cream-presets';
+import { CreamPathNode, CreamRingPreset, defaultCreamRingPresets, normalizePresetAngles } from '../models/cream-presets';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -578,6 +578,19 @@ export class PaintService {
     return this.extruderVariantSelection;
   }
 
+  public getCakeMetadataSnapshot(): CakeMetadata | null {
+    return this.snapService.getCakeMetadataSnapshot();
+  }
+
+  public getLayerOptions(): number[] {
+    const metadata = this.snapService.getCakeMetadataSnapshot();
+    if (!metadata) {
+      return [0];
+    }
+
+    return Array.from({ length: metadata.layers }, (_, index) => index);
+  }
+
   public async getExtruderVariantPreviews(): Promise<{ id: number; name: string; thumbnail: string | null }[]> {
     const variants = await this.getExtruderVariants();
     return variants.map((variant, index) => ({
@@ -684,12 +697,26 @@ export class PaintService {
 
   public async insertCreamRingPreset(presetId: string): Promise<void> {
     const metadata = this.snapService.getCakeMetadataSnapshot();
+    if (!metadata) {
+      return;
+    }
+
+    const preset = this.resolveCreamPreset(presetId, metadata);
+    if (!preset) {
+      return;
+    }
+
+    await this.generateExtruderStroke(preset);
+  }
+
+  public async generateExtruderStroke(config: CreamRingPreset): Promise<void> {
+    const metadata = this.snapService.getCakeMetadataSnapshot();
     const variants = await this.getExtruderVariants();
     if (!metadata || !this.sceneRef || !variants.length) {
       return;
     }
 
-    const preset = this.resolveCreamPreset(presetId, metadata);
+    const preset = this.normalizePresetForMetadata(config, metadata);
     if (!preset) {
       return;
     }
@@ -713,7 +740,7 @@ export class PaintService {
     this.extruderLastNormal = null;
     this.extruderFirstInstance = null;
 
-    this.populateCreamRing(preset, metadata, variants, strokeGroup);
+    this.populateExtruderStroke(preset, metadata, variants, strokeGroup);
 
     const hasInstances = Array.from(this.extruderStrokeInstances.values()).some((state) => state.count > 0);
     if (strokeGroup.children.length && hasInstances) {
@@ -870,13 +897,13 @@ export class PaintService {
     return this.activeExtruderStrokeGroup;
   }
 
-  private populateCreamRing(
+  private populateExtruderStroke(
     preset: CreamRingPreset,
     metadata: CakeMetadata,
     variants: ExtruderVariantData[],
     strokeGroup: THREE.Group,
   ): void {
-    const ringPoints = this.buildCreamRingPath(preset, metadata);
+    const ringPoints = this.buildExtruderPath(preset, metadata);
     if (!ringPoints.length) {
       return;
     }
@@ -934,7 +961,7 @@ export class PaintService {
     });
   }
 
-  private buildCreamRingPath(
+  private buildExtruderPath(
     preset: CreamRingPreset,
     metadata: CakeMetadata,
   ): { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] {
@@ -948,12 +975,31 @@ export class PaintService {
     const radiusOffset = preset.radiusOffset ?? 0;
     const adjustedRadiusX = Math.max(0.01, radiusX + radiusOffset);
     const adjustedRadiusZ = Math.max(0.01, radiusZ + radiusOffset);
-    const height = this.getCreamHeightForPreset(preset, layer, metadata);
 
+    switch (preset.mode) {
+      case 'PATH':
+        return this.buildPathFromNodes(preset, layer, metadata, adjustedRadiusX, adjustedRadiusZ);
+      case 'ARC':
+      case 'RING':
+      default:
+        return this.buildCircularExtruderPath(preset, layer, metadata, adjustedRadiusX, adjustedRadiusZ);
+    }
+  }
+
+  private buildCircularExtruderPath(
+    preset: CreamRingPreset,
+    layer: LayerMetadata,
+    metadata: CakeMetadata,
+    adjustedRadiusX: number,
+    adjustedRadiusZ: number,
+  ): { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] {
+    const height = this.getCreamHeightForPreset(preset, layer, metadata);
     const angles = normalizePresetAngles(preset);
     const start = THREE.MathUtils.degToRad(angles.startAngleDeg ?? 0);
     const end = THREE.MathUtils.degToRad(angles.endAngleDeg ?? 360);
-    const segments = Math.max(2, preset.segments);
+    const span = Math.abs(end - start);
+    const baseSegments = preset.segments ?? Math.max(32, Math.ceil((span / (Math.PI * 2)) * 128));
+    const segments = Math.max(2, baseSegments);
     const points: { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] = [];
 
     for (let i = 0; i <= segments; i++) {
@@ -976,6 +1022,83 @@ export class PaintService {
     return points;
   }
 
+  private buildPathFromNodes(
+    preset: CreamRingPreset,
+    layer: LayerMetadata,
+    metadata: CakeMetadata,
+    adjustedRadiusX: number,
+    adjustedRadiusZ: number,
+  ): { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] {
+    const nodes = this.normalizeNodes(preset);
+    if (nodes.length < 2) {
+      return [];
+    }
+
+    const totalSegments = Math.max(1, preset.segments ?? nodes.length * 8);
+    const points: { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] = [];
+    let lastPosition: THREE.Vector3 | null = null;
+    let segmentsLeft = totalSegments;
+
+    nodes.forEach((node, index) => {
+      if (index === nodes.length - 1) {
+        return;
+      }
+
+      const next = nodes[index + 1];
+      const steps = Math.max(1, Math.round(segmentsLeft / (nodes.length - 1 - index)));
+      const startAngle = THREE.MathUtils.degToRad(node.angleDeg);
+      const endAngle = THREE.MathUtils.degToRad(next.angleDeg);
+      const startHeight = this.getCreamHeightForPreset(preset, layer, metadata, node.heightNorm);
+      const endHeight = this.getCreamHeightForPreset(preset, layer, metadata, next.heightNorm);
+
+      for (let i = 0; i <= steps; i++) {
+        const t = steps === 0 ? 0 : i / steps;
+        const angle = startAngle + (endAngle - startAngle) * t;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const height = THREE.MathUtils.lerp(startHeight, endHeight, t);
+        const position = new THREE.Vector3(adjustedRadiusX * cos, height, adjustedRadiusZ * sin);
+        const normal = new THREE.Vector3(cos / Math.max(1e-6, adjustedRadiusX), 0, sin / Math.max(1e-6, adjustedRadiusZ)).normalize();
+
+        let tangent: THREE.Vector3;
+        if (lastPosition) {
+          tangent = position.clone().sub(lastPosition);
+          if (tangent.lengthSq() <= 1e-6) {
+            tangent = new THREE.Vector3(-sin * adjustedRadiusX, 0, cos * adjustedRadiusZ);
+          }
+        } else {
+          tangent = new THREE.Vector3(-sin * adjustedRadiusX, 0, cos * adjustedRadiusZ);
+        }
+
+        if (tangent.lengthSq() > 1e-6) {
+          tangent.normalize();
+        } else {
+          tangent.set(1, 0, 0);
+        }
+
+        points.push({ position, normal, tangent });
+        lastPosition = position.clone();
+      }
+
+      segmentsLeft = Math.max(0, segmentsLeft - steps);
+    });
+
+    return points;
+  }
+
+  private normalizeNodes(preset: CreamRingPreset): CreamPathNode[] {
+    const fallbackNodes: CreamPathNode[] = [
+      { angleDeg: preset.startAngleDeg ?? 0, heightNorm: preset.heightNorm },
+      { angleDeg: preset.endAngleDeg ?? (preset.startAngleDeg ?? 0) + 180, heightNorm: preset.heightNorm },
+    ];
+    const base = preset.nodes && preset.nodes.length >= 2 ? preset.nodes : fallbackNodes;
+
+    return base.map((node) => ({
+      angleDeg: THREE.MathUtils.euclideanModulo(node.angleDeg, 360),
+      heightNorm: node.heightNorm ?? preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5),
+    }));
+  }
+
   private getLayerRadii(layer: LayerMetadata, metadata: CakeMetadata): { radiusX: number; radiusZ: number } {
     const baseRadius = layer.radius ?? metadata.radius ?? metadata.maxRadius ?? 1;
     const baseWidth = layer.width ?? metadata.width ?? metadata.maxWidth ?? baseRadius * 2;
@@ -986,10 +1109,15 @@ export class PaintService {
     return { radiusX, radiusZ };
   }
 
-  private getCreamHeightForPreset(preset: CreamRingPreset, layer: LayerMetadata, metadata: CakeMetadata): number {
+  private getCreamHeightForPreset(
+    preset: CreamRingPreset,
+    layer: LayerMetadata,
+    metadata: CakeMetadata,
+    overrideHeight?: number,
+  ): number {
     const layerHeight = layer.height ?? metadata.layerHeight;
     const normalizedHeight = THREE.MathUtils.clamp(
-      preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5),
+      overrideHeight ?? preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5),
       0,
       1,
     );
@@ -1006,9 +1134,19 @@ export class PaintService {
       return null;
     }
 
-    const normalized = normalizePresetAngles(preset);
-    const layerIndex = preset.layerIndex < 0 ? metadata.layers - 1 : preset.layerIndex;
-    return { ...normalized, layerIndex: Math.min(Math.max(0, layerIndex), metadata.layers - 1) };
+    return this.normalizePresetForMetadata(preset, metadata);
+  }
+
+  private normalizePresetForMetadata(preset: CreamRingPreset, metadata: CakeMetadata): CreamRingPreset | null {
+    const normalized = normalizePresetAngles({ ...preset, mode: preset.mode ?? 'RING' });
+    const layerIndex = normalized.layerIndex < 0 ? metadata.layers - 1 : normalized.layerIndex;
+    const clampedLayer = Math.min(Math.max(0, layerIndex), metadata.layers - 1);
+    const sanitizedNodes = normalized.nodes?.map((node) => ({
+      angleDeg: THREE.MathUtils.euclideanModulo(node.angleDeg, 360),
+      heightNorm: node.heightNorm,
+    }));
+
+    return { ...normalized, layerIndex: clampedLayer, nodes: sanitizedNodes };
   }
 
   private setCreamRingPresets(presets: CreamRingPreset[]): void {
