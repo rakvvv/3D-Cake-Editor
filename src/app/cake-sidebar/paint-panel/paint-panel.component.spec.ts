@@ -6,6 +6,7 @@ import { PaintService } from '../../services/paint.service';
 import { BehaviorSubject } from 'rxjs';
 import { DecorationsService } from '../../services/decorations.service';
 import { DecorationInfo } from '../../models/decorationInfo';
+import { defaultCreamRingPresets } from '../../models/cream-presets';
 
 describe('PaintPanelComponent', () => {
   let fixture: ComponentFixture<PaintPanelComponent>;
@@ -15,6 +16,8 @@ describe('PaintPanelComponent', () => {
   let decorations$: BehaviorSubject<DecorationInfo[]>;
 
   beforeEach(async () => {
+    const creamPresets$ = new BehaviorSubject(defaultCreamRingPresets);
+
     paintService = jasmine.createSpyObj<PaintService>(
       'PaintService',
       [
@@ -23,12 +26,22 @@ describe('PaintPanelComponent', () => {
         'updatePenSettings',
         'setExtruderVariantSelection',
         'getExtruderVariantPreviews',
-        'insertExtruderPreset',
+        'insertCreamRingPreset',
         'undo',
         'redo',
         'canUndo',
         'canRedo',
         'getExtruderVariantSelection',
+        'getCreamRingPresets',
+        'loadCreamRingPresets',
+        'generateExtruderStroke',
+        'getLayerOptions',
+        'getExtruderPreview',
+        'setExtruderPathMode',
+        'setExtruderPathNodes',
+        'setExtruderPathContext',
+        'setExtruderPathLayer',
+        'requestPathNodeReplacement',
       ],
       {
         paintMode: false,
@@ -37,6 +50,8 @@ describe('PaintPanelComponent', () => {
         penSize: 0.05,
         penThickness: 0.02,
         penColor: '#ff4d6d',
+        creamRingPresets$: creamPresets$.asObservable(),
+        extruderPathNodes$: new BehaviorSubject([]).asObservable(),
       },
     );
 
@@ -44,7 +59,12 @@ describe('PaintPanelComponent', () => {
     paintService.canRedo.and.returnValue(false);
     paintService.getExtruderVariantSelection.and.returnValue('random');
     paintService.getExtruderVariantPreviews.and.resolveTo([]);
-    paintService.insertExtruderPreset.and.resolveTo();
+    paintService.insertCreamRingPreset.and.resolveTo();
+    paintService.generateExtruderStroke.and.resolveTo();
+    paintService.getCreamRingPresets.and.returnValue(defaultCreamRingPresets);
+    paintService.loadCreamRingPresets.and.resolveTo();
+    paintService.getLayerOptions.and.returnValue([0, 1]);
+    paintService.getExtruderPreview.and.returnValue([]);
 
     decorations$ = new BehaviorSubject<DecorationInfo[]>([
       {

@@ -5,9 +5,9 @@ import { Subscription } from 'rxjs';
 import { DecorationInfo } from '../../models/decorationInfo';
 import { DecorationsService } from '../../services/decorations.service';
 import { PaintService } from '../../services/paint.service';
+import { CreamPathNode, CreamRingPreset, CreamPosition, ExtruderStrokeMode } from '../../models/cream-presets';
 
 type SidebarPaintTool = 'decoration' | 'pen' | 'extruder';
-type ExtruderPreset = 'circle' | 'arc' | 'wave';
 
 type ExtruderVariantCard = {
   id: number;
@@ -49,18 +49,38 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   penColor = '#ff4d6d';
   extruderVariant: number | 'random' = 'random';
   extruderVariantCards: ExtruderVariantCard[] = [];
-  presetOptions: { id: ExtruderPreset; name: string }[] = [
-    { id: 'circle', name: 'Koło' },
-    { id: 'arc', name: 'Łuk' },
-    { id: 'wave', name: 'Linia falista' },
+  creamRingPresets: CreamRingPreset[] = [];
+  selectedPresetId: string | null = null;
+  extruderPathModeEnabled = false;
+  extruderMode: ExtruderStrokeMode = 'RING';
+  extruderLayerIndex = 0;
+  extruderSegments = 96;
+  extruderStartAngle = 0;
+  extruderEndAngle = 360;
+  extruderHeightNorm = 1;
+  extruderRadiusOffset = 0.02;
+  extruderScale = 1;
+  extruderColor = '#ffffff';
+  extruderPosition: CreamPosition = 'TOP_EDGE';
+  extruderNodes: CreamPathNode[] = [
+    { angleDeg: 0, heightNorm: 0.6 },
+    { angleDeg: 180, heightNorm: 0.6 },
   ];
-  selectedPreset: ExtruderPreset = 'circle';
+  activeNodeIndex: number | null = null;
+  extruderPreviewPoints: { angleDeg: number; heightNorm: number; x: number; y: number }[] = [];
+  layerOptions: number[] = [0];
 
   private decorationsSubscription?: Subscription;
+  private creamPresetSubscription?: Subscription;
+  private extruderPathSubscription?: Subscription;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
       this.syncPaintServiceState();
+      this.subscribeToCreamPresets();
+      this.subscribeToExtruderPathNodes();
+      void this.paintService.loadCreamRingPresets();
+      this.refreshLayerOptions();
     }
 
     if (changes['decorationsService']) {
@@ -70,10 +90,18 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.subscribeToDecorations();
+    this.subscribeToCreamPresets();
+    this.subscribeToExtruderPathNodes();
+    if (this.paintService) {
+      void this.paintService.loadCreamRingPresets();
+    }
+    this.refreshLayerOptions();
   }
 
   ngOnDestroy(): void {
     this.decorationsSubscription?.unsubscribe();
+    this.creamPresetSubscription?.unsubscribe();
+    this.extruderPathSubscription?.unsubscribe();
   }
 
   togglePaintMode(): void {
@@ -108,8 +136,12 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     if (this.selectedTool === 'pen') {
       this.onPenSettingsChange();
     } else if (this.selectedTool === 'extruder') {
+      this.paintService.setExtruderPathMode(this.extruderPathModeEnabled);
       this.paintService.setExtruderVariantSelection(this.extruderVariant);
       this.loadExtruderVariants();
+      this.refreshCreamPresets();
+      this.refreshLayerOptions();
+      this.updateExtruderPreview();
     } else {
       this.ensureBrushSelection();
       if (!this.selectedBrush) {
@@ -135,6 +167,25 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
       return;
     }
     this.paintService.setExtruderVariantSelection(this.extruderVariant);
+    this.updateExtruderPreview();
+  }
+
+  onLayerChange(): void {
+    if (this.paintService) {
+      this.paintService.setExtruderPathLayer(this.extruderLayerIndex);
+    }
+    this.updateExtruderPreview();
+  }
+
+  onExtruderPositionChange(): void {
+    if (this.paintService) {
+      const config = this.buildExtruderConfig();
+      this.paintService.setExtruderPathContext(config);
+      if (this.extruderPathModeEnabled || config.mode === 'PATH') {
+        this.paintService.setExtruderPathNodes(this.extruderNodes, config);
+      }
+    }
+    this.updateExtruderPreview();
   }
 
   onExtruderCardSelect(variantId: number): void {
@@ -142,17 +193,111 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.onExtruderVariantChange();
   }
 
+  setExtruderDrawingMode(mode: 'free' | 'path'): void {
+    this.extruderPathModeEnabled = mode === 'path';
+    if (this.extruderPathModeEnabled) {
+      this.extruderMode = 'PATH';
+    }
+
+    if (this.paintService) {
+      this.paintService.setExtruderPathMode(this.extruderPathModeEnabled);
+      this.paintService.requestPathNodeReplacement(null);
+      if (this.extruderPathModeEnabled) {
+        const config = this.buildExtruderConfig();
+        this.paintService.setExtruderPathNodes(this.extruderNodes, config);
+        this.paintService.setExtruderPathContext(config);
+      }
+    }
+
+    this.updateExtruderPreview();
+  }
+
   onRandomExtruderVariant(): void {
     this.extruderVariant = 'random';
     this.onExtruderVariantChange();
   }
 
-  async onInsertPreset(): Promise<void> {
+  onPresetChange(): void {
+    if (!this.selectedPresetId) {
+      return;
+    }
+
+    const preset = this.creamRingPresets.find((item) => item.id === this.selectedPresetId);
+    if (preset) {
+      this.applyPresetToForm(preset);
+      if (preset.mode === 'PATH') {
+        this.setExtruderDrawingMode('path');
+      }
+    }
+    this.updateExtruderPreview();
+  }
+
+  onExtruderModeChange(): void {
+    if (this.extruderPathModeEnabled) {
+      this.extruderMode = 'PATH';
+    }
+
+    if (this.extruderMode === 'RING') {
+      this.extruderStartAngle = 0;
+      this.extruderEndAngle = 360;
+    } else if (this.extruderMode === 'ARC') {
+      this.extruderEndAngle = Math.max(this.extruderStartAngle + 30, this.extruderEndAngle);
+    }
+
+    this.updateExtruderPreview();
+  }
+
+  addExtruderNode(): void {
+    this.extruderNodes = [...this.extruderNodes, { angleDeg: 0, heightNorm: this.extruderHeightNorm }];
+    this.syncPathNodes();
+    this.updateExtruderPreview();
+  }
+
+  removeExtruderNode(index: number): void {
+    if (this.extruderNodes.length <= 2) {
+      return;
+    }
+    this.extruderNodes = this.extruderNodes.filter((_, idx) => idx !== index);
+    if (this.activeNodeIndex === index) {
+      this.activeNodeIndex = null;
+    }
+    this.syncPathNodes();
+    this.updateExtruderPreview();
+  }
+
+  selectExtruderNode(index: number): void {
+    this.activeNodeIndex = index;
+    this.paintService?.requestPathNodeReplacement(null);
+  }
+
+  replaceNodeFromClick(index: number): void {
+    this.activeNodeIndex = index;
+    this.paintService?.setExtruderPathMode(true);
+    this.paintService?.requestPathNodeReplacement(index);
+  }
+
+  clearPathNodes(): void {
+    this.extruderNodes = [];
+    this.syncPathNodes();
+    this.updateExtruderPreview();
+  }
+
+  updateNode(index: number, key: keyof CreamPathNode, value: number): void {
+    this.extruderNodes = this.extruderNodes.map((node, idx) =>
+      idx === index ? { ...node, [key]: Number(value) } : node,
+    );
+    this.syncPathNodes();
+    this.updateExtruderPreview();
+  }
+
+  async onGenerateExtruderStroke(): Promise<void> {
     if (!this.paintService) {
       return;
     }
 
-    await this.paintService.insertExtruderPreset(this.selectedPreset);
+    const config = this.buildExtruderConfig();
+    await this.paintService.generateExtruderStroke(config);
+    this.updateExtruderPreview();
   }
 
   undoLast(): void {
@@ -204,7 +349,11 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.penThickness = this.paintService.penThickness;
     this.penColor = this.paintService.penColor;
     this.extruderVariant = this.paintService.getExtruderVariantSelection() ?? 'random';
+    this.extruderPathModeEnabled = false;
     this.loadExtruderVariants();
+    this.refreshCreamPresets();
+    this.refreshLayerOptions();
+    this.updateExtruderPreview();
     this.ensureBrushSelection();
   }
 
@@ -219,6 +368,35 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
       this.updateBrushOptions(decorations);
     });
     this.updateBrushOptions(this.decorationsService.getDecorations());
+  }
+
+  private subscribeToCreamPresets(): void {
+    this.creamPresetSubscription?.unsubscribe();
+    if (!this.paintService) {
+      this.creamRingPresets = [];
+      this.selectedPresetId = null;
+      return;
+    }
+
+    this.creamPresetSubscription = this.paintService.creamRingPresets$.subscribe((presets) => {
+      this.updateCreamPresets(presets ?? []);
+      this.updateExtruderPreview();
+    });
+    this.updateCreamPresets(this.paintService.getCreamRingPresets());
+    this.updateExtruderPreview();
+  }
+
+  private subscribeToExtruderPathNodes(): void {
+    this.extruderPathSubscription?.unsubscribe();
+    if (!this.paintService) {
+      this.extruderNodes = [];
+      return;
+    }
+
+    this.extruderPathSubscription = this.paintService.extruderPathNodes$.subscribe((nodes) => {
+      this.extruderNodes = nodes.map((node) => ({ ...node }));
+      this.updateExtruderPreview();
+    });
   }
 
   private updateBrushOptions(decorations: DecorationInfo[]): void {
@@ -254,6 +432,26 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.paintService.setCurrentBrush(this.selectedBrush);
   }
 
+  private refreshCreamPresets(): void {
+    if (!this.paintService) {
+      this.updateCreamPresets([]);
+      return;
+    }
+
+    this.updateCreamPresets(this.paintService.getCreamRingPresets());
+  }
+
+  private updateCreamPresets(presets: CreamRingPreset[]): void {
+    this.creamRingPresets = presets;
+    const availableIds = this.creamRingPresets.map((preset) => preset.id);
+    if (!this.selectedPresetId || !availableIds.includes(this.selectedPresetId)) {
+      this.selectedPresetId = availableIds[0] ?? null;
+    }
+
+    this.applySelectedPreset();
+    this.updateExtruderPreview();
+  }
+
   private mapDecorationToBrush(decoration: DecorationInfo): BrushOption {
     return {
       id: decoration.id,
@@ -262,5 +460,136 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
       thumbnailUrl: decoration.thumbnailUrl,
       paintable: decoration.paintable,
     };
+  }
+
+  private applySelectedPreset(): void {
+    if (!this.selectedPresetId) {
+      return;
+    }
+
+    const preset = this.creamRingPresets.find((item) => item.id === this.selectedPresetId);
+    if (preset) {
+      this.applyPresetToForm(preset);
+    }
+  }
+
+  private applyPresetToForm(preset: CreamRingPreset): void {
+    this.extruderMode = preset.mode;
+    this.extruderLayerIndex = preset.layerIndex;
+    this.extruderSegments = preset.segments ?? this.extruderSegments;
+    this.extruderStartAngle = preset.startAngleDeg ?? this.extruderStartAngle;
+    this.extruderEndAngle = preset.endAngleDeg ?? this.extruderEndAngle;
+    this.extruderHeightNorm = preset.heightNorm ?? this.extruderHeightNorm;
+    this.extruderRadiusOffset = preset.radiusOffset ?? this.extruderRadiusOffset;
+    this.extruderScale = preset.scale ?? this.extruderScale;
+    this.extruderColor = preset.color ?? this.extruderColor;
+    this.extruderPosition = preset.position;
+    this.extruderLayerIndex = this.resolveLayerIndex(preset.layerIndex);
+    const presetNodes = this.mapPresetToNodes(preset);
+    if (presetNodes.length) {
+      this.extruderNodes = presetNodes;
+      if (this.extruderPathModeEnabled || preset.mode === 'PATH') {
+        this.paintService?.setExtruderPathNodes(this.extruderNodes, this.buildExtruderConfig());
+      }
+    }
+  }
+
+  private mapPresetToNodes(preset: CreamRingPreset): CreamPathNode[] {
+    if (preset.nodes && preset.nodes.length >= 2) {
+      return preset.nodes.map((node) => ({ ...node }));
+    }
+
+    const baseHeight =
+      preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5);
+    const start = preset.startAngleDeg ?? 0;
+    const end =
+      preset.endAngleDeg ??
+      (preset.mode === 'RING'
+        ? (preset.startAngleDeg ?? 0) + 360
+        : (preset.startAngleDeg ?? 0) + Math.max(45, Math.min(330, this.extruderEndAngle - this.extruderStartAngle)));
+
+    return [
+      { angleDeg: start, heightNorm: baseHeight },
+      { angleDeg: end, heightNorm: baseHeight },
+    ];
+  }
+
+  private buildExtruderConfig(): CreamRingPreset {
+    const layerIndex = this.resolveLayerIndex(this.extruderLayerIndex);
+    return {
+      id: this.selectedPresetId ?? 'custom-stroke',
+      name: 'Ścieżka ekstrudera',
+      mode: this.extruderMode,
+      layerIndex,
+      position: this.extruderPosition,
+      segments: this.extruderSegments,
+      startAngleDeg: this.extruderStartAngle,
+      endAngleDeg: this.extruderMode === 'RING' ? this.extruderStartAngle + 360 : this.extruderEndAngle,
+      heightNorm: this.extruderHeightNorm,
+      radiusOffset: this.extruderRadiusOffset,
+      scale: this.extruderScale,
+      color: this.extruderColor || undefined,
+      nodes: this.extruderMode === 'PATH' ? this.extruderNodes.map((node) => ({ ...node })) : undefined,
+    };
+  }
+
+  private refreshLayerOptions(): void {
+    if (!this.paintService) {
+      this.layerOptions = [0];
+      return;
+    }
+
+    this.layerOptions = this.paintService.getLayerOptions();
+    this.extruderLayerIndex = this.resolveLayerIndex(this.extruderLayerIndex);
+  }
+
+  private resolveLayerIndex(layerIndex: number): number {
+    const maxIndex = Math.max(0, this.layerOptions.length - 1);
+    if (layerIndex < 0) {
+      return maxIndex;
+    }
+
+    return Math.min(Math.max(0, Math.floor(layerIndex)), maxIndex);
+  }
+
+  private syncPathNodes(): void {
+    if (!this.paintService || !this.extruderPathModeEnabled) {
+      return;
+    }
+
+    const config = this.buildExtruderConfig();
+    this.paintService.setExtruderPathNodes(this.extruderNodes, config);
+  }
+
+  getPreviewColor(heightNorm: number): string {
+    const green = Math.round(170 + heightNorm * 70);
+    const blue = Math.round(180 + heightNorm * 60);
+    return `rgb(255, ${Math.min(240, green)}, ${Math.min(240, blue)})`;
+  }
+
+  updateExtruderPreview(): void {
+    if (!this.paintService) {
+      this.extruderPreviewPoints = [];
+      return;
+    }
+
+    const config = this.buildExtruderConfig();
+    this.paintService.setExtruderPathContext(config);
+    if (this.extruderPathModeEnabled || config.mode === 'PATH') {
+      this.paintService.setExtruderPathNodes(this.extruderNodes, config);
+    }
+    const preview = this.paintService
+      .getExtruderPreview(config)
+      .slice(0, 180)
+      .map((point) => ({ angleDeg: point.angleDeg, heightNorm: point.heightNorm }));
+
+    const radius = 48;
+    const center = 60;
+    this.extruderPreviewPoints = preview.map((point) => {
+      const rad = ((point.angleDeg - 90) * Math.PI) / 180;
+      const x = center + radius * Math.cos(rad);
+      const y = center + radius * Math.sin(rad);
+      return { ...point, x, y };
+    });
   }
 }

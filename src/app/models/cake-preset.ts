@@ -17,4 +17,58 @@ export interface DecoratedCakePreset {
   thumbnailUrl?: string;
   options: CakeOptions;
   decorations: DecorationPresetEntry[];
+  paintStrokes?: PaintStrokePreset[];
+  surfacePainting?: SurfacePaintingPreset;
+}
+
+export interface PaintStrokePreset {
+  type: 'extruder' | 'pen' | 'decoration';
+  color?: string;
+  brushId?: string;
+  penSize?: number;
+  penThickness?: number;
+  penCapsEnabled?: boolean;
+  variantSourceId?: string;
+  variantIndex?: number;
+  instances: PaintStrokeInstance[];
+  snapPoints?: number[][];
+  name?: string;
+}
+
+export interface PaintStrokeInstance {
+  matrix: number[];
+  color?: number[];
+  penPart?: 'segment' | 'joint' | 'cap';
+}
+
+export interface SurfacePaintingPreset {
+  brushColor?: string;
+  brushStrokes?: SerializedBrushStroke[];
+  sprinkleStrokes?: SerializedSprinkleStroke[];
+}
+
+export interface SerializedBrushStroke {
+  id: string;
+  mode: 'brush';
+  color: string;
+  brushSize: number;
+  /**
+   * Flattened array of position + normal tuples:
+   * [x, y, z, nx, ny, nz, x, y, z, nx, ny, nz, ...]
+   */
+  pathData: number[];
+}
+
+export interface SerializedSprinkleStroke {
+  id: string;
+  mode: 'sprinkles';
+  shape: 'stick' | 'ball' | 'star';
+  density: number;
+  useRandomColors: boolean;
+  color: string;
+  /**
+   * Flattened array of position + normal tuples:
+   * [x, y, z, nx, ny, nz, x, y, z, nx, ny, nz, ...]
+   */
+  pathData: number[];
 }
