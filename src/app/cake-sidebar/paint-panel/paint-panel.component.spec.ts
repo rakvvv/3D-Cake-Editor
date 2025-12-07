@@ -36,6 +36,7 @@ describe('PaintPanelComponent', () => {
         'loadCreamRingPresets',
         'generateExtruderStroke',
         'getLayerOptions',
+        'getExtruderPreview',
       ],
       {
         paintMode: false,
@@ -57,6 +58,7 @@ describe('PaintPanelComponent', () => {
     paintService.getCreamRingPresets.and.returnValue(defaultCreamRingPresets);
     paintService.loadCreamRingPresets.and.resolveTo();
     paintService.getLayerOptions.and.returnValue([0, 1]);
+    paintService.getExtruderPreview.and.returnValue([]);
 
     decorations$ = new BehaviorSubject<DecorationInfo[]>([
       {

@@ -65,6 +65,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     { angleDeg: 0, heightNorm: 0.6 },
     { angleDeg: 180, heightNorm: 0.6 },
   ];
+  extruderPreviewPoints: { angleDeg: number; heightNorm: number; x: number; y: number }[] = [];
   layerOptions: number[] = [0];
 
   private decorationsSubscription?: Subscription;
@@ -133,6 +134,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
       this.loadExtruderVariants();
       this.refreshCreamPresets();
       this.refreshLayerOptions();
+      this.updateExtruderPreview();
     } else {
       this.ensureBrushSelection();
       if (!this.selectedBrush) {
@@ -158,6 +160,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
       return;
     }
     this.paintService.setExtruderVariantSelection(this.extruderVariant);
+    this.updateExtruderPreview();
   }
 
   onExtruderCardSelect(variantId: number): void {
@@ -179,6 +182,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     if (preset) {
       this.applyPresetToForm(preset);
     }
+    this.updateExtruderPreview();
   }
 
   onExtruderModeChange(): void {
@@ -194,10 +198,13 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     } else {
       this.extruderPosition = 'SIDE_ARC';
     }
+
+    this.updateExtruderPreview();
   }
 
   addExtruderNode(): void {
     this.extruderNodes = [...this.extruderNodes, { angleDeg: 0, heightNorm: this.extruderHeightNorm }];
+    this.updateExtruderPreview();
   }
 
   removeExtruderNode(index: number): void {
@@ -205,12 +212,14 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
       return;
     }
     this.extruderNodes = this.extruderNodes.filter((_, idx) => idx !== index);
+    this.updateExtruderPreview();
   }
 
   updateNode(index: number, key: keyof CreamPathNode, value: number): void {
     this.extruderNodes = this.extruderNodes.map((node, idx) =>
       idx === index ? { ...node, [key]: Number(value) } : node,
     );
+    this.updateExtruderPreview();
   }
 
   async onGenerateExtruderStroke(): Promise<void> {
@@ -220,6 +229,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
 
     const config = this.buildExtruderConfig();
     await this.paintService.generateExtruderStroke(config);
+    this.updateExtruderPreview();
   }
 
   undoLast(): void {
@@ -274,6 +284,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.loadExtruderVariants();
     this.refreshCreamPresets();
     this.refreshLayerOptions();
+    this.updateExtruderPreview();
     this.ensureBrushSelection();
   }
 
@@ -300,8 +311,10 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
 
     this.creamPresetSubscription = this.paintService.creamRingPresets$.subscribe((presets) => {
       this.updateCreamPresets(presets ?? []);
+      this.updateExtruderPreview();
     });
     this.updateCreamPresets(this.paintService.getCreamRingPresets());
+    this.updateExtruderPreview();
   }
 
   private updateBrushOptions(decorations: DecorationInfo[]): void {
@@ -354,6 +367,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     }
 
     this.applySelectedPreset();
+    this.updateExtruderPreview();
   }
 
   private mapDecorationToBrush(decoration: DecorationInfo): BrushOption {
@@ -423,5 +437,33 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     if (this.extruderLayerIndex > maxIndex) {
       this.extruderLayerIndex = Math.max(0, maxIndex);
     }
+  }
+
+  getPreviewColor(heightNorm: number): string {
+    const green = Math.round(170 + heightNorm * 70);
+    const blue = Math.round(180 + heightNorm * 60);
+    return `rgb(255, ${Math.min(240, green)}, ${Math.min(240, blue)})`;
+  }
+
+  updateExtruderPreview(): void {
+    if (!this.paintService) {
+      this.extruderPreviewPoints = [];
+      return;
+    }
+
+    const config = this.buildExtruderConfig();
+    const preview = this.paintService
+      .getExtruderPreview(config)
+      .slice(0, 180)
+      .map((point) => ({ angleDeg: point.angleDeg, heightNorm: point.heightNorm }));
+
+    const radius = 48;
+    const center = 60;
+    this.extruderPreviewPoints = preview.map((point) => {
+      const rad = ((point.angleDeg - 90) * Math.PI) / 180;
+      const x = center + radius * Math.cos(rad);
+      const y = center + radius * Math.sin(rad);
+      return { ...point, x, y };
+    });
   }
 }

@@ -591,6 +591,34 @@ export class PaintService {
     return Array.from({ length: metadata.layers }, (_, index) => index);
   }
 
+  public getExtruderPreview(
+    config: CreamRingPreset,
+  ): { angleDeg: number; heightNorm: number; position: THREE.Vector3 }[] {
+    const metadata = this.snapService.getCakeMetadataSnapshot();
+    if (!metadata) {
+      return [];
+    }
+
+    const normalizedPreset = this.normalizePresetForMetadata(config, metadata);
+    if (!normalizedPreset) {
+      return [];
+    }
+
+    const layer = metadata.layerDimensions[normalizedPreset.layerIndex];
+    if (!layer) {
+      return [];
+    }
+
+    const layerSpan = Math.max(1e-6, layer.topY - layer.bottomY);
+
+    const path = this.buildExtruderPath(normalizedPreset, metadata);
+    return path.map((point) => ({
+      angleDeg: THREE.MathUtils.radToDeg(Math.atan2(point.position.z, point.position.x)),
+      heightNorm: THREE.MathUtils.clamp((point.position.y - layer.bottomY) / layerSpan, 0, 1),
+      position: point.position.clone(),
+    }));
+  }
+
   public async getExtruderVariantPreviews(): Promise<{ id: number; name: string; thumbnail: string | null }[]> {
     const variants = await this.getExtruderVariants();
     return variants.map((variant, index) => ({
@@ -1124,8 +1152,17 @@ export class PaintService {
 
     const bottom = layer.bottomY;
     const top = layer.topY;
-    const usableHeight = layerHeight ?? Math.max(0, top - bottom);
-    return bottom + usableHeight * normalizedHeight;
+    const span = Math.max(1e-6, top - bottom);
+    const baseHeight = bottom + span * normalizedHeight;
+
+    if (preset.position === 'TOP_EDGE') {
+      return Math.min(top, baseHeight + (layerHeight ?? span) * 0.01);
+    }
+    if (preset.position === 'BOTTOM_EDGE') {
+      return Math.max(bottom, baseHeight - (layerHeight ?? span) * 0.01);
+    }
+
+    return baseHeight;
   }
 
   private resolveCreamPreset(presetId: string, metadata: CakeMetadata): CreamRingPreset | null {
