@@ -1476,6 +1476,39 @@ export class ThreeSceneService {
     return anchor ? [anchor] : [];
   }
 
+  public exportAllAnchors(): AnchorPreset | null {
+    if (!this.cakeMetadata) {
+      return null;
+    }
+
+    const decorations = this.collectDecorationRoots();
+    const anchors: AnchorPoint[] = [];
+
+    decorations.forEach((decoration) => {
+      const displayName = (decoration.userData['displayName'] as string | undefined) ?? decoration.name;
+      const anchor = this.snapService.buildAnchorFromDecoration(
+        decoration,
+        this.cakeMetadata!,
+        decoration.uuid,
+        displayName,
+      );
+
+      if (anchor) {
+        anchors.push(anchor);
+      }
+    });
+
+    if (!anchors.length) {
+      return null;
+    }
+
+    return {
+      id: `preset-${Date.now()}`,
+      name: 'Wszystkie sloty dekoracji',
+      anchors,
+    };
+  }
+
   public buildCakePresetPayload(): { options: CakeOptions; metadata: CakeMetadata | null } {
     return {
       options: this.options,

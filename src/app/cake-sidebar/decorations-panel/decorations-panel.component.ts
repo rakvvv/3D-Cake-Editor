@@ -176,6 +176,16 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
     this.presetDialogService.open('Preset slotów kotwic', preset);
   }
 
+  onSaveAllSlotsPreset(): void {
+    const preset = this.sceneService.exportAllAnchors();
+    if (!preset) {
+      this.anchorInstruction = 'Brak przypiętych dekoracji do eksportu.';
+      return;
+    }
+
+    this.presetDialogService.open('Wszystkie sloty dekoracji', preset);
+  }
+
   onDownloadCakePresetFile(): void {
     const preset = this.sceneService.buildDecoratedCakePreset('Preset tortu');
     const serialized = JSON.stringify(preset, null, 2);
