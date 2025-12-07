@@ -1219,13 +1219,13 @@ export class SnapService {
     if (metadata.shape === 'cylinder') {
       const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
       const radiusNorm = radius > 1e-6 ? localPoint.clone().setY(0).length() / radius : 0;
-
-      if (surfaceType === 'TOP') {
-        return { angleRad, radiusNorm };
-      }
-
       const heightSpan = layer.top + (layer.topOffset ?? 0) - layer.bottom;
       const heightNorm = heightSpan > 1e-6 ? (localPoint.y - layer.bottom) / heightSpan : 0.5;
+
+      if (surfaceType === 'TOP') {
+        return { angleRad, radiusNorm, heightNorm };
+      }
+
       return { angleRad, radiusNorm: 1, heightNorm };
     }
 
@@ -1233,13 +1233,13 @@ export class SnapService {
     const halfDepth = layer.halfDepth ?? (metadata.maxDepth ? metadata.maxDepth / 2 : metadata.depth ? metadata.depth / 2 : 0.5);
     const xNorm = halfWidth > 1e-6 ? localPoint.x / halfWidth : 0;
     const zNorm = halfDepth > 1e-6 ? localPoint.z / halfDepth : 0;
-
-    if (surfaceType === 'TOP') {
-      return { angleRad, xNorm, zNorm };
-    }
-
     const heightSpan = layer.top + (layer.topOffset ?? 0) - layer.bottom;
     const heightNorm = heightSpan > 1e-6 ? (localPoint.y - layer.bottom) / heightSpan : 0.5;
+
+    if (surfaceType === 'TOP') {
+      return { angleRad, xNorm, zNorm, heightNorm };
+    }
+
     return { angleRad, xNorm, zNorm, heightNorm };
   }
 
@@ -1278,7 +1278,11 @@ export class SnapService {
       const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
       if (snapInfo.surfaceType === 'TOP') {
         const radial = coords.radiusNorm !== undefined ? radius * coords.radiusNorm : radius;
-        const position = new THREE.Vector3(normalFromAngle.x * radial, topHeight, normalFromAngle.z * radial);
+        const heightSpan = topHeight - layer.bottom;
+        const heightNorm = coords.heightNorm !== undefined ? coords.heightNorm : 1;
+        const clampedHeight = THREE.MathUtils.clamp(heightNorm, -0.25, 1.25);
+        const y = layer.bottom + clampedHeight * heightSpan;
+        const position = new THREE.Vector3(normalFromAngle.x * radial, y, normalFromAngle.z * radial);
         const normal = new THREE.Vector3(0, 1, 0);
         return { position, normal };
       }
@@ -1302,7 +1306,11 @@ export class SnapService {
       const radialZ = Math.sin(coords.angleRad) * radialFactor;
       const x = (coords.xNorm ?? radialX) * halfWidth;
       const z = (coords.zNorm ?? radialZ) * halfDepth;
-      const position = new THREE.Vector3(x, topHeight, z);
+      const heightSpan = topHeight - layer.bottom;
+      const heightNorm = coords.heightNorm !== undefined ? coords.heightNorm : 1;
+      const clampedHeight = THREE.MathUtils.clamp(heightNorm, -0.25, 1.25);
+      const y = layer.bottom + clampedHeight * heightSpan;
+      const position = new THREE.Vector3(x, y, z);
       const normal = new THREE.Vector3(0, 1, 0);
       return { position, normal };
     }
