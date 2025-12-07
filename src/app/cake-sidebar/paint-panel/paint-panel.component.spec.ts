@@ -37,6 +37,11 @@ describe('PaintPanelComponent', () => {
         'generateExtruderStroke',
         'getLayerOptions',
         'getExtruderPreview',
+        'setExtruderPathMode',
+        'setExtruderPathNodes',
+        'setExtruderPathContext',
+        'setExtruderPathLayer',
+        'requestPathNodeReplacement',
       ],
       {
         paintMode: false,
@@ -46,6 +51,7 @@ describe('PaintPanelComponent', () => {
         penThickness: 0.02,
         penColor: '#ff4d6d',
         creamRingPresets$: creamPresets$.asObservable(),
+        extruderPathNodes$: new BehaviorSubject([]).asObservable(),
       },
     );
 

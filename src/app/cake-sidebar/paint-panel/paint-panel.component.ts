@@ -51,6 +51,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   extruderVariantCards: ExtruderVariantCard[] = [];
   creamRingPresets: CreamRingPreset[] = [];
   selectedPresetId: string | null = null;
+  extruderPathModeEnabled = false;
   extruderMode: ExtruderStrokeMode = 'RING';
   extruderLayerIndex = 0;
   extruderSegments = 96;
@@ -65,16 +66,19 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     { angleDeg: 0, heightNorm: 0.6 },
     { angleDeg: 180, heightNorm: 0.6 },
   ];
+  activeNodeIndex: number | null = null;
   extruderPreviewPoints: { angleDeg: number; heightNorm: number; x: number; y: number }[] = [];
   layerOptions: number[] = [0];
 
   private decorationsSubscription?: Subscription;
   private creamPresetSubscription?: Subscription;
+  private extruderPathSubscription?: Subscription;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
       this.syncPaintServiceState();
       this.subscribeToCreamPresets();
+      this.subscribeToExtruderPathNodes();
       void this.paintService.loadCreamRingPresets();
       this.refreshLayerOptions();
     }
@@ -87,6 +91,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   ngOnInit(): void {
     this.subscribeToDecorations();
     this.subscribeToCreamPresets();
+    this.subscribeToExtruderPathNodes();
     if (this.paintService) {
       void this.paintService.loadCreamRingPresets();
     }
@@ -96,6 +101,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.decorationsSubscription?.unsubscribe();
     this.creamPresetSubscription?.unsubscribe();
+    this.extruderPathSubscription?.unsubscribe();
   }
 
   togglePaintMode(): void {
@@ -130,6 +136,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     if (this.selectedTool === 'pen') {
       this.onPenSettingsChange();
     } else if (this.selectedTool === 'extruder') {
+      this.paintService.setExtruderPathMode(this.extruderPathModeEnabled);
       this.paintService.setExtruderVariantSelection(this.extruderVariant);
       this.loadExtruderVariants();
       this.refreshCreamPresets();
@@ -163,9 +170,35 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.updateExtruderPreview();
   }
 
+  onLayerChange(): void {
+    if (this.paintService) {
+      this.paintService.setExtruderPathLayer(this.extruderLayerIndex);
+    }
+    this.updateExtruderPreview();
+  }
+
   onExtruderCardSelect(variantId: number): void {
     this.extruderVariant = variantId;
     this.onExtruderVariantChange();
+  }
+
+  setExtruderDrawingMode(mode: 'free' | 'path'): void {
+    this.extruderPathModeEnabled = mode === 'path';
+    if (this.extruderPathModeEnabled) {
+      this.extruderMode = 'PATH';
+    }
+
+    if (this.paintService) {
+      this.paintService.setExtruderPathMode(this.extruderPathModeEnabled);
+      this.paintService.requestPathNodeReplacement(null);
+      if (this.extruderPathModeEnabled) {
+        const config = this.buildExtruderConfig();
+        this.paintService.setExtruderPathNodes(this.extruderNodes, config);
+        this.paintService.setExtruderPathContext(config);
+      }
+    }
+
+    this.updateExtruderPreview();
   }
 
   onRandomExtruderVariant(): void {
@@ -181,11 +214,18 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     const preset = this.creamRingPresets.find((item) => item.id === this.selectedPresetId);
     if (preset) {
       this.applyPresetToForm(preset);
+      if (preset.mode === 'PATH') {
+        this.setExtruderDrawingMode('path');
+      }
     }
     this.updateExtruderPreview();
   }
 
   onExtruderModeChange(): void {
+    if (this.extruderPathModeEnabled) {
+      this.extruderMode = 'PATH';
+    }
+
     if (this.extruderMode === 'RING') {
       this.extruderStartAngle = 0;
       this.extruderEndAngle = 360;
@@ -204,6 +244,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
 
   addExtruderNode(): void {
     this.extruderNodes = [...this.extruderNodes, { angleDeg: 0, heightNorm: this.extruderHeightNorm }];
+    this.syncPathNodes();
     this.updateExtruderPreview();
   }
 
@@ -212,6 +253,27 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
       return;
     }
     this.extruderNodes = this.extruderNodes.filter((_, idx) => idx !== index);
+    if (this.activeNodeIndex === index) {
+      this.activeNodeIndex = null;
+    }
+    this.syncPathNodes();
+    this.updateExtruderPreview();
+  }
+
+  selectExtruderNode(index: number): void {
+    this.activeNodeIndex = index;
+    this.paintService?.requestPathNodeReplacement(null);
+  }
+
+  replaceNodeFromClick(index: number): void {
+    this.activeNodeIndex = index;
+    this.paintService?.setExtruderPathMode(true);
+    this.paintService?.requestPathNodeReplacement(index);
+  }
+
+  clearPathNodes(): void {
+    this.extruderNodes = [];
+    this.syncPathNodes();
     this.updateExtruderPreview();
   }
 
@@ -219,6 +281,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.extruderNodes = this.extruderNodes.map((node, idx) =>
       idx === index ? { ...node, [key]: Number(value) } : node,
     );
+    this.syncPathNodes();
     this.updateExtruderPreview();
   }
 
@@ -281,6 +344,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.penThickness = this.paintService.penThickness;
     this.penColor = this.paintService.penColor;
     this.extruderVariant = this.paintService.getExtruderVariantSelection() ?? 'random';
+    this.extruderPathModeEnabled = false;
     this.loadExtruderVariants();
     this.refreshCreamPresets();
     this.refreshLayerOptions();
@@ -315,6 +379,19 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     });
     this.updateCreamPresets(this.paintService.getCreamRingPresets());
     this.updateExtruderPreview();
+  }
+
+  private subscribeToExtruderPathNodes(): void {
+    this.extruderPathSubscription?.unsubscribe();
+    if (!this.paintService) {
+      this.extruderNodes = [];
+      return;
+    }
+
+    this.extruderPathSubscription = this.paintService.extruderPathNodes$.subscribe((nodes) => {
+      this.extruderNodes = nodes.map((node) => ({ ...node }));
+      this.updateExtruderPreview();
+    });
   }
 
   private updateBrushOptions(decorations: DecorationInfo[]): void {
@@ -402,10 +479,33 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.extruderScale = preset.scale ?? this.extruderScale;
     this.extruderColor = preset.color ?? this.extruderColor;
     this.extruderPosition = preset.position;
-    this.extruderNodes =
-      preset.nodes && preset.nodes.length >= 2
-        ? preset.nodes.map((node) => ({ ...node }))
-        : this.extruderNodes;
+    const presetNodes = this.mapPresetToNodes(preset);
+    if (presetNodes.length) {
+      this.extruderNodes = presetNodes;
+      if (this.extruderPathModeEnabled || preset.mode === 'PATH') {
+        this.paintService?.setExtruderPathNodes(this.extruderNodes, this.buildExtruderConfig());
+      }
+    }
+  }
+
+  private mapPresetToNodes(preset: CreamRingPreset): CreamPathNode[] {
+    if (preset.nodes && preset.nodes.length >= 2) {
+      return preset.nodes.map((node) => ({ ...node }));
+    }
+
+    const baseHeight =
+      preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5);
+    const start = preset.startAngleDeg ?? 0;
+    const end =
+      preset.endAngleDeg ??
+      (preset.mode === 'RING'
+        ? (preset.startAngleDeg ?? 0) + 360
+        : (preset.startAngleDeg ?? 0) + Math.max(45, Math.min(330, this.extruderEndAngle - this.extruderStartAngle)));
+
+    return [
+      { angleDeg: start, heightNorm: baseHeight },
+      { angleDeg: end, heightNorm: baseHeight },
+    ];
   }
 
   private buildExtruderConfig(): CreamRingPreset {
@@ -439,6 +539,15 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     }
   }
 
+  private syncPathNodes(): void {
+    if (!this.paintService || !this.extruderPathModeEnabled) {
+      return;
+    }
+
+    const config = this.buildExtruderConfig();
+    this.paintService.setExtruderPathNodes(this.extruderNodes, config);
+  }
+
   getPreviewColor(heightNorm: number): string {
     const green = Math.round(170 + heightNorm * 70);
     const blue = Math.round(180 + heightNorm * 60);
@@ -452,6 +561,10 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     }
 
     const config = this.buildExtruderConfig();
+    this.paintService.setExtruderPathContext(config);
+    if (this.extruderPathModeEnabled || config.mode === 'PATH') {
+      this.paintService.setExtruderPathNodes(this.extruderNodes, config);
+    }
     const preview = this.paintService
       .getExtruderPreview(config)
       .slice(0, 180)

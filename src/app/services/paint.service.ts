@@ -9,7 +9,7 @@ import { SnapService } from './snap.service';
 import { CakeMetadata, LayerMetadata } from '../factories/three-objects.factory';
 import { ExtruderVariantInfo } from '../models/extruderVariantInfo';
 import { environment } from '../../environments/environment';
-import { CreamPathNode, CreamRingPreset, defaultCreamRingPresets, normalizePresetAngles } from '../models/cream-presets';
+import { CreamPathNode, CreamRingPreset, CreamPosition, defaultCreamRingPresets, normalizePresetAngles } from '../models/cream-presets';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -98,6 +98,17 @@ export class PaintService {
   private readonly creamRingPresetsSubject = new BehaviorSubject<CreamRingPreset[]>(
     defaultCreamRingPresets.map((preset) => normalizePresetAngles(preset)),
   );
+  private readonly extruderPathNodesSubject = new BehaviorSubject<CreamPathNode[]>([]);
+  private extruderPathModeEnabled = false;
+  private extruderPathLayerIndex = 0;
+  private extruderPathPosition: CreamPosition = 'SIDE_ARC';
+  private extruderPathRadiusOffset = 0;
+  private extruderPathConfig: CreamRingPreset | null = null;
+  private pendingPathReplaceIndex: number | null = null;
+  private extruderPathMarkers: THREE.Mesh[] = [];
+  private extruderPathMarkerGroup: THREE.Group | null = null;
+  private extruderPathMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0xff7ea8, emissive: 0x331122 });
+  private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.01, 14, 10);
 
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
@@ -184,6 +195,13 @@ export class PaintService {
       intersects[0];
     const pointOnCakeWorld = hit.point.clone();
     const normal = this.getWorldNormal(hit) ?? new THREE.Vector3(0, 1, 0);
+
+    if (this.paintTool === 'extruder' && this.extruderPathModeEnabled) {
+      if (event.type === 'mousedown') {
+        this.captureExtruderPathPoint(pointOnCakeWorld);
+      }
+      return;
+    }
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const previousPoint = this.lastPaintPoint ? this.lastPaintPoint.clone() : null;
@@ -636,6 +654,10 @@ export class PaintService {
     return this.creamRingPresetsSubject.asObservable();
   }
 
+  public get extruderPathNodes$() {
+    return this.extruderPathNodesSubject.asObservable();
+  }
+
   public async loadCreamRingPresets(url = '/assets/cream-ring-presets.json'): Promise<void> {
     try {
       const presets = await firstValueFrom(this.http.get<CreamRingPreset[]>(url));
@@ -646,6 +668,175 @@ export class PaintService {
         this.setCreamRingPresets(defaultCreamRingPresets);
       }
     }
+  }
+
+  public setExtruderPathMode(enabled: boolean): void {
+    this.extruderPathModeEnabled = enabled;
+    if (!enabled) {
+      this.pendingPathReplaceIndex = null;
+      this.updateExtruderPathMarkers([]);
+    }
+  }
+
+  public setExtruderPathLayer(layerIndex: number): void {
+    this.extruderPathLayerIndex = Math.max(0, layerIndex);
+  }
+
+  public setExtruderPathContext(config: CreamRingPreset): void {
+    this.extruderPathLayerIndex = Math.max(0, config.layerIndex);
+    this.extruderPathPosition = config.position;
+    this.extruderPathRadiusOffset = config.radiusOffset ?? 0;
+    this.extruderPathConfig = { ...config, nodes: config.nodes ?? this.extruderPathNodesSubject.value };
+    this.updateExtruderPathMarkers(this.extruderPathNodesSubject.value, config);
+  }
+
+  public setExtruderPathNodes(nodes: CreamPathNode[], config?: CreamRingPreset): void {
+    this.extruderPathNodesSubject.next(nodes.map((node) => ({ ...node })));
+    if (config) {
+      this.setExtruderPathContext(config);
+    } else {
+      this.updateExtruderPathMarkers(nodes);
+    }
+  }
+
+  public requestPathNodeReplacement(index: number | null): void {
+    this.pendingPathReplaceIndex = index;
+  }
+
+  public captureExtruderPathPoint(worldPoint: THREE.Vector3): void {
+    const metadata = this.snapService.getCakeMetadataSnapshot();
+    if (!metadata) {
+      return;
+    }
+
+    const layerIndex = Math.min(Math.max(0, this.extruderPathLayerIndex), metadata.layers - 1);
+    const layer = metadata.layerDimensions[layerIndex];
+    if (!layer) {
+      return;
+    }
+
+    const heightSpan = Math.max(1e-6, layer.topY - layer.bottomY);
+    const heightNorm = THREE.MathUtils.clamp((worldPoint.y - layer.bottomY) / heightSpan, 0, 1);
+    const angleDeg = THREE.MathUtils.radToDeg(Math.atan2(worldPoint.z, worldPoint.x));
+
+    const nodes = this.extruderPathNodesSubject.value.map((node) => ({ ...node }));
+    const newNode: CreamPathNode = { angleDeg, heightNorm };
+
+    if (
+      this.pendingPathReplaceIndex !== null &&
+      this.pendingPathReplaceIndex >= 0 &&
+      this.pendingPathReplaceIndex < nodes.length
+    ) {
+      nodes[this.pendingPathReplaceIndex] = newNode;
+    } else {
+      nodes.push(newNode);
+    }
+
+    this.pendingPathReplaceIndex = null;
+    const config = this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, layerIndex);
+    this.setExtruderPathNodes(nodes, config ?? undefined);
+  }
+
+  private buildPathEditorConfig(nodes: CreamPathNode[], layerIndex: number): CreamRingPreset | null {
+    const metadata = this.snapService.getCakeMetadataSnapshot();
+    if (!metadata) {
+      return null;
+    }
+
+    return {
+      id: 'path-editor',
+      name: 'Ścieżka ekstrudera',
+      mode: 'PATH',
+      layerIndex: Math.min(Math.max(0, layerIndex), metadata.layers - 1),
+      position: this.extruderPathPosition,
+      heightNorm: nodes[0]?.heightNorm ?? 0.5,
+      radiusOffset: this.extruderPathRadiusOffset,
+      nodes: nodes.map((node) => ({ ...node })),
+    };
+  }
+
+  private updateExtruderPathMarkers(nodes: CreamPathNode[], config?: CreamRingPreset): void {
+    if (!this.sceneRef || !this.extruderPathModeEnabled) {
+      this.clearExtruderPathMarkers();
+      return;
+    }
+
+    const metadata = this.snapService.getCakeMetadataSnapshot();
+    if (!metadata || !nodes.length) {
+      this.clearExtruderPathMarkers();
+      return;
+    }
+
+    const preset = config ?? this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, this.extruderPathLayerIndex);
+    if (!preset) {
+      this.clearExtruderPathMarkers();
+      return;
+    }
+
+    const normalizedPreset = this.normalizePresetForMetadata(preset, metadata);
+    if (!normalizedPreset || normalizedPreset.mode !== 'PATH' || !normalizedPreset.nodes?.length) {
+      this.clearExtruderPathMarkers();
+      return;
+    }
+
+    const layer = metadata.layerDimensions[Math.min(Math.max(0, normalizedPreset.layerIndex), metadata.layers - 1)];
+    if (!layer) {
+      this.clearExtruderPathMarkers();
+      return;
+    }
+
+    const { radiusX, radiusZ } = this.getLayerRadii(layer, metadata);
+    const adjustedRadiusX = Math.max(0.01, radiusX + (normalizedPreset.radiusOffset ?? 0));
+    const adjustedRadiusZ = Math.max(0.01, radiusZ + (normalizedPreset.radiusOffset ?? 0));
+
+    const markerPositions = normalizedPreset.nodes.map((node) => {
+      const angle = THREE.MathUtils.degToRad(node.angleDeg);
+      const height = this.getCreamHeightForPreset(normalizedPreset, layer, metadata, node.heightNorm);
+      return new THREE.Vector3(adjustedRadiusX * Math.cos(angle), height, adjustedRadiusZ * Math.sin(angle));
+    });
+
+    const markerGroup = this.ensureExtruderMarkerGroup();
+    if (!markerGroup) {
+      return;
+    }
+
+    this.clearExtruderPathMarkers();
+    this.extruderPathMarkers = markerPositions.map((position, index) => {
+      const marker = new THREE.Mesh(this.extruderPathMarkerGeometry, this.extruderPathMarkerMaterial.clone());
+      marker.position.copy(position);
+      marker.renderOrder = 2;
+      marker.material = marker.material as THREE.MeshStandardMaterial;
+      (marker.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.35;
+      marker.userData['label'] = index + 1;
+      markerGroup.add(marker);
+      return marker;
+    });
+  }
+
+  private ensureExtruderMarkerGroup(): THREE.Group | null {
+    if (!this.sceneRef) {
+      return null;
+    }
+
+    if (!this.extruderPathMarkerGroup) {
+      this.extruderPathMarkerGroup = new THREE.Group();
+      this.extruderPathMarkerGroup.name = 'extruder-path-markers';
+      this.extruderPathMarkerGroup.renderOrder = 2;
+      this.sceneRef.add(this.extruderPathMarkerGroup);
+    }
+
+    if (!this.extruderPathMarkerGroup.parent) {
+      this.sceneRef.add(this.extruderPathMarkerGroup);
+    }
+
+    return this.extruderPathMarkerGroup;
+  }
+
+  private clearExtruderPathMarkers(): void {
+    if (this.extruderPathMarkers.length && this.extruderPathMarkerGroup) {
+      this.extruderPathMarkers.forEach((marker) => this.extruderPathMarkerGroup?.remove(marker));
+    }
+    this.extruderPathMarkers = [];
   }
 
   private async placeExtruderStroke(

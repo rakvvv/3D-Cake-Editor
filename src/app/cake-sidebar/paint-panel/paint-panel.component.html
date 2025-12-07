@@ -41,6 +41,28 @@
     </div>
 
     <div class="paint-panel__extruder" *ngIf="selectedTool === 'extruder'">
+      <div class="paint-panel__modes">
+        <button
+          type="button"
+          class="sidebar-panel__button"
+          [class.sidebar-panel__button--active]="!extruderPathModeEnabled"
+          (click)="setExtruderDrawingMode('free')"
+        >
+          Rysowanie swobodne
+        </button>
+        <button
+          type="button"
+          class="sidebar-panel__button"
+          [class.sidebar-panel__button--active]="extruderPathModeEnabled"
+          (click)="setExtruderDrawingMode('path')"
+        >
+          Tryb ścieżki
+        </button>
+      </div>
+      <p class="paint-panel__hint paint-panel__hint--inline">
+        Swobodne rysowanie działa jak dotychczas. W trybie ścieżki klikaj bezpośrednio na torcie (z włączonym rysowaniem), aby
+        dodać lub przesunąć punkty.
+      </p>
       <div class="paint-panel__tiles" aria-label="Końcówki kremu">
         <button
           type="button"
@@ -77,144 +99,157 @@
           <option *ngFor="let preset of creamRingPresets" [ngValue]="preset.id">{{ preset.name }}</option>
         </select>
       </div>
-      <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="mode-select">Tryb ścieżki</label>
-        <select id="mode-select" class="sidebar-panel__select" [(ngModel)]="extruderMode" (change)="onExtruderModeChange()">
-          <option [ngValue]="'RING'">Pełny pierścień (góra/dół)</option>
-          <option [ngValue]="'ARC'">Łuk lub pas na boku</option>
-          <option [ngValue]="'PATH'">Łączenie punktów</option>
-        </select>
+
+      <div class="paint-panel__row">
+        <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
+          <label class="sidebar-panel__label sidebar-panel__label--wrap" for="layer-select">Warstwa</label>
+          <select id="layer-select" class="sidebar-panel__select" [(ngModel)]="extruderLayerIndex" (change)="onLayerChange()">
+            <option *ngFor="let layer of layerOptions" [ngValue]="layer">Warstwa {{ layer + 1 }}</option>
+          </select>
+        </div>
+        <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
+          <label class="sidebar-panel__label sidebar-panel__label--wrap" for="color">Kolor kremu</label>
+          <input
+            id="color"
+            class="sidebar-panel__input paint-panel__color"
+            type="color"
+            [(ngModel)]="extruderColor"
+            (change)="updateExtruderPreview()"
+          />
+        </div>
       </div>
 
-      <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="layer-select">Warstwa</label>
-        <select id="layer-select" class="sidebar-panel__select" [(ngModel)]="extruderLayerIndex" (change)="updateExtruderPreview()">
-          <option *ngFor="let layer of layerOptions" [ngValue]="layer">Warstwa {{ layer + 1 }}</option>
-        </select>
-      </div>
-
-      <div
-        class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset"
-        *ngIf="extruderMode === 'RING'"
-      >
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="position-select">Pozycja</label>
-        <select id="position-select" class="sidebar-panel__select" [(ngModel)]="extruderPosition" (change)="updateExtruderPreview()">
-          <option [ngValue]="'TOP_EDGE'">Krawędź górna</option>
-          <option [ngValue]="'BOTTOM_EDGE'">Krawędź dolna</option>
-        </select>
-      </div>
-
-      <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="start-angle">Kąt startowy (°)</label>
-        <input
-          id="start-angle"
-          class="sidebar-panel__input"
-          type="number"
-          [(ngModel)]="extruderStartAngle"
-          (change)="onExtruderModeChange()"
-        />
-      </div>
-      <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="end-angle">Kąt końcowy (°)</label>
-        <input
-          id="end-angle"
-          class="sidebar-panel__input"
-          type="number"
-          [(ngModel)]="extruderEndAngle"
-          [disabled]="extruderMode === 'RING'"
-          (change)="updateExtruderPreview()"
-        />
-      </div>
-
-      <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="segments">Gęstość ścieżki</label>
-        <input
-          id="segments"
-          class="sidebar-panel__input"
-          type="number"
-          min="2"
-          [(ngModel)]="extruderSegments"
-          (change)="updateExtruderPreview()"
-        />
-      </div>
-
-      <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="height">Wysokość (0-1)</label>
-        <input
-          id="height"
-          class="sidebar-panel__input"
-          type="number"
-          step="0.05"
-          min="0"
-          max="1"
-          [(ngModel)]="extruderHeightNorm"
-          (change)="updateExtruderPreview()"
-        />
-      </div>
-
-      <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="offset">Odchylenie promienia (m)</label>
-        <input
-          id="offset"
-          class="sidebar-panel__input"
-          type="number"
-          step="0.005"
-          [(ngModel)]="extruderRadiusOffset"
-          (change)="updateExtruderPreview()"
-        />
-      </div>
-
-      <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="scale">Skala końcówki</label>
-        <input
-          id="scale"
-          class="sidebar-panel__input"
-          type="number"
-          step="0.05"
-          min="0.1"
-          [(ngModel)]="extruderScale"
-          (change)="updateExtruderPreview()"
-        />
-      </div>
-
-      <div class="sidebar-panel__control sidebar-panel__control--inline paint-panel__preset">
-        <label class="sidebar-panel__label sidebar-panel__label--wrap" for="color">Kolor kremu</label>
-        <input
-          id="color"
-          class="sidebar-panel__input paint-panel__color"
-          type="color"
-          [(ngModel)]="extruderColor"
-          (change)="updateExtruderPreview()"
-        />
-      </div>
-
-      <div class="paint-panel__preset" *ngIf="extruderMode === 'PATH'">
-        <p class="paint-panel__hint paint-panel__hint--inline">Dodaj kolejne punkty (kąt/ wysokość), a narzędzie połączy je łagodną ścieżką.</p>
-        <div class="paint-panel__tiles">
-          <div class="paint-panel__tile" *ngFor="let node of extruderNodes; index as i">
-            <label class="paint-panel__tile-name">Punkt {{ i + 1 }}</label>
-            <div class="paint-panel__tile-meta">
-              <input
-                type="number"
-                class="sidebar-panel__input"
-                [value]="node.angleDeg"
-                (change)="updateNode(i, 'angleDeg', $any($event.target).value)"
-              />
-              <input
-                type="number"
-                class="sidebar-panel__input"
-                step="0.05"
-                min="0"
-                max="1"
-                [value]="node.heightNorm ?? extruderHeightNorm"
-                (change)="updateNode(i, 'heightNorm', $any($event.target).value)"
-              />
+      <div class="paint-panel__path" *ngIf="extruderPathModeEnabled">
+        <p class="paint-panel__hint">
+          Kliknięcia w torcie tworzą nowe punkty ścieżki. Zaznacz punkt na liście, aby go edytować lub użyj „Przenieś kliknięciem”,
+          a następne kliknięcie w torcie ustawi go w nowym miejscu.
+        </p>
+        <div class="paint-panel__path-actions">
+          <button type="button" class="sidebar-panel__button" (click)="addExtruderNode()">Dodaj pusty punkt</button>
+          <button type="button" class="sidebar-panel__button" (click)="clearPathNodes()" [disabled]="!extruderNodes.length">
+            Wyczyść punkty
+          </button>
+        </div>
+        <div class="paint-panel__tiles paint-panel__tiles--stacked" *ngIf="extruderNodes.length; else emptyNodes">
+          <div class="paint-panel__tile paint-panel__tile--point" *ngFor="let node of extruderNodes; index as i">
+            <div class="paint-panel__tile-header">
+              <span class="paint-panel__tile-name">Punkt {{ i + 1 }}</span>
+              <span class="paint-panel__tag" *ngIf="activeNodeIndex === i">wybrany</span>
+            </div>
+            <div class="paint-panel__tile-meta paint-panel__tile-meta--grid">
+              <label>
+                Kąt (°)
+                <input
+                  type="number"
+                  class="sidebar-panel__input"
+                  [value]="node.angleDeg"
+                  (change)="updateNode(i, 'angleDeg', $any($event.target).value)"
+                />
+              </label>
+              <label>
+                Wysokość (0-1)
+                <input
+                  type="number"
+                  class="sidebar-panel__input"
+                  step="0.05"
+                  min="0"
+                  max="1"
+                  [value]="node.heightNorm ?? extruderHeightNorm"
+                  (change)="updateNode(i, 'heightNorm', $any($event.target).value)"
+                />
+              </label>
+            </div>
+            <div class="paint-panel__point-actions">
+              <button type="button" class="sidebar-panel__button" (click)="selectExtruderNode(i)">Zaznacz</button>
+              <button type="button" class="sidebar-panel__button" (click)="replaceNodeFromClick(i)">
+                Przenieś kliknięciem
+              </button>
               <button type="button" class="sidebar-panel__button" (click)="removeExtruderNode(i)">Usuń</button>
             </div>
           </div>
         </div>
-        <button type="button" class="sidebar-panel__button" (click)="addExtruderNode()">Dodaj punkt</button>
+        <ng-template #emptyNodes>
+          <p class="paint-panel__hint">Nie dodano jeszcze punktów — kliknij tort albo użyj „Dodaj pusty punkt”.</p>
+        </ng-template>
       </div>
+
+      <details class="paint-panel__advanced">
+        <summary>Ustawienia zaawansowane</summary>
+        <div class="paint-panel__advanced-grid">
+          <label>
+            Tryb generatora
+            <select class="sidebar-panel__select" [(ngModel)]="extruderMode" (change)="onExtruderModeChange()">
+              <option [ngValue]="'RING'">Pełny pierścień (góra/dół)</option>
+              <option [ngValue]="'ARC'">Łuk lub pas na boku</option>
+              <option [ngValue]="'PATH'">Łączenie punktów</option>
+            </select>
+          </label>
+          <label *ngIf="extruderMode === 'RING'">
+            Pozycja
+            <select class="sidebar-panel__select" [(ngModel)]="extruderPosition" (change)="updateExtruderPreview()">
+              <option [ngValue]="'TOP_EDGE'">Krawędź górna</option>
+              <option [ngValue]="'BOTTOM_EDGE'">Krawędź dolna</option>
+            </select>
+          </label>
+          <label>
+            Kąt startowy (°)
+            <input type="number" class="sidebar-panel__input" [(ngModel)]="extruderStartAngle" (change)="onExtruderModeChange()" />
+          </label>
+          <label>
+            Kąt końcowy (°)
+            <input
+              type="number"
+              class="sidebar-panel__input"
+              [(ngModel)]="extruderEndAngle"
+              [disabled]="extruderMode === 'RING'"
+              (change)="updateExtruderPreview()"
+            />
+          </label>
+          <label>
+            Gęstość ścieżki
+            <input
+              type="number"
+              class="sidebar-panel__input"
+              min="2"
+              [(ngModel)]="extruderSegments"
+              (change)="updateExtruderPreview()"
+            />
+          </label>
+          <label>
+            Wysokość (0-1)
+            <input
+              type="number"
+              class="sidebar-panel__input"
+              step="0.05"
+              min="0"
+              max="1"
+              [(ngModel)]="extruderHeightNorm"
+              (change)="updateExtruderPreview()"
+            />
+          </label>
+          <label>
+            Odchylenie promienia (m)
+            <input
+              type="number"
+              class="sidebar-panel__input"
+              step="0.005"
+              [(ngModel)]="extruderRadiusOffset"
+              (change)="updateExtruderPreview()"
+            />
+          </label>
+          <label>
+            Skala końcówki
+            <input
+              type="number"
+              class="sidebar-panel__input"
+              step="0.05"
+              min="0.1"
+              [(ngModel)]="extruderScale"
+              (change)="updateExtruderPreview()"
+            />
+          </label>
+        </div>
+      </details>
 
       <div class="paint-panel__preview" *ngIf="extruderPreviewPoints.length">
         <div class="paint-panel__preview-header">
@@ -242,8 +277,8 @@
       </div>
 
       <p class="paint-panel__hint paint-panel__hint--inline">
-        Parametry bazują na aktualnej geometrii tortu i wybranym wariancie końcówki. Możesz łączyć generatory z ręcznym malowaniem
-        ekstrudera.
+        Parametry bazują na aktualnej geometrii tortu i wybranym wariancie końcówki. Ścieżka generowana w trybie ścieżki używa
+        tego samego silnika, co ręczne rysowanie ekstruderem.
       </p>
       <button type="button" class="sidebar-panel__button" (click)="onGenerateExtruderStroke()">Generuj ścieżkę kremu</button>
     </div>
