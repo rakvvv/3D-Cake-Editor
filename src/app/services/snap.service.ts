@@ -113,7 +113,7 @@ export class SnapService {
     const offsetDistance = Math.max(0, rawOffsetDistance);
     const layers = this.getScaledLayers(metadata);
     const layer = this.findLayerInfo(layers, closest.layerIndex);
-    const coords = this.computeSurfaceCoordinates(finalLocalPosition, closest.surfaceType, layer, metadata);
+    const coords = this.computeSurfaceCoordinates(surfaceLocalPoint, closest.surfaceType, layer, metadata);
     this.writeSnapInfo(object, {
       layerIndex: closest.layerIndex,
       surfaceType: closest.surfaceType,
@@ -391,18 +391,16 @@ export class SnapService {
     const layers = this.getScaledLayers(metadata);
     const layer = this.findLayerInfo(layers, normalized.layerIndex);
 
-    let coords = normalized.coords;
-    if (!coords) {
-      const localPosition = this.cakeBase
-        ? this.cakeBase.worldToLocal(object.getWorldPosition(new THREE.Vector3()))
-        : new THREE.Vector3();
+    const localPosition = this.cakeBase
+      ? this.cakeBase.worldToLocal(object.getWorldPosition(new THREE.Vector3()))
+      : object.getWorldPosition(new THREE.Vector3());
 
-      const surfacePoint = localPosition.clone().sub(
-        new THREE.Vector3().fromArray(normalized.normal).normalize().multiplyScalar(normalized.offset ?? 0),
-      );
+    const surfacePoint = localPosition.clone().sub(
+      new THREE.Vector3().fromArray(normalized.normal).normalize().multiplyScalar(normalized.offset ?? 0),
+    );
 
-      coords = this.computeSurfaceCoordinates(surfacePoint, normalized.surfaceType, layer, metadata);
-    }
+    const derivedCoords = this.computeSurfaceCoordinates(surfacePoint, normalized.surfaceType, layer, metadata);
+    const coords = derivedCoords ?? normalized.coords;
 
     const rotationDeg = Math.round(THREE.MathUtils.radToDeg(normalized.roll) * 1000) / 1000;
     const averageScale = (object.scale.x + object.scale.y + object.scale.z) / 3;
