@@ -6,6 +6,7 @@ import { PaintService } from '../../services/paint.service';
 import { BehaviorSubject } from 'rxjs';
 import { DecorationsService } from '../../services/decorations.service';
 import { DecorationInfo } from '../../models/decorationInfo';
+import { defaultCreamRingPresets } from '../../models/cream-presets';
 
 describe('PaintPanelComponent', () => {
   let fixture: ComponentFixture<PaintPanelComponent>;
@@ -23,12 +24,13 @@ describe('PaintPanelComponent', () => {
         'updatePenSettings',
         'setExtruderVariantSelection',
         'getExtruderVariantPreviews',
-        'insertExtruderPreset',
+        'insertCreamRingPreset',
         'undo',
         'redo',
         'canUndo',
         'canRedo',
         'getExtruderVariantSelection',
+        'getCreamRingPresets',
       ],
       {
         paintMode: false,
@@ -44,7 +46,8 @@ describe('PaintPanelComponent', () => {
     paintService.canRedo.and.returnValue(false);
     paintService.getExtruderVariantSelection.and.returnValue('random');
     paintService.getExtruderVariantPreviews.and.resolveTo([]);
-    paintService.insertExtruderPreset.and.resolveTo();
+    paintService.insertCreamRingPreset.and.resolveTo();
+    paintService.getCreamRingPresets.and.returnValue(defaultCreamRingPresets);
 
     decorations$ = new BehaviorSubject<DecorationInfo[]>([
       {

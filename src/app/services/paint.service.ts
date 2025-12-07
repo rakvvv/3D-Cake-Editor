@@ -6,8 +6,10 @@ import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
 import { SnapService } from './snap.service';
+import { CakeMetadata, LayerMetadata } from '../factories/three-objects.factory';
 import { ExtruderVariantInfo } from '../models/extruderVariantInfo';
 import { environment } from '../../environments/environment';
+import { CreamRingPreset, defaultCreamRingPresets, normalizePresetAngles } from '../models/cream-presets';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -52,7 +54,6 @@ type PenJointInstance = {
 };
 
 type PaintTool = 'decoration' | 'pen' | 'extruder';
-type ExtruderPreset = 'circle' | 'arc' | 'wave';
 
 @Injectable({ providedIn: 'root' })
 export class PaintService {
@@ -94,6 +95,7 @@ export class PaintService {
   private readonly extruderTargetWidth = 0.12;
   private readonly extruderMaxInstances = 1500;
   private readonly extruderBaseRotation = new THREE.Euler(0, 0, 0);
+  private readonly creamRingPresets: CreamRingPreset[] = defaultCreamRingPresets.map(normalizePresetAngles);
 
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
@@ -582,6 +584,10 @@ export class PaintService {
     }));
   }
 
+  public getCreamRingPresets(): CreamRingPreset[] {
+    return this.creamRingPresets;
+  }
+
   private async placeExtruderStroke(
     point: THREE.Vector3,
     normal: THREE.Vector3,
@@ -653,35 +659,42 @@ export class PaintService {
     this.extruderLastNormal = currentNormal.clone();
   }
 
-  public async insertExtruderPreset(preset: ExtruderPreset): Promise<void> {
+  public async insertExtruderPreset(presetId: string): Promise<void> {
+    await this.insertCreamRingPreset(presetId);
+  }
+
+  public async insertCreamRingPreset(presetId: string): Promise<void> {
+    const metadata = this.snapService.getCakeMetadataSnapshot();
     const variants = await this.getExtruderVariants();
-    if (!variants.length || !this.sceneRef) {
+    if (!metadata || !this.sceneRef || !variants.length) {
       return;
     }
 
-    const center = this.getCakeTopCenter();
-    if (!center) {
+    const preset = this.resolveCreamPreset(presetId, metadata);
+    if (!preset) {
       return;
     }
 
     const strokeGroup = new THREE.Group();
     strokeGroup.userData['isPaintStroke'] = true;
-    strokeGroup.userData['displayName'] = 'Ekstruder – preset';
+    strokeGroup.userData['paintStrokeType'] = 'extruder';
+    strokeGroup.userData['displayName'] = `Ekstruder – ${preset.name}`;
+    strokeGroup.userData['snapPoints'] = [] as number[][];
     this.sceneRef.add(strokeGroup);
 
     const previousGroup = this.activeExtruderStrokeGroup;
     const previousInstances = this.extruderStrokeInstances;
     const previousPoint = this.extruderLastPlacedPoint;
     const previousNormal = this.extruderLastNormal;
+    const previousFirstInstance = this.extruderFirstInstance;
 
     this.activeExtruderStrokeGroup = strokeGroup;
     this.extruderStrokeInstances = new Map();
     this.extruderLastPlacedPoint = null;
     this.extruderLastNormal = null;
+    this.extruderFirstInstance = null;
 
-    const normal = new THREE.Vector3(0, 1, 0);
-    const pathPoints = this.buildExtruderPresetPath(preset, center);
-    this.populateExtruderPath(pathPoints, normal, variants, strokeGroup);
+    this.populateCreamRing(preset, metadata, variants, strokeGroup);
 
     const hasInstances = Array.from(this.extruderStrokeInstances.values()).some((state) => state.count > 0);
     if (strokeGroup.children.length && hasInstances) {
@@ -695,6 +708,7 @@ export class PaintService {
     this.extruderStrokeInstances = previousInstances;
     this.extruderLastPlacedPoint = previousPoint;
     this.extruderLastNormal = previousNormal;
+    this.extruderFirstInstance = previousFirstInstance;
     this.paintTool = 'extruder';
   }
 
@@ -713,6 +727,8 @@ export class PaintService {
     variants: ExtruderVariantData[],
     strokeGroup: THREE.Group,
     variantIndex?: number,
+    scaleMultiplier = 1,
+    colorOverride?: string,
   ): void {
     if (!variants.length) {
       return;
@@ -720,10 +736,10 @@ export class PaintService {
 
     const selectedIndex = typeof variantIndex === 'number' ? variantIndex : this.selectExtruderVariant(variants.length);
     const variant = variants[selectedIndex];
-    const scale = this.getExtruderScale(variant);
+    const scale = this.getExtruderScale(variant) * scaleMultiplier;
     const transform = this.buildExtruderMatrix(position, normal, tangent, scale);
 
-    const state = this.ensureExtruderInstanceMesh(selectedIndex, variant, strokeGroup);
+    const state = this.ensureExtruderInstanceMesh(selectedIndex, variant, strokeGroup, colorOverride);
     const isFirstPlacement =
       !this.extruderFirstInstance && Array.from(this.extruderStrokeInstances.values()).every((meshState) => meshState.count === 0);
     if (state.count >= this.extruderMaxInstances) {
@@ -794,13 +810,18 @@ export class PaintService {
     variantIndex: number,
     variant: ExtruderVariantData,
     strokeGroup: THREE.Group,
+    colorOverride?: string,
   ): ExtruderInstanceState {
     const existing = this.extruderStrokeInstances.get(variantIndex);
     if (existing) {
       return existing;
     }
 
-    const mesh = new THREE.InstancedMesh(variant.geometry, variant.material, this.extruderMaxInstances);
+    const mesh = new THREE.InstancedMesh(
+      variant.geometry,
+      colorOverride ? this.cloneExtruderMaterial(variant.material, colorOverride) : variant.material,
+      this.extruderMaxInstances,
+    );
     mesh.count = 0;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.castShadow = true;
@@ -830,28 +851,38 @@ export class PaintService {
     return this.activeExtruderStrokeGroup;
   }
 
-  private populateExtruderPath(
-    points: THREE.Vector3[],
-    normal: THREE.Vector3,
+  private populateCreamRing(
+    preset: CreamRingPreset,
+    metadata: CakeMetadata,
     variants: ExtruderVariantData[],
     strokeGroup: THREE.Group,
   ): void {
-    if (!points.length) {
+    const ringPoints = this.buildCreamRingPath(preset, metadata);
+    if (!ringPoints.length) {
       return;
     }
 
     const offset = this.getExtruderSurfaceOffset(variants);
-    const upNormal = normal.clone().normalize();
-    const minSpacing = this.getExtruderAverageSpacing(variants) * 0.8;
+    const minSpacing = this.getExtruderAverageSpacing(variants, preset.scale ?? 1) * 0.8;
+    const scaleMultiplier = preset.scale ?? 1;
     let lastPlaced: THREE.Vector3 | null = null;
 
-    points.forEach((point, index) => {
-      this.recordPaintSnapPoint(point, strokeGroup);
-      const current = point.clone().add(upNormal.clone().multiplyScalar(offset));
+    ringPoints.forEach((point) => {
+      this.recordPaintSnapPoint(point.position, strokeGroup);
+      const current = point.position.clone().add(point.normal.clone().multiplyScalar(offset));
+
       if (!lastPlaced) {
-        const tangent = this.getPresetTangent(points, index);
-        this.addExtruderInstance(current, upNormal, tangent, variants, strokeGroup);
-        this.alignFirstExtruderInstance(tangent, upNormal);
+        this.addExtruderInstance(
+          current,
+          point.normal,
+          point.tangent,
+          variants,
+          strokeGroup,
+          undefined,
+          scaleMultiplier,
+          preset.color,
+        );
+        this.alignFirstExtruderInstance(point.tangent, point.normal);
         lastPlaced = current.clone();
         return;
       }
@@ -868,35 +899,97 @@ export class PaintService {
 
       while (remaining >= minSpacing) {
         const variantIndex = this.selectExtruderVariant(variants.length);
-        const spacing = this.getExtruderSpacing(variants, variantIndex);
+        const spacing = this.getExtruderSpacing(variants, variantIndex, scaleMultiplier);
         const step = Math.min(spacing, remaining);
         cursor = cursor.add(tangent.clone().multiplyScalar(step));
-        this.addExtruderInstance(cursor, upNormal, tangent, variants, strokeGroup, variantIndex);
+        this.addExtruderInstance(cursor, point.normal, tangent, variants, strokeGroup, variantIndex, scaleMultiplier, preset.color);
         lastPlaced = cursor.clone();
         remaining = cursor.distanceTo(current);
       }
 
       if (!lastPlaced || lastPlaced.distanceTo(current) > minSpacing * 0.6) {
         const variantIndex = this.selectExtruderVariant(variants.length);
-        this.addExtruderInstance(current, upNormal, tangent, variants, strokeGroup, variantIndex);
+        this.addExtruderInstance(current, point.normal, tangent, variants, strokeGroup, variantIndex, scaleMultiplier, preset.color);
         lastPlaced = current.clone();
       }
     });
   }
 
-  private getPresetTangent(points: THREE.Vector3[], index: number): THREE.Vector3 {
-    if (points.length <= 1) {
-      return new THREE.Vector3(1, 0, 0);
+  private buildCreamRingPath(
+    preset: CreamRingPreset,
+    metadata: CakeMetadata,
+  ): { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] {
+    const layerIndex = Math.min(Math.max(0, preset.layerIndex), metadata.layers - 1);
+    const layer = metadata.layerDimensions[layerIndex];
+    if (!layer) {
+      return [];
     }
 
-    const current = points[index];
-    const next = points[index + 1] ?? points[index - 1];
-    const tangent = next.clone().sub(current);
-    if (tangent.lengthSq() <= 1e-6) {
-      return new THREE.Vector3(1, 0, 0);
+    const { radiusX, radiusZ } = this.getLayerRadii(layer, metadata);
+    const radiusOffset = preset.radiusOffset ?? 0;
+    const adjustedRadiusX = Math.max(0.01, radiusX + radiusOffset);
+    const adjustedRadiusZ = Math.max(0.01, radiusZ + radiusOffset);
+    const height = this.getCreamHeightForPreset(preset, layer, metadata);
+
+    const angles = normalizePresetAngles(preset);
+    const start = THREE.MathUtils.degToRad(angles.startAngleDeg ?? 0);
+    const end = THREE.MathUtils.degToRad(angles.endAngleDeg ?? 360);
+    const segments = Math.max(2, preset.segments);
+    const points: { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] = [];
+
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const angle = start + (end - start) * t;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const radial = new THREE.Vector3(cos, 0, sin).normalize();
+      const position = new THREE.Vector3(adjustedRadiusX * cos, height, adjustedRadiusZ * sin);
+      const tangent = new THREE.Vector3(-sin * adjustedRadiusX, 0, cos * adjustedRadiusZ);
+      if (tangent.lengthSq() <= 1e-6) {
+        tangent.set(1, 0, 0);
+      } else {
+        tangent.normalize();
+      }
+
+      points.push({ position, normal: radial, tangent });
     }
 
-    return tangent.normalize();
+    return points;
+  }
+
+  private getLayerRadii(layer: LayerMetadata, metadata: CakeMetadata): { radiusX: number; radiusZ: number } {
+    const baseRadius = layer.radius ?? metadata.radius ?? metadata.maxRadius ?? 1;
+    const baseWidth = layer.width ?? metadata.width ?? metadata.maxWidth ?? baseRadius * 2;
+    const baseDepth = layer.depth ?? metadata.depth ?? metadata.maxDepth ?? baseRadius * 2;
+
+    const radiusX = layer.radius ?? baseWidth / 2;
+    const radiusZ = layer.radius ?? baseDepth / 2;
+    return { radiusX, radiusZ };
+  }
+
+  private getCreamHeightForPreset(preset: CreamRingPreset, layer: LayerMetadata, metadata: CakeMetadata): number {
+    const layerHeight = layer.height ?? metadata.layerHeight;
+    const normalizedHeight = THREE.MathUtils.clamp(
+      preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5),
+      0,
+      1,
+    );
+
+    const bottom = layer.bottomY;
+    const top = layer.topY;
+    const usableHeight = layerHeight ?? Math.max(0, top - bottom);
+    return bottom + usableHeight * normalizedHeight;
+  }
+
+  private resolveCreamPreset(presetId: string, metadata: CakeMetadata): CreamRingPreset | null {
+    const preset = this.creamRingPresets.find((item) => item.id === presetId) ?? this.creamRingPresets[0];
+    if (!preset) {
+      return null;
+    }
+
+    const normalized = normalizePresetAngles(preset);
+    const layerIndex = preset.layerIndex < 0 ? metadata.layers - 1 : preset.layerIndex;
+    return { ...normalized, layerIndex: Math.min(Math.max(0, layerIndex), metadata.layers - 1) };
   }
 
   private getExtruderSurfaceOffset(variants: ExtruderVariantData[]): number {
@@ -908,60 +1001,24 @@ export class PaintService {
     return Math.max(this.penSurfaceOffset * 0.25, maxHeight * 0.08);
   }
 
-  private getExtruderAverageSpacing(variants: ExtruderVariantData[]): number {
+  private getExtruderAverageSpacing(variants: ExtruderVariantData[], scaleMultiplier = 1): number {
     if (!variants.length) {
-      return this.extruderTargetWidth;
+      return this.extruderTargetWidth * scaleMultiplier;
     }
 
-    const spacings = variants.map((variant, index) => this.getExtruderSpacing(variants, index));
+    const spacings = variants.map((variant, index) => this.getExtruderSpacing(variants, index, scaleMultiplier));
     const average = spacings.reduce((sum, value) => sum + value, 0) / spacings.length;
     return Math.max(0.005, average);
   }
 
-  private buildExtruderPresetPath(preset: ExtruderPreset, center: THREE.Vector3): THREE.Vector3[] {
-    const points: THREE.Vector3[] = [];
-
-    if (preset === 'circle') {
-      const radius = 0.12;
-      const steps = 28;
-      for (let i = 0; i <= steps; i++) {
-        const angle = (i / steps) * Math.PI * 2;
-        points.push(new THREE.Vector3(center.x + Math.cos(angle) * radius, center.y, center.z + Math.sin(angle) * radius));
-      }
-      return points;
-    }
-
-    if (preset === 'arc') {
-      const radius = 0.14;
-      const steps = 18;
-      const start = -Math.PI * 0.7;
-      const end = Math.PI * 0.2;
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const angle = start + (end - start) * t;
-        points.push(new THREE.Vector3(center.x + Math.cos(angle) * radius, center.y, center.z + Math.sin(angle) * radius));
-      }
-      return points;
-    }
-
-    const length = 0.38;
-    const amplitude = 0.05;
-    const waves = 3;
-    const segments = 30;
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      const x = center.x - length / 2 + length * t;
-      const z = center.z + Math.sin(t * Math.PI * waves) * amplitude;
-      points.push(new THREE.Vector3(x, center.y, z));
-    }
-
-    return points;
-  }
-
-  private getExtruderSpacing(variants: ExtruderVariantData[], variantIndex: number): number {
+  private getExtruderSpacing(
+    variants: ExtruderVariantData[],
+    variantIndex: number,
+    scaleMultiplier = 1,
+  ): number {
     const variant = variants[variantIndex];
     const width = this.getExtruderVariantWidth(variant);
-    return Math.max(this.penSurfaceOffset, width * this.getExtruderScale(variant));
+    return Math.max(this.penSurfaceOffset, width * this.getExtruderScale(variant) * scaleMultiplier);
   }
 
   private getExtruderVariantWidth(variant: ExtruderVariantData): number {
@@ -975,6 +1032,15 @@ export class PaintService {
     }
 
     return (this.extruderTargetWidth * (variant.scaleMultiplier ?? 1)) / width;
+  }
+
+  private cloneExtruderMaterial(base: THREE.Material, colorOverride?: string): THREE.Material {
+    const material = base.clone();
+    if (colorOverride && (material as THREE.MeshStandardMaterial).color) {
+      (material as THREE.MeshStandardMaterial).color = new THREE.Color(colorOverride);
+    }
+
+    return material;
   }
 
   private async getExtruderVariants(): Promise<ExtruderVariantData[]> {

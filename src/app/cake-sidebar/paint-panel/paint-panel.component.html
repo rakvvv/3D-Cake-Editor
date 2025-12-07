@@ -71,12 +71,14 @@
         <select
           id="preset-select"
           class="sidebar-panel__select"
-          [(ngModel)]="selectedPreset"
+          [(ngModel)]="selectedPresetId"
         >
-          <option *ngFor="let preset of presetOptions" [ngValue]="preset.id">{{ preset.name }}</option>
+          <option *ngFor="let preset of creamRingPresets" [ngValue]="preset.id">{{ preset.name }}</option>
         </select>
       </div>
-      <p class="paint-panel__hint paint-panel__hint--inline">Presety startują na środku górnej powierzchni tortu.</p>
+      <p class="paint-panel__hint paint-panel__hint--inline">
+        Presety budują obręcze z kremu na wybranej warstwie, korzystając z aktualnych wymiarów tortu.
+      </p>
       <button type="button" class="sidebar-panel__button" (click)="onInsertPreset()">Wstaw preset</button>
     </div>
 

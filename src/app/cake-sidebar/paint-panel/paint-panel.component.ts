@@ -5,9 +5,9 @@ import { Subscription } from 'rxjs';
 import { DecorationInfo } from '../../models/decorationInfo';
 import { DecorationsService } from '../../services/decorations.service';
 import { PaintService } from '../../services/paint.service';
+import { CreamRingPreset } from '../../models/cream-presets';
 
 type SidebarPaintTool = 'decoration' | 'pen' | 'extruder';
-type ExtruderPreset = 'circle' | 'arc' | 'wave';
 
 type ExtruderVariantCard = {
   id: number;
@@ -49,12 +49,8 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   penColor = '#ff4d6d';
   extruderVariant: number | 'random' = 'random';
   extruderVariantCards: ExtruderVariantCard[] = [];
-  presetOptions: { id: ExtruderPreset; name: string }[] = [
-    { id: 'circle', name: 'Koło' },
-    { id: 'arc', name: 'Łuk' },
-    { id: 'wave', name: 'Linia falista' },
-  ];
-  selectedPreset: ExtruderPreset = 'circle';
+  creamRingPresets: CreamRingPreset[] = [];
+  selectedPresetId: string | null = null;
 
   private decorationsSubscription?: Subscription;
 
@@ -110,6 +106,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     } else if (this.selectedTool === 'extruder') {
       this.paintService.setExtruderVariantSelection(this.extruderVariant);
       this.loadExtruderVariants();
+      this.refreshCreamPresets();
     } else {
       this.ensureBrushSelection();
       if (!this.selectedBrush) {
@@ -148,11 +145,11 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   }
 
   async onInsertPreset(): Promise<void> {
-    if (!this.paintService) {
+    if (!this.paintService || !this.selectedPresetId) {
       return;
     }
 
-    await this.paintService.insertExtruderPreset(this.selectedPreset);
+    await this.paintService.insertCreamRingPreset(this.selectedPresetId);
   }
 
   undoLast(): void {
@@ -205,6 +202,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.penColor = this.paintService.penColor;
     this.extruderVariant = this.paintService.getExtruderVariantSelection() ?? 'random';
     this.loadExtruderVariants();
+    this.refreshCreamPresets();
     this.ensureBrushSelection();
   }
 
@@ -252,6 +250,20 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     }
 
     this.paintService.setCurrentBrush(this.selectedBrush);
+  }
+
+  private refreshCreamPresets(): void {
+    if (!this.paintService) {
+      this.creamRingPresets = [];
+      this.selectedPresetId = null;
+      return;
+    }
+
+    this.creamRingPresets = this.paintService.getCreamRingPresets();
+    const availableIds = this.creamRingPresets.map((preset) => preset.id);
+    if (!this.selectedPresetId || !availableIds.includes(this.selectedPresetId)) {
+      this.selectedPresetId = availableIds[0] ?? null;
+    }
   }
 
   private mapDecorationToBrush(decoration: DecorationInfo): BrushOption {
