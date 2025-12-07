@@ -89,6 +89,8 @@ export class SurfacePaintingService {
   private sprinkleStrokes: SerializedSprinkleStroke[] = [];
   private activeStroke: SerializedBrushStroke | SerializedSprinkleStroke | null = null;
   private nextStrokeId = 1;
+  private lastRecordedPoint: THREE.Vector3 | null = null;
+  private isReplayingSprinkles = false;
 
   constructor(@Inject(PLATFORM_ID) platformId: object, private readonly paintService: PaintService) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -126,6 +128,7 @@ export class SurfacePaintingService {
     this.lastStrokeDir = null;
     this.strokeCurrentLength = 0;
     this.activeStroke = null;
+    this.lastRecordedPoint = null;
 
     if (this.mode === 'brush') {
       this.activeStroke = {
@@ -154,6 +157,7 @@ export class SurfacePaintingService {
     this.lastBrushPoint = null;
     this.lastSprinklePoint = null;
     this.strokeCurrentLength = 0;
+    this.lastRecordedPoint = null;
     const finishedStroke = this.activeStroke;
     this.activeStroke = null;
 
@@ -240,7 +244,11 @@ export class SurfacePaintingService {
     }
     stroke.points.forEach((p) => {
       this.activeStroke?.points.push({ ...p });
-      const hit = { point: new THREE.Vector3(p.x, p.y, p.z) } as THREE.Intersection;
+      const hit = {
+        point: new THREE.Vector3(p.x, p.y, p.z),
+        face: { normal: new THREE.Vector3(p.nx, p.ny, p.nz) } as THREE.Face,
+        object: this.cakeGroup,
+      } as unknown as THREE.Intersection;
       this.paintBrush(hit, scene);
     });
     this.endStroke();
@@ -257,6 +265,7 @@ export class SurfacePaintingService {
     this.sprinkleUseRandomColors = stroke.useRandomColors;
     this.sprinkleColor = stroke.color;
 
+    this.isReplayingSprinkles = true;
     this.startStroke();
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
@@ -267,10 +276,15 @@ export class SurfacePaintingService {
     }
     stroke.points.forEach((p) => {
       this.activeStroke?.points.push({ ...p });
-      const hit = { point: new THREE.Vector3(p.x, p.y, p.z) } as THREE.Intersection;
+      const hit = {
+        point: new THREE.Vector3(p.x, p.y, p.z),
+        face: { normal: new THREE.Vector3(p.nx, p.ny, p.nz) } as THREE.Face,
+        object: this.cakeGroup,
+      } as unknown as THREE.Intersection;
       this.placeSprinkles(hit, scene);
     });
     this.endStroke();
+    this.isReplayingSprinkles = false;
   }
 
   public applyGradientSettings(): void {
@@ -291,10 +305,12 @@ export class SurfacePaintingService {
     this.clearBrushStrokes();
     this.activeStroke = null;
     this.nextStrokeId = 1;
+    this.lastRecordedPoint = null;
   }
 
   public clearSprinkles(): void {
     this.lastSprinklePoint = null;
+    this.lastRecordedPoint = null;
     this.activeStroke = null;
     this.sprinkleStrokes = [];
     this.disposeSprinkles();
@@ -322,6 +338,7 @@ export class SurfacePaintingService {
     this.disposePaintStrokes();
     this.brushStrokes = [];
     this.activeStroke = null;
+    this.lastRecordedPoint = null;
   }
 
   public async handlePointer(hit: THREE.Intersection, scene: THREE.Scene): Promise<void> {
@@ -329,19 +346,26 @@ export class SurfacePaintingService {
 
     if (!hit.point) return;
 
-    if (this.activeStroke) {
-      if (this.activeStroke.mode === 'brush') {
+    if (this.activeStroke?.mode === 'brush') {
+      let normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
+      if (hit.object) {
+        hit.object.updateMatrixWorld();
+        normal.transformDirection(hit.object.matrixWorld).normalize();
+      }
+
+      const p = hit.point;
+      const minDist = 0.005;
+
+      if (!this.lastRecordedPoint || this.lastRecordedPoint.distanceToSquared(p) > minDist * minDist) {
         this.activeStroke.points.push({
-          x: hit.point.x,
-          y: hit.point.y,
-          z: hit.point.z,
+          x: Number(p.x.toFixed(4)),
+          y: Number(p.y.toFixed(4)),
+          z: Number(p.z.toFixed(4)),
+          nx: Number(normal.x.toFixed(4)),
+          ny: Number(normal.y.toFixed(4)),
+          nz: Number(normal.z.toFixed(4)),
         });
-      } else if (this.activeStroke.mode === 'sprinkles') {
-        this.activeStroke.points.push({
-          x: hit.point.x,
-          y: hit.point.y,
-          z: hit.point.z,
-        });
+        this.lastRecordedPoint = p.clone();
       }
     }
 
@@ -870,9 +894,23 @@ export class SurfacePaintingService {
     const anchorPoint = hit.point.clone();
     const clusterSpacing = 0.12;
     const isFirstCluster = !this.lastSprinklePoint;
-    if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPoint) < clusterSpacing) return;
-    if (!isFirstCluster && Math.random() < 0.4) return;
+
+    if (!this.isReplayingSprinkles) {
+      if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPoint) < clusterSpacing) return;
+      if (!isFirstCluster && Math.random() < 0.4) return;
+    }
     this.lastSprinklePoint = anchorPoint.clone();
+
+    if (this.activeStroke?.mode === 'sprinkles') {
+      this.activeStroke.points.push({
+        x: Number(anchorPoint.x.toFixed(4)),
+        y: Number(anchorPoint.y.toFixed(4)),
+        z: Number(anchorPoint.z.toFixed(4)),
+        nx: Number(normal.x.toFixed(4)),
+        ny: Number(normal.y.toFixed(4)),
+        nz: Number(normal.z.toFixed(4)),
+      });
+    }
 
     const densityFactor = THREE.MathUtils.clamp(this.sprinkleDensity / 20, 0, 1);
     const count = Math.max(2, Math.round(THREE.MathUtils.lerp(3, 7, densityFactor)));

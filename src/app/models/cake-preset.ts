@@ -51,7 +51,9 @@ export interface SerializedBrushStrokePoint {
   x: number;
   y: number;
   z: number;
-  pressure?: number;
+  nx: number;
+  ny: number;
+  nz: number;
 }
 
 export interface SerializedBrushStroke {
@@ -66,6 +68,9 @@ export interface SerializedSprinkleStrokePoint {
   x: number;
   y: number;
   z: number;
+  nx: number;
+  ny: number;
+  nz: number;
 }
 
 export interface SerializedSprinkleStroke {
