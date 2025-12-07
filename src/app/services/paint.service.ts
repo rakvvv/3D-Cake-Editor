@@ -722,7 +722,8 @@ export class PaintService {
     }
 
     this.sceneRef = scene;
-    const cakeBase = this.cakeBaseRef ?? null;
+    const cakeBase = this.snapService.getCakeBase() ?? this.cakeBaseRef ?? null;
+    this.cakeBaseRef = cakeBase;
 
     for (const entry of entries) {
       switch (entry.type) {
