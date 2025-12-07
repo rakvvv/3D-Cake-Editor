@@ -177,6 +177,10 @@ export class SurfacePaintingService {
 
     this.brushColor = preset.brushColor ?? this.brushColor;
     preset.brushEntries?.forEach((entry) => {
+      const matrices = entry.matrices ?? this.decodeFloatMatrices(entry.matricesEncoded);
+      if (!matrices?.length) {
+        return;
+      }
       const container = this.createBrushStrokeContainer(entry.color ?? this.brushColor);
       if (!container) {
         return;
@@ -184,14 +188,14 @@ export class SurfacePaintingService {
 
       const { group, mesh } = container;
       const matrix = new THREE.Matrix4();
-      entry.matrices.forEach((values, index) => {
+      matrices.forEach((values, index) => {
         if (index >= this.brushStrokeCapacity && this.brushStrokeCapacity > 0) {
           return;
         }
         matrix.fromArray(values);
         mesh.setMatrixAt(index, matrix);
       });
-      mesh.count = Math.min(entry.matrices.length, mesh.count);
+      mesh.count = Math.min(matrices.length, mesh.count);
       mesh.instanceMatrix.needsUpdate = true;
       anchor.add(group);
       this.paintService.registerDecorationAddition(group);
@@ -202,10 +206,16 @@ export class SurfacePaintingService {
       this.ensureSprinkleResources();
       if (!this.sprinkleGeometryCache || !this.sprinkleMaterial) return;
 
+      const matrices = entry.matrices ?? this.decodeFloatMatrices(entry.matricesEncoded);
+      const colors = entry.colors ?? this.decodeFloatColors(entry.colorsEncoded);
+      if (!matrices?.length) {
+        return;
+      }
+
       const geometry = this.sprinkleGeometryCache[entry.shape] ?? this.sprinkleGeometryCache.stick;
-      const mesh = new THREE.InstancedMesh(geometry, this.sprinkleMaterial, Math.max(entry.matrices.length, 1));
+      const mesh = new THREE.InstancedMesh(geometry, this.sprinkleMaterial, Math.max(matrices.length, 1));
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(entry.matrices.length * 3), 3);
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(matrices.length * 3), 3);
       mesh.frustumCulled = false;
 
       const group = new THREE.Group();
@@ -216,13 +226,13 @@ export class SurfacePaintingService {
       group.add(mesh);
 
       const matrix = new THREE.Matrix4();
-      entry.matrices.forEach((values, index) => {
+      matrices.forEach((values, index) => {
         matrix.fromArray(values);
         mesh.setMatrixAt(index, matrix);
-        const color = entry.colors[index] ?? [1, 1, 1];
+        const color = colors[index] ?? [1, 1, 1];
         mesh.instanceColor?.setXYZ(index, color[0], color[1], color[2]);
       });
-      mesh.count = entry.matrices.length;
+      mesh.count = matrices.length;
       mesh.instanceMatrix.needsUpdate = true;
       mesh.instanceColor.needsUpdate = true;
 
@@ -368,7 +378,7 @@ export class SurfacePaintingService {
     });
   }
 
-  private serializeBrushEntry(entry: THREE.Object3D | null): { matrices: number[][]; color?: string } | null {
+  private serializeBrushEntry(entry: THREE.Object3D | null): { matrices?: number[][]; matricesEncoded?: string; color?: string } | null {
     if (!entry) return null;
     const mesh = entry.getObjectByProperty('isInstancedMesh', true) as THREE.InstancedMesh | null;
     if (!mesh || mesh.count <= 0) return null;
@@ -380,12 +390,12 @@ export class SurfacePaintingService {
     }
     const material = mesh.material as THREE.MeshStandardMaterial;
     const colorHex = material?.color ? `#${material.color.getHexString()}` : undefined;
-    return { matrices, color: colorHex };
+    return { matricesEncoded: this.encodeFloatMatrices(matrices), color: colorHex };
   }
 
   private serializeSprinkleEntry(entry: THREE.Object3D | null): {
-    matrices: number[][];
-    colors: number[][];
+    matricesEncoded?: string;
+    colorsEncoded?: string;
     shape: 'stick' | 'ball' | 'star';
   } | null {
     if (!entry) return null;
@@ -414,8 +424,8 @@ export class SurfacePaintingService {
     }
 
     return {
-      matrices,
-      colors,
+      matricesEncoded: this.encodeFloatMatrices(matrices),
+      colorsEncoded: this.encodeFloatColors(colors),
       shape,
     };
   }
@@ -828,6 +838,76 @@ export class SurfacePaintingService {
 
   private computeBrushWorldSpacing(): number {
     return this.computeBrushRadius() * 0.5;
+  }
+
+  private encodeFloatMatrices(matrices: number[][]): string {
+    const flattened = matrices.flat();
+    return this.encodeFloatArray(flattened);
+  }
+
+  private encodeFloatColors(colors: number[][]): string {
+    const flattened = colors.flat();
+    return this.encodeFloatArray(flattened);
+  }
+
+  private encodeFloatArray(values: number[]): string {
+    const floatArray = new Float32Array(values.map((v) => Number(v.toFixed(5))));
+    const uintArray = new Uint8Array(floatArray.buffer);
+    return this.encodeBase64(uintArray);
+  }
+
+  private decodeFloatMatrices(encoded?: string): number[][] {
+    if (!encoded) return [];
+    const array = this.decodeFloatArray(encoded);
+    const matrices: number[][] = [];
+    for (let i = 0; i < array.length; i += 16) {
+      matrices.push(Array.from(array.slice(i, i + 16)));
+    }
+    return matrices;
+  }
+
+  private decodeFloatColors(encoded?: string): number[][] {
+    if (!encoded) return [];
+    const array = this.decodeFloatArray(encoded);
+    const colors: number[][] = [];
+    for (let i = 0; i < array.length; i += 3) {
+      colors.push(Array.from(array.slice(i, i + 3)));
+    }
+    return colors;
+  }
+
+  private decodeFloatArray(encoded: string): Float32Array {
+    const bytes = this.decodeBase64(encoded);
+    return new Float32Array(bytes.buffer);
+  }
+
+  private encodeBase64(bytes: Uint8Array): string {
+    if (typeof btoa === 'function') {
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 1) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+    const globalBuffer = (globalThis as any).Buffer;
+    return globalBuffer?.from ? globalBuffer.from(bytes).toString('base64') : '';
+  }
+
+  private decodeBase64(encoded: string): Uint8Array {
+    if (typeof atob === 'function') {
+      const binary = atob(encoded);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+    const globalBuffer = (globalThis as any).Buffer;
+    if (globalBuffer?.from) {
+      return new Uint8Array(globalBuffer.from(encoded, 'base64'));
+    }
+    return new Uint8Array();
   }
 
   // --- SPRINKLES (BEZ ZMIAN) ---

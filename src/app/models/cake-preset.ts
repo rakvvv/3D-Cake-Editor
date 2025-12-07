@@ -48,12 +48,15 @@ export interface SurfacePaintingPreset {
 }
 
 export interface SurfaceBrushEntry {
-  matrices: number[][];
+  matrices?: number[][];
+  matricesEncoded?: string;
   color?: string;
 }
 
 export interface SurfaceSprinkleEntry {
-  matrices: number[][];
-  colors: number[][];
+  matrices?: number[][];
+  matricesEncoded?: string;
+  colors?: number[][];
+  colorsEncoded?: string;
   shape: 'stick' | 'ball' | 'star';
 }
