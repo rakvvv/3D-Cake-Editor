@@ -396,7 +396,12 @@ export class SnapService {
       const localPosition = this.cakeBase
         ? this.cakeBase.worldToLocal(object.getWorldPosition(new THREE.Vector3()))
         : new THREE.Vector3();
-      coords = this.computeSurfaceCoordinates(localPosition, normalized.surfaceType, layer, metadata);
+
+      const surfacePoint = localPosition.clone().sub(
+        new THREE.Vector3().fromArray(normalized.normal).normalize().multiplyScalar(normalized.offset ?? 0),
+      );
+
+      coords = this.computeSurfaceCoordinates(surfacePoint, normalized.surfaceType, layer, metadata);
     }
 
     const rotationDeg = Math.round(THREE.MathUtils.radToDeg(normalized.roll) * 1000) / 1000;
