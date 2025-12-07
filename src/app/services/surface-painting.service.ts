@@ -2,7 +2,11 @@ import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import * as THREE from 'three';
 import { PaintService } from './paint.service';
-import { SurfacePaintingPreset } from '../models/cake-preset';
+import {
+  SerializedBrushStroke,
+  SerializedSprinkleStroke,
+  SurfacePaintingPreset,
+} from '../models/cake-preset';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
 export type GradientDirection = 'vertical';
@@ -81,6 +85,10 @@ export class SurfacePaintingService {
   private readonly tempMatrix = new THREE.Matrix4();
   private readonly tempMatrixInverse = new THREE.Matrix4();
   private readonly tempColor = new THREE.Color();
+  private brushStrokes: SerializedBrushStroke[] = [];
+  private sprinkleStrokes: SerializedSprinkleStroke[] = [];
+  private activeStroke: SerializedBrushStroke | SerializedSprinkleStroke | null = null;
+  private nextStrokeId = 1;
 
   constructor(@Inject(PLATFORM_ID) platformId: object, private readonly paintService: PaintService) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -117,7 +125,26 @@ export class SurfacePaintingService {
     this.lastSprinklePoint = null;
     this.lastStrokeDir = null;
     this.strokeCurrentLength = 0;
-    if (this.mode === 'sprinkles') {
+    this.activeStroke = null;
+
+    if (this.mode === 'brush') {
+      this.activeStroke = {
+        id: `brush-${this.nextStrokeId++}`,
+        mode: 'brush',
+        color: this.brushColor,
+        brushSize: this.brushSize,
+        points: [],
+      };
+    } else if (this.mode === 'sprinkles') {
+      this.activeStroke = {
+        id: `sprinkles-${this.nextStrokeId++}`,
+        mode: 'sprinkles',
+        shape: this.sprinkleShape,
+        density: this.sprinkleDensity,
+        useRandomColors: this.sprinkleUseRandomColors,
+        color: this.sprinkleColor,
+        points: [],
+      };
       this.prepareSprinkleStroke();
     }
   }
@@ -127,10 +154,16 @@ export class SurfacePaintingService {
     this.lastBrushPoint = null;
     this.lastSprinklePoint = null;
     this.strokeCurrentLength = 0;
+    const finishedStroke = this.activeStroke;
+    this.activeStroke = null;
 
     if (this.brushStrokeGroup && this.brushStrokeMesh && this.brushStrokeIndex > 0) {
       this.paintService.registerDecorationAddition(this.brushStrokeGroup);
       this.paintEntries.push(this.brushStrokeGroup);
+      if (finishedStroke?.mode === 'brush' && finishedStroke.points.length > 0) {
+        this.brushStrokes.push(finishedStroke);
+        this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id;
+      }
     }
     this.brushStrokeGroup = null;
     this.brushStrokeMesh = null;
@@ -139,6 +172,10 @@ export class SurfacePaintingService {
     if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh && this.sprinkleStrokeIndex > 0) {
       this.paintService.registerDecorationAddition(this.sprinkleStrokeGroup);
       this.sprinkleEntries.push(this.sprinkleStrokeGroup);
+      if (finishedStroke?.mode === 'sprinkles' && finishedStroke.points.length > 0) {
+        this.sprinkleStrokes.push(finishedStroke);
+        this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
+      }
     }
     this.sprinkleStrokeGroup = null;
     this.sprinkleStrokeMesh = null;
@@ -148,20 +185,20 @@ export class SurfacePaintingService {
   }
 
   public exportPaintingPreset(): SurfacePaintingPreset {
-    const brushEntries = this.paintEntries
-      .filter((entry) => !entry.userData?.['removedByUndo'])
-      .map((entry) => this.serializeBrushEntry(entry))
-      .filter((entry): entry is NonNullable<ReturnType<typeof this.serializeBrushEntry>> => Boolean(entry));
+    const brushStrokes = this.brushStrokes.filter((stroke) => {
+      const group = this.paintEntries.find((g) => g.userData?.['strokeId'] === stroke.id);
+      return !group?.userData?.['removedByUndo'];
+    });
 
-    const sprinkles = this.sprinkleEntries
-      .filter((entry) => !entry.userData?.['removedByUndo'])
-      .map((entry) => this.serializeSprinkleEntry(entry))
-      .filter((entry): entry is NonNullable<ReturnType<typeof this.serializeSprinkleEntry>> => Boolean(entry));
+    const sprinkleStrokes = this.sprinkleStrokes.filter((stroke) => {
+      const group = this.sprinkleEntries.find((g) => g.userData?.['strokeId'] === stroke.id);
+      return !group?.userData?.['removedByUndo'];
+    });
 
     return {
       brushColor: this.brushColor,
-      brushEntries,
-      sprinkles,
+      brushStrokes,
+      sprinkleStrokes,
     };
   }
 
@@ -170,76 +207,70 @@ export class SurfacePaintingService {
       return;
     }
 
-    const anchor = this.ensurePaintAnchor();
-    if (!anchor) {
-      return;
-    }
+    this.clearPaint();
+    this.brushStrokes = [];
+    this.sprinkleStrokes = [];
+    this.activeStroke = null;
+    this.nextStrokeId = 1;
+
+    this.attachCake(this.cakeGroup, false);
 
     this.brushColor = preset.brushColor ?? this.brushColor;
-    preset.brushEntries?.forEach((entry) => {
-      const matrices = entry.matrices ?? this.decodeFloatMatrices(entry.matricesEncoded);
-      if (!matrices?.length) {
-        return;
-      }
-      const container = this.createBrushStrokeContainer(entry.color ?? this.brushColor);
-      if (!container) {
-        return;
-      }
 
-      const { group, mesh } = container;
-      const matrix = new THREE.Matrix4();
-      matrices.forEach((values, index) => {
-        if (index >= this.brushStrokeCapacity && this.brushStrokeCapacity > 0) {
-          return;
-        }
-        matrix.fromArray(values);
-        mesh.setMatrixAt(index, matrix);
-      });
-      mesh.count = Math.min(matrices.length, mesh.count);
-      mesh.instanceMatrix.needsUpdate = true;
-      anchor.add(group);
-      this.paintService.registerDecorationAddition(group);
-      this.paintEntries.push(group);
+    preset.brushStrokes?.forEach((stroke) => this.replayBrushStroke(stroke));
+    preset.sprinkleStrokes?.forEach((stroke) => this.replaySprinkleStroke(stroke));
+  }
+
+  private replayBrushStroke(stroke: SerializedBrushStroke): void {
+    if (!this.cakeGroup) return;
+    const scene = this.cakeGroup.parent as THREE.Scene;
+    if (!scene) return;
+
+    this.mode = 'brush';
+    this.brushColor = stroke.color;
+    this.brushSize = stroke.brushSize;
+
+    this.startStroke();
+    if (this.activeStroke) {
+      this.activeStroke.id = stroke.id;
+      const numericId = Number(stroke.id.split('-')[1]);
+      if (!Number.isNaN(numericId)) {
+        this.nextStrokeId = Math.max(this.nextStrokeId, numericId + 1);
+      }
+    }
+    stroke.points.forEach((p) => {
+      this.activeStroke?.points.push({ ...p });
+      const hit = { point: new THREE.Vector3(p.x, p.y, p.z) } as THREE.Intersection;
+      this.paintBrush(hit, scene);
     });
+    this.endStroke();
+  }
 
-    preset.sprinkles?.forEach((entry) => {
-      this.ensureSprinkleResources();
-      if (!this.sprinkleGeometryCache || !this.sprinkleMaterial) return;
+  private replaySprinkleStroke(stroke: SerializedSprinkleStroke): void {
+    if (!this.cakeGroup) return;
+    const scene = this.cakeGroup.parent as THREE.Scene;
+    if (!scene) return;
 
-      const matrices = entry.matrices ?? this.decodeFloatMatrices(entry.matricesEncoded);
-      const colors = entry.colors ?? this.decodeFloatColors(entry.colorsEncoded);
-      if (!matrices?.length) {
-        return;
+    this.mode = 'sprinkles';
+    this.sprinkleShape = stroke.shape;
+    this.sprinkleDensity = stroke.density;
+    this.sprinkleUseRandomColors = stroke.useRandomColors;
+    this.sprinkleColor = stroke.color;
+
+    this.startStroke();
+    if (this.activeStroke) {
+      this.activeStroke.id = stroke.id;
+      const numericId = Number(stroke.id.split('-')[1]);
+      if (!Number.isNaN(numericId)) {
+        this.nextStrokeId = Math.max(this.nextStrokeId, numericId + 1);
       }
-
-      const geometry = this.sprinkleGeometryCache[entry.shape] ?? this.sprinkleGeometryCache.stick;
-      const mesh = new THREE.InstancedMesh(geometry, this.sprinkleMaterial, Math.max(matrices.length, 1));
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(matrices.length * 3), 3);
-      mesh.frustumCulled = false;
-
-      const group = new THREE.Group();
-      group.name = 'Posypka';
-      group.userData['displayName'] = 'Posypka';
-      group.userData['isPaintDecoration'] = true;
-      group.userData['isPaintStroke'] = true;
-      group.add(mesh);
-
-      const matrix = new THREE.Matrix4();
-      matrices.forEach((values, index) => {
-        matrix.fromArray(values);
-        mesh.setMatrixAt(index, matrix);
-        const color = colors[index] ?? [1, 1, 1];
-        mesh.instanceColor?.setXYZ(index, color[0], color[1], color[2]);
-      });
-      mesh.count = matrices.length;
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.instanceColor.needsUpdate = true;
-
-      anchor.add(group);
-      this.paintService.registerDecorationAddition(group);
-      this.sprinkleEntries.push(group);
+    }
+    stroke.points.forEach((p) => {
+      this.activeStroke?.points.push({ ...p });
+      const hit = { point: new THREE.Vector3(p.x, p.y, p.z) } as THREE.Intersection;
+      this.placeSprinkles(hit, scene);
     });
+    this.endStroke();
   }
 
   public applyGradientSettings(): void {
@@ -258,10 +289,14 @@ export class SurfacePaintingService {
   public clearPaint(): void {
     this.clearSprinkles();
     this.clearBrushStrokes();
+    this.activeStroke = null;
+    this.nextStrokeId = 1;
   }
 
   public clearSprinkles(): void {
     this.lastSprinklePoint = null;
+    this.activeStroke = null;
+    this.sprinkleStrokes = [];
     this.disposeSprinkles();
   }
 
@@ -285,10 +320,30 @@ export class SurfacePaintingService {
 
   public clearBrushStrokes(): void {
     this.disposePaintStrokes();
+    this.brushStrokes = [];
+    this.activeStroke = null;
   }
 
   public async handlePointer(hit: THREE.Intersection, scene: THREE.Scene): Promise<void> {
     if (!this.isBrowser || !this.painting) return;
+
+    if (!hit.point) return;
+
+    if (this.activeStroke) {
+      if (this.activeStroke.mode === 'brush') {
+        this.activeStroke.points.push({
+          x: hit.point.x,
+          y: hit.point.y,
+          z: hit.point.z,
+        });
+      } else if (this.activeStroke.mode === 'sprinkles') {
+        this.activeStroke.points.push({
+          x: hit.point.x,
+          y: hit.point.y,
+          z: hit.point.z,
+        });
+      }
+    }
 
     if (this.mode === 'gradient') {
       this.applyGradientFromHit(hit);
@@ -376,58 +431,6 @@ export class SurfacePaintingService {
         anchor.add(entry);
       }
     });
-  }
-
-  private serializeBrushEntry(entry: THREE.Object3D | null): { matrices?: number[][]; matricesEncoded?: string; color?: string } | null {
-    if (!entry) return null;
-    const mesh = entry.getObjectByProperty('isInstancedMesh', true) as THREE.InstancedMesh | null;
-    if (!mesh || mesh.count <= 0) return null;
-    const matrices: number[][] = [];
-    const matrix = new THREE.Matrix4();
-    for (let i = 0; i < mesh.count; i += 1) {
-      mesh.getMatrixAt(i, matrix);
-      matrices.push(matrix.toArray());
-    }
-    const material = mesh.material as THREE.MeshStandardMaterial;
-    const colorHex = material?.color ? `#${material.color.getHexString()}` : undefined;
-    return { matricesEncoded: this.encodeFloatMatrices(matrices), color: colorHex };
-  }
-
-  private serializeSprinkleEntry(entry: THREE.Object3D | null): {
-    matricesEncoded?: string;
-    colorsEncoded?: string;
-    shape: 'stick' | 'ball' | 'star';
-  } | null {
-    if (!entry) return null;
-    const mesh = entry.getObjectByProperty('isInstancedMesh', true) as THREE.InstancedMesh | null;
-    if (!mesh || mesh.count <= 0) return null;
-    const matrices: number[][] = [];
-    const colors: number[][] = [];
-    const matrix = new THREE.Matrix4();
-    for (let i = 0; i < mesh.count; i += 1) {
-      mesh.getMatrixAt(i, matrix);
-      matrices.push(matrix.toArray());
-      const color = (mesh.instanceColor as THREE.InstancedBufferAttribute | undefined)?.getX(i) ?? null;
-      if (color !== null && mesh.instanceColor) {
-        const r = mesh.instanceColor.getX(i);
-        const g = mesh.instanceColor.getY(i);
-        const b = mesh.instanceColor.getZ(i);
-        colors.push([r, g, b]);
-      }
-    }
-
-    let shape: 'stick' | 'ball' | 'star' = 'stick';
-    if (this.sprinkleGeometryCache) {
-      const { stick, ball, star } = this.sprinkleGeometryCache;
-      if (mesh.geometry === ball) shape = 'ball';
-      if (mesh.geometry === star) shape = 'star';
-    }
-
-    return {
-      matricesEncoded: this.encodeFloatMatrices(matrices),
-      colorsEncoded: this.encodeFloatColors(colors),
-      shape,
-    };
   }
 
   private createBrushStrokeContainer(color: string): { group: THREE.Group; mesh: THREE.InstancedMesh } | null {
@@ -839,77 +842,6 @@ export class SurfacePaintingService {
   private computeBrushWorldSpacing(): number {
     return this.computeBrushRadius() * 0.5;
   }
-
-  private encodeFloatMatrices(matrices: number[][]): string {
-    const flattened = matrices.flat();
-    return this.encodeFloatArray(flattened);
-  }
-
-  private encodeFloatColors(colors: number[][]): string {
-    const flattened = colors.flat();
-    return this.encodeFloatArray(flattened);
-  }
-
-  private encodeFloatArray(values: number[]): string {
-    const floatArray = new Float32Array(values.map((v) => Number(v.toFixed(5))));
-    const uintArray = new Uint8Array(floatArray.buffer);
-    return this.encodeBase64(uintArray);
-  }
-
-  private decodeFloatMatrices(encoded?: string): number[][] {
-    if (!encoded) return [];
-    const array = this.decodeFloatArray(encoded);
-    const matrices: number[][] = [];
-    for (let i = 0; i < array.length; i += 16) {
-      matrices.push(Array.from(array.slice(i, i + 16)));
-    }
-    return matrices;
-  }
-
-  private decodeFloatColors(encoded?: string): number[][] {
-    if (!encoded) return [];
-    const array = this.decodeFloatArray(encoded);
-    const colors: number[][] = [];
-    for (let i = 0; i < array.length; i += 3) {
-      colors.push(Array.from(array.slice(i, i + 3)));
-    }
-    return colors;
-  }
-
-  private decodeFloatArray(encoded: string): Float32Array {
-    const bytes = this.decodeBase64(encoded);
-    return new Float32Array(bytes.buffer);
-  }
-
-  private encodeBase64(bytes: Uint8Array): string {
-    if (typeof btoa === 'function') {
-      let binary = '';
-      for (let i = 0; i < bytes.length; i += 1) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      return btoa(binary);
-    }
-    const globalBuffer = (globalThis as any).Buffer;
-    return globalBuffer?.from ? globalBuffer.from(bytes).toString('base64') : '';
-  }
-
-  private decodeBase64(encoded: string): Uint8Array {
-    if (typeof atob === 'function') {
-      const binary = atob(encoded);
-      const len = binary.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i += 1) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      return bytes;
-    }
-    const globalBuffer = (globalThis as any).Buffer;
-    if (globalBuffer?.from) {
-      return new Uint8Array(globalBuffer.from(encoded, 'base64'));
-    }
-    return new Uint8Array();
-  }
-
   // --- SPRINKLES (BEZ ZMIAN) ---
   private placeSprinkles(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;

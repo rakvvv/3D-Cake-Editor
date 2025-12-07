@@ -43,20 +43,37 @@ export interface PaintStrokeInstance {
 
 export interface SurfacePaintingPreset {
   brushColor?: string;
-  brushEntries: SurfaceBrushEntry[];
-  sprinkles: SurfaceSprinkleEntry[];
+  brushStrokes?: SerializedBrushStroke[];
+  sprinkleStrokes?: SerializedSprinkleStroke[];
 }
 
-export interface SurfaceBrushEntry {
-  matrices?: number[][];
-  matricesEncoded?: string;
-  color?: string;
+export interface SerializedBrushStrokePoint {
+  x: number;
+  y: number;
+  z: number;
+  pressure?: number;
 }
 
-export interface SurfaceSprinkleEntry {
-  matrices?: number[][];
-  matricesEncoded?: string;
-  colors?: number[][];
-  colorsEncoded?: string;
+export interface SerializedBrushStroke {
+  id: string;
+  mode: 'brush';
+  color: string;
+  brushSize: number;
+  points: SerializedBrushStrokePoint[];
+}
+
+export interface SerializedSprinkleStrokePoint {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface SerializedSprinkleStroke {
+  id: string;
+  mode: 'sprinkles';
   shape: 'stick' | 'ball' | 'star';
+  density: number;
+  useRandomColors: boolean;
+  color: string;
+  points: SerializedSprinkleStrokePoint[];
 }
