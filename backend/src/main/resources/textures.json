@@ -27,6 +27,19 @@
       }
     },
     {
+      "id": "polewa",
+      "label": "Polewa",
+      "thumbnailUrl": null,
+      "glaze": {
+        "baseColor": "/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg",
+        "roughness": "/assets/textures/Chocolate 03_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate 03_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate 03_Displacement.jpg",
+        "repeat": 2,
+        "affectDrips": true
+      }
+    },
+    {
       "id": "frosting",
       "label": "krem",
       "thumbnailUrl": null,

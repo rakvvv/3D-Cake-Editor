@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import {Component, inject} from '@angular/core';
 import { PresetDialogService } from '../services/preset-dialog.service';
 
 @Component({
@@ -10,9 +10,8 @@ import { PresetDialogService } from '../services/preset-dialog.service';
   styleUrls: ['./preset-export-dialog.component.css'],
 })
 export class PresetExportDialogComponent {
+  private readonly dialogService = inject(PresetDialogService);
   dialog$ = this.dialogService.dialog$;
-
-  constructor(private readonly dialogService: PresetDialogService) {}
 
   copy(content: string): void {
     if (navigator?.clipboard?.writeText) {

@@ -6,40 +6,7 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/numer-1.svg",
     "paintable": false,
-    "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
-    },
-    "initialRotation": [
-      0,
-      0,
-      0
-    ]
-  },
-  {
-    "id": "boczna-ozdoba",
-    "name": "Ozdoba Boczna",
-    "modelFileName": "custom.glb",
-    "type": "SIDE",
-    "thumbnailUrl": "/assets/decorations/thumbnails/side-ornament.svg",
-    "paintable": false,
-    "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
-    },
-    "initialRotation": [
-      0,
-      0,
-      0
-    ]
-  },
-  {
-    "id": "czekoladowa-ozdoba",
-    "name": "Czekoladowa ozdoba",
-    "modelFileName": "chocolate_kiss.glb",
-    "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true,
+    "initialScale": 0.1,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -57,6 +24,7 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/grass.svg",
     "paintable": true,
+    "initialScale": 0.002,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -74,6 +42,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 0.004,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -91,14 +60,15 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 0.004,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
     },
     "initialRotation": [
       0,
-      0,
-      0
+      1,
+      1
     ]
   },
   {
@@ -108,6 +78,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 3,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -121,27 +92,11 @@
   {
     "id": "kwiat2",
     "name": "Kwiat 2",
-    "modelFileName": "kwiatek1_2.glb",
-    "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": false,
-    "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
-    },
-    "initialRotation": [
-      0,
-      0,
-      0
-    ]
-  },
-  {
-    "id": "kwiat3",
-    "name": "Kwiat 3",
     "modelFileName": "kwiatek2_.glb",
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 0.1,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -159,6 +114,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 8,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -176,6 +132,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 0.03,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -193,6 +150,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 7,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -210,6 +168,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 0.18,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -227,6 +186,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 2,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -244,6 +204,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 0.004,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -261,23 +222,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
-    "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
-    },
-    "initialRotation": [
-      0,
-      0,
-      0
-    ]
-  },
-  {
-    "id": "cream-dot",
-    "name": "Krem kropka",
-    "modelFileName": "cream_dot.glb",
-    "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
-    "paintable": true,
+    "initialScale": 0.004,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -295,6 +240,7 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 30,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -312,6 +258,7 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 30,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -329,6 +276,7 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 30,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -346,6 +294,7 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 30,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -363,6 +312,7 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 30,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -380,7 +330,7 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
-    "initialScale": 0.18,
+    "initialScale": 10,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -398,7 +348,7 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
-    "initialScale": 0.18,
+    "initialScale": 10,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -416,7 +366,7 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
-    "initialScale": 0.18,
+    "initialScale": 10,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -434,6 +384,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 30,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -451,6 +402,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 30,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -468,6 +420,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
+    "initialScale": 20,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -485,6 +438,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
+    "initialScale": 20,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -502,6 +456,7 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
+    "initialScale": 20,
     "material": {
       "roughness": 0.6,
       "metalness": 0.05
@@ -519,9 +474,10 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 1,
+      "metalness": 0.0
     },
     "initialRotation": [
       0,
@@ -536,9 +492,10 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -553,9 +510,10 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -570,9 +528,10 @@
     "type": "BOTH",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -587,9 +546,10 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": true,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -604,9 +564,10 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -621,9 +582,10 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -638,9 +600,10 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -655,9 +618,10 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -672,9 +636,10 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -689,9 +654,10 @@
     "type": "TOP",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -706,9 +672,10 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,
@@ -723,9 +690,10 @@
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
     "paintable": false,
+    "initialScale": 20,
     "material": {
-      "roughness": 0.6,
-      "metalness": 0.05
+      "roughness": 0.9,
+      "metalness": 0.1
     },
     "initialRotation": [
       0,

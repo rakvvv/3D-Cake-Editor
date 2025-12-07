@@ -1,8 +1,8 @@
 [
   {
-    "id": "vanilla-classic",
+    "id": "cake-1765105082215",
     "name": "Waniliowy klasyk",
-    "description": "Bazowy tort z jedną cyfrą na górze.",
+    "description": "Bazowy tort z owocami i kwaiatami.",
     "thumbnailUrl": "/assets/presets/vanilla-classic.png",
     "options": {
       "cake_size": 1,
@@ -15,15 +15,28 @@
       "cake_text_depth": 0.1,
       "layers": 1,
       "shape": "cylinder",
-      "layerSizes": [1],
+      "layerSizes": [
+        1
+      ],
       "glaze_enabled": true,
-      "glaze_color": "#ffffff",
+      "glaze_color": "#ffc7c7",
       "glaze_thickness": 0.1,
       "glaze_drip_length": 1.2,
       "glaze_seed": 1,
-      "glaze_top_enabled": true,
+      "glaze_top_enabled": false,
       "cake_textures": null,
-      "glaze_textures": null,
+      "glaze_textures": {
+        "baseColor": "/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg",
+        "normal": "/assets/textures/Chocolate 03_Normal.jpg",
+        "roughness": "/assets/textures/Chocolate 03_Roughness.jpg",
+        "displacement": "/assets/textures/Chocolate 03_Displacement.jpg",
+        "metallic": null,
+        "emissive": null,
+        "ambientOcclusion": null,
+        "alpha": null,
+        "affectDrips": true,
+        "repeat": 2
+      },
       "wafer_texture_url": null,
       "wafer_scale": 1,
       "wafer_texture_zoom": 1,
@@ -32,22 +45,839 @@
     },
     "decorations": [
       {
-        "modelFileName": "Numer_1.glb",
-        "position": [0, 0.55, 0],
-        "rotation": [0, 0, 0, 1],
-        "scale": [1, 1, 1],
+        "modelFileName": "figurka_kot.glb",
+        "position": [
+          -0.05022877805080402,
+          1.35,
+          -0.04796589114929957
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          30,
+          30,
+          30
+        ],
         "snapInfo": {
           "layerIndex": 0,
           "surfaceType": "TOP",
-          "normal": [0, 1, 0],
-          "offset": 0,
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.35,
           "roll": 0,
-          "coords": {
-            "angleRad": 0,
-            "radiusNorm": 0
-          }
-        }
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "bf867f8c-1b00-4a43-8b87-0a6950a05102"
+      },
+      {
+        "modelFileName": "truskawka_pol.glb",
+        "position": [
+          0.8238202638641204,
+          1.0987837306364532,
+          1.4885530384906938
+        ],
+        "rotation": [
+          0,
+          0.6295102648423004,
+          0,
+          0.7769921662785132
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.09878373063645318,
+          "roll": 1.3618455087461356,
+          "rotation": [
+            0,
+            0.6295102648423004,
+            0,
+            0.7769921662785132
+          ]
+        },
+        "anchorId": "502a652e-ac8b-4541-bf4e-452f4e2c0f49"
+      },
+      {
+        "modelFileName": "truskawka_pol.glb",
+        "position": [
+          0.10503038165506506,
+          1.1066876298835533,
+          1.6943997547325673
+        ],
+        "rotation": [
+          0,
+          0.3450442995709827,
+          0,
+          0.9385864005692656
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.10668762988355329,
+          "roll": 0.7045719657375908,
+          "rotation": [
+            0,
+            0.34504429957098265,
+            0,
+            0.9385864005692658
+          ]
+        },
+        "anchorId": "584be2c7-73d4-4074-a60a-22e0757448af"
+      },
+      {
+        "modelFileName": "truskawka_pol.glb",
+        "position": [
+          -0.9752281103847881,
+          1.120697566859059,
+          1.4394788170157622
+        ],
+        "rotation": [
+          0,
+          0.9998580226653685,
+          0,
+          0.016850356426483415
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.12069756685905908,
+          "roll": 3.1078903457337823,
+          "rotation": [
+            0,
+            0.9998580226653685,
+            0,
+            0.016850356426483415
+          ]
+        },
+        "anchorId": "ada61f9f-df2e-4687-bccd-938689c67744"
+      },
+      {
+        "modelFileName": "truskawka_pol.glb",
+        "position": [
+          -1.5625804082293846,
+          1.118684678966713,
+          0.7197149425702577
+        ],
+        "rotation": [
+          0,
+          0.9830059089364629,
+          0,
+          0.1835739169816845
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.11868467896671309,
+          "roll": 2.7723507970378733,
+          "rotation": [
+            0,
+            0.9830059089364629,
+            0,
+            0.1835739169816845
+          ]
+        },
+        "anchorId": "7b5fd2d1-183b-4165-94cc-c79e53555c52"
+      },
+      {
+        "modelFileName": "truskawka_pol.glb",
+        "position": [
+          -0.9877150255550895,
+          1.1216697750021627,
+          -1.4297910903136986
+        ],
+        "rotation": [
+          0,
+          -0.7503764767828461,
+          0,
+          0.6610106981668017
+        ],
+        "scale": [
+          0.004000000000000006,
+          0.004,
+          0.004000000000000006
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.1216697750021627,
+          "roll": -1.697262884394405,
+          "rotation": [
+            0,
+            -0.7503764767828462,
+            0,
+            0.6610106981668018
+          ]
+        },
+        "anchorId": "7b872765-9eec-455f-9138-0b52e8585579"
+      },
+      {
+        "modelFileName": "truskawka_pol.glb",
+        "position": [
+          0.06129245266230216,
+          1.122526200128008,
+          -1.7449163612382255
+        ],
+        "rotation": [
+          0,
+          0.9272198099463835,
+          0,
+          -0.37451758842942523
+        ],
+        "scale": [
+          0.003999999999999992,
+          0.004,
+          0.003999999999999992
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.12252620012800808,
+          "roll": -2.373839768930007,
+          "rotation": [
+            0,
+            0.9272198099463835,
+            0,
+            -0.3745175884294251
+          ]
+        },
+        "anchorId": "fbdcccea-206d-4ae1-a9af-2ebefd5c1121"
+      },
+      {
+        "modelFileName": "truskawka_pol.glb",
+        "position": [
+          1.1896309410179176,
+          1.1060696883195051,
+          -1.2912244749095538
+        ],
+        "rotation": [
+          0,
+          -0.04395940010916788,
+          0,
+          0.9990333183342995
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.10606968831950514,
+          "roll": -0.08794714100799439,
+          "rotation": [
+            0,
+            -0.04395940010916786,
+            0,
+            0.9990333183342998
+          ]
+        },
+        "anchorId": "c31ca646-51d7-4087-ba1a-5bdca4331189"
+      },
+      {
+        "modelFileName": "truskawka_pol.glb",
+        "position": [
+          1.7515556356933875,
+          1.126961452553636,
+          -0.38329361098661185
+        ],
+        "rotation": [
+          0,
+          -0.3253866219231484,
+          0,
+          0.9455810627722206
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.126961452553636,
+          "roll": -0.6628411433224066,
+          "rotation": [
+            0,
+            -0.3253866219231484,
+            0,
+            0.9455810627722206
+          ]
+        },
+        "anchorId": "1fe30389-9af7-4221-b05d-e550db53a79c"
+      },
+      {
+        "modelFileName": "borowka.glb",
+        "position": [
+          0.5025584794562313,
+          1.1115829099113106,
+          1.7150271296078763
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.11158290991131059,
+          "roll": 0,
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "8de4bbcd-e7ce-4acf-94e8-6928901650af"
+      },
+      {
+        "modelFileName": "borowka.glb",
+        "position": [
+          1.5478227579809727,
+          1.1115829099113106,
+          -0.9182041160480712
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.11158290991131059,
+          "roll": 0,
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "d4721780-5fca-4aa5-8b51-0bc38bc9b5a3"
+      },
+      {
+        "modelFileName": "borowka.glb",
+        "position": [
+          -0.4951479941491918,
+          1.1115829099113106,
+          -1.7062370800325684
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.11158290991131059,
+          "roll": 0,
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "613bb2fd-ee40-448e-8efd-e1b4882a557e"
+      },
+      {
+        "modelFileName": "borowka.glb",
+        "position": [
+          -1.3037588810396634,
+          1.1115829099113106,
+          1.1636632818656216
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.004,
+          0.004,
+          0.004
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.11158290991131059,
+          "roll": 0,
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "f7bca8c0-afe9-4e8b-bee0-0374f18fc607"
+      },
+      {
+        "modelFileName": "kwiatek7.2.glb",
+        "position": [
+          -1.5303593941716973,
+          1.1786658753031984,
+          -0.47300610915168
+        ],
+        "rotation": [
+          0,
+          0.9701900755737689,
+          0,
+          0.24234524393551551
+        ],
+        "scale": [
+          7,
+          7,
+          7
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.17866587530319844,
+          "roll": 2.652027798405383,
+          "rotation": [
+            0,
+            0.9701900755737689,
+            0,
+            0.24234524393551551
+          ]
+        },
+        "anchorId": "fbf1e622-398b-4301-a7bc-4d100ea70096"
+      },
+      {
+        "modelFileName": "kwiatek7.2.glb",
+        "position": [
+          1.5652389791487342,
+          1.1790018976115042,
+          0.8329739463660805
+        ],
+        "rotation": [
+          0,
+          -0.6079095108662447,
+          0,
+          0.7940063139537135
+        ],
+        "scale": [
+          6.999999999999998,
+          7,
+          6.999999999999998
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.1790018976115042,
+          "roll": -1.3068501840157936,
+          "rotation": [
+            0,
+            -0.6079095108662447,
+            0,
+            0.7940063139537135
+          ]
+        },
+        "anchorId": "c616e1a3-2627-4625-b758-61dab6a30b24"
+      },
+      {
+        "modelFileName": "kwiatek8_.glb",
+        "position": [
+          0.6312989762464142,
+          1.1633377394962952,
+          -1.597068471299592
+        ],
+        "rotation": [
+          0,
+          -0.020671952417098044,
+          0,
+          0.9997863123604289
+        ],
+        "scale": [
+          0.18000000000000002,
+          0.18,
+          0.18000000000000002
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.16333773949629515,
+          "roll": -0.041346849979746025,
+          "rotation": [
+            0,
+            -0.020671952417098044,
+            0,
+            0.9997863123604289
+          ]
+        },
+        "anchorId": "60eb5d16-49aa-4eb0-8419-9f04d97455d9"
+      },
+      {
+        "modelFileName": "kwiatek8_.glb",
+        "position": [
+          -0.4018341336241985,
+          1.1702259720835735,
+          1.6488956191082715
+        ],
+        "rotation": [
+          0,
+          -0.016963786612369063,
+          0,
+          0.9998561046189447
+        ],
+        "scale": [
+          0.18,
+          0.18,
+          0.18
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.17022597208357348,
+          "roll": -0.03392920065877014,
+          "rotation": [
+            0,
+            -0.016963786612369063,
+            0,
+            0.9998561046189447
+          ]
+        },
+        "anchorId": "6af8d08e-a831-4e7c-b8c2-35eef0b6ccea"
+      },
+      {
+        "modelFileName": "krem3.glb",
+        "position": [
+          -1.678734511902444,
+          1.1291893008372762,
+          0.17780786151354913
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          20,
+          20,
+          20
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.1291893008372762,
+          "roll": 0,
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "ec4f0c81-f171-4e5d-8b32-8cfa65061a94"
+      },
+      {
+        "modelFileName": "krem3.glb",
+        "position": [
+          1.7254869742440069,
+          1.1291893008372762,
+          0.22932990932197544
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          20,
+          20,
+          20
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.1291893008372762,
+          "roll": 0,
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "a0fc2b54-e74e-49e1-90a4-cfddf4c0e946"
+      },
+      {
+        "modelFileName": "krem4.glb",
+        "position": [
+          -1.3490399690598387,
+          1.111323738356801,
+          -1.075826737957879
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          20,
+          20,
+          20
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.1113237383568011,
+          "roll": 0,
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "98e4153b-f859-46a3-b8a0-6de4b664d51c"
+      },
+      {
+        "modelFileName": "krem4.glb",
+        "position": [
+          1.214786219936763,
+          1.111323738356801,
+          1.267800205500363
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          20,
+          20,
+          20
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.1113237383568011,
+          "roll": 0,
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "9303cb64-3eda-4803-8284-2f66224b92f4"
+      },
+      {
+        "modelFileName": "krem4.glb",
+        "position": [
+          1.214786219936763,
+          1.111323738356801,
+          1.267800205500363
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          20,
+          20,
+          20
+        ],
+        "snapInfo": {
+          "layerIndex": 0,
+          "surfaceType": "TOP",
+          "normal": [
+            0,
+            1,
+            0
+          ],
+          "offset": 0.1113237383568011,
+          "roll": 0,
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        "anchorId": "9303cb64-3eda-4803-8284-2f66224b92f4"
+      },
+      {
+        "modelFileName": "Cake Paint Anchor",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
       }
     ]
   }
+
 ]

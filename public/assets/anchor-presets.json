@@ -1,45 +1,359 @@
 [
   {
-    "id": "top-demo",
-    "name": "Górne dekoracje demo",
-    "anchors": [
+      "id": "preset-6af8d08e-a831-4e7c-b8c2-35eef0b6ccea",
+      "name": "gotowe Dekoracje na góre",
+      "anchors": [
       {
-        "id": "top-center",
-        "label": "Środek",
+        "id": "d269b90b-5b85-4e83-8c95-f66e600b545d",
+        "label": "Scene",
         "surface": "TOP",
         "layerIndex": 0,
-        "coordinates": { "angleRad": 0, "radiusNorm": 0 },
-        "defaultRotationDeg": 0
+        "coordinates": {
+          "angleRad": -2.379235317820701,
+          "radiusNorm": 0.03472627556412934,
+          "heightNorm": 1.175
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 30,
+        "allowedDecorationIds": [
+          "figurka_kot.glb"
+        ]
       },
       {
-        "id": "top-front",
-        "label": "Front",
+        "id": "f45a38f6-9421-406c-9803-447613321d13",
+        "label": "Scene",
         "surface": "TOP",
         "layerIndex": 0,
-        "coordinates": { "angleRad": 0, "radiusNorm": 0.65 },
-        "defaultRotationDeg": 0
-      }
-    ]
-  },
-  {
-    "id": "side-demo",
-    "name": "Boczny wieniec demo",
-    "anchors": [
-      {
-        "id": "side-front",
-        "label": "Front",
-        "surface": "SIDE",
-        "layerIndex": 0,
-        "coordinates": { "angleRad": 0, "heightNorm": 0.5, "radiusNorm": 1 },
-        "defaultRotationDeg": 0
+        "coordinates": {
+          "angleRad": 1.0653182074999847,
+          "radiusNorm": 0.8506570953611429,
+          "heightNorm": 1.0493918653182266
+        },
+        "defaultRotationDeg": 78.028,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "truskawka_pol.glb"
+        ]
       },
       {
-        "id": "side-back",
-        "label": "Tył",
-        "surface": "SIDE",
+        "id": "87cd76c3-7f6b-4d2a-bafe-eef4bb137d03",
+        "label": "Scene",
+        "surface": "TOP",
         "layerIndex": 0,
-        "coordinates": { "angleRad": 3.14, "heightNorm": 0.5, "radiusNorm": 1 },
-        "defaultRotationDeg": 180
+        "coordinates": {
+          "angleRad": 1.508888757990075,
+          "radiusNorm": 0.8488259406245182,
+          "heightNorm": 1.0533438149417766
+        },
+        "defaultRotationDeg": 40.369,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "truskawka_pol.glb"
+        ]
+      },
+      {
+        "id": "a268319d-9009-432d-9dea-3a9ec8978e57",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 2.1662525324771273,
+          "radiusNorm": 0.86936314793097,
+          "heightNorm": 1.0603487834295295
+        },
+        "defaultRotationDeg": 178.069,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "truskawka_pol.glb"
+        ]
+      },
+      {
+        "id": "47d148dc-4e00-4a0b-9fd0-58a791807be5",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 2.7099638777206927,
+          "radiusNorm": 0.860181249903359,
+          "heightNorm": 1.0593423394833565
+        },
+        "defaultRotationDeg": 158.844,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "truskawka_pol.glb"
+        ]
+      },
+      {
+        "id": "1827e6e2-5b20-4395-8b0e-8a3168468990",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": -2.1753283341694463,
+          "radiusNorm": 0.8688906049739126,
+          "heightNorm": 1.0608348875010813
+        },
+        "defaultRotationDeg": -97.246,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "truskawka_pol.glb"
+        ]
+      },
+      {
+        "id": "dd959708-30b1-42d1-8d51-3d1f22ad6c5f",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": -1.5356844647221009,
+          "radiusNorm": 0.8729962589367453,
+          "heightNorm": 1.061263100064004
+        },
+        "defaultRotationDeg": -136.011,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "truskawka_pol.glb"
+        ]
+      },
+      {
+        "id": "91eb67fb-70de-415c-8e24-29c0deb9ca73",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": -0.8263263045658233,
+          "radiusNorm": 0.877849990094069,
+          "heightNorm": 1.0530348441597526
+        },
+        "defaultRotationDeg": -5.039,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "truskawka_pol.glb"
+        ]
+      },
+      {
+        "id": "a4998489-ea93-4577-9dce-27d117df2e2d",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": -0.21543442171637597,
+          "radiusNorm": 0.8965016922951711,
+          "heightNorm": 1.063480726276818
+        },
+        "defaultRotationDeg": -37.978,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "truskawka_pol.glb"
+        ]
+      },
+      {
+        "id": "faeaa5d1-6f16-4466-ab60-09e25af0e0a9",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 1.2857440398510986,
+          "radiusNorm": 0.8935719166027419,
+          "heightNorm": 1.0557914549556553
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "borowka.glb"
+        ]
+      },
+      {
+        "id": "9236b1e8-0e74-4d04-aab4-d6b9ab29766b",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": -0.5354215370777421,
+          "radiusNorm": 0.8998408315990452,
+          "heightNorm": 1.0557914549556553
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "borowka.glb"
+        ]
+      },
+      {
+        "id": "9c4be59f-5983-4734-8d25-630d24701c2b",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": -1.8532371391075257,
+          "radiusNorm": 0.8883153310322908,
+          "heightNorm": 1.0557914549556553
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "borowka.glb"
+        ]
+      },
+      {
+        "id": "1c5ea5ed-0e36-4342-bc65-ee31aff700a4",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 2.4129117180583854,
+          "radiusNorm": 0.8737704866628399,
+          "heightNorm": 1.0557914549556553
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 0.004,
+        "allowedDecorationIds": [
+          "borowka.glb"
+        ]
+      },
+      {
+        "id": "5188905c-d433-478b-89d2-cfd265a8276b",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": -2.8418249740144006,
+          "radiusNorm": 0.8008955385417588,
+          "heightNorm": 1.0893026926160734
+        },
+        "defaultRotationDeg": 151.95,
+        "defaultScale": 7,
+        "allowedDecorationIds": [
+          "kwiatek7.2.glb"
+        ]
+      },
+      {
+        "id": "f475ac28-404b-4034-a7b6-1f4fbc880325",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 0.4890515373405391,
+          "radiusNorm": 0.8865408418639346,
+          "heightNorm": 1.089500948805752
+        },
+        "defaultRotationDeg": -74.877,
+        "defaultScale": 7,
+        "allowedDecorationIds": [
+          "kwiatek7.2.glb"
+        ]
+      },
+      {
+        "id": "9edd9cd4-304d-46c9-8ab6-cd784a056f14",
+        "label": "Sketchfab_Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": -1.1943602455790574,
+          "radiusNorm": 0.8586568143660464,
+          "heightNorm": 1.0816688697481476
+        },
+        "defaultRotationDeg": -2.369,
+        "defaultScale": 0.18,
+        "allowedDecorationIds": [
+          "kwiatek8_.glb"
+        ]
+      },
+      {
+        "id": "a0703904-eac0-4988-ade5-7e5a54d79578",
+        "label": "Sketchfab_Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 1.8098358557692542,
+          "radiusNorm": 0.8485763715865473,
+          "heightNorm": 1.0851129860417867
+        },
+        "defaultRotationDeg": -1.944,
+        "defaultScale": 0.18,
+        "allowedDecorationIds": [
+          "kwiatek8_.glb"
+        ]
+      },
+      {
+        "id": "8a3dc026-cf56-4b22-9f27-29b429af7c02",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 3.0360682939403,
+          "radiusNorm": 0.844062378777238,
+          "heightNorm": 1.0342649724997621
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 20,
+        "allowedDecorationIds": [
+          "krem3.glb"
+        ]
+      },
+      {
+        "id": "cea447ef-eacb-48f6-9058-9651b04ed9ff",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 0.1321329710081205,
+          "radiusNorm": 0.8703300387777276,
+          "heightNorm": 1.0427067874548093
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 20,
+        "allowedDecorationIds": [
+          "krem3.glb"
+        ]
+      },
+      {
+        "id": "f9dd07d3-7758-47c0-965f-08b8b30b6da1",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": -2.4683927497422546,
+          "radiusNorm": 0.8627444593021246,
+          "heightNorm": 1.0340455397763533
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 20,
+        "allowedDecorationIds": [
+          "krem4.glb"
+        ]
+      },
+      {
+        "id": "bc607a64-bcfb-47be-b591-4761160285d4",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 0.8067492547282499,
+          "radiusNorm": 0.877926950437081,
+          "heightNorm": 1.0556618691784005
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 20,
+        "allowedDecorationIds": [
+          "krem4.glb"
+        ]
+      },
+      {
+        "id": "de906936-302a-465d-98ef-bce769f9730e",
+        "label": "Scene",
+        "surface": "TOP",
+        "layerIndex": 0,
+        "coordinates": {
+          "angleRad": 0.8067492547282499,
+          "radiusNorm": 0.877926950437081,
+          "heightNorm": 1.0556618691784005
+        },
+        "defaultRotationDeg": 0,
+        "defaultScale": 20,
+        "allowedDecorationIds": [
+          "krem4.glb"
+        ]
       }
     ]
   }

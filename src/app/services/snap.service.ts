@@ -140,7 +140,7 @@ export class SnapService {
 
   public attachDecorationToAnchor(
     object: THREE.Object3D,
-    anchor: AnchorPoint,
+    anchor: AnchorPoint
   ): void {
     if (!this.cakeBase) {
       console.warn('Brak tortu - nie można przypiąć do anchora.');
@@ -150,45 +150,48 @@ export class SnapService {
     const metadata = this.getCakeMetadata();
     if (!metadata) return;
 
-    // 1. Oblicz pozycję 3D (Lokalną względem tortu) na podstawie danych Anchora
+    // 1. Oblicz pozycję (tutaj zostanie uwzględniony heightNorm > 1)
     const projection = this.projectAnchor(anchor, metadata);
+    if (!projection) return;
 
-    if (!projection) {
-      console.warn('Nie udało się obliczyć pozycji anchora.');
-      return;
-    }
-
-    // 2. Dołącz obiekt do tortu (parenting), aby współrzędne lokalne działały poprawnie
+    // 2. Attach
     if (object.parent !== this.cakeBase) {
       this.cakeBase.attach(object);
     }
 
-    // 3. Ustaw pozycję obiektu w wyliczonym miejscu
+    // 3. Pozycja - dokładnie tam gdzie anchor
     object.position.copy(projection.position);
+
+    if (anchor.defaultScale) {
+      object.scale.setScalar(anchor.defaultScale);
+    }
+
+    // 4. Orientacja
+    const worldNormal = this.getWorldNormal(projection.normal);
+    this.applyOrientationForSurface(object, worldNormal, anchor.surface);
+
+    if (anchor.defaultRotationDeg) {
+      const axis = anchor.surface === 'SIDE' ? projection.normal : new THREE.Vector3(0, 1, 0);
+      object.rotateOnWorldAxis(axis, THREE.MathUtils.degToRad(anchor.defaultRotationDeg));
+    }
+
     object.updateMatrixWorld(true);
 
-    // 4. WAŻNE: Zapisz dane SnapInfo "na sztywno" na podstawie Anchora.
-    // Dzięki temu pomijamy zgadywanie "gdzie jest najbliżej".
+    // 5. Zapis snap info
     this.writeSnapInfo(object, {
       layerIndex: anchor.layerIndex,
       surfaceType: anchor.surface,
-      normal: projection.normal.toArray(), // Normalna zwrócona z projekcji
-      offset: 0, // Domyślnie na powierzchni (0 offsetu)
+      normal: projection.normal.toArray(),
+      offset: 0,
       roll: 0,
       rotation: [...this.identityRotation],
-      coords: anchor.coordinates, // Przypisujemy dokładne koordynaty z anchora
+      coords: anchor.coordinates
     });
 
     object.userData['isSnapped'] = true;
 
-    // 5. Ustaw orientację (obrót) dekoracji, aby przylegała do powierzchni
-    // Używamy normalnej wyliczonej z Anchora, a nie szukanej raycastem
-    const worldNormal = this.getWorldNormal(projection.normal);
-    this.applyOrientationForSurface(object, worldNormal, anchor.surface);
-
-    // Opcjonalnie: zastosuj domyślny obrót z anchora jeśli istnieje
-    if (anchor.defaultRotationDeg) {
-      this.rotateDecorationByDegrees(object, anchor.defaultRotationDeg);
+    if (!this.isPaintStroke(object)) {
+      this.captureSnappedOrientation(object);
     }
   }
 
@@ -378,7 +381,7 @@ export class SnapService {
     id: string,
     label?: string,
   ): AnchorPoint | null {
-    if (!object.userData['isSnapped']) {
+    if (!object.userData['isSnapped'] || !this.cakeBase) {
       return null;
     }
 
@@ -391,14 +394,13 @@ export class SnapService {
     const layers = this.getScaledLayers(metadata);
     const layer = this.findLayerInfo(layers, normalized.layerIndex);
 
-    const localNormal = new THREE.Vector3().fromArray(normalized.normal).normalize();
-    const projection = this.buildProjectionFromSnap(normalized, layer, metadata, localNormal);
+    // ZMIANA: Zamiast ufać zapisanym 'normalized.coords', obliczamy je na świeżo
+    // z aktualnej pozycji obiektu. Dzięki temu ręczne przesunięcie w górę zostanie uwzględnione.
+    const currentWorldPos = object.getWorldPosition(new THREE.Vector3());
+    const currentLocalPos = this.cakeBase.worldToLocal(currentWorldPos);
 
-    const derivedCoords = projection
-      ? this.computeSurfaceCoordinates(projection.position, normalized.surfaceType, layer, metadata)
-      : undefined;
-    const baseCoords = normalized.coords ?? derivedCoords;
-    const coords = baseCoords && derivedCoords ? { ...derivedCoords, ...baseCoords } : baseCoords;
+    // Obliczamy koordynaty z heightNorm (teraz computedSurfaceCoordinates to obsłuży)
+    const coords = this.computeSurfaceCoordinates(currentLocalPos, normalized.surfaceType, layer, metadata);
 
     const rotationDeg = Math.round(THREE.MathUtils.radToDeg(normalized.roll) * 1000) / 1000;
     const averageScale = (object.scale.x + object.scale.y + object.scale.z) / 3;
@@ -409,7 +411,7 @@ export class SnapService {
       label,
       surface: normalized.surfaceType,
       layerIndex: normalized.layerIndex,
-      coordinates: coords ?? { angleRad: 0 },
+      coordinates: coords, // Tu trafi obliczone heightNorm (np. 1.05)
       defaultRotationDeg: rotationDeg,
       defaultScale: Math.round(averageScale * 1000) / 1000,
       allowedDecorationIds: decorationId ? [decorationId] : undefined,
@@ -1217,30 +1219,28 @@ export class SnapService {
   ): SurfaceCoordinates {
     const angleRad = Math.atan2(localPoint.z, localPoint.x);
 
+    // Obliczamy wysokość dla wszystkich typów powierzchni
+    const heightSpan = layer.top + (layer.topOffset ?? 0) - layer.bottom;
+    // Jeśli obiekt jest wyżej niż layer.top, wynik będzie > 1.0
+    const heightNorm = heightSpan > 1e-6 ? (localPoint.y - layer.bottom) / heightSpan : 1;
+
     if (metadata.shape === 'cylinder') {
       const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
       const radiusNorm = radius > 1e-6 ? localPoint.clone().setY(0).length() / radius : 0;
-      const heightSpan = layer.top + (layer.topOffset ?? 0) - layer.bottom;
-      const heightNorm = heightSpan > 1e-6 ? (localPoint.y - layer.bottom) / heightSpan : 0.5;
 
+      // Zwracamy heightNorm także dla TOP
       if (surfaceType === 'TOP') {
         return { angleRad, radiusNorm, heightNorm };
       }
-
       return { angleRad, radiusNorm: 1, heightNorm };
     }
 
-    const halfWidth = layer.halfWidth ?? (metadata.maxWidth ? metadata.maxWidth / 2 : metadata.width ? metadata.width / 2 : 0.5);
-    const halfDepth = layer.halfDepth ?? (metadata.maxDepth ? metadata.maxDepth / 2 : metadata.depth ? metadata.depth / 2 : 0.5);
+    const halfWidth = layer.halfWidth ?? (metadata.maxWidth ? metadata.maxWidth / 2 : 0.5);
+    const halfDepth = layer.halfDepth ?? (metadata.maxDepth ? metadata.maxDepth / 2 : 0.5);
     const xNorm = halfWidth > 1e-6 ? localPoint.x / halfWidth : 0;
     const zNorm = halfDepth > 1e-6 ? localPoint.z / halfDepth : 0;
-    const heightSpan = layer.top + (layer.topOffset ?? 0) - layer.bottom;
-    const heightNorm = heightSpan > 1e-6 ? (localPoint.y - layer.bottom) / heightSpan : 0.5;
 
-    if (surfaceType === 'TOP') {
-      return { angleRad, xNorm, zNorm, heightNorm };
-    }
-
+    // Zwracamy heightNorm także dla TOP
     return { angleRad, xNorm, zNorm, heightNorm };
   }
 
@@ -1268,38 +1268,38 @@ export class SnapService {
     localNormal: THREE.Vector3,
   ): { position: THREE.Vector3; normal: THREE.Vector3 } | null {
     const coords = snapInfo.coords;
-    if (!coords) {
-      return null;
-    }
+    if (!coords) return null;
 
     const topHeight = layer.top + (layer.topOffset ?? 0);
+    const heightSpan = topHeight - layer.bottom;
+
+    // Odczytujemy zapisaną wysokość (np. 1.05). Jeśli brak - domyślnie 1.
+    const hNorm = coords.heightNorm !== undefined ? coords.heightNorm : 1;
+    const computedY = layer.bottom + (hNorm * heightSpan);
+
     const normalFromAngle = new THREE.Vector3(Math.cos(coords.angleRad), 0, Math.sin(coords.angleRad)).normalize();
 
     if (metadata.shape === 'cylinder') {
       const radius = layer.radius ?? metadata.maxRadius ?? metadata.radius ?? 1;
+
       if (snapInfo.surfaceType === 'TOP') {
         const radial = coords.radiusNorm !== undefined ? radius * coords.radiusNorm : radius;
-        const heightSpan = topHeight - layer.bottom;
-        const heightNorm = coords.heightNorm !== undefined ? coords.heightNorm : 1;
-        const clampedHeight = THREE.MathUtils.clamp(heightNorm, -0.25, 1.25);
-        const y = layer.bottom + clampedHeight * heightSpan;
-        const position = new THREE.Vector3(normalFromAngle.x * radial, y, normalFromAngle.z * radial);
+        // Używamy computedY zamiast topHeight
+        const position = new THREE.Vector3(normalFromAngle.x * radial, computedY, normalFromAngle.z * radial);
         const normal = new THREE.Vector3(0, 1, 0);
         return { position, normal };
       }
 
-      const heightSpan = topHeight - layer.bottom;
-      const heightNorm = coords.heightNorm !== undefined ? coords.heightNorm : 0.5;
-      const clampedHeight = THREE.MathUtils.clamp(heightNorm, -0.25, 1.25);
-      const y = layer.bottom + clampedHeight * heightSpan;
+      // SIDE
       const radial = coords.radiusNorm !== undefined ? radius * coords.radiusNorm : radius;
-      const position = new THREE.Vector3(normalFromAngle.x * radial, y, normalFromAngle.z * radial);
+      const position = new THREE.Vector3(normalFromAngle.x * radial, computedY, normalFromAngle.z * radial);
       const normal = normalFromAngle.clone();
       return { position, normal };
     }
 
-    const halfWidth = layer.halfWidth ?? (metadata.maxWidth ? metadata.maxWidth / 2 : metadata.width ? metadata.width / 2 : 0.5);
-    const halfDepth = layer.halfDepth ?? (metadata.maxDepth ? metadata.maxDepth / 2 : metadata.depth ? metadata.depth / 2 : 0.5);
+    // BOX
+    const halfWidth = layer.halfWidth ?? (metadata.maxWidth ? metadata.maxWidth / 2 : 0.5);
+    const halfDepth = layer.halfDepth ?? (metadata.maxDepth ? metadata.maxDepth / 2 : 0.5);
 
     if (snapInfo.surfaceType === 'TOP') {
       const radialFactor = coords.radiusNorm ?? 1;
@@ -1307,20 +1307,14 @@ export class SnapService {
       const radialZ = Math.sin(coords.angleRad) * radialFactor;
       const x = (coords.xNorm ?? radialX) * halfWidth;
       const z = (coords.zNorm ?? radialZ) * halfDepth;
-      const heightSpan = topHeight - layer.bottom;
-      const heightNorm = coords.heightNorm !== undefined ? coords.heightNorm : 1;
-      const clampedHeight = THREE.MathUtils.clamp(heightNorm, -0.25, 1.25);
-      const y = layer.bottom + clampedHeight * heightSpan;
-      const position = new THREE.Vector3(x, y, z);
+
+      // Używamy computedY zamiast topHeight
+      const position = new THREE.Vector3(x, computedY, z);
       const normal = new THREE.Vector3(0, 1, 0);
       return { position, normal };
     }
 
-    const heightSpan = topHeight - layer.bottom;
-    const heightNorm = coords.heightNorm !== undefined ? coords.heightNorm : 0.5;
-    const clampedHeight = THREE.MathUtils.clamp(heightNorm, -0.25, 1.25);
-    const y = layer.bottom + clampedHeight * heightSpan;
-
+    // BOX SIDE (tutaj logika computedY była już poprawna w większości przypadków)
     const dominantAxis = Math.abs(localNormal.x) >= Math.abs(localNormal.z) ? 'x' : 'z';
     let position: THREE.Vector3;
     let normal: THREE.Vector3;
@@ -1328,11 +1322,11 @@ export class SnapService {
 
     if (dominantAxis === 'x') {
       const sign = Math.sign(localNormal.x) || 1;
-      position = new THREE.Vector3(sign * halfWidth * radiusFactor, y, (coords.zNorm ?? 0) * halfDepth);
+      position = new THREE.Vector3(sign * halfWidth * radiusFactor, computedY, (coords.zNorm ?? 0) * halfDepth);
       normal = new THREE.Vector3(sign, 0, 0);
     } else {
       const sign = Math.sign(localNormal.z) || 1;
-      position = new THREE.Vector3((coords.xNorm ?? 0) * halfWidth, y, sign * halfDepth * radiusFactor);
+      position = new THREE.Vector3((coords.xNorm ?? 0) * halfWidth, computedY, sign * halfDepth * radiusFactor);
       normal = new THREE.Vector3(0, 0, sign);
     }
 
