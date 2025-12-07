@@ -177,6 +177,17 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.updateExtruderPreview();
   }
 
+  onExtruderPositionChange(): void {
+    if (this.paintService) {
+      const config = this.buildExtruderConfig();
+      this.paintService.setExtruderPathContext(config);
+      if (this.extruderPathModeEnabled || config.mode === 'PATH') {
+        this.paintService.setExtruderPathNodes(this.extruderNodes, config);
+      }
+    }
+    this.updateExtruderPreview();
+  }
+
   onExtruderCardSelect(variantId: number): void {
     this.extruderVariant = variantId;
     this.onExtruderVariantChange();
@@ -229,14 +240,8 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     if (this.extruderMode === 'RING') {
       this.extruderStartAngle = 0;
       this.extruderEndAngle = 360;
-      if (this.extruderPosition === 'SIDE_ARC') {
-        this.extruderPosition = 'TOP_EDGE';
-      }
     } else if (this.extruderMode === 'ARC') {
       this.extruderEndAngle = Math.max(this.extruderStartAngle + 30, this.extruderEndAngle);
-      this.extruderPosition = 'SIDE_ARC';
-    } else {
-      this.extruderPosition = 'SIDE_ARC';
     }
 
     this.updateExtruderPreview();
@@ -479,6 +484,7 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.extruderScale = preset.scale ?? this.extruderScale;
     this.extruderColor = preset.color ?? this.extruderColor;
     this.extruderPosition = preset.position;
+    this.extruderLayerIndex = this.resolveLayerIndex(preset.layerIndex);
     const presetNodes = this.mapPresetToNodes(preset);
     if (presetNodes.length) {
       this.extruderNodes = presetNodes;
@@ -509,12 +515,13 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   }
 
   private buildExtruderConfig(): CreamRingPreset {
+    const layerIndex = this.resolveLayerIndex(this.extruderLayerIndex);
     return {
       id: this.selectedPresetId ?? 'custom-stroke',
       name: 'Ścieżka ekstrudera',
       mode: this.extruderMode,
-      layerIndex: this.extruderLayerIndex,
-      position: this.extruderMode === 'RING' ? this.extruderPosition : 'SIDE_ARC',
+      layerIndex,
+      position: this.extruderPosition,
       segments: this.extruderSegments,
       startAngleDeg: this.extruderStartAngle,
       endAngleDeg: this.extruderMode === 'RING' ? this.extruderStartAngle + 360 : this.extruderEndAngle,
@@ -533,10 +540,16 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     }
 
     this.layerOptions = this.paintService.getLayerOptions();
+    this.extruderLayerIndex = this.resolveLayerIndex(this.extruderLayerIndex);
+  }
+
+  private resolveLayerIndex(layerIndex: number): number {
     const maxIndex = Math.max(0, this.layerOptions.length - 1);
-    if (this.extruderLayerIndex > maxIndex) {
-      this.extruderLayerIndex = Math.max(0, maxIndex);
+    if (layerIndex < 0) {
+      return maxIndex;
     }
+
+    return Math.min(Math.max(0, Math.floor(layerIndex)), maxIndex);
   }
 
   private syncPathNodes(): void {

@@ -108,7 +108,7 @@ export class PaintService {
   private extruderPathMarkers: THREE.Mesh[] = [];
   private extruderPathMarkerGroup: THREE.Group | null = null;
   private extruderPathMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0xff7ea8, emissive: 0x331122 });
-  private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.01, 14, 10);
+  private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.02, 16, 12);
 
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
@@ -679,11 +679,15 @@ export class PaintService {
   }
 
   public setExtruderPathLayer(layerIndex: number): void {
-    this.extruderPathLayerIndex = Math.max(0, layerIndex);
+    const metadata = this.snapService.getCakeMetadataSnapshot();
+    this.extruderPathLayerIndex = metadata ? this.resolveLayerIndex(layerIndex, metadata) : Math.max(0, layerIndex);
   }
 
   public setExtruderPathContext(config: CreamRingPreset): void {
-    this.extruderPathLayerIndex = Math.max(0, config.layerIndex);
+    const metadata = this.snapService.getCakeMetadataSnapshot();
+    this.extruderPathLayerIndex = metadata
+      ? this.resolveLayerIndex(config.layerIndex, metadata)
+      : Math.max(0, config.layerIndex);
     this.extruderPathPosition = config.position;
     this.extruderPathRadiusOffset = config.radiusOffset ?? 0;
     this.extruderPathConfig = { ...config, nodes: config.nodes ?? this.extruderPathNodesSubject.value };
@@ -709,15 +713,16 @@ export class PaintService {
       return;
     }
 
-    const layerIndex = Math.min(Math.max(0, this.extruderPathLayerIndex), metadata.layers - 1);
+    const layerIndex = this.resolveLayerIndex(this.extruderPathLayerIndex, metadata);
     const layer = metadata.layerDimensions[layerIndex];
     if (!layer) {
       return;
     }
 
+    const localPoint = this.cakeBaseRef?.worldToLocal(worldPoint.clone()) ?? worldPoint.clone();
     const heightSpan = Math.max(1e-6, layer.topY - layer.bottomY);
-    const heightNorm = THREE.MathUtils.clamp((worldPoint.y - layer.bottomY) / heightSpan, 0, 1);
-    const angleDeg = THREE.MathUtils.radToDeg(Math.atan2(worldPoint.z, worldPoint.x));
+    const heightNorm = THREE.MathUtils.clamp((localPoint.y - layer.bottomY) / heightSpan, 0, 1);
+    const angleDeg = THREE.MathUtils.radToDeg(Math.atan2(localPoint.z, localPoint.x));
 
     const nodes = this.extruderPathNodesSubject.value.map((node) => ({ ...node }));
     const newNode: CreamPathNode = { angleDeg, heightNorm };
@@ -747,7 +752,7 @@ export class PaintService {
       id: 'path-editor',
       name: 'Ścieżka ekstrudera',
       mode: 'PATH',
-      layerIndex: Math.min(Math.max(0, layerIndex), metadata.layers - 1),
+      layerIndex: this.resolveLayerIndex(layerIndex, metadata),
       position: this.extruderPathPosition,
       heightNorm: nodes[0]?.heightNorm ?? 0.5,
       radiusOffset: this.extruderPathRadiusOffset,
@@ -779,7 +784,7 @@ export class PaintService {
       return;
     }
 
-    const layer = metadata.layerDimensions[Math.min(Math.max(0, normalizedPreset.layerIndex), metadata.layers - 1)];
+    const layer = metadata.layerDimensions[this.resolveLayerIndex(normalizedPreset.layerIndex, metadata)];
     if (!layer) {
       this.clearExtruderPathMarkers();
       return;
@@ -814,7 +819,8 @@ export class PaintService {
   }
 
   private ensureExtruderMarkerGroup(): THREE.Group | null {
-    if (!this.sceneRef) {
+    const parent = this.cakeBaseRef ?? this.sceneRef;
+    if (!parent) {
       return null;
     }
 
@@ -822,11 +828,11 @@ export class PaintService {
       this.extruderPathMarkerGroup = new THREE.Group();
       this.extruderPathMarkerGroup.name = 'extruder-path-markers';
       this.extruderPathMarkerGroup.renderOrder = 2;
-      this.sceneRef.add(this.extruderPathMarkerGroup);
     }
 
-    if (!this.extruderPathMarkerGroup.parent) {
-      this.sceneRef.add(this.extruderPathMarkerGroup);
+    if (this.extruderPathMarkerGroup.parent !== parent) {
+      this.extruderPathMarkerGroup.parent?.remove(this.extruderPathMarkerGroup);
+      parent.add(this.extruderPathMarkerGroup);
     }
 
     return this.extruderPathMarkerGroup;
@@ -1184,7 +1190,7 @@ export class PaintService {
     preset: CreamRingPreset,
     metadata: CakeMetadata,
   ): { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] {
-    const layerIndex = Math.min(Math.max(0, preset.layerIndex), metadata.layers - 1);
+    const layerIndex = this.resolveLayerIndex(preset.layerIndex, metadata);
     const layer = metadata.layerDimensions[layerIndex];
     if (!layer) {
       return [];
@@ -1328,6 +1334,19 @@ export class PaintService {
     return { radiusX, radiusZ };
   }
 
+  private resolveLayerIndex(layerIndex: number, metadata: CakeMetadata): number {
+    if (metadata.layers <= 0) {
+      return 0;
+    }
+
+    const rounded = Math.floor(layerIndex);
+    if (rounded < 0) {
+      return metadata.layers - 1;
+    }
+
+    return Math.min(Math.max(0, rounded), metadata.layers - 1);
+  }
+
   private getCreamHeightForPreset(
     preset: CreamRingPreset,
     layer: LayerMetadata,
@@ -1342,15 +1361,15 @@ export class PaintService {
     );
 
     const bottom = layer.bottomY;
-    const top = layer.topY;
+    const top = layer.topY + (metadata.glazeTopOffset ?? 0);
     const span = Math.max(1e-6, top - bottom);
-    const baseHeight = bottom + span * normalizedHeight;
+    const baseHeight = THREE.MathUtils.clamp(bottom + span * normalizedHeight, bottom, top);
 
     if (preset.position === 'TOP_EDGE') {
-      return Math.min(top, baseHeight + (layerHeight ?? span) * 0.01);
+      return Math.min(top, baseHeight + (layerHeight ?? span) * 0.015);
     }
     if (preset.position === 'BOTTOM_EDGE') {
-      return Math.max(bottom, baseHeight - (layerHeight ?? span) * 0.01);
+      return Math.max(bottom, baseHeight - (layerHeight ?? span) * 0.015);
     }
 
     return baseHeight;
@@ -1367,8 +1386,7 @@ export class PaintService {
 
   private normalizePresetForMetadata(preset: CreamRingPreset, metadata: CakeMetadata): CreamRingPreset | null {
     const normalized = normalizePresetAngles({ ...preset, mode: preset.mode ?? 'RING' });
-    const layerIndex = normalized.layerIndex < 0 ? metadata.layers - 1 : normalized.layerIndex;
-    const clampedLayer = Math.min(Math.max(0, layerIndex), metadata.layers - 1);
+    const clampedLayer = this.resolveLayerIndex(normalized.layerIndex, metadata);
     const sanitizedNodes = normalized.nodes?.map((node) => ({
       angleDeg: THREE.MathUtils.euclideanModulo(node.angleDeg, 360),
       heightNorm: node.heightNorm,

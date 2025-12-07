@@ -184,11 +184,12 @@
               <option [ngValue]="'PATH'">Łączenie punktów</option>
             </select>
           </label>
-          <label *ngIf="extruderMode === 'RING'">
+          <label>
             Pozycja
-            <select class="sidebar-panel__select" [(ngModel)]="extruderPosition" (change)="updateExtruderPreview()">
+            <select class="sidebar-panel__select" [(ngModel)]="extruderPosition" (change)="onExtruderPositionChange()">
               <option [ngValue]="'TOP_EDGE'">Krawędź górna</option>
               <option [ngValue]="'BOTTOM_EDGE'">Krawędź dolna</option>
+              <option [ngValue]="'SIDE_ARC'">Bok / łuk</option>
             </select>
           </label>
           <label>

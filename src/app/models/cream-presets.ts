@@ -53,6 +53,21 @@ export const defaultCreamRingPresets: CreamRingPreset[] = [
     color: '#ffe8ef',
   },
   {
+    id: 'top-wave-path',
+    name: 'Fala na górze (punkty)',
+    mode: 'PATH',
+    layerIndex: defaultTopLayer,
+    position: 'TOP_EDGE',
+    segments: 64,
+    heightNorm: 1,
+    radiusOffset: 0.015,
+    nodes: [
+      { angleDeg: -150, heightNorm: 1 },
+      { angleDeg: 0, heightNorm: 1 },
+      { angleDeg: 130, heightNorm: 1 },
+    ],
+  },
+  {
     id: 'wave-path',
     name: 'Ścieżka łącząca punkty',
     mode: 'PATH',
