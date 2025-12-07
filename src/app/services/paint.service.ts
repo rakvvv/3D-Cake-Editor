@@ -1133,12 +1133,24 @@ export class PaintService {
       return;
     }
 
+    const cakeBase = this.snapService.getCakeBase() ?? this.cakeBaseRef;
+    const matrixWorld = cakeBase?.matrixWorld;
+    const normalMatrix = matrixWorld ? new THREE.Matrix3().getNormalMatrix(matrixWorld) : null;
+
+    const worldPoints = matrixWorld
+      ? ringPoints.map((point) => ({
+          position: point.position.clone().applyMatrix4(matrixWorld),
+          normal: point.normal.clone().applyMatrix3(normalMatrix!).normalize(),
+          tangent: point.tangent.clone().applyMatrix3(normalMatrix!).normalize(),
+        }))
+      : ringPoints;
+
     const offset = this.getExtruderSurfaceOffset(variants);
     const minSpacing = this.getExtruderAverageSpacing(variants, preset.scale ?? 1) * 0.8;
     const scaleMultiplier = preset.scale ?? 1;
     let lastPlaced: THREE.Vector3 | null = null;
 
-    ringPoints.forEach((point) => {
+    worldPoints.forEach((point) => {
       this.recordPaintSnapPoint(point.position, strokeGroup);
       const current = point.position.clone().add(point.normal.clone().multiplyScalar(offset));
 
