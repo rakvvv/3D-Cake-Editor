@@ -137,7 +137,7 @@ export class DecorationsService {
     }
   }
 
-  private applyMaterialOverrides(object: THREE.Object3D, materialConfig?: DecorationInfo['material']): void {
+  public applyMaterialOverrides(object: THREE.Object3D, materialConfig?: DecorationInfo['material']): void {
     if (!materialConfig) {
       return;
     }

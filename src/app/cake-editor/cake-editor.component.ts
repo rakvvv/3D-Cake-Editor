@@ -12,6 +12,7 @@ import {AnchorPresetsService} from '../services/anchor-presets.service';
 import {Subscription} from 'rxjs';
 import { environment } from '../../environments/environment';
 import { PresetExportDialogComponent } from '../preset-export-dialog/preset-export-dialog.component';
+import { DecoratedCakePreset } from '../models/cake-preset';
 
 @Component({
   selector: 'app-cake-editor',
@@ -123,6 +124,13 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
   onAddDecoration(request: AddDecorationRequest): void {
     void this.sceneService.addDecorationFromModel(request.modelFileName, request.preferredSurface, request.targetLayerIndex);
+  }
+
+  async onApplyCakePreset(preset: DecoratedCakePreset): Promise<void> {
+    await this.sceneService.applyDecoratedCakePreset(preset);
+    this.options = JSON.parse(JSON.stringify(preset.options));
+    this.validationIssues = [];
+    this.validationSummary = null;
   }
 
   updateCakeOptions(newOptions: CakeOptions): void {

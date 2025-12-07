@@ -176,6 +176,20 @@ export class DecorationsPanelComponent implements OnInit, OnDestroy, OnChanges {
     this.presetDialogService.open('Preset slotów kotwic', preset);
   }
 
+  onDownloadCakePresetFile(): void {
+    const preset = this.sceneService.buildDecoratedCakePreset('Preset tortu');
+    const serialized = JSON.stringify(preset, null, 2);
+    const blob = new Blob([serialized], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${preset.id}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    this.presetDialogService.open('Preset tortu (JSON)', preset);
+  }
+
   onValidateDecorations(): void {
     this.validateDecorations.emit();
   }

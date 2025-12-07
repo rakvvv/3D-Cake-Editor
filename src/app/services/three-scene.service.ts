@@ -21,6 +21,7 @@ import { SceneOutlineNode } from '../models/scene-outline';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { AnchorPresetsService } from './anchor-presets.service';
 import { AnchorPoint, AnchorPreset } from '../models/anchors';
+import { DecoratedCakePreset, DecorationPresetEntry } from '../models/cake-preset';
 
 interface DecorationClipboardEntry {
   template: THREE.Object3D;
@@ -1018,6 +1019,12 @@ export class ThreeSceneService {
     return { success: true, message: 'Dekoracja została usunięta.' };
   }
 
+  private clearAllDecorations(): void {
+    const decorations = this.collectDecorationRoots();
+    decorations.forEach((object) => this.removeDecoration(object));
+    this.anchorOccupants.clear();
+  }
+
   public copySelectedDecoration(): { success: boolean; message: string } {
     const selected = this.transformControlsService.getSelectedObject();
     if (!selected) {
@@ -1476,6 +1483,49 @@ export class ThreeSceneService {
     };
   }
 
+  public buildDecoratedCakePreset(name = 'Preset tortu'): DecoratedCakePreset {
+    const decorations = this.collectDecorationRoots();
+    const payload: DecoratedCakePreset = {
+      id: `cake-${Date.now()}`,
+      name,
+      options: this.cloneCakeOptions(this.options),
+      decorations: [],
+    };
+
+    const baseWorldQuaternion = this.cakeBase?.getWorldQuaternion(new THREE.Quaternion());
+
+    decorations.forEach((decoration) => {
+      const modelFileName = (decoration.userData['modelFileName'] as string | undefined) ?? decoration.name;
+      if (!modelFileName) {
+        return;
+      }
+
+      const worldPosition = decoration.getWorldPosition(new THREE.Vector3());
+      const localPosition = this.cakeBase
+        ? this.cakeBase.worldToLocal(worldPosition.clone())
+        : worldPosition;
+
+      const worldQuaternion = decoration.getWorldQuaternion(new THREE.Quaternion());
+      const localQuaternion = baseWorldQuaternion
+        ? baseWorldQuaternion.clone().invert().multiply(worldQuaternion)
+        : worldQuaternion;
+
+      const snapInfo = this.snapService.getSnapInfoSnapshot(decoration);
+      const entry: DecorationPresetEntry = {
+        modelFileName,
+        position: [localPosition.x, localPosition.y, localPosition.z],
+        rotation: [localQuaternion.x, localQuaternion.y, localQuaternion.z, localQuaternion.w],
+        scale: [decoration.scale.x, decoration.scale.y, decoration.scale.z],
+        snapInfo: snapInfo ? this.cloneSnapInfo(snapInfo) : undefined,
+        anchorId: decoration.userData['anchorId'] as string | undefined,
+      };
+
+      payload.decorations.push(entry);
+    });
+
+    return payload;
+  }
+
   public buildAnchorPresetFromSelection(): AnchorPreset | null {
     if (!this.cakeMetadata) {
       return null;
@@ -1503,6 +1553,50 @@ export class ThreeSceneService {
       name: `Sloty: ${displayName}`,
       anchors: [anchor],
     };
+  }
+
+  public async applyDecoratedCakePreset(preset: DecoratedCakePreset): Promise<void> {
+    if (!preset?.options) {
+      return;
+    }
+
+    this.transformControlsService.deselectObject();
+    this.clearAllDecorations();
+
+    const optionsClone = this.cloneCakeOptions(preset.options);
+    this.updateCakeOptions(optionsClone);
+
+    if (!preset.decorations?.length) {
+      this.emitOutlineChanged();
+      return;
+    }
+
+    const results = await Promise.all(
+      preset.decorations.map((entry) => this.spawnDecorationFromPreset(entry)),
+    );
+
+    const snapStates: SnappedDecorationState[] = [];
+    results.forEach((result) => {
+      if (!result) {
+        return;
+      }
+
+      const { object, snapInfo, anchorId } = result;
+      if (snapInfo) {
+        snapStates.push({ object, info: this.cloneSnapInfo(snapInfo) });
+      }
+
+      if (anchorId) {
+        this.registerAnchorOccupant(anchorId, object);
+      }
+    });
+
+    if (snapStates.length) {
+      this.snapService.restoreSnappedDecorations(snapStates);
+    }
+
+    this.updateBoxHelper();
+    this.emitOutlineChanged();
   }
 
   private prepareAnchorPlacement(
@@ -2004,6 +2098,75 @@ export class ThreeSceneService {
         ? [info.rotation[0], info.rotation[1], info.rotation[2], info.rotation[3]]
         : undefined,
     };
+  }
+
+  private async spawnDecorationFromPreset(entry: DecorationPresetEntry): Promise<{
+    object: THREE.Object3D;
+    snapInfo: SnapInfoSnapshot | null;
+    anchorId?: string;
+  } | null> {
+    const info = this.decorationsService.getDecorationInfo(entry.modelFileName);
+    const modelFileName = info?.modelFileName ?? entry.modelFileName;
+    const modelUrl = `/models/${modelFileName}`;
+
+    try {
+      const decoration = await DecorationFactory.loadDecorationModel(modelUrl);
+      decoration.userData['decorationType'] = info?.type ?? 'BOTH';
+      decoration.userData['isDecoration'] = true;
+      decoration.userData['modelFileName'] = modelFileName;
+
+      if (info?.initialRotation && !entry.rotation) {
+        const [x, y, z] = info.initialRotation;
+        decoration.rotation.set(
+          THREE.MathUtils.degToRad(x ?? 0),
+          THREE.MathUtils.degToRad(y ?? 0),
+          THREE.MathUtils.degToRad(z ?? 0),
+        );
+      }
+
+      if (entry.rotation) {
+        decoration.quaternion.set(entry.rotation[0], entry.rotation[1], entry.rotation[2], entry.rotation[3]);
+      }
+
+      if (entry.scale) {
+        decoration.scale.set(entry.scale[0], entry.scale[1], entry.scale[2]);
+      } else if (info?.initialScale && info.initialScale > 0) {
+        decoration.scale.setScalar(info.initialScale);
+      }
+
+      if (entry.position) {
+        decoration.position.set(entry.position[0], entry.position[1], entry.position[2]);
+      }
+
+      if (info?.material) {
+        this.decorationsService.applyMaterialOverrides(decoration, info.material);
+      }
+
+      if (this.cakeBase) {
+        this.cakeBase.add(decoration);
+      } else {
+        this.scene.add(decoration);
+      }
+      this.objects.push(decoration);
+
+      const snapInfo = entry.snapInfo ? this.cloneSnapInfo(entry.snapInfo) : null;
+      if (!snapInfo && this.cakeBase) {
+        this.cakeBase.attach(decoration);
+      }
+
+      if (entry.anchorId) {
+        decoration.userData['anchorId'] = entry.anchorId;
+      }
+
+      return { object: decoration, snapInfo, anchorId: entry.anchorId };
+    } catch (error) {
+      console.error('Nie udało się wczytać dekoracji z presetu:', error);
+      return null;
+    }
+  }
+
+  private cloneCakeOptions(options: CakeOptions): CakeOptions {
+    return JSON.parse(JSON.stringify(options));
   }
 
   private computePasteOffset(step: number): THREE.Vector3 {

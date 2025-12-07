@@ -13,7 +13,9 @@ import { TexturesPanelComponent } from './textures-panel/textures-panel.componen
 import { DecorationValidationIssue } from '../models/decoration-validation';
 import { ThreeSceneService } from '../services/three-scene.service';
 import { environment } from '../../environments/environment';
-type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'outline' | 'paint' | 'export';
+import { PresetsPanelComponent } from './presets-panel/presets-panel.component';
+import { DecoratedCakePreset } from '../models/cake-preset';
+type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'presets' | 'outline' | 'paint' | 'export';
 
 @Component({
   selector: 'app-cake-sidebar',
@@ -22,6 +24,7 @@ type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'outline' | 'pain
     LayersPanelComponent,
     TexturesPanelComponent,
     DecorationsPanelComponent,
+    PresetsPanelComponent,
     SceneOutlineComponent,
     PaintPanelComponent,
     SurfacePaintPanelComponent,
@@ -48,6 +51,7 @@ export class CakeSidebarComponent implements OnInit {
   readonly exportGltf = output<void>();
   readonly screenshot = output<void>();
   readonly proceedDespiteWarnings = output<void>();
+  readonly applyCakePreset = output<DecoratedCakePreset>();
 
   @Input() authorModeEnabled = environment.authorMode;
 

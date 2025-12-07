@@ -151,6 +151,9 @@
       <button type="button" class="sidebar-panel__button" (click)="onSaveSelectedSlotsPreset()">
         Zapisz zaznaczone dekoracje jako preset slotów
       </button>
+      <button type="button" class="sidebar-panel__button" (click)="onDownloadCakePresetFile()">
+        Pobierz plik z presetem tortu
+      </button>
     </div>
 
     <p class="decorations-panel__hint" *ngIf="authorModeEnabled && !adminMode">

@@ -957,6 +957,23 @@ export class SnapService {
     return states;
   }
 
+  public getSnapInfoSnapshot(object: THREE.Object3D): SnapInfoSnapshot | null {
+    const info = this.readSnapInfo(object);
+    if (!info) {
+      return null;
+    }
+
+    return {
+      layerIndex: info.layerIndex,
+      surfaceType: info.surfaceType,
+      normal: [info.normal[0], info.normal[1], info.normal[2]],
+      offset: info.offset,
+      roll: info.roll,
+      rotation: info.rotation ? [info.rotation[0], info.rotation[1], info.rotation[2], info.rotation[3]] : undefined,
+      coords: info.coords ? { ...info.coords } : undefined,
+    };
+  }
+
   public restoreSnappedDecorations(states: SnappedDecorationState[]): void {
     if (!this.cakeBase) {
       return;
