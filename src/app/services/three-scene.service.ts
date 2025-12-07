@@ -1525,6 +1525,9 @@ export class ThreeSceneService {
       decorations: [],
     };
 
+    payload.paintStrokes = this.paintService.exportPaintStrokes(this.scene);
+    payload.surfacePainting = this.surfacePainting.exportPaintingPreset();
+
     const baseWorldQuaternion = this.cakeBase?.getWorldQuaternion(new THREE.Quaternion());
 
     decorations.forEach((decoration) => {
@@ -1626,6 +1629,14 @@ export class ThreeSceneService {
 
     if (snapStates.length) {
       this.snapService.restoreSnappedDecorations(snapStates);
+    }
+
+    if (preset.paintStrokes?.length) {
+      await this.paintService.restorePaintStrokes(preset.paintStrokes, this.scene);
+    }
+
+    if (preset.surfacePainting) {
+      this.surfacePainting.restorePaintingPreset(preset.surfacePainting);
     }
 
     this.updateBoxHelper();

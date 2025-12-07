@@ -10,6 +10,7 @@ import { CakeMetadata, LayerMetadata } from '../factories/three-objects.factory'
 import { ExtruderVariantInfo } from '../models/extruderVariantInfo';
 import { environment } from '../../environments/environment';
 import { CreamPathNode, CreamRingPreset, CreamPosition, defaultCreamRingPresets, normalizePresetAngles } from '../models/cream-presets';
+import { PaintStrokeInstance, PaintStrokePreset } from '../models/cake-preset';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -413,6 +414,7 @@ export class PaintService {
       this.activeDecorationGroup.userData['displayName'] = 'Dekoracja malowana';
       this.activeDecorationGroup.userData['isPaintStroke'] = true;
       this.activeDecorationGroup.userData['paintStrokeType'] = 'decoration';
+      this.activeDecorationGroup.userData['brushId'] = this.currentBrush;
       scene.add(this.activeDecorationGroup);
       this.redoStack = [];
     }
@@ -471,6 +473,7 @@ export class PaintService {
       mesh.frustumCulled = false;
       mesh.userData['isPaintDecoration'] = true;
       mesh.userData['isPaintStroke'] = true;
+      mesh.userData['brushId'] = brushId;
       decorationGroup.add(mesh);
 
       return { mesh, count: 0 };
@@ -654,6 +657,16 @@ export class PaintService {
     return this.creamRingPresetsSubject.asObservable();
   }
 
+  public exportPaintStrokes(scene?: THREE.Scene): PaintStrokePreset[] {
+    const targetScene = scene ?? this.sceneRef;
+    if (!targetScene) {
+      return [];
+    }
+
+    const roots = this.collectPaintStrokeRoots(targetScene);
+    return roots.map((root) => this.serializePaintStroke(root)).filter((item): item is PaintStrokePreset => Boolean(item));
+  }
+
   public get extruderPathNodes$() {
     return this.extruderPathNodesSubject.asObservable();
   }
@@ -700,6 +713,29 @@ export class PaintService {
       this.setExtruderPathContext(config);
     } else {
       this.updateExtruderPathMarkers(nodes);
+    }
+  }
+
+  public async restorePaintStrokes(entries: PaintStrokePreset[], scene: THREE.Scene): Promise<void> {
+    if (!entries?.length) {
+      return;
+    }
+
+    this.sceneRef = scene;
+    const cakeBase = this.cakeBaseRef ?? null;
+
+    for (const entry of entries) {
+      switch (entry.type) {
+        case 'extruder':
+          await this.restoreExtruderStroke(entry, scene, cakeBase);
+          break;
+        case 'pen':
+          await this.restorePenStroke(entry, scene);
+          break;
+        case 'decoration':
+          await this.restoreDecorationStroke(entry, scene);
+          break;
+      }
     }
   }
 
@@ -1099,6 +1135,8 @@ export class PaintService {
     mesh.receiveShadow = true;
     mesh.frustumCulled = false;
     mesh.userData['isPaintStroke'] = true;
+    mesh.userData['variantSourceId'] = variant.sourceId;
+    mesh.userData['variantIndex'] = variantIndex;
     strokeGroup.add(mesh);
 
     const state: ExtruderInstanceState = { mesh, count: 0 };
@@ -1727,6 +1765,7 @@ export class PaintService {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData['isPaintStroke'] = true;
+    mesh.userData['penPart'] = 'cap';
     strokeGroup.add(mesh);
     this.penCapInstance = { mesh, count: 0 };
     return this.penCapInstance;
@@ -1806,6 +1845,9 @@ export class PaintService {
       this.activePenStrokeGroup = new THREE.Group();
       this.activePenStrokeGroup.userData['isPaintStroke'] = true;
       this.activePenStrokeGroup.userData['paintStrokeType'] = 'pen';
+      this.activePenStrokeGroup.userData['penSize'] = this.penSize;
+      this.activePenStrokeGroup.userData['penThickness'] = this.penThickness;
+      this.activePenStrokeGroup.userData['penColor'] = this.penColor;
       scene.add(this.activePenStrokeGroup);
       this.redoStack = [];
       this.activePenStrokePoints = [];
@@ -1860,6 +1902,7 @@ export class PaintService {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData['isPaintStroke'] = true;
+    mesh.userData['penPart'] = 'joint';
     strokeGroup.add(mesh);
     this.penSegmentInstance = { mesh, count: 0 };
     return this.penSegmentInstance;
@@ -2079,6 +2122,84 @@ export class PaintService {
     snapPoints.push(point.toArray());
   }
 
+  private collectPaintStrokeRoots(scene: THREE.Scene): THREE.Object3D[] {
+    const roots: THREE.Object3D[] = [];
+    const visit = (object: THREE.Object3D) => {
+      const isStroke = object.userData?.['isPaintStroke'] === true;
+      const parentStroke = object.parent?.userData?.['isPaintStroke'] === true;
+      if (isStroke && !parentStroke) {
+        roots.push(object);
+      }
+      object.children.forEach((child) => visit(child));
+    };
+
+    visit(scene);
+    return roots;
+  }
+
+  private serializePaintStroke(root: THREE.Object3D): PaintStrokePreset | null {
+    const paintType = (root.userData['paintStrokeType'] as PaintStrokePreset['type'] | undefined) ?? 'extruder';
+    const base: PaintStrokePreset = {
+      type: paintType,
+      color: root.userData['penColor'] as string | undefined,
+      brushId: root.userData['brushId'] as string | undefined,
+      penSize: root.userData['penSize'] as number | undefined,
+      penThickness: root.userData['penThickness'] as number | undefined,
+      penCapsEnabled: true,
+      instances: [],
+      snapPoints: root.userData['snapPoints'] as number[][] | undefined,
+      name: root.userData['displayName'] as string | undefined,
+    };
+
+    const instancedMeshes: THREE.InstancedMesh[] = [];
+    root.traverse((child) => {
+      const mesh = child as THREE.InstancedMesh;
+      if ((mesh as any).isInstancedMesh && mesh.count > 0) {
+        instancedMeshes.push(mesh);
+      }
+    });
+
+    instancedMeshes.forEach((mesh) => {
+      const entries: PaintStrokeInstance[] = [];
+      const matrix = new THREE.Matrix4();
+      const color = (mesh.instanceColor as THREE.InstancedBufferAttribute | undefined)?.array ?? null;
+      for (let i = 0; i < mesh.count; i += 1) {
+        mesh.getMatrixAt(i, matrix);
+        const item: PaintStrokeInstance = { matrix: matrix.toArray() };
+        const penPart = mesh.userData['penPart'] as PaintStrokeInstance['penPart'] | undefined;
+        if (penPart) {
+          item.penPart = penPart;
+        }
+        if (color) {
+          const offset = i * 3;
+          item.color = [color[offset], color[offset + 1], color[offset + 2]];
+        }
+        entries.push(item);
+      }
+
+      if (paintType === 'extruder') {
+        base.variantSourceId = (mesh.userData['variantSourceId'] as string | undefined) ?? base.variantSourceId;
+        base.variantIndex = (mesh.userData['variantIndex'] as number | undefined) ?? base.variantIndex;
+        const materialColor = (mesh.material as THREE.MeshStandardMaterial | undefined)?.color;
+        if (materialColor) {
+          base.color = `#${materialColor.getHexString()}`;
+        }
+      }
+
+      if (paintType === 'decoration' && mesh.userData['brushId']) {
+        base.brushId = mesh.userData['brushId'];
+      }
+
+      base.instances.push(...entries);
+    });
+
+    if (!base.instances.length) {
+      return null;
+    }
+
+    return base;
+  }
+
   private finalizePaintRoot(object: THREE.Object3D): void {
     this.recenterPivot(object);
     const strokeType = object.userData['paintStrokeType'];
@@ -2096,6 +2217,142 @@ export class PaintService {
 
     object.userData['paintParent'] = object.parent ?? null;
     object.updateMatrixWorld(true);
+  }
+
+  private async restoreExtruderStroke(
+    entry: PaintStrokePreset,
+    scene: THREE.Scene,
+    cakeBase: THREE.Object3D | null,
+  ): Promise<void> {
+    const variants = await this.getExtruderVariants();
+    const variantIndex = typeof entry.variantIndex === 'number'
+      ? entry.variantIndex
+      : variants.findIndex((v) => v.sourceId === entry.variantSourceId);
+    const targetVariantIndex = variantIndex >= 0 ? variantIndex : 0;
+    const variant = variants[targetVariantIndex];
+    if (!variant) {
+      return;
+    }
+
+    const strokeGroup = new THREE.Group();
+    strokeGroup.userData['isPaintStroke'] = true;
+    strokeGroup.userData['paintStrokeType'] = 'extruder';
+    strokeGroup.userData['snapPoints'] = entry.snapPoints ?? [];
+    strokeGroup.userData['displayName'] = entry.name ?? 'Ekstruder';
+    scene.add(strokeGroup);
+
+    const previousGroup = this.activeExtruderStrokeGroup;
+    const previousInstances = this.extruderStrokeInstances;
+    this.activeExtruderStrokeGroup = strokeGroup;
+    this.extruderStrokeInstances = new Map();
+
+    const state = this.ensureExtruderInstanceMesh(targetVariantIndex, variant, strokeGroup, entry.color);
+    const matrix = new THREE.Matrix4();
+    entry.instances.forEach((instance, index) => {
+      if (index >= this.extruderMaxInstances) {
+        return;
+      }
+      matrix.fromArray(instance.matrix);
+      state.mesh.setMatrixAt(index, matrix);
+    });
+    state.mesh.count = Math.min(entry.instances.length, this.extruderMaxInstances);
+    state.mesh.instanceMatrix.needsUpdate = true;
+    state.count = state.mesh.count;
+
+    this.finalizePaintRoot(strokeGroup);
+    this.trackPaintAddition(strokeGroup);
+
+    this.activeExtruderStrokeGroup = previousGroup;
+    this.extruderStrokeInstances = previousInstances;
+    if (cakeBase) {
+      this.cakeBaseRef = cakeBase;
+    }
+  }
+
+  private async restoreDecorationStroke(entry: PaintStrokePreset, scene: THREE.Scene): Promise<void> {
+    const brushId = entry.brushId ?? this.currentBrush;
+    const variants = await this.getDecorationVariants(brushId);
+    if (!variants.length) {
+      return;
+    }
+
+    const group = new THREE.Group();
+    group.userData['isPaintStroke'] = true;
+    group.userData['isPaintDecoration'] = true;
+    group.userData['paintStrokeType'] = 'decoration';
+    group.userData['brushId'] = brushId;
+    group.userData['displayName'] = entry.name ?? 'Dekoracja malowana';
+    scene.add(group);
+
+    const targetVariant = variants[0];
+    const mesh = new THREE.InstancedMesh(targetVariant.geometry, targetVariant.material, this.extruderMaxInstances);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    mesh.userData['isPaintDecoration'] = true;
+    mesh.userData['isPaintStroke'] = true;
+    mesh.userData['brushId'] = brushId;
+    group.add(mesh);
+
+    const matrix = new THREE.Matrix4();
+    entry.instances.forEach((instance, index) => {
+      if (index >= this.extruderMaxInstances) {
+        return;
+      }
+      matrix.fromArray(instance.matrix);
+      mesh.setMatrixAt(index, matrix);
+    });
+    mesh.count = Math.min(entry.instances.length, this.extruderMaxInstances);
+    mesh.instanceMatrix.needsUpdate = true;
+
+    this.finalizePaintRoot(group);
+    this.trackPaintAddition(group);
+  }
+
+  private async restorePenStroke(entry: PaintStrokePreset, scene: THREE.Scene): Promise<void> {
+    const previousColor = this.penColor;
+    const previousSize = this.penSize;
+    const previousThickness = this.penThickness;
+    this.penColor = entry.color ?? this.penColor;
+    this.penSize = entry.penSize ?? this.penSize;
+    this.penThickness = entry.penThickness ?? this.penThickness;
+
+    const group = new THREE.Group();
+    group.userData['isPaintStroke'] = true;
+    group.userData['paintStrokeType'] = 'pen';
+    group.userData['penColor'] = this.penColor;
+    group.userData['penSize'] = this.penSize;
+    group.userData['penThickness'] = this.penThickness;
+    scene.add(group);
+
+    const segmentState = this.ensurePenSegmentInstanceMesh(group);
+    const jointState = this.ensurePenJointInstanceMesh(group);
+    const capState = this.ensurePenCapInstanceMesh(group);
+
+    const matrix = new THREE.Matrix4();
+    entry.instances.forEach((instance) => {
+      matrix.fromArray(instance.matrix);
+      const target = instance.penPart === 'joint' ? jointState
+        : instance.penPart === 'cap' ? capState
+          : segmentState;
+      if (target.count >= this.penMaxInstances) {
+        return;
+      }
+      target.mesh.setMatrixAt(target.count, matrix);
+      target.count += 1;
+    });
+
+    [segmentState, jointState, capState].forEach((state) => {
+      state.mesh.count = state.count;
+      state.mesh.instanceMatrix.needsUpdate = true;
+    });
+
+    this.finalizePaintRoot(group);
+    this.trackPaintAddition(group);
+
+    this.penColor = previousColor;
+    this.penSize = previousSize;
+    this.penThickness = previousThickness;
   }
 
   private trySnapPaintStroke(object: THREE.Object3D): void {

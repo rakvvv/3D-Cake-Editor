@@ -2,6 +2,7 @@ import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import * as THREE from 'three';
 import { PaintService } from './paint.service';
+import { SurfacePaintingPreset } from '../models/cake-preset';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
 export type GradientDirection = 'vertical';
@@ -146,6 +147,91 @@ export class SurfacePaintingService {
     this.sprinkleStrokeShape = null;
   }
 
+  public exportPaintingPreset(): SurfacePaintingPreset {
+    const brushEntries = this.paintEntries
+      .filter((entry) => !entry.userData?.['removedByUndo'])
+      .map((entry) => this.serializeBrushEntry(entry))
+      .filter((entry): entry is NonNullable<ReturnType<typeof this.serializeBrushEntry>> => Boolean(entry));
+
+    const sprinkles = this.sprinkleEntries
+      .filter((entry) => !entry.userData?.['removedByUndo'])
+      .map((entry) => this.serializeSprinkleEntry(entry))
+      .filter((entry): entry is NonNullable<ReturnType<typeof this.serializeSprinkleEntry>> => Boolean(entry));
+
+    return {
+      brushColor: this.brushColor,
+      brushEntries,
+      sprinkles,
+    };
+  }
+
+  public restorePaintingPreset(preset: SurfacePaintingPreset | undefined | null): void {
+    if (!preset) {
+      return;
+    }
+
+    const anchor = this.ensurePaintAnchor();
+    if (!anchor) {
+      return;
+    }
+
+    this.brushColor = preset.brushColor ?? this.brushColor;
+    preset.brushEntries?.forEach((entry) => {
+      const container = this.createBrushStrokeContainer(entry.color ?? this.brushColor);
+      if (!container) {
+        return;
+      }
+
+      const { group, mesh } = container;
+      const matrix = new THREE.Matrix4();
+      entry.matrices.forEach((values, index) => {
+        if (index >= this.brushStrokeCapacity && this.brushStrokeCapacity > 0) {
+          return;
+        }
+        matrix.fromArray(values);
+        mesh.setMatrixAt(index, matrix);
+      });
+      mesh.count = Math.min(entry.matrices.length, mesh.count);
+      mesh.instanceMatrix.needsUpdate = true;
+      anchor.add(group);
+      this.paintService.registerDecorationAddition(group);
+      this.paintEntries.push(group);
+    });
+
+    preset.sprinkles?.forEach((entry) => {
+      this.ensureSprinkleResources();
+      if (!this.sprinkleGeometryCache || !this.sprinkleMaterial) return;
+
+      const geometry = this.sprinkleGeometryCache[entry.shape] ?? this.sprinkleGeometryCache.stick;
+      const mesh = new THREE.InstancedMesh(geometry, this.sprinkleMaterial, Math.max(entry.matrices.length, 1));
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(entry.matrices.length * 3), 3);
+      mesh.frustumCulled = false;
+
+      const group = new THREE.Group();
+      group.name = 'Posypka';
+      group.userData['displayName'] = 'Posypka';
+      group.userData['isPaintDecoration'] = true;
+      group.userData['isPaintStroke'] = true;
+      group.add(mesh);
+
+      const matrix = new THREE.Matrix4();
+      entry.matrices.forEach((values, index) => {
+        matrix.fromArray(values);
+        mesh.setMatrixAt(index, matrix);
+        const color = entry.colors[index] ?? [1, 1, 1];
+        mesh.instanceColor?.setXYZ(index, color[0], color[1], color[2]);
+      });
+      mesh.count = entry.matrices.length;
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceColor.needsUpdate = true;
+
+      anchor.add(group);
+      this.paintService.registerDecorationAddition(group);
+      this.sprinkleEntries.push(group);
+    });
+  }
+
   public applyGradientSettings(): void {
     this.gradientEnabled = true;
     this.updateGradientTexture();
@@ -280,6 +366,94 @@ export class SurfacePaintingService {
         anchor.add(entry);
       }
     });
+  }
+
+  private serializeBrushEntry(entry: THREE.Object3D | null): { matrices: number[][]; color?: string } | null {
+    if (!entry) return null;
+    const mesh = entry.getObjectByProperty('isInstancedMesh', true) as THREE.InstancedMesh | null;
+    if (!mesh || mesh.count <= 0) return null;
+    const matrices: number[][] = [];
+    const matrix = new THREE.Matrix4();
+    for (let i = 0; i < mesh.count; i += 1) {
+      mesh.getMatrixAt(i, matrix);
+      matrices.push(matrix.toArray());
+    }
+    const material = mesh.material as THREE.MeshStandardMaterial;
+    const colorHex = material?.color ? `#${material.color.getHexString()}` : undefined;
+    return { matrices, color: colorHex };
+  }
+
+  private serializeSprinkleEntry(entry: THREE.Object3D | null): {
+    matrices: number[][];
+    colors: number[][];
+    shape: 'stick' | 'ball' | 'star';
+  } | null {
+    if (!entry) return null;
+    const mesh = entry.getObjectByProperty('isInstancedMesh', true) as THREE.InstancedMesh | null;
+    if (!mesh || mesh.count <= 0) return null;
+    const matrices: number[][] = [];
+    const colors: number[][] = [];
+    const matrix = new THREE.Matrix4();
+    for (let i = 0; i < mesh.count; i += 1) {
+      mesh.getMatrixAt(i, matrix);
+      matrices.push(matrix.toArray());
+      const color = (mesh.instanceColor as THREE.InstancedBufferAttribute | undefined)?.getX(i) ?? null;
+      if (color !== null && mesh.instanceColor) {
+        const r = mesh.instanceColor.getX(i);
+        const g = mesh.instanceColor.getY(i);
+        const b = mesh.instanceColor.getZ(i);
+        colors.push([r, g, b]);
+      }
+    }
+
+    let shape: 'stick' | 'ball' | 'star' = 'stick';
+    if (this.sprinkleGeometryCache) {
+      const { stick, ball, star } = this.sprinkleGeometryCache;
+      if (mesh.geometry === ball) shape = 'ball';
+      if (mesh.geometry === star) shape = 'star';
+    }
+
+    return {
+      matrices,
+      colors,
+      shape,
+    };
+  }
+
+  private createBrushStrokeContainer(color: string): { group: THREE.Group; mesh: THREE.InstancedMesh } | null {
+    const anchor = this.ensurePaintAnchor();
+    if (!anchor) return null;
+
+    const normalMap = this.cakeNormalMap ?? undefined;
+    const roughnessMap = this.cakeRoughnessMap ?? undefined;
+    const brushTexture = this.brushTexture ?? new THREE.Texture();
+    const maxInstances = 2000;
+    const geometry = new THREE.PlaneGeometry(0.06, 0.06);
+    const material = new THREE.MeshStandardMaterial({
+      map: brushTexture,
+      normalMap,
+      roughnessMap,
+      color,
+      transparent: true,
+      opacity: 1,
+      side: THREE.DoubleSide,
+    });
+
+    const mesh = new THREE.InstancedMesh(geometry, material, maxInstances);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.count = maxInstances;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 20;
+
+    this.brushStrokeCapacity = maxInstances;
+
+    const group = new THREE.Group();
+    group.name = 'Malowanie pędzlem';
+    group.userData['displayName'] = 'Malowanie pędzlem';
+    group.userData['isPaintStroke'] = true;
+    group.add(mesh);
+
+    return { group, mesh };
   }
 
   private ensurePaintAnchor(scene?: THREE.Scene): THREE.Group | null {
