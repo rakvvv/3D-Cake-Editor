@@ -1,5 +1,6 @@
-import {Component, AfterViewInit, ViewChild, ElementRef, Inject, PLATFORM_ID, OnDestroy} from '@angular/core';
+import {Component, AfterViewInit, ViewChild, ElementRef, Inject, PLATFORM_ID, OnDestroy, OnInit} from '@angular/core';
 import {CommonModule, isPlatformBrowser} from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import {CakeSidebarComponent} from '../cake-sidebar/cake-sidebar.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
@@ -13,6 +14,9 @@ import {Subscription} from 'rxjs';
 import { environment } from '../../environments/environment';
 import { PresetExportDialogComponent } from '../preset-export-dialog/preset-export-dialog.component';
 import { DecoratedCakePreset } from '../models/cake-preset';
+import { ProjectsService } from '../services/projects.service';
+import { AuthService } from '../services/auth.service';
+import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-options';
 
 @Component({
   selector: 'app-cake-editor',
@@ -21,37 +25,24 @@ import { DecoratedCakePreset } from '../models/cake-preset';
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
-export class CakeEditorComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('canvasContainer') container!: ElementRef;
+export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
+  private container?: ElementRef;
+  @ViewChild('canvasContainer') set canvasContainer(element: ElementRef | undefined) {
+    this.container = element;
+    this.maybeInitializeScene();
+  }
 
   readonly authorModeEnabled = environment.authorMode;
 
-  public options: CakeOptions = {
-    cake_size: 1,
-    cake_color: '#ffffff',
-    cake_text: false,
-    cake_text_value: 'Urodziny',
-    cake_text_position: 'top',
-    cake_text_offset: 0,
-    cake_text_font: 'helvetiker',
-    cake_text_depth: 0.1,
-    layers: 1,
-    shape: 'cylinder',
-    layerSizes: [1],
-    glaze_enabled: true,
-    glaze_color: '#ffffff',
-    glaze_thickness: 0.1,
-    glaze_drip_length: 1.2 ,
-    glaze_seed: 1,
-    glaze_top_enabled: true,
-    cake_textures: null,
-    glaze_textures: null,
-    wafer_texture_url: null,
-    wafer_scale: 1,
-    wafer_texture_zoom: 1,
-    wafer_texture_offset_x: 0,
-    wafer_texture_offset_y: 0,
-  };
+  public options: CakeOptions = cloneCakeOptions(DEFAULT_CAKE_OPTIONS);
+
+  public projectName = '';
+  public loadingProject = true;
+  public loadError: string | null = null;
+  private currentProjectId: number | null = null;
+  private pendingPreset: DecoratedCakePreset | null = null;
+  private sceneInitialized = false;
+  private viewReady = false;
 
   public validationSummary: string | null = null;
   public validationIssues: DecorationValidationIssue[] = [];
@@ -90,20 +81,93 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
     private decorationsService: DecorationsService,
     private paintService: PaintService,
     private anchorPresetsService: AnchorPresetsService,
+    private projectsService: ProjectsService,
+    private authService: AuthService,
+    private router: Router,
+    private route: ActivatedRoute,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
+  ngOnInit(): void {
+    const idParam = this.route.snapshot.paramMap.get('projectId');
+    this.currentProjectId = idParam ? Number(idParam) : null;
+    if (this.currentProjectId) {
+      this.loadProject(this.currentProjectId);
+    } else {
+      this.loadingProject = false;
+      this.loadError = 'Nie znaleziono projektu.';
+    }
+  }
+
   ngAfterViewInit(): void {
-    this.initializeScene();
+    this.viewReady = true;
+    this.maybeInitializeScene();
     if (isPlatformBrowser(this.platformId)) {
       this.anchorClickSubscription = this.anchorPresetsService.anchorClicks$.subscribe((anchorId) => {
         void this.handleAnchorClick(anchorId);
       });
-      const containerEl = this.container.nativeElement as HTMLElement;
-      containerEl.addEventListener('contextmenu', this.contextMenuListener);
+      const containerEl = this.container?.nativeElement as HTMLElement | undefined;
+      containerEl?.addEventListener('contextmenu', this.contextMenuListener);
       document.addEventListener('click', this.handleDocumentClick);
       document.addEventListener('keydown', this.handleKeyDown);
     }
+  }
+
+  private loadProject(projectId: number): void {
+    this.loadingProject = true;
+    this.projectsService.getProject(projectId).subscribe({
+      next: (detail) => {
+        this.projectName = detail.name;
+        const preset = this.parseProjectPreset(detail.dataJson, detail.name);
+        this.pendingPreset = preset;
+        this.options = cloneCakeOptions(preset.options);
+        this.loadingProject = false;
+        this.maybeInitializeScene();
+      },
+      error: () => {
+        this.loadingProject = false;
+        this.loadError = 'Nie udało się wczytać projektu.';
+      },
+    });
+  }
+
+  private parseProjectPreset(dataJson: string, fallbackName: string): DecoratedCakePreset {
+    try {
+      const preset = JSON.parse(dataJson) as DecoratedCakePreset;
+      if (!preset.options) {
+        throw new Error('Missing options');
+      }
+      return {
+        ...preset,
+        name: preset.name || fallbackName,
+      };
+    } catch (error) {
+      return {
+        id: `project-${Date.now()}`,
+        name: fallbackName,
+        options: cloneCakeOptions(DEFAULT_CAKE_OPTIONS),
+        decorations: [],
+      };
+    }
+  }
+
+  private maybeInitializeScene(): void {
+    if (this.sceneInitialized || !this.viewReady || !this.pendingPreset) {
+      return;
+    }
+
+    this.initializeSceneWithPreset(this.pendingPreset);
+  }
+
+  private initializeSceneWithPreset(preset: DecoratedCakePreset): void {
+    if (!isPlatformBrowser(this.platformId) || !this.container?.nativeElement) {
+      return;
+    }
+
+    this.sceneService.init(this.container.nativeElement, cloneCakeOptions(preset.options));
+    this.sceneInitialized = true;
+    this.options = cloneCakeOptions(preset.options);
+    void this.sceneService.applyDecoratedCakePreset(preset);
   }
 
   ngOnDestroy(): void {
@@ -162,7 +226,30 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
   }
 
   onSaveScene(): void {
-    this.onExportGltf();
+    if (!this.currentProjectId) {
+      this.showStatus('Brak projektu do zapisania.');
+      return;
+    }
+
+    const preset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
+    const payload = {
+      name: this.projectName || 'Projekt tortu',
+      dataJson: JSON.stringify(preset),
+    };
+
+    this.projectsService.updateProject(this.currentProjectId, payload).subscribe({
+      next: () => this.showStatus('Projekt zapisany.'),
+      error: () => this.showStatus('Nie udało się zapisać projektu.'),
+    });
+  }
+
+  onLogout(): void {
+    this.authService.logout();
+    void this.router.navigate(['/login']);
+  }
+
+  goToProjects(): void {
+    void this.router.navigate(['/projects']);
   }
 
   onExportObj(): void {
@@ -315,12 +402,6 @@ export class CakeEditorComponent implements AfterViewInit, OnDestroy {
 
   onToolbarResetCamera(): void {
     this.resetCameraView();
-  }
-
-  private initializeScene() {
-    if (isPlatformBrowser(this.platformId)) {
-      this.sceneService.init(this.container.nativeElement, this.options);
-    }
   }
 
   private async handleAnchorClick(anchorId: string): Promise<void> {
