@@ -16,6 +16,8 @@ describe('PaintPanelComponent', () => {
   let decorations$: BehaviorSubject<DecorationInfo[]>;
 
   beforeEach(async () => {
+    const creamPresets$ = new BehaviorSubject(defaultCreamRingPresets);
+
     paintService = jasmine.createSpyObj<PaintService>(
       'PaintService',
       [
@@ -31,6 +33,7 @@ describe('PaintPanelComponent', () => {
         'canRedo',
         'getExtruderVariantSelection',
         'getCreamRingPresets',
+        'loadCreamRingPresets',
       ],
       {
         paintMode: false,
@@ -39,6 +42,7 @@ describe('PaintPanelComponent', () => {
         penSize: 0.05,
         penThickness: 0.02,
         penColor: '#ff4d6d',
+        creamRingPresets$: creamPresets$.asObservable(),
       },
     );
 
@@ -48,6 +52,7 @@ describe('PaintPanelComponent', () => {
     paintService.getExtruderVariantPreviews.and.resolveTo([]);
     paintService.insertCreamRingPreset.and.resolveTo();
     paintService.getCreamRingPresets.and.returnValue(defaultCreamRingPresets);
+    paintService.loadCreamRingPresets.and.resolveTo();
 
     decorations$ = new BehaviorSubject<DecorationInfo[]>([
       {

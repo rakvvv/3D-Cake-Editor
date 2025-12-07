@@ -53,10 +53,13 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
   selectedPresetId: string | null = null;
 
   private decorationsSubscription?: Subscription;
+  private creamPresetSubscription?: Subscription;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['paintService'] && this.paintService) {
       this.syncPaintServiceState();
+      this.subscribeToCreamPresets();
+      void this.paintService.loadCreamRingPresets();
     }
 
     if (changes['decorationsService']) {
@@ -66,10 +69,15 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.subscribeToDecorations();
+    this.subscribeToCreamPresets();
+    if (this.paintService) {
+      void this.paintService.loadCreamRingPresets();
+    }
   }
 
   ngOnDestroy(): void {
     this.decorationsSubscription?.unsubscribe();
+    this.creamPresetSubscription?.unsubscribe();
   }
 
   togglePaintMode(): void {
@@ -219,6 +227,20 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
     this.updateBrushOptions(this.decorationsService.getDecorations());
   }
 
+  private subscribeToCreamPresets(): void {
+    this.creamPresetSubscription?.unsubscribe();
+    if (!this.paintService) {
+      this.creamRingPresets = [];
+      this.selectedPresetId = null;
+      return;
+    }
+
+    this.creamPresetSubscription = this.paintService.creamRingPresets$.subscribe((presets) => {
+      this.updateCreamPresets(presets ?? []);
+    });
+    this.updateCreamPresets(this.paintService.getCreamRingPresets());
+  }
+
   private updateBrushOptions(decorations: DecorationInfo[]): void {
     const uniqueBrushes = new Map<string, BrushOption>();
     decorations
@@ -254,12 +276,15 @@ export class PaintPanelComponent implements OnChanges, OnInit, OnDestroy {
 
   private refreshCreamPresets(): void {
     if (!this.paintService) {
-      this.creamRingPresets = [];
-      this.selectedPresetId = null;
+      this.updateCreamPresets([]);
       return;
     }
 
-    this.creamRingPresets = this.paintService.getCreamRingPresets();
+    this.updateCreamPresets(this.paintService.getCreamRingPresets());
+  }
+
+  private updateCreamPresets(presets: CreamRingPreset[]): void {
+    this.creamRingPresets = presets;
     const availableIds = this.creamRingPresets.map((preset) => preset.id);
     if (!this.selectedPresetId || !availableIds.includes(this.selectedPresetId)) {
       this.selectedPresetId = availableIds[0] ?? null;

@@ -1,7 +1,7 @@
 import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Subject, firstValueFrom } from 'rxjs';
+import { BehaviorSubject, Subject, firstValueFrom } from 'rxjs';
 import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
@@ -95,7 +95,9 @@ export class PaintService {
   private readonly extruderTargetWidth = 0.12;
   private readonly extruderMaxInstances = 1500;
   private readonly extruderBaseRotation = new THREE.Euler(0, 0, 0);
-  private readonly creamRingPresets: CreamRingPreset[] = defaultCreamRingPresets.map(normalizePresetAngles);
+  private readonly creamRingPresetsSubject = new BehaviorSubject<CreamRingPreset[]>(
+    defaultCreamRingPresets.map((preset) => normalizePresetAngles(preset)),
+  );
 
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
@@ -133,6 +135,7 @@ export class PaintService {
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
+    void this.loadCreamRingPresets();
   }
 
   public async handlePaint(
@@ -585,7 +588,23 @@ export class PaintService {
   }
 
   public getCreamRingPresets(): CreamRingPreset[] {
-    return this.creamRingPresets;
+    return this.creamRingPresetsSubject.value;
+  }
+
+  public get creamRingPresets$() {
+    return this.creamRingPresetsSubject.asObservable();
+  }
+
+  public async loadCreamRingPresets(url = '/assets/cream-ring-presets.json'): Promise<void> {
+    try {
+      const presets = await firstValueFrom(this.http.get<CreamRingPreset[]>(url));
+      this.setCreamRingPresets(presets ?? []);
+    } catch (error) {
+      console.warn('PaintService: nie udało się wczytać presetów kremu', error);
+      if (!this.creamRingPresetsSubject.value.length) {
+        this.setCreamRingPresets(defaultCreamRingPresets);
+      }
+    }
   }
 
   private async placeExtruderStroke(
@@ -982,7 +1001,7 @@ export class PaintService {
   }
 
   private resolveCreamPreset(presetId: string, metadata: CakeMetadata): CreamRingPreset | null {
-    const preset = this.creamRingPresets.find((item) => item.id === presetId) ?? this.creamRingPresets[0];
+    const preset = this.getCreamRingPresets().find((item) => item.id === presetId) ?? this.getCreamRingPresets()[0];
     if (!preset) {
       return null;
     }
@@ -990,6 +1009,14 @@ export class PaintService {
     const normalized = normalizePresetAngles(preset);
     const layerIndex = preset.layerIndex < 0 ? metadata.layers - 1 : preset.layerIndex;
     return { ...normalized, layerIndex: Math.min(Math.max(0, layerIndex), metadata.layers - 1) };
+  }
+
+  private setCreamRingPresets(presets: CreamRingPreset[]): void {
+    this.creamRingPresetsSubject.next(this.normalizeCreamRingPresets(presets));
+  }
+
+  private normalizeCreamRingPresets(presets: CreamRingPreset[]): CreamRingPreset[] {
+    return presets.map((preset) => normalizePresetAngles(preset));
   }
 
   private getExtruderSurfaceOffset(variants: ExtruderVariantData[]): number {
