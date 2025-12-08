@@ -1,55 +1,301 @@
-<div class="panel-card">
-  <div class="panel-block__header">
-    <div class="panel-block__title">Tryby malowania</div>
-  </div>
-  <div class="toggle-tab">
-    <button class="toggle-tab__item" [class.toggle-tab__item--active]="mode === 'decor3d'" type="button" (click)="selectMode('decor3d')">
-      Dekoracje 3D
-    </button>
-    <button class="toggle-tab__item" [class.toggle-tab__item--active]="mode === 'brush'" type="button" (click)="selectMode('brush')">
-      Smugi
-    </button>
-    <button class="toggle-tab__item" [class.toggle-tab__item--active]="mode === 'extruder'" type="button" (click)="selectMode('extruder')">
-      Ekstruder
-    </button>
-    <button class="toggle-tab__item" [class.toggle-tab__item--active]="mode === 'sprinkles'" type="button" (click)="selectMode('sprinkles')">
-      Posypka
-    </button>
-  </div>
-</div>
-
-<div class="panel-card" *ngIf="mode === 'decor3d'">
-  <div class="panel-block__title">Pędzel dekoracji</div>
-  <div class="input">
-    <input type="text" [ngModel]="brushId" (ngModelChange)="onBrushIdChange($event)" placeholder="Nazwa modelu" />
-  </div>
-</div>
-
-<div class="panel-card" *ngIf="mode === 'brush' || mode === 'extruder'">
-  <div class="panel-block__header">
-    <div class="panel-block__title">Kolor kremu</div>
-  </div>
-  <div class="color-row">
-    <span class="color-row__label">Kolor</span>
-    <div class="color-row__input">
-      <input type="color" [ngModel]="paintColor" (ngModelChange)="onColorChange($event)" />
-      <input type="text" [ngModel]="paintColor" (ngModelChange)="onColorChange($event)" />
+<section class="editor-panel editor-panel--painting">
+  <div class="editor-panel__section">
+    <div class="functions-row">
+      <div class="section-header__title">Tryby malowania</div>
+      <button class="btn-toggle" type="button" (click)="togglePainting()">
+        <span class="icon-16" aria-hidden="true">{{ paintingEnabled ? '⏽' : '⭘' }}</span>
+      </button>
     </div>
-    <div class="color-swatch" [style.background]="paintColor"></div>
-  </div>
-  <div class="slider-row">
-    <span class="slider-row__label">Rozmiar</span>
-    <input type="range" min="0.01" max="0.2" step="0.005" [ngModel]="penSize" (ngModelChange)="onSizeChange($event)" class="slider-row__range" />
-    <div class="slider-row__value">{{ penSize | number: '1.2-3' }}</div>
-  </div>
-  <div class="slider-row">
-    <span class="slider-row__label">Grubość</span>
-    <input type="range" min="0.01" max="0.1" step="0.002" [ngModel]="penThickness" (ngModelChange)="onThicknessChange($event)" class="slider-row__range" />
-    <div class="slider-row__value">{{ penThickness | number: '1.2-3' }}</div>
-  </div>
-</div>
 
-<div class="panel-card" *ngIf="mode === 'sprinkles'">
-  <div class="panel-block__title">Posypka</div>
-  <p class="panel-hint">Użyj kliknięć, aby rozmieścić drobne elementy na powierzchni.</p>
-</div>
+    <div class="select-row">
+      <span class="select-row__label">Tryb</span>
+      <div class="select-row__input select-row__input--native">
+        <select [ngModel]="mode" (ngModelChange)="selectMode($event)" aria-label="Tryb malowania">
+          <option value="decor3d">Dekoracje 3D</option>
+          <option value="brush">Smugi (pędzel)</option>
+          <option value="pen">Pisak</option>
+          <option value="sprinkles">Posypka</option>
+          <option value="extruder">Ekstruder</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div
+    class="painting-mode painting-mode--decor3d"
+    [class.painting-mode--active]="mode === 'decor3d'"
+  >
+    <div class="editor-panel__section">
+      <div class="section-header">
+        <span class="section-header__icon">🧁</span>
+        <h2 class="section-header__title">Dekoracje 3D</h2>
+      </div>
+
+      <div class="decorations-header-row">
+        <span class="color-row__label">Dekoracje</span>
+        <div class="input input--with-icon editor-panel__search">
+          <input
+            type="text"
+            [ngModel]="decorationSearch"
+            (ngModelChange)="onDecorationSearch($event)"
+            placeholder="Szukaj"
+            aria-label="Szukaj dekoracji"
+          />
+          <span class="icon-16" aria-hidden="true">🔍</span>
+        </div>
+      </div>
+
+      <div class="decorations-list">
+        <button
+          class="decorations-list__item"
+          *ngFor="let decoration of filteredDecorations"
+          [class.decorations-list__item--active]="
+            decoration.modelFileName === selectedDecorationId || decoration.id === selectedDecorationId
+          "
+          (click)="selectDecoration(decoration)"
+          type="button"
+        >
+          <img
+            *ngIf="decoration.thumbnailUrl"
+            [src]="decoration.thumbnailUrl"
+            [alt]="decoration.name"
+            class="decorations-list__icon"
+          />
+          <span *ngIf="!decoration.thumbnailUrl" class="decorations-list__icon">🧁</span>
+          <span>{{ decoration.name }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="editor-panel__section">
+      <div class="functions-row">
+        <div class="section-header__title">Opcje dodawania</div>
+        <button class="btn-toggle" type="button" (click)="togglePainting()">
+          <span class="icon-16" aria-hidden="true">{{ paintingEnabled ? '⏽' : '⭘' }}</span>
+        </button>
+      </div>
+
+      <div class="select-row">
+        <span class="select-row__label">Powierzchnia</span>
+        <div class="select-row__input select-row__input--native">
+          <select [(ngModel)]="preferredSurface" aria-label="Powierzchnia">
+            <option value="AUTO">Automatycznie</option>
+            <option value="TOP">Góra</option>
+            <option value="SIDE">Boki</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="select-row">
+        <span class="select-row__label">Warstwa</span>
+        <div class="select-row__input select-row__input--native">
+          <select [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Warstwa">
+            <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="painting-mode painting-mode--brush" [class.painting-mode--active]="mode === 'brush'">
+    <div class="editor-panel__section">
+      <div class="section-header">
+        <span class="section-header__icon">🖌️</span>
+        <h2 class="section-header__title">Smugi (pędzel)</h2>
+      </div>
+
+      <div class="color-row">
+        <span class="color-row__label">Kolor kremu</span>
+        <div class="color-row__input">
+          <span class="icon-16" aria-hidden="true">#</span>
+          <input type="text" [ngModel]="paintColor" (ngModelChange)="onBrushColorChange($event)" />
+        </div>
+        <div class="color-swatch" [style.background]="paintColor"></div>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-row__label">Rozmiar</span>
+        <input
+          type="range"
+          min="1"
+          max="100"
+          [ngModel]="brushSize"
+          (ngModelChange)="onBrushSizeChange($event)"
+          class="slider-row__range"
+        />
+        <div class="slider-row__value">{{ brushSize }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="painting-mode painting-mode--pen" [class.painting-mode--active]="mode === 'pen'">
+    <div class="editor-panel__section">
+      <div class="section-header">
+        <span class="section-header__icon">✏️</span>
+        <h2 class="section-header__title">Pisak</h2>
+      </div>
+
+      <div class="color-row">
+        <span class="color-row__label">Kolor pisaka</span>
+        <div class="color-row__input">
+          <span class="icon-16" aria-hidden="true">#</span>
+          <input type="text" [ngModel]="paintColor" (ngModelChange)="onBrushColorChange($event)" />
+        </div>
+        <div class="color-swatch" [style.background]="paintColor"></div>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-row__label">Grubość</span>
+        <input
+          type="range"
+          min="1"
+          max="100"
+          [ngModel]="penThickness * 100"
+          (ngModelChange)="onPenThicknessChange($event / 100)"
+          class="slider-row__range"
+        />
+        <div class="slider-row__value">{{ penThickness | number: '1.0-2' }}</div>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-row__label">Rozmiar</span>
+        <input
+          type="range"
+          min="1"
+          max="100"
+          [ngModel]="penSize * 100"
+          (ngModelChange)="onPenSizeChange($event / 100)"
+          class="slider-row__range"
+        />
+        <div class="slider-row__value">{{ penSize | number: '1.0-2' }}</div>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-row__label">Krycie</span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          [ngModel]="penOpacity * 100"
+          (ngModelChange)="onPenOpacityChange($event)"
+          class="slider-row__range"
+        />
+        <div class="slider-row__value">{{ penOpacity * 100 | number: '1.0-0' }}%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="painting-mode painting-mode--sprinkles" [class.painting-mode--active]="mode === 'sprinkles'">
+    <div class="editor-panel__section">
+      <div class="section-header">
+        <span class="section-header__icon">🍬</span>
+        <h2 class="section-header__title">Posypka</h2>
+      </div>
+
+      <div class="color-row">
+        <span class="color-row__label">Kolor posypki</span>
+        <div class="color-row__input">
+          <span class="icon-16" aria-hidden="true">#</span>
+          <input type="text" [ngModel]="sprinkleColor" (ngModelChange)="onSprinkleColorChange($event)" />
+        </div>
+        <div class="color-swatch" [style.background]="sprinkleColor"></div>
+      </div>
+    </div>
+
+    <div class="editor-panel__section">
+      <div class="slider-row">
+        <span class="slider-row__label">Rozmiar</span>
+        <input
+          type="range"
+          min="1"
+          max="100"
+          [ngModel]="sprinkleSize"
+          (ngModelChange)="onSprinkleSizeChange($event)"
+          class="slider-row__range"
+        />
+        <div class="slider-row__value">{{ sprinkleSize }}</div>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-row__label">Gęstość</span>
+        <input
+          type="range"
+          min="1"
+          max="100"
+          [ngModel]="sprinkleDensity"
+          (ngModelChange)="onSprinkleDensityChange($event)"
+          class="slider-row__range"
+        />
+        <div class="slider-row__value">{{ sprinkleDensity }}</div>
+      </div>
+
+      <div class="slider-row">
+        <span class="slider-row__label">Random</span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          [ngModel]="sprinkleRandomness"
+          (ngModelChange)="onSprinkleRandomnessChange($event)"
+          class="slider-row__range"
+        />
+        <div class="slider-row__value">{{ sprinkleRandomness }}%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="painting-mode painting-mode--extruder" [class.painting-mode--active]="mode === 'extruder'">
+    <div class="editor-panel__section">
+      <div class="section-header">
+        <span class="section-header__icon">🍥</span>
+        <h2 class="section-header__title">Ekstruder</h2>
+      </div>
+
+      <div class="toggle-tab">
+        <button class="toggle-tab__item toggle-tab__item--active" type="button">Rysowanie ręczne</button>
+        <button class="toggle-tab__item" type="button">Presety</button>
+      </div>
+    </div>
+
+    <div class="editor-panel__section">
+      <div class="section-header">
+        <h3 class="section-header__title">Rodzaj końcówek</h3>
+      </div>
+
+      <div class="decorations-list">
+        <button
+          class="decorations-list__item"
+          *ngFor="let variant of extruderVariants"
+          [class.decorations-list__item--active]="variant.id === extruderSelection"
+          type="button"
+          (click)="onExtruderSelectionChange(variant.id)">
+          <img *ngIf="variant.thumbnail" [src]="variant.thumbnail" alt="" class="decorations-list__icon" />
+          <span *ngIf="!variant.thumbnail" class="decorations-list__icon">🍥</span>
+          <span>{{ variant.name }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="editor-panel__section">
+      <div class="select-row">
+        <span class="select-row__label">Preset</span>
+        <div class="select-row__input select-row__input--native">
+          <select [ngModel]="selectedCreamPresetId" (ngModelChange)="onExtruderPresetSelect($event)">
+            <option *ngFor="let preset of creamPresets" [value]="preset.id">{{ preset.name }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="editor-panel__section">
+      <div class="color-row">
+        <span class="color-row__label">Kolor kremu</span>
+        <div class="color-row__input">
+          <span class="icon-16" aria-hidden="true">#</span>
+          <input type="text" [ngModel]="paintColor" (ngModelChange)="onExtruderColorChange($event)" />
+        </div>
+        <div class="color-swatch" [style.background]="paintColor"></div>
+      </div>
+    </div>
+  </div>
+</section>

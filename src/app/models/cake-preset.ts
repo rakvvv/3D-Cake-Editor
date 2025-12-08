@@ -27,6 +27,7 @@ export interface PaintStrokePreset {
   brushId?: string;
   penSize?: number;
   penThickness?: number;
+  penOpacity?: number;
   penCapsEnabled?: boolean;
   variantSourceId?: string;
   variantIndex?: number;

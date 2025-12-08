@@ -75,7 +75,6 @@
 
     <app-sidebar-decorations-panel
       *ngSwitchCase="'decorations'"
-      [decorations]="decorations"
       [layerCount]="options.layers || 1"
       (addDecoration)="onAddDecoration($event)"
     ></app-sidebar-decorations-panel>
@@ -92,9 +91,13 @@
       [paintColor]="paintColor"
       [penSize]="penSize"
       [penThickness]="penThickness"
+      [penOpacity]="penOpacity"
       [brushId]="paintBrushId"
+      [paintingEnabled]="paintingPowerEnabled"
+      [layerCount]="options.layers || 1"
       (paintModeChange)="onPaintModeChange($event)"
       (brushChange)="onBrushChange($event)"
+      (paintingPowerChange)="paintingPowerChange.emit($event)"
     ></app-sidebar-paint-panel>
 
     <app-sidebar-export-panel

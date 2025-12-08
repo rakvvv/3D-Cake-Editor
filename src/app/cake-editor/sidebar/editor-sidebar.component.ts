@@ -5,10 +5,8 @@ import { Subscription } from 'rxjs';
 import { CakeOptions } from '../../models/cake.options';
 import { DecorationValidationIssue } from '../../models/decoration-validation';
 import { AddDecorationRequest } from '../../models/add-decoration-request';
-import { DecorationInfo } from '../../models/decorationInfo';
 import { DecoratedCakePreset } from '../../models/cake-preset';
 import { CakePresetsService } from '../../services/cake-presets.service';
-import { DecorationsService } from '../../services/decorations.service';
 import { ThreeSceneService } from '../../services/three-scene.service';
 import { SidebarDecorationsPanelComponent } from './panels/sidebar-decorations-panel.component';
 import { SidebarExportPanelComponent } from './panels/sidebar-export-panel.component';
@@ -45,7 +43,9 @@ export class EditorSidebarComponent implements OnInit, OnDestroy {
   @Input() paintColor = '#ff4d6d';
   @Input() penSize = 0.05;
   @Input() penThickness = 0.02;
+  @Input() penOpacity = 1;
   @Input() paintBrushId = 'trawa.glb';
+  @Input() paintingPowerEnabled = true;
 
   @Output() optionsChange = new EventEmitter<CakeOptions>();
   @Output() addDecoration = new EventEmitter<AddDecorationRequest>();
@@ -59,9 +59,9 @@ export class EditorSidebarComponent implements OnInit, OnDestroy {
   @Output() brushChange = new EventEmitter<BrushSettings>();
   @Output() paintModeChange = new EventEmitter<SidebarPaintMode>();
   @Output() panelChange = new EventEmitter<SidebarPanelKey>();
+  @Output() paintingPowerChange = new EventEmitter<boolean>();
 
   activePanel: SidebarPanelKey = 'decorations';
-  decorations: DecorationInfo[] = [];
   presets: DecoratedCakePreset[] = [];
   readonly textureOptions: SidebarTextureOption[] = [
     {
@@ -139,7 +139,6 @@ export class EditorSidebarComponent implements OnInit, OnDestroy {
   private subscriptions = new Subscription();
 
   constructor(
-    private readonly decorationsService: DecorationsService,
     private readonly sceneService: ThreeSceneService,
     private readonly cakePresetsService: CakePresetsService,
   ) {}
@@ -147,10 +146,6 @@ export class EditorSidebarComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     void this.sceneService.loadDecorationsData();
     void this.cakePresetsService.loadPresets();
-
-    this.subscriptions.add(
-      this.decorationsService.decorations$.subscribe((decorations) => (this.decorations = decorations)),
-    );
 
     this.subscriptions.add(this.cakePresetsService.presets$.subscribe((presets) => (this.presets = presets)));
   }

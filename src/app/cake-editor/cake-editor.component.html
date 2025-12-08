@@ -401,7 +401,9 @@
           [paintColor]="paintColor"
           [penSize]="penSize"
           [penThickness]="penThickness"
+          [penOpacity]="penOpacity"
           [paintBrushId]="paintBrushId"
+          [paintingPowerEnabled]="paintingPowerEnabled"
           (optionsChange)="updateCakeOptions($event)"
           (addDecoration)="onAddDecoration($event)"
           (validateDecorations)="onValidateDecorations()"
@@ -414,6 +416,7 @@
           (brushChange)="onSidebarBrushChange($event)"
           (paintModeChange)="onSidebarPaintModeChange($event)"
           (panelChange)="onSidebarPanelChange($event)"
+          (paintingPowerChange)="onPaintingPowerChange($event)"
         ></app-editor-sidebar>
       </div>
 

@@ -66,6 +66,7 @@ export class PaintService {
   public penSize = 0.05;
   public penThickness = 0.02;
   public penColor = '#ff4d6d';
+  public penOpacity = 1;
   public readonly sceneChanged$ = new Subject<void>();
 
   private readonly baseMinDistance = 0.02;
@@ -345,7 +346,7 @@ export class PaintService {
     this.extruderFirstInstance = null;
   }
 
-  public updatePenSettings(settings: { size?: number; thickness?: number; color?: string }): void {
+  public updatePenSettings(settings: { size?: number; thickness?: number; color?: string; opacity?: number }): void {
     if (settings.size !== undefined && settings.size > 0) {
       this.penSize = Math.max(settings.size, 0.005);
     }
@@ -356,6 +357,11 @@ export class PaintService {
 
     if (settings.color) {
       this.penColor = settings.color;
+    }
+
+    if (settings.opacity !== undefined) {
+      this.penOpacity = THREE.MathUtils.clamp(settings.opacity, 0, 1);
+      this.penMaterialCache.clear();
     }
   }
 
@@ -1808,6 +1814,10 @@ export class PaintService {
     const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(this.penColor) });
     material.roughness = 0.85;
     material.metalness = 0.02;
+    material.opacity = this.penOpacity;
+    material.transparent = this.penOpacity < 1;
+    material.depthWrite = this.penOpacity >= 1;
+    material.needsUpdate = true;
     this.penMaterialCache.set(this.penColor, material);
     return material;
   }
@@ -1849,6 +1859,7 @@ export class PaintService {
       this.activePenStrokeGroup.userData['penSize'] = this.penSize;
       this.activePenStrokeGroup.userData['penThickness'] = this.penThickness;
       this.activePenStrokeGroup.userData['penColor'] = this.penColor;
+      this.activePenStrokeGroup.userData['penOpacity'] = this.penOpacity;
       scene.add(this.activePenStrokeGroup);
       this.redoStack = [];
       this.activePenStrokePoints = [];
@@ -2146,6 +2157,7 @@ export class PaintService {
       brushId: root.userData['brushId'] as string | undefined,
       penSize: root.userData['penSize'] as number | undefined,
       penThickness: root.userData['penThickness'] as number | undefined,
+      penOpacity: root.userData['penOpacity'] as number | undefined,
       penCapsEnabled: true,
       instances: [],
       snapPoints: root.userData['snapPoints'] as number[][] | undefined,
@@ -2314,9 +2326,11 @@ export class PaintService {
     const previousColor = this.penColor;
     const previousSize = this.penSize;
     const previousThickness = this.penThickness;
+    const previousOpacity = this.penOpacity;
     this.penColor = entry.color ?? this.penColor;
     this.penSize = entry.penSize ?? this.penSize;
     this.penThickness = entry.penThickness ?? this.penThickness;
+    this.penOpacity = entry.penOpacity ?? this.penOpacity;
 
     const group = new THREE.Group();
     group.userData['isPaintStroke'] = true;
@@ -2324,6 +2338,7 @@ export class PaintService {
     group.userData['penColor'] = this.penColor;
     group.userData['penSize'] = this.penSize;
     group.userData['penThickness'] = this.penThickness;
+    group.userData['penOpacity'] = this.penOpacity;
     scene.add(group);
 
     const segmentState = this.ensurePenSegmentInstanceMesh(group);
@@ -2354,6 +2369,7 @@ export class PaintService {
     this.penColor = previousColor;
     this.penSize = previousSize;
     this.penThickness = previousThickness;
+    this.penOpacity = previousOpacity;
   }
 
   private trySnapPaintStroke(object: THREE.Object3D): void {

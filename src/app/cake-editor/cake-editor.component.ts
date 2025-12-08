@@ -19,6 +19,7 @@ import {CakeOptions, TextureMaps} from '../models/cake.options';
 import {DecorationValidationIssue} from '../models/decoration-validation';
 import {AddDecorationRequest} from '../models/add-decoration-request';
 import {AnchorPresetsService} from '../services/anchor-presets.service';
+import { SurfacePaintingService } from '../services/surface-painting.service';
 import {Subscription} from 'rxjs';
 import { environment } from '../../environments/environment';
 import { DecoratedCakePreset } from '../models/cake-preset';
@@ -168,6 +169,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public paintColor = '#ff4d6d';
   public penSize = 0.05;
   public penThickness = 0.02;
+  public penOpacity = 1;
+  public paintingPowerEnabled = true;
 
   public contextMenuVisible = false;
   public contextMenuX = 0;
@@ -248,6 +251,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private transformService: TransformControlsService,
     private decorationsService: DecorationsService,
     private paintService: PaintService,
+    private surfacePaintingService: SurfacePaintingService,
     private anchorPresetsService: AnchorPresetsService,
     private projectsService: ProjectsService,
     private authService: AuthService,
@@ -280,10 +284,13 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     );
     this.refreshSceneOutline();
 
+    void this.anchorPresetsService.loadPresets();
+
     this.paintBrushId = this.paintService.currentBrush;
     this.paintColor = this.paintService.penColor;
     this.penSize = this.paintService.penSize;
     this.penThickness = this.paintService.penThickness;
+    this.penOpacity = this.paintService.penOpacity;
   }
 
   ngAfterViewInit(): void {
@@ -644,9 +651,20 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onSidebarPaintModeChange(mode: SidebarPaintMode): void {
     this.paintingMode = mode;
-    const tool = mode === 'brush' ? 'pen' : mode === 'extruder' ? 'extruder' : 'decoration';
+    const usesSurfacePainting = mode === 'brush' || mode === 'sprinkles';
+    const powerEnabled = this.paintingPowerEnabled;
+    this.surfacePaintingService.enabled = usesSurfacePainting && powerEnabled;
+
+    if (usesSurfacePainting) {
+      this.surfacePaintingService.mode = mode === 'brush' ? 'brush' : 'sprinkles';
+      this.onTogglePaintMode(false);
+      return;
+    }
+
+    this.surfacePaintingService.enabled = false;
+    const tool = mode === 'extruder' ? 'extruder' : mode === 'decor3d' ? 'decoration' : 'pen';
     this.paintService.setPaintTool(tool as 'decoration' | 'pen' | 'extruder');
-    this.onTogglePaintMode(mode !== 'decor3d');
+    this.onTogglePaintMode(powerEnabled && mode !== 'decor3d');
   }
 
   onSidebarBrushChange(settings: BrushSettings): void {
@@ -659,7 +677,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    if (settings.color || settings.size !== undefined || settings.thickness !== undefined) {
+    if (settings.color || settings.size !== undefined || settings.thickness !== undefined || settings.opacity !== undefined) {
       this.paintColor = settings.color ?? this.paintColor;
       this.penSize = settings.size ?? this.penSize;
       this.penThickness = settings.thickness ?? this.penThickness;
@@ -667,8 +685,16 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         size: settings.size,
         thickness: settings.thickness,
         color: settings.color,
+        opacity: settings.opacity,
       });
     }
+  }
+
+  onPaintingPowerChange(enabled: boolean): void {
+    this.paintingPowerEnabled = enabled;
+    const usesSurfacePainting = this.paintingMode === 'brush' || this.paintingMode === 'sprinkles';
+    this.surfacePaintingService.enabled = enabled && usesSurfacePainting;
+    this.paintService.paintMode = enabled && !usesSurfacePainting && this.paintingMode !== 'decor3d';
   }
 
   onValidateDecorations(): void {

@@ -1,66 +1,113 @@
-<div class="panel-card">
-  <div class="panel-block__header">
-    <div class="panel-block__title">Szukaj dekoracji</div>
-  </div>
-  <div class="input input--with-icon">
-    <input type="text" [(ngModel)]="searchTerm" placeholder="Szukaj dekoracji" />
-    <span class="icon-20" aria-hidden="true">⌕</span>
-  </div>
-</div>
+<section class="editor-panel editor-panel--decorations">
+  <div class="editor-panel__section">
+    <div class="section-header">
+      <span class="section-header__icon">🧁</span>
+      <h2 class="section-header__title">Dekoracje</h2>
+    </div>
 
-<div class="panel-card">
-  <div class="panel-block__header">
-    <div class="panel-block__title">Opcje dodawania</div>
+    <div class="input input--with-icon editor-panel__search">
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        placeholder="Szukaj dekoracji"
+        aria-label="Szukaj dekoracji"
+      />
+      <span class="icon-16" aria-hidden="true">🔍</span>
+    </div>
   </div>
-  <div class="select-row">
-    <span class="select-row__label">Powierzchnia</span>
-    <div class="toggle-tab">
+
+  <div class="editor-panel__section">
+    <div class="decorations-header-row">
+      <span class="color-row__label">Dekoracje</span>
+    </div>
+
+    <div class="decorations-list">
+      <button
+        class="decorations-list__item"
+        type="button"
+        *ngFor="let decoration of filteredDecorations"
+        [class.decorations-list__item--active]="
+          decoration.modelFileName === selectedDecorationId || decoration.id === selectedDecorationId
+        "
+        (click)="onAddDecoration(decoration)"
+      >
+        <img
+          *ngIf="decoration.thumbnailUrl"
+          [src]="decoration.thumbnailUrl"
+          [alt]="decoration.name"
+          class="decorations-list__icon"
+        />
+        <span *ngIf="!decoration.thumbnailUrl" class="decorations-list__icon">🧁</span>
+        <span>{{ decoration.name }}</span>
+      </button>
+
+      <div class="panel-hint" *ngIf="!filteredDecorations.length">Brak dekoracji do wyświetlenia.</div>
+    </div>
+  </div>
+
+  <div class="editor-panel__section">
+    <div class="functions-row">
+      <div class="section-header__title">Opcje dodawania</div>
+      <button class="btn-toggle" type="button" (click)="toggleMarkers()">
+        <span class="icon-16" aria-hidden="true">{{ markersVisible ? '⏽' : '⭘' }}</span>
+      </button>
+    </div>
+
+    <div class="select-row">
+      <span class="select-row__label">Powierzchnia</span>
+      <div class="select-row__input select-row__input--native">
+        <select [(ngModel)]="preferredSurface" aria-label="Powierzchnia docelowa">
+          <option value="AUTO">Automatycznie</option>
+          <option value="TOP">Góra</option>
+          <option value="SIDE">Boki</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="select-row">
+      <span class="select-row__label">Warstwa</span>
+      <div class="select-row__input select-row__input--native">
+        <select [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Docelowa warstwa">
+          <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="editor-panel__section">
+    <div class="functions-row">
+      <div class="section-header__title">Presety</div>
+      <button class="btn-toggle" type="button" (click)="toggleMarkers()">
+        <span class="icon-16" aria-hidden="true">{{ markersVisible ? '⏽' : '⭘' }}</span>
+      </button>
+    </div>
+
+    <div class="select-row">
+      <span class="select-row__label">Preset</span>
+      <div class="select-row__input select-row__input--native">
+        <select [ngModel]="activePresetId" (ngModelChange)="onPresetChange($event)" aria-label="Wybierz preset">
+          <option *ngFor="let preset of presets" [value]="preset.id">{{ preset.name }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="toggle-tab toggle-tab--vertical">
       <button
         class="toggle-tab__item"
-        [class.toggle-tab__item--active]="preferredSurface === 'AUTO'"
+        [class.toggle-tab__item--active]="actionMode === 'spawn'"
         type="button"
-        (click)="preferredSurface = 'AUTO'"
+        (click)="onActionModeChange('spawn')"
       >
-        Automatycznie
+        Wybór z listy
       </button>
       <button
         class="toggle-tab__item"
-        [class.toggle-tab__item--active]="preferredSurface === 'TOP'"
+        [class.toggle-tab__item--active]="actionMode === 'move'"
         type="button"
-        (click)="preferredSurface = 'TOP'"
+        (click)="onActionModeChange('move')"
       >
-        Góra
-      </button>
-      <button
-        class="toggle-tab__item"
-        [class.toggle-tab__item--active]="preferredSurface === 'SIDE'"
-        type="button"
-        (click)="preferredSurface = 'SIDE'"
-      >
-        Boki
+        Przenoszenie zaznaczonej
       </button>
     </div>
   </div>
-  <div class="slider-row">
-    <span class="slider-row__label">Warstwa</span>
-    <input type="range" min="0" [max]="Math.max(layerCount - 1, 0)" [ngModel]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" class="slider-row__range" />
-    <div class="slider-row__value">{{ targetLayerIndex + 1 }}</div>
-  </div>
-</div>
-
-<div class="panel-card">
-  <div class="panel-block__header">
-    <div class="panel-block__title">Dekoracje</div>
-  </div>
-  <div class="decorations-list">
-    <button
-      class="decorations-list__item"
-      type="button"
-      *ngFor="let decoration of filteredDecorations"
-      (click)="onAddDecoration(decoration)"
-    >
-      {{ decoration.name }}
-    </button>
-    <div class="panel-hint" *ngIf="!filteredDecorations.length">Brak dekoracji do wyświetlenia.</div>
-  </div>
-</div>
+</section>
