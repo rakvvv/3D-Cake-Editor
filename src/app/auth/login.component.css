@@ -1,0 +1,45 @@
+.auth-card {
+  max-width: 400px;
+  margin: 40px auto;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+}
+
+.auth-form input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.auth-form button {
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  background: #5c6bc0;
+  color: #fff;
+  cursor: pointer;
+}
+
+.auth-link {
+  margin: 0;
+  font-size: 14px;
+}
+
+.auth-error {
+  color: #b00020;
+  margin: 0;
+}

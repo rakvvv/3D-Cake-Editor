@@ -1,0 +1,16 @@
+<div class="auth-card">
+  <h2>Rejestracja</h2>
+  <form (ngSubmit)="onSubmit()" class="auth-form">
+    <label>
+      Email
+      <input type="email" name="email" [(ngModel)]="email" required />
+    </label>
+    <label>
+      Hasło
+      <input type="password" name="password" [(ngModel)]="password" required />
+    </label>
+    <button type="submit">Zarejestruj</button>
+    <p class="auth-link">Masz już konto? <a routerLink="/login">Zaloguj się</a></p>
+    <p *ngIf="error" class="auth-error">{{ error }}</p>
+  </form>
+</div>

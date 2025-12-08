@@ -13,6 +13,7 @@ public class ApplicationProperties {
 
     private final Storage storage = new Storage();
     private final Cors cors = new Cors();
+    private final Jwt jwt = new Jwt();
 
     public Storage getStorage() {
         return storage;
@@ -20,6 +21,10 @@ public class ApplicationProperties {
 
     public Cors getCors() {
         return cors;
+    }
+
+    public Jwt getJwt() {
+        return jwt;
     }
 
     public static class Storage {
@@ -73,6 +78,29 @@ public class ApplicationProperties {
 
         public void setAllowedHeaders(List<String> allowedHeaders) {
             this.allowedHeaders = allowedHeaders;
+        }
+    }
+
+    public static class Jwt {
+        @NotBlank
+        private String secret = System.getenv().getOrDefault("APP_JWT_SECRET", "change-me");
+
+        private long expirationMs = 1_800_000; // 30 minutes
+
+        public String getSecret() {
+            return secret;
+        }
+
+        public void setSecret(String secret) {
+            this.secret = secret;
+        }
+
+        public long getExpirationMs() {
+            return expirationMs;
+        }
+
+        public void setExpirationMs(long expirationMs) {
+            this.expirationMs = expirationMs;
         }
     }
 }

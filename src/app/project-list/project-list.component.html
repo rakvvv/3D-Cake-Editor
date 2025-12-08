@@ -1,0 +1,35 @@
+<div class="project-list__header">
+  <h2>Twoje projekty</h2>
+  <div class="project-list__new">
+    <input type="text" [(ngModel)]="newProjectName" placeholder="Nazwa projektu" />
+    <button type="button" (click)="createProject()">Nowy projekt</button>
+  </div>
+</div>
+
+<div class="project-list" *ngIf="!loading; else loadingTpl">
+  <div *ngIf="projects.length === 0" class="project-list__empty">
+    Brak zapisanych projektów.
+  </div>
+  <div *ngFor="let project of projects" class="project-list__item">
+    <div class="project-list__info">
+      <div *ngIf="renameProjectId !== project.id; else renameTpl">{{ project.name }}</div>
+      <div class="project-list__meta">Ostatnia edycja: {{ project.updatedAt | date: 'short' }}</div>
+    </div>
+    <div class="project-list__actions">
+      <button type="button" (click)="openProject(project.id)">Otwórz</button>
+      <button type="button" (click)="startRename(project)">Zmień nazwę</button>
+      <button type="button" (click)="deleteProject(project)" class="danger">Usuń</button>
+    </div>
+    <ng-template #renameTpl>
+      <div class="rename-row">
+        <input [(ngModel)]="renameValue" />
+        <button type="button" (click)="confirmRename(project)">Zapisz</button>
+        <button type="button" (click)="cancelRename()">Anuluj</button>
+      </div>
+    </ng-template>
+  </div>
+</div>
+
+<ng-template #loadingTpl>
+  <p>Wczytywanie projektów...</p>
+</ng-template>
