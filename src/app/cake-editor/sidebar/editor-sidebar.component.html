@@ -8,71 +8,7 @@
     </div>
   </header>
 
-  <nav class="panel-nav" aria-label="Sekcje panelu">
-    <button
-      class="panel-nav__item"
-      [class.panel-nav__item--active]="activePanel === 'layers'"
-      type="button"
-      (click)="onPanelSelect('layers')"
-    >
-      Warstwy
-    </button>
-    <button
-      class="panel-nav__item"
-      [class.panel-nav__item--active]="activePanel === 'textures'"
-      type="button"
-      (click)="onPanelSelect('textures')"
-    >
-      Tekstury
-    </button>
-    <button
-      class="panel-nav__item"
-      [class.panel-nav__item--active]="activePanel === 'decorations'"
-      type="button"
-      (click)="onPanelSelect('decorations')"
-    >
-      Dekoracje
-    </button>
-    <button
-      class="panel-nav__item"
-      [class.panel-nav__item--active]="activePanel === 'presets'"
-      type="button"
-      (click)="onPanelSelect('presets')"
-    >
-      Presety
-    </button>
-    <button
-      class="panel-nav__item"
-      [class.panel-nav__item--active]="activePanel === 'paint'"
-      type="button"
-      (click)="onPanelSelect('paint')"
-    >
-      Malowanie
-    </button>
-    <button
-      class="panel-nav__item"
-      [class.panel-nav__item--active]="activePanel === 'export'"
-      type="button"
-      (click)="onPanelSelect('export')"
-    >
-      Eksport
-    </button>
-  </nav>
-
   <div class="workspace-panel__content" [ngSwitch]="activePanel">
-    <app-sidebar-layers-panel
-      *ngSwitchCase="'layers'"
-      [options]="options"
-      (optionsChange)="onOptionsChange($event)"
-    ></app-sidebar-layers-panel>
-
-    <app-sidebar-textures-panel
-      *ngSwitchCase="'textures'"
-      [options]="options"
-      [textures]="textureOptions"
-      (optionsChange)="onOptionsChange($event)"
-    ></app-sidebar-textures-panel>
-
     <app-sidebar-decorations-panel
       *ngSwitchCase="'decorations'"
       [layerCount]="options.layers || 1"
@@ -100,17 +36,8 @@
       (paintingPowerChange)="paintingPowerChange.emit($event)"
     ></app-sidebar-paint-panel>
 
-    <app-sidebar-export-panel
-      *ngSwitchCase="'export'"
-      [validationSummary]="validationSummary"
-      [validationIssues]="validationIssues"
-      [pendingValidationLabel]="pendingValidationLabel"
-      (validateDecorations)="validateDecorations.emit()"
-      (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
-      (saveScene)="saveScene.emit()"
-      (exportObj)="exportObj.emit()"
-      (exportStl)="exportStl.emit()"
-      (exportGltf)="exportGltf.emit()"
-    ></app-sidebar-export-panel>
+    <div *ngSwitchDefault class="workspace-panel__placeholder">
+      Wybierz sekcję z paska narzędzi obok sceny.
+    </div>
   </div>
 </section>

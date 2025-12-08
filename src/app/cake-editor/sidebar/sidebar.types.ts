@@ -1,6 +1,6 @@
 import { TextureMaps } from '../../models/cake.options';
 
-export type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'presets' | 'paint' | 'export';
+export type SidebarPanelKey = 'decorations' | 'presets' | 'paint';
 
 export type SidebarPaintMode = 'decor3d' | 'brush' | 'pen' | 'extruder' | 'sprinkles';
 

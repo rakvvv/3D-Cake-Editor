@@ -913,6 +913,29 @@
   margin: 8px 0;
 }
 
+.export-popover__backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 23;
+}
+
+.export-popover {
+  position: fixed;
+  top: 88px;
+  right: 24px;
+  z-index: 24;
+  background: #0f1116;
+  border: 1px solid #1b1f27;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+  padding: 12px;
+}
+
 .status-banner {
   position: fixed;
   left: 50%;

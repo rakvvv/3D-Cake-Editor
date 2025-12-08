@@ -28,12 +28,13 @@ import { AuthService } from '../services/auth.service';
 import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-options';
 import { SceneOutlineNode } from '../models/scene-outline';
 import { EditorSidebarComponent } from './sidebar/editor-sidebar.component';
+import { SidebarExportPanelComponent } from './sidebar/panels/sidebar-export-panel.component';
 import { BrushSettings, SidebarPanelKey, SidebarPaintMode } from './sidebar/sidebar.types';
 
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, EditorSidebarComponent],
+  imports: [CommonModule, FormsModule, EditorSidebarComponent, SidebarExportPanelComponent],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
@@ -179,6 +180,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public contextMenuCanSnap = false;
   public contextMenuIsLocked = false;
   public sceneTreeScale = 0.95;
+  public exportPopupOpen = false;
 
   public sceneOutline: SceneOutlineNode | null = null;
   public sceneSelectedNodeId: string | null = null;
@@ -195,6 +197,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       this.hideContextMenu();
+      this.closeExportPopup();
       return;
     }
 
@@ -637,16 +640,32 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.activeSidebarPanel = 'decorations';
     this.sidebar?.focusPanel('decorations');
     this.onSidebarPaintModeChange('decor3d');
+    this.closeExportPopup();
   }
 
   openPaintPanel(mode: SidebarPaintMode = this.paintingMode): void {
     this.activeSidebarPanel = 'paint';
     this.sidebar?.focusPanel('paint');
     this.onSidebarPaintModeChange(mode);
+    this.closeExportPopup();
+  }
+
+  openPresetPanel(): void {
+    this.activeSidebarPanel = 'presets';
+    this.sidebar?.focusPanel('presets');
+    this.closeExportPopup();
   }
 
   onSidebarPanelChange(panel: SidebarPanelKey): void {
     this.activeSidebarPanel = panel;
+  }
+
+  toggleExportPopup(): void {
+    this.exportPopupOpen = !this.exportPopupOpen;
+  }
+
+  closeExportPopup(): void {
+    this.exportPopupOpen = false;
   }
 
   onSidebarPaintModeChange(mode: SidebarPaintMode): void {
@@ -934,6 +953,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    this.closeExportPopup();
     const issues = this.sceneService.validateDecorations();
     const summary = this.sceneService.buildValidationSummary(issues);
     this.validationIssues = issues;
@@ -951,7 +971,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.showStatus(successMessage);
     };
     this.pendingValidationLabel = actionLabel;
-    this.showStatus('Wykryto problemy z dekoracjami – sprawdź panel boczny.');
+    this.showStatus('Wykryto problemy z dekoracjami – sprawdź szczegóły w eksporcie.');
   }
 
   private clearPendingValidationAction(): void {

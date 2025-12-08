@@ -44,6 +44,15 @@
             <span class="icon-16" aria-hidden="true">💾</span>
             <span>Zapisz</span>
           </button>
+          <button
+            class="btn btn--ghost"
+            [class.btn--primary]="exportPopupOpen"
+            type="button"
+            (click)="toggleExportPopup()"
+          >
+            <span class="icon-16" aria-hidden="true">⤓</span>
+            <span>Eksport</span>
+          </button>
         </ng-template>
       </div>
     </div>
@@ -358,6 +367,9 @@
               <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="activeSidebarPanel === 'paint'" (click)="openPaintPanel()">
                 <span aria-hidden="true">🎨</span>
               </button>
+              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="activeSidebarPanel === 'presets'" (click)="openPresetPanel()">
+                <span aria-hidden="true">🍰</span>
+              </button>
               <div class="workspace-toolbar__divider"></div>
               <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('translate')">
                 <span aria-hidden="true">↕</span>
@@ -393,9 +405,6 @@
 
         <app-editor-sidebar
           [options]="options"
-          [validationSummary]="validationSummary"
-          [validationIssues]="validationIssues"
-          [pendingValidationLabel]="pendingValidationLabel"
           [authorModeEnabled]="authorModeEnabled"
           [paintingMode]="paintingMode"
           [paintColor]="paintColor"
@@ -406,18 +415,28 @@
           [paintingPowerEnabled]="paintingPowerEnabled"
           (optionsChange)="updateCakeOptions($event)"
           (addDecoration)="onAddDecoration($event)"
-          (validateDecorations)="onValidateDecorations()"
           (saveScene)="onSaveScene()"
           (applyCakePreset)="onApplyCakePreset($event)"
-          (proceedDespiteWarnings)="onProceedDespiteWarnings()"
-          (exportObj)="onExportObj()"
-          (exportStl)="onExportStl()"
-          (exportGltf)="onExportGltf()"
           (brushChange)="onSidebarBrushChange($event)"
           (paintModeChange)="onSidebarPaintModeChange($event)"
           (panelChange)="onSidebarPanelChange($event)"
           (paintingPowerChange)="onPaintingPowerChange($event)"
         ></app-editor-sidebar>
+      </div>
+
+      <div class="export-popover__backdrop" *ngIf="exportPopupOpen" (click)="closeExportPopup()"></div>
+      <div class="export-popover" *ngIf="exportPopupOpen" (click)="$event.stopPropagation()" role="dialog" aria-label="Eksport">
+        <app-sidebar-export-panel
+          [validationSummary]="validationSummary"
+          [validationIssues]="validationIssues"
+          [pendingValidationLabel]="pendingValidationLabel"
+          (validateDecorations)="onValidateDecorations()"
+          (proceedDespiteWarnings)="onProceedDespiteWarnings()"
+          (saveScene)="onSaveScene()"
+          (exportObj)="onExportObj()"
+          (exportStl)="onExportStl()"
+          (exportGltf)="onExportGltf()"
+        ></app-sidebar-export-panel>
       </div>
 
       <div
