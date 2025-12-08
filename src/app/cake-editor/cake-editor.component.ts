@@ -46,6 +46,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   mode: 'setup' | 'workspace' = 'setup';
   setupTab: 'cake' | 'texture' | 'color' | 'glaze' = 'cake';
   activeWorkspacePanel: 'decor' | 'paint' = 'decor';
+  workspaceTab: 'decor' | 'made' = 'decor';
   paintingMode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles' = 'decor3d';
   transformMode: 'translate' | 'rotate' | 'scale' = 'translate';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
@@ -192,6 +193,24 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   private contextMenuListener = (event: MouseEvent) => this.onContextMenu(event);
+
+  readonly madeCakesPresets = [
+    {
+      name: 'Waniliowy z polewą',
+      subtitle: 'Czekoladowo wiśniowy',
+      preview: '/assets/previews/library-cards0.png',
+    },
+    {
+      name: 'Truskawkowy',
+      subtitle: 'Pistacjowo owocowy',
+      preview: '/assets/previews/library-cards0.png',
+    },
+    {
+      name: 'Czekoladowy z posypką',
+      subtitle: 'Kremowy',
+      preview: '/assets/previews/library-cards0.png',
+    },
+  ];
 
   constructor(
     public sceneService: ThreeSceneService,
@@ -504,6 +523,13 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.activeWorkspacePanel = 'decor';
     this.paintingMode = 'decor3d';
     this.onTogglePaintMode(false);
+  }
+
+  selectWorkspaceTab(tab: 'decor' | 'made'): void {
+    this.workspaceTab = tab;
+    if (tab === 'made') {
+      this.activeWorkspacePanel = 'decor';
+    }
   }
 
   openPaintPanel(mode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles' = this.paintingMode): void {

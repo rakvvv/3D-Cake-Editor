@@ -1,10 +1,12 @@
 <div class="cake-editor">
   <header class="app-topbar">
     <div class="app-topbar__inner">
-      <div class="app-topbar__logo" aria-label="3D Cake Editor">🍰</div>
+      <div class="app-topbar__logo" aria-label="3D Cake Editor">
+        <img src="assets/ui/logo-coral.svg" alt="Logo" />
+      </div>
       <div class="app-topbar__spacer"></div>
       <button class="btn btn--ghost" type="button" (click)="goToProjects()">
-        <span class="icon-16" aria-hidden="true">←</span>
+        <img src="assets/ui/icons/left.svg" alt="" class="icon-16" />
         <span>My projects</span>
       </button>
     </div>
@@ -14,34 +16,55 @@
     <div class="editor-toolbar__inner">
       <div class="editor-toolbar__left">
         <button class="icon-button" type="button" (click)="goToProjects()">
-          <span class="icon-16" aria-hidden="true">←</span>
+          <img src="assets/ui/icons/arrow-left.svg" alt="" class="icon-16" />
           <span>Back</span>
         </button>
         <div class="workspace-toolbar__title">
-          <span class="workspace-toolbar__label">Tort</span>
+          <span class="workspace-toolbar__label">Project</span>
           <span class="workspace-toolbar__name">{{ projectName || 'UNTITLED' }}</span>
+        </div>
+
+        <div class="workspace-toolbar__tabs">
+          <div class="toggle-tab">
+            <button
+              class="toggle-tab__item"
+              [class.toggle-tab__item--active]="workspaceTab === 'decor'"
+              type="button"
+              (click)="selectWorkspaceTab('decor')"
+            >
+              Decor
+            </button>
+            <button
+              class="toggle-tab__item"
+              [class.toggle-tab__item--active]="workspaceTab === 'made'"
+              type="button"
+              (click)="selectWorkspaceTab('made')"
+            >
+              Made cakes
+            </button>
+          </div>
         </div>
       </div>
 
       <div class="editor-toolbar__right">
         <button class="btn btn--ghost icon-only" type="button" (click)="onToolbarResetCamera()" title="Resetuj widok">
-          <span class="icon-16" aria-hidden="true">⟳</span>
+          <img src="assets/ui/icons/undo.svg" alt="" class="icon-16" />
         </button>
         <button class="btn btn--ghost icon-only" type="button" title="Cofnij">
-          <span class="icon-16" aria-hidden="true">↶</span>
+          <img src="assets/ui/icons/undo.svg" alt="" class="icon-16" />
         </button>
         <button class="btn btn--ghost icon-only" type="button" title="Ponów">
-          <span class="icon-16" aria-hidden="true">↷</span>
+          <img src="assets/ui/icons/redo.svg" alt="" class="icon-16" />
         </button>
         <ng-container *ngIf="mode === 'setup'; else saveActions">
           <button class="btn btn--primary" type="button" (click)="continueToWorkspace()">
-            <span class="icon-16" aria-hidden="true">✔</span>
+            <img src="assets/ui/icons/check.svg" alt="" class="icon-16" />
             <span>Kontynuuj</span>
           </button>
         </ng-container>
         <ng-template #saveActions>
           <button class="btn btn--primary" type="button" (click)="onSaveScene()">
-            <span class="icon-16" aria-hidden="true">💾</span>
+            <img src="assets/ui/icons/save.svg" alt="" class="icon-16" />
             <span>Zapisz</span>
           </button>
         </ng-template>
@@ -54,19 +77,19 @@
       <div class="setup-layout">
         <aside class="setup-sidebar">
           <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'cake'" (click)="selectSetupTab('cake')">
-            <span class="icon-24" aria-hidden="true">🎂</span>
+            <img src="assets/ui/icons/cake.svg" alt="" class="icon-24" />
             <span>Tort</span>
           </button>
           <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'texture'" (click)="selectSetupTab('texture')">
-            <span class="icon-24" aria-hidden="true">🖼️</span>
+            <img src="assets/ui/icons/texture.svg" alt="" class="icon-24" />
             <span>Tekstura</span>
           </button>
           <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'color'" (click)="selectSetupTab('color')">
-            <span class="icon-24" aria-hidden="true">🌈</span>
+            <img src="assets/ui/icons/color.svg" alt="" class="icon-24" />
             <span>Kolor</span>
           </button>
           <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'glaze'" (click)="selectSetupTab('glaze')">
-            <span class="icon-24" aria-hidden="true">🍫</span>
+            <img src="assets/ui/icons/drip.svg" alt="" class="icon-24" />
             <span>Polewa</span>
           </button>
         </aside>
@@ -339,106 +362,126 @@
           </button>
         </aside>
 
-        <section class="workspace-viewport">
-          <div class="workspace-viewport__inner">
-            <div class="workspace-toolbar">
-              <button
-                class="workspace-toolbar__btn"
-                type="button"
-                [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'decor'"
-                (click)="openDecorPanel()"
-                [attr.aria-pressed]="activeWorkspacePanel === 'decor'"
-                title="Dekoracje"
-              >
-                <img src="assets/ui/icons/select.svg" alt="Dekoracje" class="icon-16" />
-              </button>
-              <button
-                class="workspace-toolbar__btn"
-                type="button"
-                [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'paint'"
-                (click)="openPaintPanel()"
-                [attr.aria-pressed]="activeWorkspacePanel === 'paint'"
-                title="Tryb malowania"
-              >
-                <img src="assets/ui/icons/grid.svg" alt="Tryb malowania" class="icon-16" />
-              </button>
-              <div class="workspace-toolbar__divider"></div>
-              <button
-                class="workspace-toolbar__btn"
-                type="button"
-                [class.workspace-toolbar__btn--active]="transformMode === 'translate'"
-                (click)="onTransformModeChange('translate')"
-                [attr.aria-pressed]="transformMode === 'translate'"
-                title="Przesuwanie"
-              >
-                <img src="assets/ui/icons/move.svg" alt="Move" class="icon-16" />
-              </button>
-              <button
-                class="workspace-toolbar__btn"
-                type="button"
-                [class.workspace-toolbar__btn--active]="transformMode === 'rotate'"
-                (click)="onTransformModeChange('rotate')"
-                [attr.aria-pressed]="transformMode === 'rotate'"
-                title="Obracanie"
-              >
-                <img src="assets/ui/icons/rotate.svg" alt="Rotate" class="icon-16" />
-              </button>
-              <button
-                class="workspace-toolbar__btn"
-                type="button"
-                [class.workspace-toolbar__btn--active]="transformMode === 'scale'"
-                (click)="onTransformModeChange('scale')"
-                [attr.aria-pressed]="transformMode === 'scale'"
-                title="Skalowanie"
-              >
-                <img src="assets/ui/icons/scale.svg" alt="Scale" class="icon-16" />
-              </button>
-            </div>
-
-            <div #canvasContainer class="workspace-viewport__canvas"></div>
-
-            <div class="viewport-bottom-bar">
-              <div class="viewport-camera">
-                <button class="btn btn--ghost icon-only" type="button" title="Orbit">
-                  <img src="assets/ui/icons/camera-orbit.svg" alt="Orbit" class="icon-16" />
+        <ng-container *ngIf="workspaceTab === 'decor'; else madeCakesTpl">
+          <section class="workspace-viewport">
+            <div class="workspace-viewport__inner">
+              <div class="workspace-toolbar">
+                <button
+                  class="workspace-toolbar__btn"
+                  type="button"
+                  [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'decor'"
+                  (click)="openDecorPanel()"
+                  [attr.aria-pressed]="activeWorkspacePanel === 'decor'"
+                  title="Dekoracje"
+                >
+                  <img src="assets/ui/icons/select.svg" alt="Dekoracje" class="icon-16" />
                 </button>
-                <button class="btn btn--ghost icon-only" type="button" title="Front">
-                  <img src="assets/ui/icons/camera-front.svg" alt="Front" class="icon-16" />
+                <button
+                  class="workspace-toolbar__btn"
+                  type="button"
+                  [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'paint'"
+                  (click)="openPaintPanel()"
+                  [attr.aria-pressed]="activeWorkspacePanel === 'paint'"
+                  title="Tryb malowania"
+                >
+                  <img src="assets/ui/icons/grid.svg" alt="Tryb malowania" class="icon-16" />
+                </button>
+                <div class="workspace-toolbar__divider"></div>
+                <button
+                  class="workspace-toolbar__btn"
+                  type="button"
+                  [class.workspace-toolbar__btn--active]="transformMode === 'translate'"
+                  (click)="onTransformModeChange('translate')"
+                  [attr.aria-pressed]="transformMode === 'translate'"
+                  title="Przesuwanie"
+                >
+                  <img src="assets/ui/icons/move.svg" alt="Move" class="icon-16" />
+                </button>
+                <button
+                  class="workspace-toolbar__btn"
+                  type="button"
+                  [class.workspace-toolbar__btn--active]="transformMode === 'rotate'"
+                  (click)="onTransformModeChange('rotate')"
+                  [attr.aria-pressed]="transformMode === 'rotate'"
+                  title="Obracanie"
+                >
+                  <img src="assets/ui/icons/rotate.svg" alt="Rotate" class="icon-16" />
+                </button>
+                <button
+                  class="workspace-toolbar__btn"
+                  type="button"
+                  [class.workspace-toolbar__btn--active]="transformMode === 'scale'"
+                  (click)="onTransformModeChange('scale')"
+                  [attr.aria-pressed]="transformMode === 'scale'"
+                  title="Skalowanie"
+                >
+                  <img src="assets/ui/icons/scale.svg" alt="Scale" class="icon-16" />
                 </button>
               </div>
-              <div class="select-row select-row--compact">
-                <div class="select-row__input">
-                  <span>Perspective</span>
-                  <img src="assets/ui/icons/caret-down.svg" alt="" class="icon-12" />
+
+              <div #canvasContainer class="workspace-viewport__canvas"></div>
+
+              <div class="viewport-bottom-bar">
+                <div class="viewport-camera">
+                  <button class="btn btn--ghost icon-only" type="button" title="Orbit">
+                    <img src="assets/ui/icons/camera-orbit.svg" alt="Orbit" class="icon-16" />
+                  </button>
+                  <button class="btn btn--ghost icon-only" type="button" title="Front">
+                    <img src="assets/ui/icons/camera-front.svg" alt="Front" class="icon-16" />
+                  </button>
+                </div>
+                <div class="select-row select-row--compact">
+                  <div class="select-row__input">
+                    <span>Perspective</span>
+                    <img src="assets/ui/icons/caret-down.svg" alt="" class="icon-12" />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section class="workspace-panel" *ngIf="activeWorkspacePanel === 'decor'">
-          <app-decorations-panel
-            [decorationsService]="decorationsService"
-            [options]="options"
-            [validationSummary]="validationSummary"
-            [validationIssues]="validationIssues"
-            [pendingActionLabel]="pendingValidationLabel"
-            [authorModeEnabled]="authorModeEnabled"
-            (addDecoration)="onAddDecoration($event)"
-            (validateDecorations)="onValidateDecorations()"
-            (transformModeChange)="onTransformModeChange($event)"
-            (proceedDespiteWarnings)="onProceedDespiteWarnings()"
-          ></app-decorations-panel>
-        </section>
+          <section class="workspace-panel" *ngIf="activeWorkspacePanel === 'decor'">
+            <app-decorations-panel
+              [decorationsService]="decorationsService"
+              [options]="options"
+              [validationSummary]="validationSummary"
+              [validationIssues]="validationIssues"
+              [pendingActionLabel]="pendingValidationLabel"
+              [authorModeEnabled]="authorModeEnabled"
+              (addDecoration)="onAddDecoration($event)"
+              (validateDecorations)="onValidateDecorations()"
+              (transformModeChange)="onTransformModeChange($event)"
+              (proceedDespiteWarnings)="onProceedDespiteWarnings()"
+            ></app-decorations-panel>
+          </section>
 
-        <section class="workspace-panel" *ngIf="activeWorkspacePanel === 'paint'">
-          <app-paint-panel
-            [paintService]="paintService"
-            [decorationsService]="decorationsService"
-            (paintModeChange)="onTogglePaintMode($event)"
-            (brushChange)="onBrushChanged($event)"
-          ></app-paint-panel>
-        </section>
+          <section class="workspace-panel" *ngIf="activeWorkspacePanel === 'paint'">
+            <app-paint-panel
+              [paintService]="paintService"
+              [decorationsService]="decorationsService"
+              (paintModeChange)="onTogglePaintMode($event)"
+              (brushChange)="onBrushChanged($event)"
+            ></app-paint-panel>
+          </section>
+        </ng-container>
+
+        <ng-template #madeCakesTpl>
+          <section class="workspace-viewport workspace-viewport--gallery">
+            <div class="ready-cakes-grid">
+              <article class="ready-cake" *ngFor="let preset of madeCakesPresets">
+                <div class="ready-cake__preview" [style.background-image]="'url(' + preset.preview + ')'" aria-hidden="true"></div>
+                <div class="ready-cake__body">
+                  <div class="ready-cake__title">{{ preset.name }}</div>
+                  <div class="ready-cake__subtitle">{{ preset.subtitle }}</div>
+                  <div class="ready-cake__actions">
+                    <button class="btn btn--ghost btn--small" type="button">Wybierz</button>
+                    <button class="btn btn--primary btn--small" type="button">Modyfikuj</button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+        </ng-template>
       </div>
     </ng-template>
   </ng-container>
