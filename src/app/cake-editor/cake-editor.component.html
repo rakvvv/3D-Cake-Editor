@@ -451,36 +451,103 @@
         [style.top.px]="contextMenuY"
         role="menu"
       >
-        <div class="context-menu__group" *ngIf="contextMenuHasSelection">
-          <button type="button" (click)="onContextSnapToCake()" [disabled]="!contextMenuCanSnap">Snap do tortu</button>
-          <button type="button" (click)="onContextSnapToTop()" [disabled]="!contextMenuCanSnap">Snap do góry</button>
-          <button type="button" (click)="onContextSnapToSide()" [disabled]="!contextMenuCanSnap">Snap do boku</button>
-          <button type="button" (click)="onContextAlignToSurface()">Wyrównaj</button>
-        </div>
-
-        <div class="context-menu__group" *ngIf="contextMenuHasSelection">
-          <button type="button" (click)="onContextRotateQuarter(1)">Obrót 90°</button>
-          <button type="button" (click)="onContextRotateHalf()">Obrót 180°</button>
-          <button type="button" (click)="onContextResetOrientation()">Reset orientacji</button>
-        </div>
-
-        <div class="context-menu__group" *ngIf="contextMenuHasSelection">
-          <button type="button" (click)="onContextCopyDecoration()">Kopiuj</button>
-          <button type="button" (click)="onContextPasteDecoration()">Wklej</button>
-          <button type="button" (click)="onContextDeleteDecoration()">Usuń</button>
-        </div>
-
-        <div class="context-menu__group" *ngIf="contextMenuHasSelection">
-          <button type="button" (click)="sceneService.isSelectedDecorationLocked() ? onContextUnlockDecoration() : onContextLockDecoration()">
-            {{ sceneService.isSelectedDecorationLocked() ? 'Odblokuj' : 'Zablokuj' }}
+        <button type="button" (click)="onContextResetCamera()">Resetuj widok kamery</button>
+        <button type="button" (click)="onContextDeselectDecoration()" [disabled]="!contextMenuHasSelection">
+          Odznacz dekorację
+        </button>
+        <div class="context-menu__separator" aria-hidden="true"></div>
+        <button type="button" (click)="onContextSnapToCake()" [disabled]="!contextMenuCanSnap">Przyczep do tortu</button>
+        <button type="button" (click)="onContextSnapToTop()" [disabled]="!contextMenuCanSnap">Przyczep do góry tortu</button>
+        <button type="button" (click)="onContextSnapToSide()" [disabled]="!contextMenuCanSnap">Przyczep do boku tortu</button>
+        <button
+          type="button"
+          (click)="onContextLockDecoration()"
+          [disabled]="!contextMenuHasSelection || contextMenuIsLocked"
+        >
+          Zablokuj przesuwanie
+        </button>
+        <button
+          type="button"
+          (click)="onContextUnlockDecoration()"
+          [disabled]="!contextMenuIsLocked"
+        >
+          Odblokuj przesuwanie
+        </button>
+        <button type="button" (click)="onContextDeleteDecoration()" [disabled]="!contextMenuHasSelection">
+          Usuń
+        </button>
+        <div class="context-menu__separator" aria-hidden="true"></div>
+        <button type="button" (click)="onContextCopyDecoration()" [disabled]="!contextMenuHasSelection">
+          Kopiuj
+        </button>
+        <button
+          type="button"
+          (click)="onContextPasteDecoration()"
+          [disabled]="!sceneService.hasCopiedDecoration()"
+        >
+          Wklej
+        </button>
+        <div class="context-menu__separator" aria-hidden="true"></div>
+        <div class="context-menu__item context-menu__item--submenu" [class.context-menu__item--inactive]="!contextMenuHasSelection">
+          <button type="button" class="context-menu__submenu-trigger" [disabled]="!contextMenuHasSelection">
+            Orientacja
+            <span aria-hidden="true" class="context-menu__submenu-arrow">▶</span>
           </button>
-          <button type="button" (click)="onContextDeselectDecoration()">Odznacz</button>
-        </div>
-
-        <div class="context-menu__group">
-          <button type="button" (click)="onContextResetCamera()">Resetuj kamerę</button>
+          <div class="context-menu__submenu" role="menu">
+            <button type="button" (click)="onContextAlignToSurface()" [disabled]="!contextMenuHasSelection">
+              Wyrównaj do powierzchni
+            </button>
+            <div class="context-menu__submenu-grid">
+              <button type="button" (click)="onContextRotateQuarter(1)" [disabled]="!contextMenuHasSelection">
+                Obróć 90° w prawo
+              </button>
+              <button type="button" (click)="onContextRotateQuarter(-1)" [disabled]="!contextMenuHasSelection">
+                Obróć 90° w lewo
+              </button>
+              <button type="button" (click)="onContextRotateDegrees(45)" [disabled]="!contextMenuHasSelection">
+                Obróć 45° w prawo
+              </button>
+              <button type="button" (click)="onContextRotateDegrees(-45)" [disabled]="!contextMenuHasSelection">
+                Obróć 45° w lewo
+              </button>
+              <button type="button" (click)="onContextRotateDegrees(30)" [disabled]="!contextMenuHasSelection">
+                Obróć 30° w prawo
+              </button>
+              <button type="button" (click)="onContextRotateDegrees(-30)" [disabled]="!contextMenuHasSelection">
+                Obróć 30° w lewo
+              </button>
+            </div>
+            <button type="button" (click)="onContextRotateHalf()" [disabled]="!contextMenuHasSelection">
+              Obróć 180°
+            </button>
+            <button type="button" (click)="onContextResetOrientation()" [disabled]="!contextMenuHasSelection">
+              Ustaw pionowo
+            </button>
+          </div>
         </div>
       </div>
+
+      <div class="viewport-selection" *ngIf="selectedSceneNode as activeSelection">
+        <div class="viewport-selection__title">{{ activeSelection.name }}</div>
+        <div class="viewport-selection__actions">
+          <button type="button" class="btn btn--ghost" (click)="toggleSelectedVisibility()">
+            {{ activeSelection.visible ? 'Ukryj' : 'Pokaż' }}
+          </button>
+          <button type="button" class="btn btn--ghost" (click)="toggleSelectedLock()">
+            {{ sceneService.isSelectedDecorationLocked() ? 'Odblokuj' : 'Zablokuj' }}
+          </button>
+          <button type="button" class="btn btn--ghost" (click)="onContextCopyDecoration()">Kopiuj</button>
+          <button type="button" class="btn btn--ghost" (click)="onContextDeleteDecoration()">Usuń</button>
+        </div>
+        <div class="viewport-selection__quick">
+          <button type="button" class="btn btn--secondary" (click)="onContextSnapToTop()">Góra</button>
+          <button type="button" class="btn btn--secondary" (click)="onContextSnapToSide()">Bok</button>
+          <button type="button" class="btn btn--secondary" (click)="onContextAlignToSurface()">Wyrównaj</button>
+          <button type="button" class="btn btn--secondary" (click)="onContextResetOrientation()">Reset orientacji</button>
+        </div>
+      </div>
+
+      <div *ngIf="statusMessage" class="status-banner">{{ statusMessage }}</div>
     </ng-template>
 
 <ng-template #sceneNodeTpl let-node="node">

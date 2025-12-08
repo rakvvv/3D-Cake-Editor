@@ -172,7 +172,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public contextMenuHasSelection = false;
   public contextMenuCanSnap = false;
   public contextMenuIsLocked = false;
-  public sceneTreeScale = 1;
+  public sceneTreeScale = 0.95;
 
   public sceneOutline: SceneOutlineNode | null = null;
   public sceneSelectedNodeId: string | null = null;
