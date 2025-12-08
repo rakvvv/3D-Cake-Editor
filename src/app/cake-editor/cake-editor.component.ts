@@ -924,7 +924,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.rightClickDrag = undefined;
       return;
     }
-    if (this.sceneService.isOrbitBusy() || (this.paintService.paintMode && this.paintService.isPainting)) {
+    const orbitBusy = this.sceneService.isOrbitBusy();
+    const paintBusy = this.paintService.paintMode && this.paintService.isPainting;
+    if ((orbitBusy && (!this.rightClickDrag || this.rightClickDrag.moved)) || paintBusy) {
       this.hideContextMenu();
       return;
     }
