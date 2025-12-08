@@ -123,7 +123,7 @@
                 <div class="color-row">
                   <span class="color-row__label">Podstawowy</span>
                   <div class="color-row__input">
-                    <span class="icon-16" aria-hidden="true">#</span>
+                    <input type="color" [ngModel]="primaryColor" (input)="setCakeColor($event.target.value)" />
                     <input type="text" [ngModel]="primaryColor" (ngModelChange)="setCakeColor($event)" />
                   </div>
                   <div class="color-swatch" [style.background]="primaryColor"></div>
@@ -148,7 +148,7 @@
                 <div class="color-row">
                   <span class="color-row__label">Pierwszy kolor</span>
                   <div class="color-row__input">
-                    <span class="icon-16" aria-hidden="true">#</span>
+                    <input type="color" [ngModel]="gradientFirst" (input)="setGradientColor('first', $event.target.value)" />
                     <input type="text" [ngModel]="gradientFirst" (ngModelChange)="setGradientColor('first', $event)" />
                   </div>
                   <div class="color-swatch" [style.background]="gradientFirst"></div>
@@ -156,7 +156,7 @@
                 <div class="color-row">
                   <span class="color-row__label">Drugi kolor</span>
                   <div class="color-row__input">
-                    <span class="icon-16" aria-hidden="true">#</span>
+                    <input type="color" [ngModel]="gradientSecond" (input)="setGradientColor('second', $event.target.value)" />
                     <input type="text" [ngModel]="gradientSecond" (ngModelChange)="setGradientColor('second', $event)" />
                   </div>
                   <div class="color-swatch" [style.background]="gradientSecond"></div>
@@ -175,7 +175,7 @@
                 <div class="color-row">
                   <span class="color-row__label">Kolor polewy</span>
                   <div class="color-row__input">
-                    <span class="icon-16" aria-hidden="true">#</span>
+                    <input type="color" [ngModel]="options.glaze_color" (input)="setGlazeColor($event.target.value)" />
                     <input type="text" [ngModel]="options.glaze_color" (ngModelChange)="setGlazeColor($event)" />
                   </div>
                   <div class="color-swatch" [style.background]="options.glaze_color"></div>
@@ -195,12 +195,15 @@
                 </div>
                 <div class="file-row">
                   <span class="color-row__label">Wybierz obraz</span>
-                  <button class="file-input" type="button">Wybierz plik</button>
+                  <label class="file-input">
+                    <input type="file" (change)="onWaferFileSelected($event)" hidden />
+                    <span>Wybierz plik</span>
+                  </label>
                 </div>
                 <div class="color-row">
                   <span class="color-row__label">Lights color</span>
                   <div class="color-row__input">
-                    <span class="icon-16" aria-hidden="true">#</span>
+                    <input type="color" [ngModel]="options.glaze_color" (input)="setWaferColor($event.target.value)" />
                     <input type="text" [ngModel]="options.glaze_color" (ngModelChange)="setWaferColor($event)" />
                   </div>
                   <div class="color-swatch" [style.background]="options.glaze_color"></div>
@@ -242,13 +245,13 @@
         <section class="workspace-viewport">
           <div class="workspace-viewport__inner">
             <div class="workspace-toolbar">
-              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="paintingMode === 'decor3d'" (click)="selectPaintingMode('decor3d'); onTogglePaintMode(false)">
+              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="decorPanelOpen" (click)="toggleDecorPanel()">
                 <span aria-hidden="true">🧁</span>
               </button>
-              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="paintingMode === 'brush'" (click)="selectPaintingMode('brush'); onTogglePaintMode(true)">
+              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="paintingMode === 'brush' && paintPanelOpen" (click)="togglePaintPanel('brush')">
                 <span aria-hidden="true">🖌️</span>
               </button>
-              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="paintingMode === 'extruder'" (click)="selectPaintingMode('extruder'); onTogglePaintMode(true)">
+              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="paintingMode === 'extruder' && paintPanelOpen" (click)="togglePaintPanel('extruder')">
                 <span aria-hidden="true">🧴</span>
               </button>
               <div class="workspace-toolbar__divider"></div>
@@ -284,7 +287,7 @@
           </div>
         </section>
 
-        <section class="workspace-panel">
+        <section class="workspace-panel" *ngIf="decorPanelOpen || paintPanelOpen">
           <header class="workspace-panel__header">
             <div class="toggle-tab">
               <button class="toggle-tab__item" [class.toggle-tab__item--active]="workspaceTab === 'decor'" type="button" (click)="selectWorkspaceTab('decor')">Decor</button>
@@ -297,18 +300,18 @@
             <div class="panel-block">
               <div class="panel-block__header">
                 <div class="panel-block__title">Tryby malowania</div>
-                <button class="btn-toggle" type="button" (click)="onTogglePaintMode(paintingMode !== 'decor3d')">
+                <button class="btn-toggle" type="button" (click)="paintPanelOpen ? onTogglePaintMode(false) : onTogglePaintMode(true)">
                   <span class="icon-16" aria-hidden="true">⏻</span>
                 </button>
               </div>
               <div class="toggle-tab">
-                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'decor3d'" type="button" (click)="selectPaintingMode('decor3d'); onTogglePaintMode(false)">Dekoracje 3D</button>
-                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'brush'" type="button" (click)="selectPaintingMode('brush'); onTogglePaintMode(true)">Pisak</button>
-                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'extruder'" type="button" (click)="selectPaintingMode('extruder'); onTogglePaintMode(true)">Ekstruder</button>
+                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'decor3d'" type="button" (click)="toggleDecorPanel()">Dekoracje 3D</button>
+                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'brush'" type="button" (click)="togglePaintPanel('brush')">Pisak</button>
+                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'extruder'" type="button" (click)="togglePaintPanel('extruder')">Ekstruder</button>
               </div>
             </div>
 
-            <div class="panel-card" *ngIf="paintingMode === 'decor3d'">
+            <div class="panel-card" *ngIf="paintingMode === 'decor3d' && decorPanelOpen">
               <div class="panel-block__header">
                 <div class="panel-block__title">Dekoracje</div>
                 <button class="btn btn--ghost btn--small" type="button">
@@ -356,14 +359,14 @@
               </div>
             </div>
 
-            <div class="panel-card" *ngIf="paintingMode === 'brush'">
+            <div class="panel-card" *ngIf="paintingMode === 'brush' && paintPanelOpen">
               <div class="panel-block__header">
                 <div class="panel-block__title">Smugi (pędzel)</div>
               </div>
               <div class="color-row">
                 <span class="color-row__label">Kolor kremu</span>
                 <div class="color-row__input">
-                  <span class="icon-16" aria-hidden="true">#</span>
+                  <input type="color" [ngModel]="primaryColor" (input)="setCakeColor($event.target.value)" />
                   <input type="text" [ngModel]="primaryColor" (ngModelChange)="setCakeColor($event)" />
                 </div>
                 <div class="color-swatch" [style.background]="primaryColor"></div>
@@ -375,7 +378,7 @@
               </div>
             </div>
 
-            <div class="panel-card" *ngIf="paintingMode === 'extruder'">
+            <div class="panel-card" *ngIf="paintingMode === 'extruder' && paintPanelOpen">
               <div class="panel-block__header">
                 <div class="panel-block__title">Ekstruder</div>
               </div>

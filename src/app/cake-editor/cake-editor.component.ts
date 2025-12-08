@@ -30,6 +30,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   setupTab: 'cake' | 'texture' | 'color' | 'glaze' = 'cake';
   workspaceTab: 'decor' | 'made' = 'decor';
   paintingMode: 'decor3d' | 'brush' | 'extruder' = 'decor3d';
+  decorPanelOpen = true;
+  paintPanelOpen = false;
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
   selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
   selectedLayers = 1;
@@ -55,13 +57,60 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     },
     {
       id: 'choco-02',
-      name: 'Czekolada',
-      preview: 'assets/textures/Chocolate 02_Albedo.jpg',
+      name: 'Czekolada 02',
+      preview: 'assets/textures/Chocolate%2002_Albedo.jpg',
       maps: {
-        baseColor: 'assets/textures/Chocolate 02_Albedo.jpg',
-        normal: 'assets/textures/Chocolate 02_Normal.jpg',
-        roughness: 'assets/textures/Chocolate 02_Roughness.jpg',
-        displacement: 'assets/textures/Chocolate 02_Displacement.jpg',
+        baseColor: 'assets/textures/Chocolate%2002_Albedo.jpg',
+        normal: 'assets/textures/Chocolate%2002_Normal.jpg',
+        roughness: 'assets/textures/Chocolate%2002_Roughness.jpg',
+        displacement: 'assets/textures/Chocolate%2002_Displacement.jpg',
+      } as TextureMaps,
+    },
+    {
+      id: 'choco-03',
+      name: 'Czekolada 03',
+      preview: 'assets/textures/Chocolate%2003_Albedo.jpg',
+      maps: {
+        baseColor: 'assets/textures/Chocolate%2003_Albedo.jpg',
+        normal: 'assets/textures/Chocolate%2003_Normal.jpg',
+        roughness: 'assets/textures/Chocolate%2003_Roughness.jpg',
+        displacement: 'assets/textures/Chocolate%2003_Displacement.jpg',
+      } as TextureMaps,
+    },
+    {
+      id: 'food-choco',
+      name: 'Tabliczka',
+      preview: 'assets/textures/Food_Chocolate_basecolor.jpg',
+      maps: {
+        baseColor: 'assets/textures/Food_Chocolate_basecolor.jpg',
+        normal: 'assets/textures/Food_Chocolate_normal.jpg',
+        roughness: 'assets/textures/Food_Chocolate_roughness.jpg',
+        displacement: 'assets/textures/Food_Chocolate_height.jpg',
+        ambientOcclusion: 'assets/textures/Food_Chocolate_ambientocclusion.jpg',
+      } as TextureMaps,
+    },
+    {
+      id: 'pink-candy',
+      name: 'Pink Candy',
+      preview: 'assets/textures/Pink%20Candy_BaseColor.jpg',
+      maps: {
+        baseColor: 'assets/textures/Pink%20Candy_BaseColor.jpg',
+        normal: 'assets/textures/Pink%20Candy_Normal.jpg',
+        roughness: 'assets/textures/Pink%20Candy_Roughness.jpg',
+        alpha: 'assets/textures/Pink%20Candy_Alpha.jpg',
+        emissive: 'assets/textures/Pink%20Candy_Emissive.jpg',
+        metallic: 'assets/textures/Pink%20Candy_Metallic.jpg',
+        displacement: 'assets/textures/Pink%20Candy_Displacement.jpg',
+      } as TextureMaps,
+    },
+    {
+      id: 'pink-frosting',
+      name: 'Pink Frosting',
+      preview: 'assets/textures/Pink_Cake_Frosting_01-diffuse.jpg',
+      maps: {
+        baseColor: 'assets/textures/Pink_Cake_Frosting_01-diffuse.jpg',
+        normal: 'assets/textures/Pink_Cake_Frosting_01-normal.jpg',
+        displacement: 'assets/textures/Pink_Cake_Frosting_01-bump.jpg',
       } as TextureMaps,
     },
   ];
@@ -134,7 +183,15 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.loadProject(this.currentProjectId);
     } else {
       this.loadingProject = false;
-      this.loadError = 'Nie znaleziono projektu.';
+      this.loadError = null;
+      this.pendingPreset = {
+        id: 'new-project',
+        name: 'Nowy tort',
+        options: cloneCakeOptions(DEFAULT_CAKE_OPTIONS),
+        decorations: [],
+      };
+      this.options = cloneCakeOptions(DEFAULT_CAKE_OPTIONS);
+      this.maybeInitializeScene();
     }
 
     this.syncSetupStateWithOptions();
@@ -247,6 +304,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   continueToWorkspace(): void {
     this.mode = 'workspace';
+    this.decorPanelOpen = true;
+    this.paintPanelOpen = false;
+    this.maybeInitializeScene();
   }
 
   selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze'): void {
@@ -254,9 +314,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectCakeSize(size: 'small' | 'medium' | 'large'): void {
-    const mappedSize = size === 'small' ? 0.9 : size === 'large' ? 1.1 : 1;
     this.selectedCakeSize = size;
-    this.patchOptions({ cake_size: mappedSize });
+    this.applyLayerSizing(this.selectedLayers, this.getBaseWidth(size));
   }
 
   selectShape(shape: 'cylinder' | 'cuboid'): void {
@@ -266,8 +325,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   selectLayers(layers: number): void {
     this.selectedLayers = layers;
-    const sizes = Array.from({ length: layers }, () => 1);
-    this.patchOptions({ layers, layerSizes: sizes });
+    this.applyLayerSizing(layers, this.getBaseWidth());
   }
 
   selectTexture(textureId: string): void {
@@ -304,7 +362,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleGradient(enabled: boolean): void {
     this.gradientEnabled = enabled;
     if (enabled) {
-      this.patchOptions({ cake_color: this.gradientFirst, cake_textures: this.options.cake_textures ?? null });
+      this.patchOptions({
+        cake_color: this.gradientFirst,
+        cake_textures: this.options.cake_textures ?? null,
+      });
     } else {
       this.patchOptions({ cake_color: this.primaryColor });
     }
@@ -330,7 +391,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleWafer(enabled: boolean): void {
     this.waferEnabled = enabled;
-    this.patchOptions({ wafer_texture_url: enabled ? 'assets/textures/Pink Candy_BaseColor.jpg' : null });
+    const fallback = this.options.wafer_texture_url ?? 'assets/textures/Pink%20Candy_BaseColor.jpg';
+    this.patchOptions({ wafer_texture_url: enabled ? fallback : null });
   }
 
   setWaferColor(color: string): void {
@@ -339,8 +401,48 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private getBaseWidth(size: 'small' | 'medium' | 'large' = this.selectedCakeSize): number {
+    if (size === 'small') return 0.9;
+    if (size === 'large') return 1.2;
+    return 1;
+  }
+
+  private applyLayerSizing(layers: number, baseWidth: number): void {
+    const step = 0.15;
+    const sizes = Array.from({ length: layers }, (_, idx) => Math.max(0.5, baseWidth * (1 - idx * step)));
+    this.patchOptions({ layers, layerSizes: sizes, cake_size: 1 });
+  }
+
+  onWaferFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      this.patchOptions({ wafer_texture_url: result });
+    };
+    reader.readAsDataURL(file);
+  }
+
   selectPaintingMode(mode: 'decor3d' | 'brush' | 'extruder'): void {
     this.paintingMode = mode;
+  }
+
+  toggleDecorPanel(): void {
+    this.paintingMode = 'decor3d';
+    this.decorPanelOpen = !this.decorPanelOpen || !this.paintPanelOpen;
+    this.paintPanelOpen = false;
+    this.onTogglePaintMode(false);
+  }
+
+  togglePaintPanel(mode: 'brush' | 'extruder'): void {
+    const isSameMode = this.paintingMode === mode && this.paintPanelOpen;
+    this.paintingMode = mode;
+    this.paintPanelOpen = !isSameMode;
+    this.decorPanelOpen = false;
+    this.onTogglePaintMode(true);
   }
 
   selectWorkspaceTab(tab: 'decor' | 'made'): void {
@@ -655,7 +757,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private syncSetupStateWithOptions(): void {
-    this.selectedCakeSize = this.options.cake_size < 1 ? 'small' : this.options.cake_size > 1 ? 'large' : 'medium';
+    const baseLayer = this.options.layerSizes?.[0] ?? 1;
+    this.selectedCakeSize = baseLayer < 0.95 ? 'small' : baseLayer > 1.05 ? 'large' : 'medium';
     this.selectedShape = this.options.shape;
     this.selectedLayers = this.options.layers;
     this.primaryColor = this.options.cake_color;
