@@ -843,3 +843,117 @@
 .editor-error {
   color: #ffb4b4;
 }
+
+/* Fallback icon set (inline, no external assets) */
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.icon-12 {
+  width: 12px;
+  height: 12px;
+  font-size: 10px;
+}
+
+.icon-16 {
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+}
+
+.icon-24 {
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+}
+
+.icon--logo::before {
+  content: '\1F370';
+}
+
+.icon--arrow-left::before {
+  content: '\2190';
+}
+
+.icon--undo::before {
+  content: '\27F2';
+}
+
+.icon--redo::before {
+  content: '\27F3';
+}
+
+.icon--check::before {
+  content: '\2713';
+}
+
+.icon--save::before {
+  content: '\1F4BE';
+}
+
+.icon--cake::before {
+  content: '\1F382';
+}
+
+.icon--texture::before {
+  content: '\25A9';
+}
+
+.icon--color::before {
+  content: '\1F3A8';
+}
+
+.icon--drip::before {
+  content: '\1F4A7';
+}
+
+.icon--scene::before {
+  content: '\1F5C2';
+}
+
+.icon--plus::before {
+  content: '+';
+}
+
+.icon--select::before {
+  content: '\2727';
+}
+
+.icon--grid::before {
+  content: '\25A6';
+}
+
+.icon--move::before {
+  content: '\2195';
+}
+
+.icon--rotate::before {
+  content: '\21BB';
+}
+
+.icon--scale::before {
+  content: '\2B0C';
+}
+
+.icon--eye::before {
+  content: '\25D5';
+}
+
+.icon--camera-orbit::before {
+  content: '\25CE';
+}
+
+.icon--camera-front::before {
+  content: '\25A3';
+}
+
+.icon--caret::before {
+  content: '\2304';
+}

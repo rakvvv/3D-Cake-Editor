@@ -2,11 +2,11 @@
   <header class="app-topbar">
     <div class="app-topbar__inner">
       <div class="app-topbar__logo" aria-label="3D Cake Editor">
-        <img src="assets/ui/logo-coral.svg" alt="Logo" />
+        <span class="icon icon-24 icon--logo" aria-hidden="true"></span>
       </div>
       <div class="app-topbar__spacer"></div>
       <button class="btn btn--ghost" type="button" (click)="goToProjects()">
-        <img src="assets/ui/icons/left.svg" alt="" class="icon-16" />
+        <span class="icon icon-16 icon--arrow-left" aria-hidden="true"></span>
         <span>My projects</span>
       </button>
     </div>
@@ -16,7 +16,7 @@
     <div class="editor-toolbar__inner">
       <div class="editor-toolbar__left">
         <button class="icon-button" type="button" (click)="goToProjects()">
-          <img src="assets/ui/icons/arrow-left.svg" alt="" class="icon-16" />
+          <span class="icon icon-16 icon--arrow-left" aria-hidden="true"></span>
           <span>Back</span>
         </button>
         <div class="workspace-toolbar__title">
@@ -48,23 +48,23 @@
 
       <div class="editor-toolbar__right">
         <button class="btn btn--ghost icon-only" type="button" (click)="onToolbarResetCamera()" title="Resetuj widok">
-          <img src="assets/ui/icons/undo.svg" alt="" class="icon-16" />
+          <span class="icon icon-16 icon--undo" aria-hidden="true"></span>
         </button>
         <button class="btn btn--ghost icon-only" type="button" title="Cofnij">
-          <img src="assets/ui/icons/undo.svg" alt="" class="icon-16" />
+          <span class="icon icon-16 icon--undo" aria-hidden="true"></span>
         </button>
         <button class="btn btn--ghost icon-only" type="button" title="Ponów">
-          <img src="assets/ui/icons/redo.svg" alt="" class="icon-16" />
+          <span class="icon icon-16 icon--redo" aria-hidden="true"></span>
         </button>
         <ng-container *ngIf="mode === 'setup'; else saveActions">
           <button class="btn btn--primary" type="button" (click)="continueToWorkspace()">
-            <img src="assets/ui/icons/check.svg" alt="" class="icon-16" />
+            <span class="icon icon-16 icon--check" aria-hidden="true"></span>
             <span>Kontynuuj</span>
           </button>
         </ng-container>
         <ng-template #saveActions>
           <button class="btn btn--primary" type="button" (click)="onSaveScene()">
-            <img src="assets/ui/icons/save.svg" alt="" class="icon-16" />
+            <span class="icon icon-16 icon--save" aria-hidden="true"></span>
             <span>Zapisz</span>
           </button>
         </ng-template>
@@ -77,19 +77,19 @@
       <div class="setup-layout">
         <aside class="setup-sidebar">
           <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'cake'" (click)="selectSetupTab('cake')">
-            <img src="assets/ui/icons/cake.svg" alt="" class="icon-24" />
+            <span class="icon icon-24 icon--cake" aria-hidden="true"></span>
             <span>Tort</span>
           </button>
           <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'texture'" (click)="selectSetupTab('texture')">
-            <img src="assets/ui/icons/texture.svg" alt="" class="icon-24" />
+            <span class="icon icon-24 icon--texture" aria-hidden="true"></span>
             <span>Tekstura</span>
           </button>
           <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'color'" (click)="selectSetupTab('color')">
-            <img src="assets/ui/icons/color.svg" alt="" class="icon-24" />
+            <span class="icon icon-24 icon--color" aria-hidden="true"></span>
             <span>Kolor</span>
           </button>
           <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'glaze'" (click)="selectSetupTab('glaze')">
-            <img src="assets/ui/icons/drip.svg" alt="" class="icon-24" />
+            <span class="icon icon-24 icon--drip" aria-hidden="true"></span>
             <span>Polewa</span>
           </button>
         </aside>
@@ -344,11 +344,11 @@
         <aside class="workspace-sidebar">
           <div class="workspace-sidebar__header">
             <div class="section-header">
-              <img src="assets/ui/icons/scene.svg" alt="" class="section-header__icon" />
+              <span class="icon section-header__icon icon--scene" aria-hidden="true"></span>
               <h2 class="section-header__title">Scene</h2>
             </div>
             <button class="btn btn--ghost icon-only" type="button" (click)="onSaveScene()" aria-label="Dodaj element">
-              <img src="assets/ui/icons/plus.svg" alt="" class="icon-16" />
+              <span class="icon icon-16 icon--plus" aria-hidden="true"></span>
             </button>
           </div>
 
@@ -357,7 +357,7 @@
           </div>
 
           <button class="btn btn--primary workspace-sidebar__save" type="button" (click)="onSaveScene()">
-            <img src="assets/ui/icons/save.svg" alt="" class="icon-16" />
+            <span class="icon icon-16 icon--save" aria-hidden="true"></span>
             <span>Zapisz</span>
           </button>
         </aside>
@@ -374,7 +374,7 @@
                   [attr.aria-pressed]="activeWorkspacePanel === 'decor'"
                   title="Dekoracje"
                 >
-                  <img src="assets/ui/icons/select.svg" alt="Dekoracje" class="icon-16" />
+                  <span class="icon icon-16 icon--select" aria-hidden="true"></span>
                 </button>
                 <button
                   class="workspace-toolbar__btn"
@@ -384,7 +384,7 @@
                   [attr.aria-pressed]="activeWorkspacePanel === 'paint'"
                   title="Tryb malowania"
                 >
-                  <img src="assets/ui/icons/grid.svg" alt="Tryb malowania" class="icon-16" />
+                  <span class="icon icon-16 icon--grid" aria-hidden="true"></span>
                 </button>
                 <div class="workspace-toolbar__divider"></div>
                 <button
@@ -395,7 +395,7 @@
                   [attr.aria-pressed]="transformMode === 'translate'"
                   title="Przesuwanie"
                 >
-                  <img src="assets/ui/icons/move.svg" alt="Move" class="icon-16" />
+                  <span class="icon icon-16 icon--move" aria-hidden="true"></span>
                 </button>
                 <button
                   class="workspace-toolbar__btn"
@@ -405,7 +405,7 @@
                   [attr.aria-pressed]="transformMode === 'rotate'"
                   title="Obracanie"
                 >
-                  <img src="assets/ui/icons/rotate.svg" alt="Rotate" class="icon-16" />
+                  <span class="icon icon-16 icon--rotate" aria-hidden="true"></span>
                 </button>
                 <button
                   class="workspace-toolbar__btn"
@@ -415,7 +415,7 @@
                   [attr.aria-pressed]="transformMode === 'scale'"
                   title="Skalowanie"
                 >
-                  <img src="assets/ui/icons/scale.svg" alt="Scale" class="icon-16" />
+                  <span class="icon icon-16 icon--scale" aria-hidden="true"></span>
                 </button>
               </div>
 
@@ -424,16 +424,16 @@
               <div class="viewport-bottom-bar">
                 <div class="viewport-camera">
                   <button class="btn btn--ghost icon-only" type="button" title="Orbit">
-                    <img src="assets/ui/icons/camera-orbit.svg" alt="Orbit" class="icon-16" />
+                    <span class="icon icon-16 icon--camera-orbit" aria-hidden="true"></span>
                   </button>
                   <button class="btn btn--ghost icon-only" type="button" title="Front">
-                    <img src="assets/ui/icons/camera-front.svg" alt="Front" class="icon-16" />
+                    <span class="icon icon-16 icon--camera-front" aria-hidden="true"></span>
                   </button>
                 </div>
                 <div class="select-row select-row--compact">
                   <div class="select-row__input">
                     <span>Perspective</span>
-                    <img src="assets/ui/icons/caret-down.svg" alt="" class="icon-12" />
+                    <span class="icon icon-12 icon--caret" aria-hidden="true"></span>
                   </div>
                 </div>
               </div>
