@@ -12,6 +12,8 @@ import {CommonModule, isPlatformBrowser} from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SceneOutlineComponent } from '../cake-sidebar/scene-outline/scene-outline.component';
+import { DecorationsPanelComponent } from '../cake-sidebar/decorations-panel/decorations-panel.component';
+import { PaintPanelComponent } from '../cake-sidebar/paint-panel/paint-panel.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
 import {PaintService} from '../services/paint.service';
@@ -30,15 +32,22 @@ import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-o
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, SceneOutlineComponent, FormsModule],
+  imports: [
+    CommonModule,
+    SceneOutlineComponent,
+    FormsModule,
+    DecorationsPanelComponent,
+    PaintPanelComponent,
+  ],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
 export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   mode: 'setup' | 'workspace' = 'setup';
   setupTab: 'cake' | 'texture' | 'color' | 'glaze' = 'cake';
-  paintingMode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles' = 'decor3d';
   activeWorkspacePanel: 'decor' | 'paint' = 'decor';
+  paintingMode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles' = 'decor3d';
+  transformMode: 'translate' | 'rotate' | 'scale' = 'translate';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
   selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
   selectedLayers = 1;
@@ -500,6 +509,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   openPaintPanel(mode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles' = this.paintingMode): void {
     this.activeWorkspacePanel = 'paint';
     this.selectPaintingMode(mode);
+    this.onTogglePaintMode(true);
   }
 
   onValidateDecorations(): void {
@@ -512,8 +522,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onTransformModeChange(mode: string): void {
+    const casted = mode as 'translate' | 'rotate' | 'scale';
+    this.transformMode = casted;
     if (isPlatformBrowser(this.platformId)) {
-      this.transformService.setTransformMode(mode as 'translate' | 'rotate' | 'scale');
+      this.transformService.setTransformMode(casted);
     }
   }
 
@@ -526,19 +538,26 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onSaveScene(): void {
-    if (!this.currentProjectId) {
-      this.showStatus('Brak projektu do zapisania.');
-      return;
-    }
-
     const preset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
     const payload = {
       name: this.projectName || 'Projekt tortu',
       dataJson: JSON.stringify(preset),
     };
 
-    this.projectsService.updateProject(this.currentProjectId, payload).subscribe({
-      next: () => this.showStatus('Projekt zapisany.'),
+    if (this.currentProjectId) {
+      this.projectsService.updateProject(this.currentProjectId, payload).subscribe({
+        next: () => this.showStatus('Projekt zapisany.'),
+        error: () => this.showStatus('Nie udało się zapisać projektu.'),
+      });
+      return;
+    }
+
+    this.projectsService.createProject(payload.name, payload.dataJson).subscribe({
+      next: (created) => {
+        this.currentProjectId = created.id;
+        this.projectName = created.name;
+        this.showStatus('Projekt zapisany.');
+      },
       error: () => this.showStatus('Nie udało się zapisać projektu.'),
     });
   }
