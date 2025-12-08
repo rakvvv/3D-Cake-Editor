@@ -7,6 +7,7 @@ import {
   PLATFORM_ID,
   OnDestroy,
   OnInit,
+  ChangeDetectorRef,
 } from '@angular/core';
 import {CommonModule, isPlatformBrowser} from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -59,6 +60,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   waferScale = 1;
   waferOffsetX = 0;
   waferOffsetY = 0;
+  canUndoAction = false;
+  canRedoAction = false;
 
   private textureBeforeGradient: TextureMaps | null = null;
 
@@ -190,6 +193,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private statusTimeoutId: number | null = null;
   private anchorClickSubscription?: Subscription;
   private outlineSubscription?: Subscription;
+  private paintSceneSubscription?: Subscription;
   private canvasListenerTarget?: HTMLElement;
   private rightClickDrag?: { x: number; y: number; moved: boolean };
 
@@ -260,6 +264,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private authService: AuthService,
     private router: Router,
     private route: ActivatedRoute,
+    private changeDetectorRef: ChangeDetectorRef,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
@@ -294,6 +299,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.penSize = this.paintService.penSize;
     this.penThickness = this.paintService.penThickness;
     this.penOpacity = this.paintService.penOpacity;
+
+    this.refreshUndoRedoAvailability();
+    this.paintSceneSubscription = this.paintService.sceneChanged$.subscribe(() =>
+      this.refreshUndoRedoAvailability(),
+    );
   }
 
   ngAfterViewInit(): void {
@@ -376,6 +386,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.anchorClickSubscription?.unsubscribe();
     this.outlineSubscription?.unsubscribe();
+    this.paintSceneSubscription?.unsubscribe();
 
     if (isPlatformBrowser(this.platformId)) {
       this.teardownCanvasListeners();
@@ -916,6 +927,30 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onToolbarResetCamera(): void {
     this.resetCameraView();
+  }
+
+  onToolbarUndo(): void {
+    if (!this.canUndoAction) {
+      return;
+    }
+
+    this.paintService.undo();
+    this.refreshUndoRedoAvailability();
+  }
+
+  onToolbarRedo(): void {
+    if (!this.canRedoAction) {
+      return;
+    }
+
+    this.paintService.redo();
+    this.refreshUndoRedoAvailability();
+  }
+
+  private refreshUndoRedoAvailability(): void {
+    this.canUndoAction = this.paintService.canUndo();
+    this.canRedoAction = this.paintService.canRedo();
+    this.changeDetectorRef.detectChanges();
   }
 
   private async handleAnchorClick(anchorId: string): Promise<void> {

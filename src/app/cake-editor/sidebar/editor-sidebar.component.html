@@ -1,13 +1,4 @@
 <section class="workspace-panel">
-  <header class="workspace-panel__header">
-    <div class="workspace-panel__title">Panel boczny</div>
-    <div class="workspace-panel__actions">
-      <button class="btn btn--ghost icon-only" type="button" (click)="saveScene.emit()" title="Zapisz">
-        <span class="icon-16" aria-hidden="true">💾</span>
-      </button>
-    </div>
-  </header>
-
   <div class="workspace-panel__content" [ngSwitch]="activePanel">
     <app-sidebar-decorations-panel
       *ngSwitchCase="'decorations'"

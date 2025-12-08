@@ -27,10 +27,22 @@
         <button class="btn btn--ghost icon-only" type="button" (click)="onToolbarResetCamera()" title="Resetuj widok">
           <span class="icon-16" aria-hidden="true">⟳</span>
         </button>
-        <button class="btn btn--ghost icon-only" type="button" title="Cofnij">
+        <button
+          class="btn btn--ghost icon-only"
+          type="button"
+          title="Cofnij"
+          (click)="onToolbarUndo()"
+          [disabled]="!canUndoAction"
+        >
           <span class="icon-16" aria-hidden="true">↶</span>
         </button>
-        <button class="btn btn--ghost icon-only" type="button" title="Ponów">
+        <button
+          class="btn btn--ghost icon-only"
+          type="button"
+          title="Ponów"
+          (click)="onToolbarRedo()"
+          [disabled]="!canRedoAction"
+        >
           <span class="icon-16" aria-hidden="true">↷</span>
         </button>
         <ng-container *ngIf="mode === 'setup'; else saveActions">
