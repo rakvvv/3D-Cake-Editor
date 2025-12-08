@@ -182,6 +182,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private statusTimeoutId: number | null = null;
   private anchorClickSubscription?: Subscription;
   private outlineSubscription?: Subscription;
+  private rightClickDrag?: { x: number; y: number; moved: boolean };
 
   private readonly handleDocumentClick = () => this.hideContextMenu();
   private readonly handleKeyDown = (event: KeyboardEvent) => {
@@ -197,6 +198,25 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   private contextMenuListener = (event: MouseEvent) => this.onContextMenu(event);
+  private readonly handlePointerDown = (event: PointerEvent) => {
+    if (event.button === 2) {
+      this.rightClickDrag = { x: event.clientX, y: event.clientY, moved: false };
+    } else {
+      this.rightClickDrag = undefined;
+    }
+  };
+
+  private readonly handlePointerMove = (event: PointerEvent) => {
+    if (!this.rightClickDrag || (event.buttons & 2) === 0) {
+      return;
+    }
+
+    const deltaX = Math.abs(event.clientX - this.rightClickDrag.x);
+    const deltaY = Math.abs(event.clientY - this.rightClickDrag.y);
+    if (deltaX > 4 || deltaY > 4) {
+      this.rightClickDrag.moved = true;
+    }
+  };
 
   constructor(
     public readonly sceneService: ThreeSceneService,
@@ -249,6 +269,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         void this.handleAnchorClick(anchorId);
       });
       const containerEl = this.container?.nativeElement as HTMLElement | undefined;
+      containerEl?.addEventListener('pointerdown', this.handlePointerDown, { passive: true });
+      containerEl?.addEventListener('pointermove', this.handlePointerMove, { passive: true });
       containerEl?.addEventListener('contextmenu', this.contextMenuListener);
       document.addEventListener('click', this.handleDocumentClick);
       document.addEventListener('keydown', this.handleKeyDown);
@@ -326,6 +348,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       document.removeEventListener('click', this.handleDocumentClick);
       document.removeEventListener('keydown', this.handleKeyDown);
       const containerEl = this.container?.nativeElement as HTMLElement | undefined;
+      containerEl?.removeEventListener('pointerdown', this.handlePointerDown);
+      containerEl?.removeEventListener('pointermove', this.handlePointerMove);
       containerEl?.removeEventListener('contextmenu', this.contextMenuListener);
     }
   }
@@ -896,6 +920,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     event.preventDefault();
     event.stopPropagation();
+    if (this.rightClickDrag?.moved) {
+      this.rightClickDrag = undefined;
+      return;
+    }
     if (this.sceneService.isOrbitBusy() || (this.paintService.paintMode && this.paintService.isPainting)) {
       this.hideContextMenu();
       return;
@@ -914,8 +942,20 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.contextMenuIsLocked = !!selected && this.sceneService.isSelectedDecorationLocked();
 
     this.contextMenuVisible = true;
-    this.contextMenuX = x;
-    this.contextMenuY = y;
+    if (isPlatformBrowser(this.platformId)) {
+      const viewportWidth = window.innerWidth || 0;
+      const viewportHeight = window.innerHeight || 0;
+      const menuWidth = 240;
+      const menuHeight = 420;
+      const margin = 8;
+      const safeX = Math.max(margin, Math.min(x, viewportWidth - menuWidth - margin));
+      const safeY = Math.max(margin, Math.min(y, viewportHeight - menuHeight - margin));
+      this.contextMenuX = safeX;
+      this.contextMenuY = safeY;
+    } else {
+      this.contextMenuX = x;
+      this.contextMenuY = y;
+    }
   }
 
   private hideContextMenu(): void {
@@ -923,6 +963,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.contextMenuHasSelection = false;
     this.contextMenuCanSnap = false;
     this.contextMenuIsLocked = false;
+    this.rightClickDrag = undefined;
   }
 
   private resetCameraView(): void {
