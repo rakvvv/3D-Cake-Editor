@@ -1,0 +1,102 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.workspace-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 360px;
+  min-height: calc(100dvh - 96px);
+}
+
+.workspace-sidebar {
+  background: #141414;
+  border-right: 1px solid #1f1f1f;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.workspace-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header__icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.section-header__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f0f0f0;
+  margin: 0;
+}
+
+.scene-tree {
+  background: #191919;
+  border: 1px solid #1f1f1f;
+  border-radius: 12px;
+  padding: 8px;
+  min-height: 200px;
+}
+
+.workspace-sidebar__save {
+  width: 100%;
+}
+
+.workspace-main {
+  position: relative;
+}
+
+.btn {
+  border-radius: 6px;
+  padding: 6px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 20px;
+  color: #fcfcfc;
+  background: transparent;
+}
+
+.btn--ghost {
+  background: #1c1c1c;
+  border-color: #303030;
+}
+
+.btn--primary {
+  background: #05acee;
+  color: #f8fafc;
+}
+
+.icon-only {
+  padding: 6px;
+  width: 32px;
+  justify-content: center;
+}
+
+.icon-16 {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

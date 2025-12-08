@@ -1,0 +1,192 @@
+<div class="setup-layout">
+  <aside class="setup-sidebar">
+    <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'cake'" (click)="setupTabChange.emit('cake')">
+      <span class="icon-24" aria-hidden="true">🎂</span>
+      <span>Tort</span>
+    </button>
+    <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'texture'" (click)="setupTabChange.emit('texture')">
+      <span class="icon-24" aria-hidden="true">🖼️</span>
+      <span>Tekstura</span>
+    </button>
+    <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'color'" (click)="setupTabChange.emit('color')">
+      <span class="icon-24" aria-hidden="true">🌈</span>
+      <span>Kolor</span>
+    </button>
+    <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'glaze'" (click)="setupTabChange.emit('glaze')">
+      <span class="icon-24" aria-hidden="true">🍫</span>
+      <span>Polewa</span>
+    </button>
+  </aside>
+
+  <section class="setup-panel">
+    <ng-container [ngSwitch]="setupTab">
+      <div *ngSwitchCase="'cake'" class="setup-panel__content">
+        <div class="panel-block">
+          <div class="panel-block__title">Rozmiar</div>
+          <div class="toggle-tab">
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedCakeSize === 'small'" type="button" (click)="cakeSizeChange.emit('small')">Mały</button>
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedCakeSize === 'medium'" type="button" (click)="cakeSizeChange.emit('medium')">Średni</button>
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedCakeSize === 'large'" type="button" (click)="cakeSizeChange.emit('large')">Duży</button>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-block__title">Kształt</div>
+          <div class="toggle-tab">
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedShape === 'cuboid'" type="button" (click)="shapeChange.emit('cuboid')">Prostokątny</button>
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedShape === 'cylinder'" type="button" (click)="shapeChange.emit('cylinder')">Okrągły</button>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-block__title">Liczba pięter</div>
+          <div class="toggle-tab">
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedLayers === 1" type="button" (click)="layersChange.emit(1)">1</button>
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedLayers === 2" type="button" (click)="layersChange.emit(2)">2</button>
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedLayers === 3" type="button" (click)="layersChange.emit(3)">3</button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngSwitchCase="'texture'" class="setup-panel__content">
+        <div class="panel-block__title">Textury tortu</div>
+        <div class="texture-grid">
+          <button
+            *ngFor="let texture of setupTextures"
+            type="button"
+            class="texture-card"
+            [class.texture-card--active]="selectedTextureId === texture.id"
+            (click)="textureChange.emit(texture.id)"
+          >
+            <div class="texture-card__preview" [style.background-image]="'url(' + texture.preview + ')'" aria-hidden="true"></div>
+            <div class="texture-card__name">{{ texture.name }}</div>
+          </button>
+        </div>
+      </div>
+
+      <div *ngSwitchCase="'color'" class="setup-panel__content">
+        <div class="panel-block">
+          <div class="panel-block__title">Kolor tortu</div>
+          <div class="color-row">
+            <span class="color-row__label">Podstawowy</span>
+            <div class="color-row__input">
+              <input type="color" [ngModel]="primaryColor" aria-label="Wybierz kolor tortu" (input)="cakeColorChange.emit(getInputValue($event))" />
+              <input type="text" [ngModel]="primaryColor" (ngModelChange)="cakeColorChange.emit($event)" />
+            </div>
+            <div class="color-swatch" [style.background]="primaryColor"></div>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-block__header">
+            <div class="panel-block__title">Gradient</div>
+            <button class="btn-toggle" type="button" [class.btn-toggle--active]="gradientEnabled" (click)="gradientToggle.emit(!gradientEnabled)">
+              <span class="icon-16" aria-hidden="true">⏻</span>
+            </button>
+          </div>
+          <div class="toggle-tab" [class.toggle-tab--disabled]="!gradientEnabled">
+            <button
+              class="toggle-tab__item"
+              [class.toggle-tab__item--active]="gradientDirection === 'top-bottom'"
+              [disabled]="!gradientEnabled"
+              type="button"
+              (click)="gradientDirectionChange.emit('top-bottom')"
+            >
+              Góra → dół
+            </button>
+            <button
+              class="toggle-tab__item"
+              [class.toggle-tab__item--active]="gradientDirection === 'bottom-top'"
+              [disabled]="!gradientEnabled"
+              type="button"
+              (click)="gradientDirectionChange.emit('bottom-top')"
+            >
+              Dół → góra
+            </button>
+          </div>
+          <div class="color-row" [class.color-row--disabled]="!gradientEnabled">
+            <span class="color-row__label">Pierwszy kolor</span>
+            <div class="color-row__input">
+              <input type="color" [disabled]="!gradientEnabled" [ngModel]="gradientFirst" (input)="gradientColorChange.emit({ which: 'first', color: getInputValue($event) })" />
+              <input type="text" [disabled]="!gradientEnabled" [ngModel]="gradientFirst" (ngModelChange)="gradientColorChange.emit({ which: 'first', color: $event })" />
+            </div>
+            <div class="color-swatch" [style.background]="gradientFirst"></div>
+          </div>
+          <div class="color-row" [class.color-row--disabled]="!gradientEnabled">
+            <span class="color-row__label">Drugi kolor</span>
+            <div class="color-row__input">
+              <input type="color" [disabled]="!gradientEnabled" [ngModel]="gradientSecond" (input)="gradientColorChange.emit({ which: 'second', color: getInputValue($event) })" />
+              <input type="text" [disabled]="!gradientEnabled" [ngModel]="gradientSecond" (ngModelChange)="gradientColorChange.emit({ which: 'second', color: $event })" />
+            </div>
+            <div class="color-swatch" [style.background]="gradientSecond"></div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngSwitchCase="'glaze'" class="setup-panel__content">
+        <div class="panel-block">
+          <div class="panel-block__header">
+            <div class="panel-block__title">Polewa</div>
+            <button class="btn-toggle" type="button" (click)="glazeToggle.emit(!glazeEnabled)">
+              <span class="icon-16" aria-hidden="true">⏻</span>
+            </button>
+          </div>
+          <div class="color-row">
+            <span class="color-row__label">Kolor polewy</span>
+            <div class="color-row__input">
+              <input type="color" [disabled]="!glazeEnabled" [ngModel]="options.glaze_color" (input)="glazeColorChange.emit(getInputValue($event))" />
+              <input type="text" [disabled]="!glazeEnabled" [ngModel]="options.glaze_color" (ngModelChange)="glazeColorChange.emit($event)" />
+            </div>
+            <div class="color-swatch" [style.background]="options.glaze_color"></div>
+          </div>
+          <div class="toggle-tab">
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="glazeMode === 'taffla'" type="button" (click)="glazeModeChange.emit('taffla')">Tafla</button>
+            <button class="toggle-tab__item" [class.toggle-tab__item--active]="glazeMode === 'plain'" type="button" (click)="glazeModeChange.emit('plain')">Bez tafli</button>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <div class="panel-block__header">
+            <div class="panel-block__title">Opłatek</div>
+            <button class="btn-toggle" type="button" (click)="waferToggle.emit(!waferEnabled)">
+              <span class="icon-16" aria-hidden="true">⏻</span>
+            </button>
+          </div>
+          <div class="file-row">
+            <span class="color-row__label">Wybierz obraz</span>
+            <label class="file-input" [class.file-input--disabled]="!waferEnabled">
+              <input type="file" (change)="waferFileSelected.emit($event)" [disabled]="!waferEnabled" hidden />
+              <span>Wybierz plik</span>
+            </label>
+          </div>
+          <div class="slider-row" [class.slider-row--disabled]="!waferEnabled">
+            <span class="slider-row__label">Skala</span>
+            <input type="range" min="0.5" max="2" step="0.05" [value]="waferScale" [disabled]="!waferEnabled" class="slider-row__range" (input)="waferScaleChange.emit($any($event.target).valueAsNumber || 1)" />
+            <div class="slider-row__value">{{ waferScale | number: '1.2-2' }}</div>
+          </div>
+          <div class="slider-row" [class.slider-row--disabled]="!waferEnabled">
+            <span class="slider-row__label">Zoom</span>
+            <input type="range" min="0.5" max="3" step="0.1" [value]="waferZoom" [disabled]="!waferEnabled" class="slider-row__range" (input)="waferZoomChange.emit($any($event.target).valueAsNumber || 1)" />
+            <div class="slider-row__value">{{ waferZoom | number: '1.1-2' }}</div>
+          </div>
+          <div class="slider-row slider-row--compact" [class.slider-row--disabled]="!waferEnabled">
+            <span class="slider-row__label">Offset X</span>
+            <input type="range" min="-1" max="1" step="0.05" [value]="waferOffsetX" [disabled]="!waferEnabled" class="slider-row__range" (input)="waferOffsetChange.emit({ axis: 'x', value: $any($event.target).valueAsNumber || 0 })" />
+            <div class="slider-row__value">{{ waferOffsetX | number: '1.2-2' }}</div>
+          </div>
+          <div class="slider-row slider-row--compact" [class.slider-row--disabled]="!waferEnabled">
+            <span class="slider-row__label">Offset Y</span>
+            <input type="range" min="-1" max="1" step="0.05" [value]="waferOffsetY" [disabled]="!waferEnabled" class="slider-row__range" (input)="waferOffsetChange.emit({ axis: 'y', value: $any($event.target).valueAsNumber || 0 })" />
+            <div class="slider-row__value">{{ waferOffsetY | number: '1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </section>
+
+  <section class="setup-viewport">
+    <div class="setup-viewport__inner">
+      <div #canvasContainer class="canvas-container"></div>
+    </div>
+  </section>
+</div>

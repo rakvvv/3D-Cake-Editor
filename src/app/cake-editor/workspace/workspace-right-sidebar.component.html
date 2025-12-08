@@ -1,0 +1,22 @@
+<section class="workspace-panel">
+  <app-cake-sidebar
+    [options]="options"
+    [validationSummary]="validationSummary"
+    [validationIssues]="validationIssues"
+    [pendingValidationLabel]="pendingValidationLabel"
+    [authorModeEnabled]="authorModeEnabled"
+    (addDecorationEvent)="addDecoration.emit($event)"
+    (saveSceneEvent)="saveScene.emit()"
+    (validateDecorations)="validateDecorations.emit()"
+    (cakeOptionsChange)="optionsChange.emit($event)"
+    (transformModeChange)="transformModeChange.emit($event)"
+    (paintModeChange)="paintModeChange.emit($event)"
+    (brushChange)="brushChange.emit($event)"
+    (exportObj)="exportObj.emit()"
+    (exportStl)="exportStl.emit()"
+    (exportGltf)="exportGltf.emit()"
+    (screenshot)="screenshot.emit()"
+    (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
+    (applyCakePreset)="applyCakePreset.emit($event)"
+  ></app-cake-sidebar>
+</section>

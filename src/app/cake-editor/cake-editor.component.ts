@@ -1,17 +1,15 @@
 import {
   Component,
   AfterViewInit,
-  ViewChild,
   ElementRef,
   Inject,
   PLATFORM_ID,
   OnDestroy,
   OnInit,
 } from '@angular/core';
-import {CommonModule, isPlatformBrowser} from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { SceneOutlineComponent } from '../cake-sidebar/scene-outline/scene-outline.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
 import {PaintService} from '../services/paint.service';
@@ -26,19 +24,19 @@ import { DecoratedCakePreset } from '../models/cake-preset';
 import { ProjectsService } from '../services/projects.service';
 import { AuthService } from '../services/auth.service';
 import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-options';
+import { EditorSetupPanelComponent } from './setup-panel/editor-setup-panel.component';
+import { EditorWorkspaceComponent } from './workspace/editor-workspace.component';
 
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, SceneOutlineComponent, FormsModule],
+  imports: [CommonModule, FormsModule, EditorSetupPanelComponent, EditorWorkspaceComponent],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
 export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   mode: 'setup' | 'workspace' = 'setup';
   setupTab: 'cake' | 'texture' | 'color' | 'glaze' = 'cake';
-  paintingMode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles' = 'decor3d';
-  activeWorkspacePanel: 'decor' | 'paint' = 'decor';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
   selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
   selectedLayers = 1;
@@ -131,15 +129,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     },
   ];
   private container?: ElementRef;
-  @ViewChild('canvasContainer') set canvasContainer(element: ElementRef | undefined) {
-    const hasChanged = !!element && this.container?.nativeElement !== element.nativeElement;
-    if (hasChanged && this.sceneInitialized) {
-      this.pendingPreset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
-      this.sceneInitialized = false;
-    }
-    this.container = element;
-    this.maybeInitializeScene();
-  }
 
   readonly authorModeEnabled = environment.authorMode;
 
@@ -168,6 +157,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
   private anchorClickSubscription?: Subscription;
+  private previousContainer?: HTMLElement;
 
   private readonly handleDocumentClick = () => this.hideContextMenu();
   private readonly handleKeyDown = (event: KeyboardEvent) => {
@@ -197,6 +187,22 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
+  onCanvasReady(element: ElementRef): void {
+    const hasChanged = !!element && this.container?.nativeElement !== element.nativeElement;
+    if (hasChanged && this.sceneInitialized) {
+      this.pendingPreset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
+      this.sceneInitialized = false;
+    }
+
+    if (hasChanged) {
+      this.detachContextMenuListener();
+    }
+
+    this.container = element;
+    this.attachContextMenuListener();
+    this.maybeInitializeScene();
+  }
+
   ngOnInit(): void {
     const idParam = this.route.snapshot.paramMap.get('projectId');
     this.currentProjectId = idParam ? Number(idParam) : null;
@@ -225,10 +231,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.anchorClickSubscription = this.anchorPresetsService.anchorClicks$.subscribe((anchorId) => {
         void this.handleAnchorClick(anchorId);
       });
-      const containerEl = this.container?.nativeElement as HTMLElement | undefined;
-      containerEl?.addEventListener('contextmenu', this.contextMenuListener);
       document.addEventListener('click', this.handleDocumentClick);
       document.addEventListener('keydown', this.handleKeyDown);
+      this.attachContextMenuListener();
     }
   }
 
@@ -279,6 +284,35 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.initializeSceneWithPreset(this.pendingPreset);
   }
 
+  private attachContextMenuListener(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    const containerEl = this.container?.nativeElement as HTMLElement | undefined;
+    if (!containerEl) {
+      return;
+    }
+
+    if (this.previousContainer && this.previousContainer !== containerEl) {
+      this.previousContainer.removeEventListener('contextmenu', this.contextMenuListener);
+    }
+
+    containerEl.addEventListener('contextmenu', this.contextMenuListener);
+    this.previousContainer = containerEl;
+  }
+
+  private detachContextMenuListener(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    if (this.previousContainer) {
+      this.previousContainer.removeEventListener('contextmenu', this.contextMenuListener);
+      this.previousContainer = undefined;
+    }
+  }
+
   private initializeSceneWithPreset(preset: DecoratedCakePreset): void {
     if (!isPlatformBrowser(this.platformId) || !this.container?.nativeElement) {
       return;
@@ -301,8 +335,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (isPlatformBrowser(this.platformId)) {
       document.removeEventListener('click', this.handleDocumentClick);
       document.removeEventListener('keydown', this.handleKeyDown);
-      const containerEl = this.container?.nativeElement as HTMLElement | undefined;
-      containerEl?.removeEventListener('contextmenu', this.contextMenuListener);
+      this.detachContextMenuListener();
     }
   }
 
@@ -325,8 +358,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   continueToWorkspace(): void {
     this.mode = 'workspace';
-    this.activeWorkspacePanel = 'decor';
-    this.paintingMode = 'decor3d';
     if (this.sceneInitialized) {
       this.pendingPreset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
       this.sceneInitialized = false;
@@ -365,11 +396,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       cake_textures: match.maps,
       cake_color: '#ffffff',
     });
-  }
-
-  getInputValue(event: Event): string {
-    const target = event.target as HTMLInputElement | null;
-    return target?.value ?? '';
   }
 
   setCakeColor(color: string): void {
@@ -482,24 +508,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.patchOptions({ wafer_texture_url: result });
     };
     reader.readAsDataURL(file);
-  }
-
-  selectPaintingMode(mode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles'): void {
-    this.paintingMode = mode;
-    if (this.activeWorkspacePanel === 'paint') {
-      this.onTogglePaintMode(mode !== 'decor3d');
-    }
-  }
-
-  openDecorPanel(): void {
-    this.activeWorkspacePanel = 'decor';
-    this.paintingMode = 'decor3d';
-    this.onTogglePaintMode(false);
-  }
-
-  openPaintPanel(mode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles' = this.paintingMode): void {
-    this.activeWorkspacePanel = 'paint';
-    this.selectPaintingMode(mode);
   }
 
   onValidateDecorations(): void {

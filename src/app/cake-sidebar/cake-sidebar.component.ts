@@ -15,7 +15,7 @@ import { ThreeSceneService } from '../services/three-scene.service';
 import { environment } from '../../environments/environment';
 import { PresetsPanelComponent } from './presets-panel/presets-panel.component';
 import { DecoratedCakePreset } from '../models/cake-preset';
-type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'presets' | 'outline' | 'paint' | 'export';
+export type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'presets' | 'outline' | 'paint' | 'export';
 
 @Component({
   selector: 'app-cake-sidebar',
@@ -67,6 +67,10 @@ export class CakeSidebarComponent implements OnInit {
 
   isExpanded(panel: SidebarPanelKey): boolean {
     return this.openPanels.has(panel);
+  }
+
+  focusPanel(panel: SidebarPanelKey): void {
+    this.openPanels.add(panel);
   }
 
   panelToggleId(panel: SidebarPanelKey): string {

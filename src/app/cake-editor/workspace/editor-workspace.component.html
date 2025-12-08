@@ -1,0 +1,50 @@
+<div class="workspace-layout">
+  <aside class="workspace-sidebar">
+    <div class="workspace-sidebar__header">
+      <div class="section-header">
+        <span class="section-header__icon" aria-hidden="true">📂</span>
+        <h2 class="section-header__title">Scene</h2>
+      </div>
+      <button class="btn btn--ghost icon-only" type="button" (click)="saveScene.emit()" title="Zapisz">
+        <span class="icon-16" aria-hidden="true">💾</span>
+      </button>
+    </div>
+    <div class="scene-tree">
+      <app-scene-outline></app-scene-outline>
+    </div>
+    <button class="btn btn--primary workspace-sidebar__save" type="button" (click)="saveScene.emit()">
+      <span class="icon-16" aria-hidden="true">💾</span>
+      <span>Zapisz</span>
+    </button>
+  </aside>
+
+  <section class="workspace-main">
+    <app-workspace-toolbar
+      (decorationsRequested)="focusPanel('decorations')"
+      (paintRequested)="focusPanel('paint')"
+      (transformModeChange)="transformModeChange.emit($event)"
+    ></app-workspace-toolbar>
+    <app-workspace-viewport (canvasReady)="canvasReady.emit($event)"></app-workspace-viewport>
+  </section>
+
+  <app-workspace-right-sidebar
+    [options]="options"
+    [validationSummary]="validationSummary"
+    [validationIssues]="validationIssues"
+    [pendingValidationLabel]="pendingValidationLabel"
+    [authorModeEnabled]="authorModeEnabled"
+    (addDecoration)="addDecoration.emit($event)"
+    (saveScene)="saveScene.emit()"
+    (validateDecorations)="validateDecorations.emit()"
+    (optionsChange)="optionsChange.emit($event)"
+    (transformModeChange)="transformModeChange.emit($event)"
+    (paintModeChange)="paintModeChange.emit($event)"
+    (brushChange)="brushChange.emit($event)"
+    (exportObj)="exportObj.emit()"
+    (exportStl)="exportStl.emit()"
+    (exportGltf)="exportGltf.emit()"
+    (screenshot)="screenshot.emit()"
+    (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
+    (applyCakePreset)="applyCakePreset.emit($event)"
+  ></app-workspace-right-sidebar>
+</div>

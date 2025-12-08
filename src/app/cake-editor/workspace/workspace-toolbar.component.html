@@ -1,0 +1,18 @@
+<div class="workspace-toolbar">
+  <button class="workspace-toolbar__btn" type="button" (click)="decorationsRequested.emit()">
+    <span aria-hidden="true">🧁</span>
+  </button>
+  <button class="workspace-toolbar__btn" type="button" (click)="paintRequested.emit()">
+    <span aria-hidden="true">🎨</span>
+  </button>
+  <div class="workspace-toolbar__divider"></div>
+  <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="currentTransformMode === 'translate'" (click)="transformModeChange.emit('translate')">
+    <span aria-hidden="true">↕</span>
+  </button>
+  <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="currentTransformMode === 'rotate'" (click)="transformModeChange.emit('rotate')">
+    <span aria-hidden="true">⟳</span>
+  </button>
+  <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="currentTransformMode === 'scale'" (click)="transformModeChange.emit('scale')">
+    <span aria-hidden="true">↔</span>
+  </button>
+</div>
