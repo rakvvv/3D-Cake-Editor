@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProjectsService } from '../services/projects.service';
 import { CakeProjectSummaryDto } from '../models/project.models';
@@ -9,7 +9,7 @@ import { AuthService } from '../services/auth.service';
 @Component({
   selector: 'app-project-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './project-list.component.html',
   styleUrl: './project-list.component.css',
 })
@@ -22,13 +22,16 @@ export class ProjectListComponent implements OnInit {
   viewMode: 'grid' | 'list' = 'grid';
   searchQuery = '';
   userMenuOpen = false;
-  readonly user$ = this.authService.currentUser$;
 
   constructor(
     private projectsService: ProjectsService,
     private router: Router,
     private authService: AuthService,
   ) {}
+
+  get user$() {
+    return this.authService.currentUser$;
+  }
 
   ngOnInit(): void {
     this.loadProjects();
