@@ -343,33 +343,6 @@
             <div class="scene-tree scene-tree--empty">Brak elementów sceny.</div>
           </ng-template>
 
-          <div class="scene-selection" *ngIf="selectedSceneNode as selectedNode">
-            <div class="scene-selection__header">
-              <div class="scene-selection__title">{{ selectedNode.name }}</div>
-              <div class="scene-selection__subtitle">{{ selectedNode.type | uppercase }}</div>
-            </div>
-            <div class="scene-selection__actions">
-              <button class="btn btn--ghost" type="button" (click)="toggleSelectedVisibility()">
-                {{ selectedNode.visible ? 'Ukryj' : 'Pokaż' }}
-              </button>
-              <button class="btn btn--ghost" type="button" (click)="toggleSelectedLock()">
-                {{ sceneService.isSelectedDecorationLocked() ? 'Odblokuj' : 'Zablokuj' }}
-              </button>
-              <button class="btn btn--ghost" type="button" (click)="onContextDeleteDecoration()">Usuń</button>
-            </div>
-            <div class="scene-selection__actions scene-selection__actions--grid">
-              <button class="btn btn--secondary" type="button" (click)="onContextSnapToCake()">Snap do tortu</button>
-              <button class="btn btn--secondary" type="button" (click)="onContextSnapToTop()">Snap góra</button>
-              <button class="btn btn--secondary" type="button" (click)="onContextSnapToSide()">Snap bok</button>
-              <button class="btn btn--secondary" type="button" (click)="onContextAlignToSurface()">Wyrównaj</button>
-              <button class="btn btn--secondary" type="button" (click)="onContextRotateQuarter(1)">Obrót 90°</button>
-              <button class="btn btn--secondary" type="button" (click)="onContextRotateHalf()">Obrót 180°</button>
-              <button class="btn btn--secondary" type="button" (click)="onContextCopyDecoration()">Kopiuj</button>
-              <button class="btn btn--secondary" type="button" (click)="onContextPasteDecoration()">Wklej</button>
-              <button class="btn btn--secondary" type="button" (click)="onContextResetOrientation()">Reset orientacji</button>
-            </div>
-          </div>
-
           <button class="btn btn--primary workspace-sidebar__save" type="button" (click)="onSaveScene()">
             <span class="icon-16" aria-hidden="true">💾</span>
             <span>Zapisz</span>
@@ -527,31 +500,15 @@
         </div>
       </div>
 
-      <div class="viewport-selection" *ngIf="selectedSceneNode as activeSelection">
-        <div class="viewport-selection__title">{{ activeSelection.name }}</div>
-        <div class="viewport-selection__actions">
-          <button type="button" class="btn btn--ghost" (click)="toggleSelectedVisibility()">
-            {{ activeSelection.visible ? 'Ukryj' : 'Pokaż' }}
-          </button>
-          <button type="button" class="btn btn--ghost" (click)="toggleSelectedLock()">
-            {{ sceneService.isSelectedDecorationLocked() ? 'Odblokuj' : 'Zablokuj' }}
-          </button>
-          <button type="button" class="btn btn--ghost" (click)="onContextCopyDecoration()">Kopiuj</button>
-          <button type="button" class="btn btn--ghost" (click)="onContextDeleteDecoration()">Usuń</button>
-        </div>
-        <div class="viewport-selection__quick">
-          <button type="button" class="btn btn--secondary" (click)="onContextSnapToTop()">Góra</button>
-          <button type="button" class="btn btn--secondary" (click)="onContextSnapToSide()">Bok</button>
-          <button type="button" class="btn btn--secondary" (click)="onContextAlignToSurface()">Wyrównaj</button>
-          <button type="button" class="btn btn--secondary" (click)="onContextResetOrientation()">Reset orientacji</button>
-        </div>
-      </div>
-
       <div *ngIf="statusMessage" class="status-banner">{{ statusMessage }}</div>
     </ng-template>
 
 <ng-template #sceneNodeTpl let-node="node">
-  <div class="scene-node" [class.scene-node--selected]="sceneSelectedNodeId === node.id">
+  <div
+    class="scene-node"
+    [class.scene-node--selected]="sceneSelectedNodeId === node.id"
+    (contextmenu)="onSceneNodeContextMenu($event, node)"
+  >
     <div class="scene-node__header">
       <button
         type="button"

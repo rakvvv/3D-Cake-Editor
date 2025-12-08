@@ -401,6 +401,18 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  onSceneNodeContextMenu(event: MouseEvent, node: SceneOutlineNode): void {
+    if (!isPlatformBrowser(this.platformId) || !this.isSceneNodeSelectable(node)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.sceneService.selectDecorationById(node.id);
+    this.sceneSelectedNodeId = node.id;
+    this.openContextMenuAt(event.clientX, event.clientY);
+  }
+
   private isSceneNodeSelectable(node: SceneOutlineNode): boolean {
     return node.type === 'decoration' || node.type === 'group';
   }
@@ -416,51 +428,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  get selectedSceneNode(): SceneOutlineNode | null {
-    return this.findSceneNode(this.sceneOutline, this.sceneSelectedNodeId);
-  }
-
   changeSceneTreeScale(delta: number): void {
     this.sceneTreeScale = Math.min(1.3, Math.max(0.9, this.sceneTreeScale + delta));
-  }
-
-  toggleSelectedVisibility(): void {
-    const selected = this.selectedSceneNode;
-    if (!selected) {
-      return;
-    }
-
-    const changed = this.sceneService.setDecorationVisibility(selected.id, !selected.visible);
-    if (changed) {
-      this.refreshSceneOutline();
-    }
-  }
-
-  toggleSelectedLock(): void {
-    if (this.sceneService.isSelectedDecorationLocked()) {
-      this.onContextUnlockDecoration();
-    } else {
-      this.onContextLockDecoration();
-    }
-  }
-
-  private findSceneNode(root: SceneOutlineNode | null, id: string | null): SceneOutlineNode | null {
-    if (!root || !id) {
-      return null;
-    }
-
-    if (root.id === id) {
-      return root;
-    }
-
-    for (const child of root.children) {
-      const found = this.findSceneNode(child, id);
-      if (found) {
-        return found;
-      }
-    }
-
-    return null;
   }
 
   selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze'): void {
@@ -934,6 +903,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.hideContextMenu();
 
     this.sceneService.selectDecorationAt(event.clientX, event.clientY);
+    this.openContextMenuAt(event.clientX, event.clientY);
+  }
+
+  private openContextMenuAt(x: number, y: number): void {
     const selected = this.sceneService.getSelectedDecoration();
     const isSnapped = this.sceneService.isSelectedDecorationSnapped();
     this.contextMenuHasSelection = !!selected;
@@ -941,8 +914,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.contextMenuIsLocked = !!selected && this.sceneService.isSelectedDecorationLocked();
 
     this.contextMenuVisible = true;
-    this.contextMenuX = event.clientX;
-    this.contextMenuY = event.clientY;
+    this.contextMenuX = x;
+    this.contextMenuY = y;
   }
 
   private hideContextMenu(): void {
