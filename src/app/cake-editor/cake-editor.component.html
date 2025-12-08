@@ -1,142 +1,241 @@
-<div class="editor-shell">
-  <div class="editor-topbar">
-    <div class="editor-topbar__left">
-      <button type="button" (click)="goToProjects()">← Projekty</button>
-      <span class="editor-topbar__title">{{ projectName || 'Projekt tortu' }}</span>
+<div class="cake-editor cake-editor--workspace">
+  <header class="app-topbar">
+    <div class="app-topbar__inner">
+      <div class="app-topbar__logo">
+        <img src="assets/ui/logo-coral.svg" alt="Logo" />
+      </div>
+      <div class="app-topbar__spacer"></div>
+      <button class="btn btn--ghost" type="button" (click)="goToProjects()">
+        <span class="icon-text">←</span>
+        <span>My projects</span>
+      </button>
     </div>
-    <button type="button" (click)="onLogout()">Wyloguj</button>
-  </div>
+  </header>
 
-  <ng-container *ngIf="!loadingProject && !loadError; else loadingOrError">
-    <div class="editor-container">
-      <app-cake-sidebar
-          [validationSummary]="validationSummary"
-          [validationIssues]="validationIssues"
-          [pendingValidationLabel]="pendingValidationLabel"
-          [options]="options"
-          [authorModeEnabled]="authorModeEnabled"
-          (addDecorationEvent)="onAddDecoration($event)"
-          (cakeOptionsChange)="updateCakeOptions($event)"
-          (validateDecorations)="onValidateDecorations()"
-          (applyCakePreset)="onApplyCakePreset($event)"
-        (transformModeChange)="onTransformModeChange($event)"
-        (paintModeChange)="onTogglePaintMode($event)"
-        (brushChange)="onBrushChanged($event)"
-        (saveSceneEvent)="onSaveScene()"
-        (exportObj)="onExportObj()"
-        (exportStl)="onExportStl()"
-        (exportGltf)="onExportGltf()"
-        (screenshot)="onScreenshot()"
-        (proceedDespiteWarnings)="onProceedDespiteWarnings()"
-      ></app-cake-sidebar>
+  <section class="editor-toolbar workspace-toolbar">
+    <div class="editor-toolbar__inner">
+      <div class="editor-toolbar__left">
+        <button class="icon-button" type="button" (click)="goToProjects()">
+          <span class="icon-text">←</span>
+          <span>Back</span>
+        </button>
 
-      <div class="editor-stage">
-        <div
-          class="editor-toolbar"
-          role="group"
-          aria-label="Główne narzędzia edytora"
-        >
-          <button
-            type="button"
-            class="editor-toolbar__button"
-            (click)="onToolbarResetCamera()"
-            title="Resetuj widok (klawisz R)"
-          >
-            Reset widoku
-          </button>
+        <div class="workspace-toolbar__title">
+          <span class="workspace-toolbar__label">Project</span>
+          <span class="workspace-toolbar__name">{{ projectName || 'Projekt tortu' }}</span>
         </div>
 
-        <div #canvasContainer class="canvas-container"></div>
-
-        <div
-          *ngIf="contextMenuVisible"
-          class="context-menu"
-          [style.left.px]="contextMenuX"
-          [style.top.px]="contextMenuY"
-        >
-          <button type="button" (click)="onContextResetCamera()">Resetuj widok kamery</button>
-          <button type="button" (click)="onContextDeselectDecoration()" [disabled]="!contextMenuHasSelection">
-            Odznacz dekorację
-          </button>
-          <div class="context-menu__separator" aria-hidden="true"></div>
-          <button type="button" (click)="onContextSnapToTop()" [disabled]="!contextMenuCanSnap">Przyczep do góry tortu</button>
-          <button type="button" (click)="onContextSnapToSide()" [disabled]="!contextMenuCanSnap">Przyczep do boku tortu</button>
-          <button
-            type="button"
-            (click)="onContextLockDecoration()"
-            [disabled]="!contextMenuHasSelection || contextMenuIsLocked"
-          >
-            Zablokuj przesuwanie
-          </button>
-          <button
-            type="button"
-            (click)="onContextUnlockDecoration()"
-            [disabled]="!contextMenuIsLocked"
-          >
-            Odblokuj przesuwanie
-          </button>
-          <button type="button" (click)="onContextDeleteDecoration()" [disabled]="!contextMenuHasSelection">
-            Usuń
-          </button>
-          <div class="context-menu__separator" aria-hidden="true"></div>
-          <button type="button" (click)="onContextCopyDecoration()" [disabled]="!contextMenuHasSelection">
-            Kopiuj
-          </button>
-          <button
-            type="button"
-            (click)="onContextPasteDecoration()"
-            [disabled]="!sceneService.hasCopiedDecoration()"
-          >
-            Wklej
-          </button>
-          <div class="context-menu__separator" aria-hidden="true"></div>
-          <div
-            class="context-menu__item context-menu__item--submenu"
-            [class.context-menu__item--inactive]="!contextMenuHasSelection"
-          >
-            <button type="button" class="context-menu__submenu-trigger" [disabled]="!contextMenuHasSelection">
-              Orientacja
-              <span aria-hidden="true" class="context-menu__submenu-arrow">▶</span>
+        <div class="workspace-toolbar__tabs">
+          <div class="toggle-tab">
+            <button
+              class="toggle-tab__item"
+              [class.toggle-tab__item--active]="activeWorkspacePanel === 'decor'"
+              type="button"
+              (click)="openDecorPanel()"
+            >
+              Decor
             </button>
-            <div class="context-menu__submenu" role="menu">
-              <button type="button" (click)="onContextAlignToSurface()" [disabled]="!contextMenuHasSelection">
-                Wyrównaj do powierzchni
-              </button>
-              <div class="context-menu__submenu-grid">
-                <button type="button" (click)="onContextRotateQuarter(1)" [disabled]="!contextMenuHasSelection">
-                  Obróć 90° w prawo
-                </button>
-                <button type="button" (click)="onContextRotateQuarter(-1)" [disabled]="!contextMenuHasSelection">
-                  Obróć 90° w lewo
-                </button>
-                <button type="button" (click)="onContextRotateDegrees(45)" [disabled]="!contextMenuHasSelection">
-                  Obróć 45° w prawo
-                </button>
-                <button type="button" (click)="onContextRotateDegrees(-45)" [disabled]="!contextMenuHasSelection">
-                  Obróć 45° w lewo
-                </button>
-                <button type="button" (click)="onContextRotateDegrees(30)" [disabled]="!contextMenuHasSelection">
-                  Obróć 30° w prawo
-                </button>
-                <button type="button" (click)="onContextRotateDegrees(-30)" [disabled]="!contextMenuHasSelection">
-                  Obróć 30° w lewo
-                </button>
-              </div>
-              <button type="button" (click)="onContextRotateHalf()" [disabled]="!contextMenuHasSelection">
-                Obróć 180°
-              </button>
-              <button type="button" (click)="onContextResetOrientation()" [disabled]="!contextMenuHasSelection">
-                Ustaw pionowo
-              </button>
-            </div>
+            <button
+              class="toggle-tab__item"
+              [class.toggle-tab__item--active]="activeWorkspacePanel === 'paint'"
+              type="button"
+              (click)="openPaintPanel('brush')"
+            >
+              Paint
+            </button>
           </div>
         </div>
-
-        <div *ngIf="statusMessage" class="status-banner">{{ statusMessage }}</div>
       </div>
 
-      <app-preset-export-dialog *ngIf="authorModeEnabled"></app-preset-export-dialog>
+      <div class="editor-toolbar__right">
+        <button class="btn btn--primary" type="button" (click)="onSaveScene()">
+          <span class="icon-text">💾</span>
+          <span>Zapisz</span>
+        </button>
+      </div>
     </div>
+  </section>
+
+  <ng-container *ngIf="!loadingProject && !loadError; else loadingOrError">
+    <div class="workspace-layout">
+      <aside class="workspace-sidebar">
+        <div class="workspace-sidebar__header">
+          <div class="section-header">
+            <span class="icon-text">🗂</span>
+            <h2 class="section-header__title">Scene</h2>
+          </div>
+          <button class="btn btn--ghost icon-only" type="button" (click)="onSaveScene()">
+            <span class="icon-text">💾</span>
+          </button>
+        </div>
+        <div class="sidebar-outline">
+          <app-scene-outline></app-scene-outline>
+        </div>
+        <button class="btn btn--primary workspace-sidebar__save" type="button" (click)="onSaveScene()">
+          <span class="icon-text">💾</span>
+          <span>Zapisz</span>
+        </button>
+      </aside>
+
+      <section class="workspace-viewport">
+        <div class="workspace-viewport__inner">
+          <div class="viewport-toolbar">
+            <button
+              class="viewport-toolbar__btn"
+              [class.viewport-toolbar__btn--primary]="activeWorkspacePanel === 'decor'"
+              type="button"
+              (click)="openDecorPanel()"
+            >
+              <span class="icon-text">🎀</span>
+            </button>
+            <button
+              class="viewport-toolbar__btn"
+              [class.viewport-toolbar__btn--primary]="activeWorkspacePanel === 'paint'"
+              type="button"
+              (click)="openPaintPanel('brush')"
+            >
+              <span class="icon-text">🎨</span>
+            </button>
+            <div class="viewport-toolbar__divider"></div>
+            <button
+              class="viewport-toolbar__btn"
+              [class.viewport-toolbar__btn--primary]="transformMode === 'translate'"
+              type="button"
+              (click)="onTransformModeChange('translate')"
+            >
+              <span class="icon-text">↔</span>
+            </button>
+            <button
+              class="viewport-toolbar__btn"
+              [class.viewport-toolbar__btn--primary]="transformMode === 'rotate'"
+              type="button"
+              (click)="onTransformModeChange('rotate')"
+            >
+              <span class="icon-text">⟳</span>
+            </button>
+            <button
+              class="viewport-toolbar__btn"
+              [class.viewport-toolbar__btn--primary]="transformMode === 'scale'"
+              type="button"
+              (click)="onTransformModeChange('scale')"
+            >
+              <span class="icon-text">⤡</span>
+            </button>
+          </div>
+
+          <div #canvasContainer class="workspace-viewport__canvas"></div>
+
+          <div
+            *ngIf="contextMenuVisible"
+            class="context-menu"
+            [style.left.px]="contextMenuX"
+            [style.top.px]="contextMenuY"
+          >
+            <button type="button" (click)="onContextResetCamera()">Resetuj widok kamery</button>
+            <button type="button" (click)="onContextDeselectDecoration()" [disabled]="!contextMenuHasSelection">
+              Odznacz dekorację
+            </button>
+            <div class="context-menu__separator" aria-hidden="true"></div>
+            <button type="button" (click)="onContextSnapToTop()" [disabled]="!contextMenuCanSnap">Przyczep do góry tortu</button>
+            <button type="button" (click)="onContextSnapToSide()" [disabled]="!contextMenuCanSnap">Przyczep do boku tortu</button>
+            <button
+              type="button"
+              (click)="onContextLockDecoration()"
+              [disabled]="!contextMenuHasSelection || contextMenuIsLocked"
+            >
+              Zablokuj przesuwanie
+            </button>
+            <button
+              type="button"
+              (click)="onContextUnlockDecoration()"
+              [disabled]="!contextMenuIsLocked"
+            >
+              Odblokuj przesuwanie
+            </button>
+            <button type="button" (click)="onContextDeleteDecoration()" [disabled]="!contextMenuHasSelection">
+              Usuń
+            </button>
+            <div class="context-menu__separator" aria-hidden="true"></div>
+            <button type="button" (click)="onContextCopyDecoration()" [disabled]="!contextMenuHasSelection">
+              Kopiuj
+            </button>
+            <button type="button" (click)="onContextPasteDecoration()" [disabled]="!sceneService.hasCopiedDecoration()">
+              Wklej
+            </button>
+            <div class="context-menu__separator" aria-hidden="true"></div>
+            <div
+              class="context-menu__item context-menu__item--submenu"
+              [class.context-menu__item--inactive]="!contextMenuHasSelection"
+            >
+              <button type="button" class="context-menu__submenu-trigger" [disabled]="!contextMenuHasSelection">
+                Orientacja
+                <span aria-hidden="true" class="context-menu__submenu-arrow">▶</span>
+              </button>
+              <div class="context-menu__submenu" role="menu">
+                <button type="button" (click)="onContextAlignToSurface()" [disabled]="!contextMenuHasSelection">
+                  Wyrównaj do powierzchni
+                </button>
+                <div class="context-menu__submenu-grid">
+                  <button type="button" (click)="onContextRotateQuarter(1)" [disabled]="!contextMenuHasSelection">
+                    Obróć 90° w prawo
+                  </button>
+                  <button type="button" (click)="onContextRotateQuarter(-1)" [disabled]="!contextMenuHasSelection">
+                    Obróć 90° w lewo
+                  </button>
+                  <button type="button" (click)="onContextRotateDegrees(45)" [disabled]="!contextMenuHasSelection">
+                    Obróć 45° w prawo
+                  </button>
+                  <button type="button" (click)="onContextRotateDegrees(-45)" [disabled]="!contextMenuHasSelection">
+                    Obróć 45° w lewo
+                  </button>
+                  <button type="button" (click)="onContextRotateDegrees(30)" [disabled]="!contextMenuHasSelection">
+                    Obróć 30° w prawo
+                  </button>
+                  <button type="button" (click)="onContextRotateDegrees(-30)" [disabled]="!contextMenuHasSelection">
+                    Obróć 30° w lewo
+                  </button>
+                </div>
+                <button type="button" (click)="onContextRotateHalf()" [disabled]="!contextMenuHasSelection">
+                  Obróć 180°
+                </button>
+                <button type="button" (click)="onContextResetOrientation()" [disabled]="!contextMenuHasSelection">
+                  Ustaw pionowo
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="statusMessage" class="status-banner">{{ statusMessage }}</div>
+        </div>
+      </section>
+
+      <section class="editor-panel editor-panel--painting">
+        <ng-container *ngIf="activeWorkspacePanel === 'decor'">
+          <app-decorations-panel
+            [decorationsService]="decorationsService"
+            [options]="options"
+            [validationSummary]="validationSummary"
+            [validationIssues]="validationIssues"
+            [pendingActionLabel]="pendingValidationLabel"
+            [authorModeEnabled]="authorModeEnabled"
+            (addDecoration)="onAddDecoration($event)"
+            (validateDecorations)="onValidateDecorations()"
+            (transformModeChange)="onTransformModeChange($event)"
+            (proceedDespiteWarnings)="onProceedDespiteWarnings()"
+          ></app-decorations-panel>
+        </ng-container>
+
+        <ng-container *ngIf="activeWorkspacePanel === 'paint'">
+          <app-paint-panel
+            [paintService]="paintService"
+            [decorationsService]="decorationsService"
+            (paintModeChange)="onTogglePaintMode($event)"
+            (brushChange)="onBrushChanged($event)"
+          ></app-paint-panel>
+        </ng-container>
+      </section>
+    </div>
+    <app-preset-export-dialog *ngIf="authorModeEnabled"></app-preset-export-dialog>
   </ng-container>
 
   <ng-template #loadingOrError>

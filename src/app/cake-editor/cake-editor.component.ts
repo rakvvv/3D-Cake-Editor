@@ -1,7 +1,6 @@
 import {Component, AfterViewInit, ViewChild, ElementRef, Inject, PLATFORM_ID, OnDestroy, OnInit} from '@angular/core';
 import {CommonModule, isPlatformBrowser} from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import {CakeSidebarComponent} from '../cake-sidebar/cake-sidebar.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
 import {PaintService} from '../services/paint.service';
@@ -17,11 +16,20 @@ import { DecoratedCakePreset } from '../models/cake-preset';
 import { ProjectsService } from '../services/projects.service';
 import { AuthService } from '../services/auth.service';
 import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-options';
+import { SceneOutlineComponent } from '../cake-sidebar/scene-outline/scene-outline.component';
+import { DecorationsPanelComponent } from '../cake-sidebar/decorations-panel/decorations-panel.component';
+import { PaintPanelComponent } from '../cake-sidebar/paint-panel/paint-panel.component';
 
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, CakeSidebarComponent, PresetExportDialogComponent],
+  imports: [
+    CommonModule,
+    PresetExportDialogComponent,
+    SceneOutlineComponent,
+    DecorationsPanelComponent,
+    PaintPanelComponent,
+  ],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
@@ -48,6 +56,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public validationIssues: DecorationValidationIssue[] = [];
   public pendingValidationLabel: string | null = null;
   public statusMessage: string | null = null;
+  public activeWorkspacePanel: 'decor' | 'paint' = 'decor';
+  public transformMode: 'translate' | 'rotate' | 'scale' = 'translate';
 
   public contextMenuVisible = false;
   public contextMenuX = 0;
@@ -78,8 +88,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     public sceneService: ThreeSceneService,
     private transformService: TransformControlsService,
-    private decorationsService: DecorationsService,
-    private paintService: PaintService,
+    public decorationsService: DecorationsService,
+    public paintService: PaintService,
     private anchorPresetsService: AnchorPresetsService,
     private projectsService: ProjectsService,
     private authService: AuthService,
@@ -215,10 +225,19 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (isPlatformBrowser(this.platformId)) {
       this.transformService.setTransformMode(mode as 'translate' | 'rotate' | 'scale');
     }
+    this.transformMode = mode as 'translate' | 'rotate' | 'scale';
   }
 
   onTogglePaintMode(enabled: boolean): void {
     this.paintService.paintMode = enabled;
+  }
+
+  openDecorPanel(): void {
+    this.activeWorkspacePanel = 'decor';
+  }
+
+  openPaintPanel(mode: 'brush' | 'pen' | 'extruder' | string = 'brush'): void {
+    this.activeWorkspacePanel = 'paint';
   }
 
   onBrushChanged(brushId: string): void {

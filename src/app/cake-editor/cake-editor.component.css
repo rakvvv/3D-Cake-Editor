@@ -1,47 +1,285 @@
-.editor-container {
-  position: relative;
+:root {
+  --color-bg: #181818;
+  --color-surface: #242424;
+  --color-surface-alt: #1c1c1c;
+  --color-border: #303030;
+  --color-accent: #05acee;
+  --color-accent-soft: #43bff0;
+  --color-text: #fcfcfc;
+  --color-text-muted: #b5b5b5;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --shadow-soft: 0 2px 4px rgba(0, 0, 0, 0.32), 0 0 1px rgba(0, 0, 0, 0.04);
+  --font-main: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.cake-editor--workspace {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
   display: flex;
-  gap: 12px;
-  padding: 12px;
-  height: 100dvh;
+  flex-direction: column;
+  height: 100%;
   overflow: hidden;
-  background: var(--color-background);
+  font-family: var(--font-main);
   color: var(--color-text);
-  box-sizing: border-box;
 }
 
-.editor-container > app-cake-sidebar {
-  position: relative;
-  z-index: 940;
-  flex: 0 0 320px;
-  flex-shrink: 0;
-  width: 320px;
-  height: calc(100dvh - 24px);
-  max-height: calc(100dvh - 24px);
-  overflow: hidden;
-  pointer-events: auto;
+.app-topbar {
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+  padding: 8px 24px;
+}
+
+.app-topbar__inner {
+  max-width: 1440px;
+  margin: 0 auto;
   display: flex;
+  align-items: center;
+  gap: 24px;
 }
 
-.editor-stage {
-  position: relative;
-  height: 100%;
-  min-width: 0;
-  flex: 1 1 auto;
-  background: var(--color-stage);
-  border-radius: 12px;
-  overflow: hidden;
+.app-topbar__logo img {
+  width: 32px;
+  height: 32px;
 }
 
-.canvas-container {
-  position: relative;
-  height: 100%;
+.app-topbar__spacer {
+  flex: 1;
+}
+
+.editor-toolbar {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 12px 24px;
+}
+
+.editor-toolbar__inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.editor-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.icon-button {
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.workspace-toolbar__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspace-toolbar__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
+.workspace-toolbar__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.workspace-toolbar__tabs {
+  margin-left: 16px;
+}
+
+.toggle-tab {
+  background: #303030;
+  border-radius: var(--radius-md);
+  padding: 2px;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.toggle-tab__item {
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  padding: 6px 12px;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.toggle-tab__item--active {
+  background: #1c1c1c;
+  box-shadow: var(--shadow-soft);
+}
+
+.btn {
+  border-radius: var(--radius-md);
+  padding: 6px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 20px;
+  font-family: var(--font-main);
+}
+
+.btn--ghost {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+.btn--primary {
+  background: var(--color-accent);
+  color: #f8fafc;
+}
+
+.btn--small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.icon-only {
+  padding: 6px;
+  width: 32px;
+  justify-content: center;
+}
+
+.icon-text {
+  display: inline-flex;
+  width: 16px;
+  justify-content: center;
+}
+
+.workspace-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 360px;
+  height: calc(100% - 96px);
+}
+
+.workspace-sidebar {
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.workspace-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-header__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.workspace-sidebar__save {
+  margin-top: auto;
   width: 100%;
-  background: var(--color-stage);
+}
+
+.sidebar-outline {
+  flex: 1;
+  overflow: auto;
+}
+
+.workspace-viewport {
+  background: #111;
+  position: relative;
+  border-right: 1px solid var(--color-border);
+}
+
+.workspace-viewport__inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
   overflow: hidden;
 }
 
-.context-menu { 
+.workspace-viewport__canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #111;
+}
+
+.viewport-toolbar {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  background: rgba(36, 36, 36, 0.96);
+  border-radius: 8px;
+  padding: 6px;
+  display: inline-flex;
+  gap: 4px;
+  box-shadow: var(--shadow-soft);
+  z-index: 10;
+}
+
+.viewport-toolbar__btn {
+  border-radius: 6px;
+  border: none;
+  background: var(--color-surface-alt);
+  padding: 6px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.viewport-toolbar__btn--primary {
+  background: var(--color-accent);
+}
+
+.viewport-toolbar__divider {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border);
+  margin: 0 4px;
+}
+
+.editor-panel--painting {
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  overflow-y: auto;
+}
+
+.context-menu {
   position: fixed;
   z-index: 1000;
   display: flex;
@@ -117,7 +355,6 @@
   position: absolute;
   top: -6px;
   left: calc(100% - 4px);
-  transform: none;
   display: none;
   flex-direction: column;
   padding: 6px;
@@ -168,132 +405,8 @@
   z-index: 900;
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
-}
-
-.editor-toolbar {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 950;
-}
-
-.editor-toolbar__button {
-  border: none;
-  border-radius: 999px;
-  background: rgba(31, 31, 31, 0.85);
-  color: #fff;
-  padding: 10px 18px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-}
-
-.editor-toolbar__button:hover,
-.editor-toolbar__button:focus {
-  background: rgba(31, 31, 31, 0.95);
-  transform: translateY(-1px);
-  outline: none;
-}
-
-.editor-toolbar__button--active {
-  box-shadow: 0 0 0 2px rgba(255, 77, 109, 0.7), 0 6px 18px rgba(255, 77, 109, 0.35);
-}
-
-.editor-toolbar__button[disabled] {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-@media (max-width: 1180px) {
-  .editor-container {
-    padding: 8px;
-    gap: 8px;
-  }
-
-  .editor-container > app-cake-sidebar {
-    width: 300px;
-    flex: 0 0 300px;
-  }
-}
-
-@media (max-width: 900px) {
-  .editor-container {
-    flex-direction: column;
-    padding: 0;
-    gap: 0;
-  }
-
-  .editor-container > app-cake-sidebar {
-    position: relative;
-    inset: auto;
-    max-width: none;
-    width: 100%;
-    flex-basis: auto;
-    height: auto;
-    max-height: none;
-  }
-
-  .editor-stage {
-    position: relative;
-    height: auto;
-    min-height: 65dvh;
-    border-radius: 0;
-  }
-
-  .status-banner {
-    bottom: 16px;
-  }
-
-  .view-controls {
-    right: 16px;
-    bottom: 16px;
-  }
-}
-
-.editor-shell {
-  min-height: 100dvh;
-  background: var(--color-background);
-}
-
-.editor-topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: #f5f5f5;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.editor-topbar__left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.editor-topbar__title {
-  font-weight: 700;
-}
-
 .editor-loader,
 .editor-error {
   padding: 24px;
   text-align: center;
-}
-
-.editor-error {
-  color: #b00020;
 }

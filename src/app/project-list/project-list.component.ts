@@ -18,6 +18,8 @@ export class ProjectListComponent implements OnInit {
   newProjectName = 'Nowy tort';
   renameProjectId: number | null = null;
   renameValue = '';
+  viewMode: 'grid' | 'list' = 'grid';
+  searchTerm = '';
 
   constructor(private projectsService: ProjectsService, private router: Router) {}
 
@@ -75,6 +77,15 @@ export class ProjectListComponent implements OnInit {
   cancelRename(): void {
     this.renameProjectId = null;
     this.renameValue = '';
+  }
+
+  setViewMode(mode: 'grid' | 'list'): void {
+    this.viewMode = mode;
+  }
+
+  get filteredProjects(): CakeProjectSummaryDto[] {
+    const term = this.searchTerm.toLowerCase();
+    return this.projects.filter((project) => project.name.toLowerCase().includes(term));
   }
 
   private refreshAfterMutation(): void {
