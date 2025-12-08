@@ -196,8 +196,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     public sceneService: ThreeSceneService,
     private transformService: TransformControlsService,
-    private decorationsService: DecorationsService,
-    private paintService: PaintService,
+    public readonly decorationsService: DecorationsService,
+    public readonly paintService: PaintService,
     private anchorPresetsService: AnchorPresetsService,
     private projectsService: ProjectsService,
     private authService: AuthService,
