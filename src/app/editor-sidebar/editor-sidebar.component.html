@@ -33,7 +33,7 @@
           <div class="sidebar__panel">
             <app-layers-panel
               [options]="options"
-              (cakeOptionsChange)="cakeOptionsChange.emit($event)"
+              (cakeOptionsChange)="optionsChange.emit($event)"
             ></app-layers-panel>
           </div>
         </div>
@@ -66,7 +66,7 @@
           <div class="sidebar__panel">
             <app-textures-panel
               [options]="options"
-              (cakeOptionsChange)="cakeOptionsChange.emit($event)"
+              (cakeOptionsChange)="optionsChange.emit($event)"
             ></app-textures-panel>
           </div>
         </div>
@@ -104,7 +104,7 @@
               [validationIssues]="validationIssues"
               [pendingActionLabel]="pendingValidationLabel"
               [authorModeEnabled]="authorModeEnabled"
-              (addDecoration)="addDecorationEvent.emit($event)"
+              (addDecoration)="addDecoration.emit($event)"
               (validateDecorations)="validateDecorations.emit()"
               (transformModeChange)="transformModeChange.emit($event)"
               (proceedDespiteWarnings)="proceedDespiteWarnings.emit()"
@@ -238,7 +238,7 @@
         >
           <div class="sidebar__panel">
             <app-export-panel
-              (saveScene)="saveSceneEvent.emit()"
+              (saveScene)="saveScene.emit()"
               (exportObj)="exportObj.emit()"
               (exportStl)="exportStl.emit()"
               (exportGltf)="exportGltf.emit()"

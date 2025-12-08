@@ -18,7 +18,7 @@ import { DecoratedCakePreset } from '../models/cake-preset';
 type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'presets' | 'outline' | 'paint' | 'export';
 
 @Component({
-  selector: 'app-cake-sidebar',
+  selector: 'app-editor-sidebar',
   standalone: true,
   imports: [
     LayersPanelComponent,
@@ -30,19 +30,19 @@ type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'presets' | 'outl
     SurfacePaintPanelComponent,
     ExportPanelComponent,
   ],
-  templateUrl: './cake-sidebar.component.html',
-  styleUrls: ['./cake-sidebar.component.css']
+  templateUrl: './editor-sidebar.component.html',
+  styleUrls: ['./editor-sidebar.component.css']
 })
-export class CakeSidebarComponent implements OnInit {
+export class EditorSidebarComponent implements OnInit {
   @Input() validationSummary: string | null = null;
   @Input() validationIssues: DecorationValidationIssue[] = [];
   @Input() pendingValidationLabel: string | null = null;
   @Input() options!: CakeOptions;
 
-  readonly addDecorationEvent = output<AddDecorationRequest>();
-  readonly saveSceneEvent = output<void>();
+  readonly addDecoration = output<AddDecorationRequest>();
+  readonly saveScene = output<void>();
   readonly validateDecorations = output<void>();
-  readonly cakeOptionsChange = output<CakeOptions>();
+  readonly optionsChange = output<CakeOptions>();
   readonly transformModeChange = output<'translate' | 'rotate' | 'scale'>();
   readonly paintModeChange = output<boolean>();
   readonly brushChange = output<string>();
@@ -56,6 +56,7 @@ export class CakeSidebarComponent implements OnInit {
   @Input() authorModeEnabled = environment.authorMode;
 
   private openPanels = new Set<SidebarPanelKey>(['layers']);
+  private activePanel: SidebarPanelKey = 'layers';
 
   togglePanel(panel: SidebarPanelKey): void {
     if (this.openPanels.has(panel)) {
@@ -85,5 +86,13 @@ export class CakeSidebarComponent implements OnInit {
 
   ngOnInit(): void {
     void this.sceneService.loadDecorationsData();
+  }
+
+  focusPanel(panel: SidebarPanelKey): void {
+    this.activePanel = panel;
+    this.openPanels.add(panel);
+    const toggleId = this.panelToggleId(panel);
+    const element = typeof document !== 'undefined' ? document.getElementById(toggleId) : null;
+    element?.focus();
   }
 }

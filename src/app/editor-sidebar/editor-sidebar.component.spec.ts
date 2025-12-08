@@ -2,15 +2,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 
-import { CakeSidebarComponent } from './cake-sidebar.component';
+import { EditorSidebarComponent } from './editor-sidebar.component';
 import { ThreeSceneService } from '../services/three-scene.service';
 import { DecorationsService } from '../services/decorations.service';
 import { PaintService } from '../services/paint.service';
 import { CakeOptions } from '../models/cake.options';
 
-describe('CakeSidebarComponent', () => {
-  let component: CakeSidebarComponent;
-  let fixture: ComponentFixture<CakeSidebarComponent>;
+describe('EditorSidebarComponent', () => {
+  let component: EditorSidebarComponent;
+  let fixture: ComponentFixture<EditorSidebarComponent>;
 
   const baseOptions: CakeOptions = {
     cake_size: 1,
@@ -68,7 +68,7 @@ describe('CakeSidebarComponent', () => {
     const paintServiceStub = {} as Partial<PaintService>;
 
     await TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, CakeSidebarComponent],
+      imports: [HttpClientTestingModule, EditorSidebarComponent],
       providers: [
         { provide: ThreeSceneService, useValue: threeSceneServiceStub },
         { provide: DecorationsService, useValue: decorationsServiceStub },
@@ -77,7 +77,7 @@ describe('CakeSidebarComponent', () => {
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(CakeSidebarComponent);
+    fixture = TestBed.createComponent(EditorSidebarComponent);
     component = fixture.componentInstance;
     component.options = baseOptions;
     fixture.detectChanges();

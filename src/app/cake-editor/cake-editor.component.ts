@@ -11,7 +11,6 @@ import {
 import {CommonModule, isPlatformBrowser} from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { SceneOutlineComponent } from '../cake-sidebar/scene-outline/scene-outline.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
 import {PaintService} from '../services/paint.service';
@@ -26,11 +25,12 @@ import { DecoratedCakePreset } from '../models/cake-preset';
 import { ProjectsService } from '../services/projects.service';
 import { AuthService } from '../services/auth.service';
 import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-options';
+import { EditorWorkspaceComponent } from './editor-workspace/editor-workspace.component';
 
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, SceneOutlineComponent, FormsModule],
+  imports: [CommonModule, EditorWorkspaceComponent, FormsModule],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
@@ -131,14 +131,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     },
   ];
   private container?: ElementRef;
-  @ViewChild('canvasContainer') set canvasContainer(element: ElementRef | undefined) {
-    const hasChanged = !!element && this.container?.nativeElement !== element.nativeElement;
-    if (hasChanged && this.sceneInitialized) {
-      this.pendingPreset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
-      this.sceneInitialized = false;
-    }
-    this.container = element;
-    this.maybeInitializeScene();
+  @ViewChild('canvasContainer') set setupCanvasContainer(element: ElementRef | undefined) {
+    this.setCanvasContainer(element);
   }
 
   readonly authorModeEnabled = environment.authorMode;
@@ -183,6 +177,20 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   private contextMenuListener = (event: MouseEvent) => this.onContextMenu(event);
+
+  onWorkspaceCanvasReady(element: ElementRef<HTMLDivElement>): void {
+    this.setCanvasContainer(element);
+  }
+
+  private setCanvasContainer(element: ElementRef | undefined): void {
+    const hasChanged = !!element && this.container?.nativeElement !== element.nativeElement;
+    if (hasChanged && this.sceneInitialized) {
+      this.pendingPreset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
+      this.sceneInitialized = false;
+    }
+    this.container = element;
+    this.maybeInitializeScene();
+  }
 
   constructor(
     public sceneService: ThreeSceneService,

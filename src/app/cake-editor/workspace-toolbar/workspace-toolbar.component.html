@@ -1,0 +1,30 @@
+<div class="workspace-toolbar">
+  <button
+    class="workspace-toolbar__btn"
+    type="button"
+    [class.workspace-toolbar__btn--active]="activePanel === 'decorations'"
+    (click)="openDecorations()"
+    title="Dekoracje"
+  >
+    <span aria-hidden="true">🧁</span>
+  </button>
+  <button
+    class="workspace-toolbar__btn"
+    type="button"
+    [class.workspace-toolbar__btn--active]="activePanel === 'paint'"
+    (click)="openPaint()"
+    title="Malowanie"
+  >
+    <span aria-hidden="true">🎨</span>
+  </button>
+  <div class="workspace-toolbar__divider"></div>
+  <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('translate')" title="Przesuń">
+    <span aria-hidden="true">↕</span>
+  </button>
+  <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('rotate')" title="Obróć">
+    <span aria-hidden="true">⟳</span>
+  </button>
+  <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('scale')" title="Skaluj">
+    <span aria-hidden="true">↔</span>
+  </button>
+</div>

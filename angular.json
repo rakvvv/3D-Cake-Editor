@@ -28,7 +28,7 @@
             ],
             "styles": [
               "src/styles.css",
-              "src/app/cake-sidebar/sidebar-panel.css"
+              "src/app/editor-sidebar/sidebar-panel.css"
             ],
             "scripts": [],
             "server": "src/main.server.ts",
@@ -98,7 +98,7 @@
             ],
             "styles": [
               "src/styles.css",
-              "src/app/cake-sidebar/sidebar-panel.css"
+              "src/app/editor-sidebar/sidebar-panel.css"
             ],
             "scripts": []
           }
