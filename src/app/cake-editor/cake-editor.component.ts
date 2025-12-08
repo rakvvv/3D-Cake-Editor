@@ -340,6 +340,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  getInputValue(event: Event): string {
+    const target = event.target as HTMLInputElement | null;
+    return target?.value ?? '';
+  }
+
   setCakeColor(color: string): void {
     this.primaryColor = color;
     if (!this.gradientEnabled) {

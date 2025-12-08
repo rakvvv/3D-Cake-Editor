@@ -123,7 +123,7 @@
                 <div class="color-row">
                   <span class="color-row__label">Podstawowy</span>
                   <div class="color-row__input">
-                    <input type="color" [ngModel]="primaryColor" (input)="setCakeColor($event.target.value)" />
+                    <input type="color" [ngModel]="primaryColor" (input)="setCakeColor(getInputValue($event))" />
                     <input type="text" [ngModel]="primaryColor" (ngModelChange)="setCakeColor($event)" />
                   </div>
                   <div class="color-swatch" [style.background]="primaryColor"></div>
@@ -148,7 +148,7 @@
                 <div class="color-row">
                   <span class="color-row__label">Pierwszy kolor</span>
                   <div class="color-row__input">
-                    <input type="color" [ngModel]="gradientFirst" (input)="setGradientColor('first', $event.target.value)" />
+                    <input type="color" [ngModel]="gradientFirst" (input)="setGradientColor('first', getInputValue($event))" />
                     <input type="text" [ngModel]="gradientFirst" (ngModelChange)="setGradientColor('first', $event)" />
                   </div>
                   <div class="color-swatch" [style.background]="gradientFirst"></div>
@@ -156,7 +156,7 @@
                 <div class="color-row">
                   <span class="color-row__label">Drugi kolor</span>
                   <div class="color-row__input">
-                    <input type="color" [ngModel]="gradientSecond" (input)="setGradientColor('second', $event.target.value)" />
+                    <input type="color" [ngModel]="gradientSecond" (input)="setGradientColor('second', getInputValue($event))" />
                     <input type="text" [ngModel]="gradientSecond" (ngModelChange)="setGradientColor('second', $event)" />
                   </div>
                   <div class="color-swatch" [style.background]="gradientSecond"></div>
@@ -175,7 +175,7 @@
                 <div class="color-row">
                   <span class="color-row__label">Kolor polewy</span>
                   <div class="color-row__input">
-                    <input type="color" [ngModel]="options.glaze_color" (input)="setGlazeColor($event.target.value)" />
+                    <input type="color" [ngModel]="options.glaze_color" (input)="setGlazeColor(getInputValue($event))" />
                     <input type="text" [ngModel]="options.glaze_color" (ngModelChange)="setGlazeColor($event)" />
                   </div>
                   <div class="color-swatch" [style.background]="options.glaze_color"></div>
@@ -203,7 +203,7 @@
                 <div class="color-row">
                   <span class="color-row__label">Lights color</span>
                   <div class="color-row__input">
-                    <input type="color" [ngModel]="options.glaze_color" (input)="setWaferColor($event.target.value)" />
+                    <input type="color" [ngModel]="options.glaze_color" (input)="setWaferColor(getInputValue($event))" />
                     <input type="text" [ngModel]="options.glaze_color" (ngModelChange)="setWaferColor($event)" />
                   </div>
                   <div class="color-swatch" [style.background]="options.glaze_color"></div>
@@ -366,7 +366,7 @@
               <div class="color-row">
                 <span class="color-row__label">Kolor kremu</span>
                 <div class="color-row__input">
-                  <input type="color" [ngModel]="primaryColor" (input)="setCakeColor($event.target.value)" />
+                  <input type="color" [ngModel]="primaryColor" (input)="setCakeColor(getInputValue($event))" />
                   <input type="text" [ngModel]="primaryColor" (ngModelChange)="setCakeColor($event)" />
                 </div>
                 <div class="color-swatch" [style.background]="primaryColor"></div>
