@@ -1,16 +1,16 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   --font-base: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-  --color-background: #f3f4f8;
-  --color-surface: #ffffff;
-  --color-surface-alt: #0f1116;
+  --color-background: #0b0f18;
+  --color-surface: #141a24;
+  --color-surface-alt: #0f141d;
   --color-stage: #0f172a;
-  --color-border: #d8dce5;
-  --color-border-strong: #b6bccb;
-  --color-text: #1f2430;
-  --color-text-muted: #5a6072;
+  --color-border: #1f2734;
+  --color-border-strong: #2c3443;
+  --color-text: #e6ebf5;
+  --color-text-muted: #9ba6b9;
   --color-accent: #f97316;
-  --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.12);
+  --shadow-soft: 0 10px 30px rgba(10, 14, 24, 0.35);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
