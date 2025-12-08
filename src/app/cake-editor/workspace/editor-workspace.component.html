@@ -20,6 +20,7 @@
 
   <section class="workspace-main">
     <app-workspace-toolbar
+      [currentTransformMode]="currentTransformMode"
       (decorationsRequested)="focusPanel('decorations')"
       (paintRequested)="focusPanel('paint')"
       (transformModeChange)="transformModeChange.emit($event)"

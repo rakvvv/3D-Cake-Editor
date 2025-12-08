@@ -10,45 +10,6 @@
     </div>
   </header>
 
-  <section class="editor-toolbar">
-    <div class="editor-toolbar__inner">
-      <div class="editor-toolbar__left">
-        <button class="icon-button" type="button" (click)="goToProjects()">
-          <span class="icon-16" aria-hidden="true">←</span>
-          <span>Back</span>
-        </button>
-        <div class="workspace-toolbar__title">
-          <span class="workspace-toolbar__label">Tort</span>
-          <span class="workspace-toolbar__name">{{ projectName || 'UNTITLED' }}</span>
-        </div>
-      </div>
-
-      <div class="editor-toolbar__right">
-        <button class="btn btn--ghost icon-only" type="button" (click)="onToolbarResetCamera()" title="Resetuj widok">
-          <span class="icon-16" aria-hidden="true">⟳</span>
-        </button>
-        <button class="btn btn--ghost icon-only" type="button" title="Cofnij">
-          <span class="icon-16" aria-hidden="true">↶</span>
-        </button>
-        <button class="btn btn--ghost icon-only" type="button" title="Ponów">
-          <span class="icon-16" aria-hidden="true">↷</span>
-        </button>
-        <ng-container *ngIf="mode === 'setup'; else saveActions">
-          <button class="btn btn--primary" type="button" (click)="continueToWorkspace()">
-            <span class="icon-16" aria-hidden="true">✔</span>
-            <span>Kontynuuj</span>
-          </button>
-        </ng-container>
-        <ng-template #saveActions>
-          <button class="btn btn--primary" type="button" (click)="onSaveScene()">
-            <span class="icon-16" aria-hidden="true">💾</span>
-            <span>Zapisz</span>
-          </button>
-        </ng-template>
-      </div>
-    </div>
-  </section>
-
   <ng-container *ngIf="!loadingProject && !loadError; else loadingOrError">
     <app-editor-setup-panel
       *ngIf="mode === 'setup'"
@@ -100,6 +61,7 @@
       [validationIssues]="validationIssues"
       [pendingValidationLabel]="pendingValidationLabel"
       [authorModeEnabled]="authorModeEnabled"
+      [currentTransformMode]="currentTransformMode"
       (optionsChange)="updateCakeOptions($event)"
       (addDecoration)="onAddDecoration($event)"
       (saveScene)="onSaveScene()"

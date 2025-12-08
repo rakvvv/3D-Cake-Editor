@@ -29,6 +29,7 @@ export class EditorWorkspaceComponent {
   @Input() validationIssues: DecorationValidationIssue[] = [];
   @Input() pendingValidationLabel: string | null = null;
   @Input() authorModeEnabled = false;
+  @Input() currentTransformMode: 'translate' | 'rotate' | 'scale' = 'translate';
 
   @Output() optionsChange = new EventEmitter<CakeOptions>();
   @Output() addDecoration = new EventEmitter<AddDecorationRequest>();

@@ -9,6 +9,56 @@
   min-height: calc(100dvh - 96px);
 }
 
+.setup-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1f1f1f;
+  background: #141414;
+}
+
+.setup-header__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setup-header__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9aa0a6;
+}
+
+.setup-header__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f7fbff;
+}
+
+.btn {
+  border-radius: 8px;
+  padding: 10px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 20px;
+  color: #fcfcfc;
+  background: #1c1c1c;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.btn--primary {
+  background: #05acee;
+  border-color: #05acee;
+  color: #0b1520;
+}
+
 .setup-sidebar {
   background: #141414;
   border-right: 1px solid #1f1f1f;

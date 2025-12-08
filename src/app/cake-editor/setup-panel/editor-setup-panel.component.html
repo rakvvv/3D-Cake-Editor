@@ -1,4 +1,15 @@
 <div class="setup-layout">
+  <div class="setup-header">
+    <div class="setup-header__titles">
+      <div class="setup-header__label">Konfiguracja tortu</div>
+      <div class="setup-header__name">Ustaw bazę przed przejściem do dekoracji</div>
+    </div>
+    <button class="btn btn--primary" type="button" (click)="continue.emit()">
+      <span class="icon-16" aria-hidden="true">✔</span>
+      <span>Kontynuuj</span>
+    </button>
+  </div>
+
   <aside class="setup-sidebar">
     <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'cake'" (click)="setupTabChange.emit('cake')">
       <span class="icon-24" aria-hidden="true">🎂</span>

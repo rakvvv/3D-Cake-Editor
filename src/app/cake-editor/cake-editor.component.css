@@ -96,65 +96,6 @@
   justify-content: center;
 }
 
-.editor-toolbar {
-  background: #141414;
-  border-bottom: 1px solid #1f1f1f;
-  padding: 12px 24px;
-}
-
-.editor-toolbar__inner {
-  max-width: 1440px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.editor-toolbar__left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex: 1;
-}
-
-.icon-button {
-  border-radius: 6px;
-  padding: 6px 8px;
-  background: transparent;
-  border: none;
-  color: #fcfcfc;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.workspace-toolbar__title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.workspace-toolbar__label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #b5b5b5;
-}
-
-.workspace-toolbar__name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #fcfcfc;
-}
-
-.editor-toolbar__right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .editor-loader,
 .editor-error {
   padding: 32px;

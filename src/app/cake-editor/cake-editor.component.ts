@@ -36,6 +36,7 @@ import { EditorWorkspaceComponent } from './workspace/editor-workspace.component
 })
 export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   mode: 'setup' | 'workspace' = 'setup';
+  currentTransformMode: 'translate' | 'rotate' | 'scale' = 'translate';
   setupTab: 'cake' | 'texture' | 'color' | 'glaze' = 'cake';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
   selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
@@ -520,6 +521,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onTransformModeChange(mode: string): void {
+    this.currentTransformMode = mode as 'translate' | 'rotate' | 'scale';
     if (isPlatformBrowser(this.platformId)) {
       this.transformService.setTransformMode(mode as 'translate' | 'rotate' | 'scale');
     }
