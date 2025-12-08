@@ -3,9 +3,24 @@
     <div class="app-topbar__inner">
       <div class="app-topbar__logo" aria-label="3D Cake Editor logo">🍰</div>
       <div class="app-topbar__spacer"></div>
-      <div class="app-topbar__user">
-        <div class="user-avatar">U</div>
+      <div class="app-topbar__user" *ngIf="isAuthenticated; else loginCta">
+        <button
+          class="user-avatar"
+          type="button"
+          (click)="toggleUserMenu()"
+          aria-haspopup="true"
+          [attr.aria-expanded]="userMenuOpen"
+        >
+          {{ (user$ | async)?.email[0] | uppercase }}
+        </button>
+        <div class="user-menu" *ngIf="userMenuOpen">
+          <div class="user-menu__email">{{ (user$ | async)?.email }}</div>
+          <button class="user-menu__item" type="button" (click)="logout()">Wyloguj</button>
+        </div>
       </div>
+      <ng-template #loginCta>
+        <button class="btn btn--primary" type="button" (click)="goToLogin()">Zaloguj</button>
+      </ng-template>
     </div>
   </header>
 
@@ -24,9 +39,27 @@
       </div>
 
       <div class="projects-toolbar__actions">
-        <div class="toggle-view" aria-hidden="true">
-          <button class="toggle-view__btn toggle-view__btn--active" type="button">▥</button>
-          <button class="toggle-view__btn" type="button">☰</button>
+        <div class="toggle-view">
+          <button
+            class="toggle-view__btn"
+            type="button"
+            [class.toggle-view__btn--active]="viewMode === 'grid'"
+            aria-pressed="{{ viewMode === 'grid' }}"
+            (click)="setViewMode('grid')"
+            title="Widok siatki"
+          >
+            ▥
+          </button>
+          <button
+            class="toggle-view__btn"
+            type="button"
+            [class.toggle-view__btn--active]="viewMode === 'list'"
+            aria-pressed="{{ viewMode === 'list' }}"
+            (click)="setViewMode('list')"
+            title="Widok listy"
+          >
+            ☰
+          </button>
         </div>
 
         <button class="btn btn--ghost" type="button" (click)="loadProjects()">
@@ -43,8 +76,8 @@
   </section>
 
   <main class="projects-content">
-    <div class="projects-grid" *ngIf="!loading; else loadingTpl">
-      <article class="project-card" *ngFor="let project of projects">
+    <div class="projects-grid" [class.projects-grid--list]="viewMode === 'list'" *ngIf="!loading; else loadingTpl">
+      <article class="project-card" [class.project-card--list]="viewMode === 'list'" *ngFor="let project of projects">
         <header class="project-card__header">
           <div class="icon-24" aria-hidden="true">📁</div>
           <div class="project-card__meta">
@@ -86,7 +119,7 @@
         </ng-template>
       </article>
 
-      <article class="project-card project-card--new">
+      <article class="project-card project-card--new" [class.project-card--list]="viewMode === 'list'">
         <div class="project-card__new">
           <div class="icon-24" aria-hidden="true">＋</div>
           <div class="project-card__meta">

@@ -53,7 +53,14 @@ export class AuthService {
     if (!this.hasStorage()) {
       return null;
     }
-    return localStorage.getItem(this.tokenKey);
+
+    const token = localStorage.getItem(this.tokenKey);
+    if (token && this.isTokenExpired(token)) {
+      this.logout();
+      return null;
+    }
+
+    return token;
   }
 
   private persistSession(response: AuthResponse): void {
@@ -61,6 +68,27 @@ export class AuthService {
       localStorage.setItem(this.tokenKey, response.token);
     }
     this.storeUser(response.user);
+  }
+
+  private isTokenExpired(token: string): boolean {
+    const [, payload] = token.split('.');
+    if (!payload) {
+      return false;
+    }
+
+    try {
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = atob(normalized);
+      const parsed = JSON.parse(decoded) as { exp?: number };
+
+      if (!parsed.exp) {
+        return false;
+      }
+
+      return parsed.exp * 1000 < Date.now();
+    } catch {
+      return false;
+    }
   }
 
   private storeUser(user: UserDto): void {

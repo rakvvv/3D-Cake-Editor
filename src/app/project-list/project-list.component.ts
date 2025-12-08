@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { ProjectsService } from '../services/projects.service';
 import { CakeProjectSummaryDto } from '../models/project.models';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-project-list',
@@ -18,8 +19,20 @@ export class ProjectListComponent implements OnInit {
   newProjectName = 'Nowy tort';
   renameProjectId: number | null = null;
   renameValue = '';
+  viewMode: 'grid' | 'list' = 'grid';
+  userMenuOpen = false;
 
-  constructor(private projectsService: ProjectsService, private router: Router) {}
+  get isAuthenticated(): boolean {
+    return this.auth.isAuthenticated();
+  }
+
+  readonly user$ = this.auth.currentUser$;
+
+  constructor(
+    private projectsService: ProjectsService,
+    private router: Router,
+    private auth: AuthService,
+  ) {}
 
   ngOnInit(): void {
     this.loadProjects();
@@ -50,6 +63,10 @@ export class ProjectListComponent implements OnInit {
     void this.router.navigate(['/editor', id]);
   }
 
+  setViewMode(mode: 'grid' | 'list'): void {
+    this.viewMode = mode;
+  }
+
   startRename(project: CakeProjectSummaryDto): void {
     this.renameProjectId = project.id;
     this.renameValue = project.name;
@@ -75,6 +92,20 @@ export class ProjectListComponent implements OnInit {
   cancelRename(): void {
     this.renameProjectId = null;
     this.renameValue = '';
+  }
+
+  toggleUserMenu(): void {
+    this.userMenuOpen = !this.userMenuOpen;
+  }
+
+  logout(): void {
+    this.auth.logout();
+    this.userMenuOpen = false;
+    void this.router.navigate(['/login']);
+  }
+
+  goToLogin(): void {
+    void this.router.navigate(['/login']);
   }
 
   private refreshAfterMutation(): void {
