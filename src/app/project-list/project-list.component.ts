@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { ProjectsService } from '../services/projects.service';
 import { CakeProjectSummaryDto } from '../models/project.models';
-import { FormsModule } from '@angular/forms';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-project-list',
@@ -18,8 +19,16 @@ export class ProjectListComponent implements OnInit {
   newProjectName = 'Nowy tort';
   renameProjectId: number | null = null;
   renameValue = '';
+  viewMode: 'grid' | 'list' = 'grid';
+  searchQuery = '';
+  userMenuOpen = false;
+  readonly user$ = this.authService.currentUser$;
 
-  constructor(private projectsService: ProjectsService, private router: Router) {}
+  constructor(
+    private projectsService: ProjectsService,
+    private router: Router,
+    private authService: AuthService,
+  ) {}
 
   ngOnInit(): void {
     this.loadProjects();
@@ -75,6 +84,36 @@ export class ProjectListComponent implements OnInit {
   cancelRename(): void {
     this.renameProjectId = null;
     this.renameValue = '';
+  }
+
+  setViewMode(mode: 'grid' | 'list'): void {
+    this.viewMode = mode;
+  }
+
+  toggleUserMenu(): void {
+    this.userMenuOpen = !this.userMenuOpen;
+  }
+
+  logout(): void {
+    this.authService.logout();
+    this.userMenuOpen = false;
+    void this.router.navigate(['/login']);
+  }
+
+  goToLogin(): void {
+    void this.router.navigate(['/login']);
+  }
+
+  isAuthenticated(): boolean {
+    return this.authService.isAuthenticated();
+  }
+
+  get filteredProjects(): CakeProjectSummaryDto[] {
+    const query = this.searchQuery.trim().toLowerCase();
+    if (!query) {
+      return this.projects;
+    }
+    return this.projects.filter((project) => project.name.toLowerCase().includes(query));
   }
 
   private refreshAfterMutation(): void {

@@ -1,35 +1,115 @@
-<div class="project-list__header">
-  <h2>Twoje projekty</h2>
-  <div class="project-list__new">
-    <input type="text" [(ngModel)]="newProjectName" placeholder="Nazwa projektu" />
-    <button type="button" (click)="createProject()">Nowy projekt</button>
-  </div>
-</div>
-
-<div class="project-list" *ngIf="!loading; else loadingTpl">
-  <div *ngIf="projects.length === 0" class="project-list__empty">
-    Brak zapisanych projektów.
-  </div>
-  <div *ngFor="let project of projects" class="project-list__item">
-    <div class="project-list__info">
-      <div *ngIf="renameProjectId !== project.id; else renameTpl">{{ project.name }}</div>
-      <div class="project-list__meta">Ostatnia edycja: {{ project.updatedAt | date: 'short' }}</div>
-    </div>
-    <div class="project-list__actions">
-      <button type="button" (click)="openProject(project.id)">Otwórz</button>
-      <button type="button" (click)="startRename(project)">Zmień nazwę</button>
-      <button type="button" (click)="deleteProject(project)" class="danger">Usuń</button>
-    </div>
-    <ng-template #renameTpl>
-      <div class="rename-row">
-        <input [(ngModel)]="renameValue" />
-        <button type="button" (click)="confirmRename(project)">Zapisz</button>
-        <button type="button" (click)="cancelRename()">Anuluj</button>
+<div class="projects-dashboard">
+  <header class="app-topbar">
+    <div class="app-topbar__inner">
+      <div class="app-topbar__logo">
+        <span class="logo-mark">🍰</span>
+        <span class="logo-text">Cake Studio</span>
       </div>
-    </ng-template>
-  </div>
-</div>
 
-<ng-template #loadingTpl>
-  <p>Wczytywanie projektów...</p>
-</ng-template>
+      <div class="app-topbar__spacer"></div>
+
+      <div class="app-topbar__user" *ngIf="isAuthenticated(); else loginButton">
+        <button type="button" class="user-avatar" (click)="toggleUserMenu()" aria-label="User menu">
+          <span>{{ (user$ | async)?.email | slice:0:1 | uppercase }}</span>
+        </button>
+        <button type="button" class="icon-button" (click)="toggleUserMenu()" aria-label="Toggle user menu">
+          <span class="icon-12">▾</span>
+        </button>
+        <div class="user-menu" *ngIf="userMenuOpen">
+          <button type="button" (click)="logout()">Wyloguj</button>
+        </div>
+      </div>
+
+      <ng-template #loginButton>
+        <button class="btn btn--primary" type="button" (click)="goToLogin()">Zaloguj</button>
+      </ng-template>
+    </div>
+  </header>
+
+  <section class="projects-toolbar">
+    <div class="projects-toolbar__inner">
+      <div class="projects-toolbar__title">
+        <h1>My projects</h1>
+      </div>
+
+      <div class="projects-toolbar__search">
+        <div class="input input--with-icon">
+          <input type="text" [(ngModel)]="searchQuery" placeholder="Type to search" aria-label="Search projects" />
+          <span class="icon-20">🔍</span>
+        </div>
+      </div>
+
+      <div class="projects-toolbar__actions">
+        <div class="toggle-view" role="group" aria-label="Project view mode">
+          <button class="toggle-view__btn" [class.toggle-view__btn--active]="viewMode === 'grid'" (click)="setViewMode('grid')" aria-label="Grid view">
+            ⬚
+          </button>
+          <button class="toggle-view__btn" [class.toggle-view__btn--active]="viewMode === 'list'" (click)="setViewMode('list')" aria-label="List view">
+            ☰
+          </button>
+        </div>
+
+        <button class="btn btn--ghost" type="button" (click)="loadProjects()">
+          <span>Odśwież</span>
+        </button>
+
+        <div class="projects-toolbar__new">
+          <input type="text" [(ngModel)]="newProjectName" placeholder="Nazwa projektu" />
+          <button class="btn btn--primary" type="button" (click)="createProject()">
+            <span class="icon-16">＋</span>
+            <span>New</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main class="projects-content">
+    <ng-container *ngIf="!loading; else loadingTpl">
+      <div class="projects-empty" *ngIf="filteredProjects.length === 0">Brak zapisanych projektów.</div>
+
+      <div class="projects-grid" [class.projects-grid--list]="viewMode === 'list'" *ngIf="filteredProjects.length > 0">
+        <article class="project-card" *ngFor="let project of filteredProjects">
+          <header class="project-card__header">
+            <div class="project-card__icon">📁</div>
+            <div class="project-card__meta">
+              <div class="project-card__title-row" *ngIf="renameProjectId !== project.id; else renameTpl">
+                <h2 class="project-card__title">{{ project.name }}</h2>
+                <button class="icon-button" type="button" (click)="startRename(project)" aria-label="Rename project">⋯</button>
+              </div>
+              <p class="project-card__subtitle">Ostatnia edycja: {{ project.updatedAt | date: 'short' }}</p>
+            </div>
+          </header>
+
+          <div class="project-card__preview" aria-hidden="true">🖼️</div>
+
+          <footer class="project-card__footer">
+            <button class="btn btn--ghost btn--small" type="button" (click)="openProject(project.id)">
+              <span class="icon-16">↗</span>
+              <span>Wybierz</span>
+            </button>
+            <button class="btn btn--primary btn--small" type="button" (click)="openProject(project.id)">
+              <span class="icon-16">✏️</span>
+              <span>Modyfikuj</span>
+            </button>
+            <button class="btn btn--ghost btn--small danger" type="button" (click)="deleteProject(project)">
+              <span class="icon-16">🗑</span>
+            </button>
+          </footer>
+
+          <ng-template #renameTpl>
+            <div class="rename-row">
+              <input [(ngModel)]="renameValue" />
+              <button class="btn btn--primary btn--small" type="button" (click)="confirmRename(project)">Zapisz</button>
+              <button class="btn btn--ghost btn--small" type="button" (click)="cancelRename()">Anuluj</button>
+            </div>
+          </ng-template>
+        </article>
+      </div>
+    </ng-container>
+  </main>
+
+  <ng-template #loadingTpl>
+    <div class="projects-loading">Wczytywanie projektów...</div>
+  </ng-template>
+</div>
