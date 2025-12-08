@@ -1,35 +1,114 @@
-<div class="project-list__header">
-  <h2>Twoje projekty</h2>
-  <div class="project-list__new">
-    <input type="text" [(ngModel)]="newProjectName" placeholder="Nazwa projektu" />
-    <button type="button" (click)="createProject()">Nowy projekt</button>
-  </div>
-</div>
-
-<div class="project-list" *ngIf="!loading; else loadingTpl">
-  <div *ngIf="projects.length === 0" class="project-list__empty">
-    Brak zapisanych projektów.
-  </div>
-  <div *ngFor="let project of projects" class="project-list__item">
-    <div class="project-list__info">
-      <div *ngIf="renameProjectId !== project.id; else renameTpl">{{ project.name }}</div>
-      <div class="project-list__meta">Ostatnia edycja: {{ project.updatedAt | date: 'short' }}</div>
-    </div>
-    <div class="project-list__actions">
-      <button type="button" (click)="openProject(project.id)">Otwórz</button>
-      <button type="button" (click)="startRename(project)">Zmień nazwę</button>
-      <button type="button" (click)="deleteProject(project)" class="danger">Usuń</button>
-    </div>
-    <ng-template #renameTpl>
-      <div class="rename-row">
-        <input [(ngModel)]="renameValue" />
-        <button type="button" (click)="confirmRename(project)">Zapisz</button>
-        <button type="button" (click)="cancelRename()">Anuluj</button>
+<div class="projects-dashboard">
+  <header class="app-topbar">
+    <div class="app-topbar__inner">
+      <div class="app-topbar__logo" aria-label="3D Cake Editor logo">🍰</div>
+      <div class="app-topbar__spacer"></div>
+      <div class="app-topbar__user">
+        <div class="user-avatar">U</div>
       </div>
-    </ng-template>
-  </div>
+    </div>
+  </header>
+
+  <section class="projects-toolbar">
+    <div class="projects-toolbar__inner">
+      <div class="projects-toolbar__title">
+        <h1>My projects</h1>
+        <p class="projects-toolbar__subtitle">Zarządzaj projektami tortów w jednym miejscu</p>
+      </div>
+
+      <div class="projects-toolbar__search">
+        <div class="input input--with-icon">
+          <input type="text" placeholder="Type to search" aria-label="Search projects" />
+          <span class="icon-20" aria-hidden="true">⌕</span>
+        </div>
+      </div>
+
+      <div class="projects-toolbar__actions">
+        <div class="toggle-view" aria-hidden="true">
+          <button class="toggle-view__btn toggle-view__btn--active" type="button">▥</button>
+          <button class="toggle-view__btn" type="button">☰</button>
+        </div>
+
+        <button class="btn btn--ghost" type="button" (click)="loadProjects()">
+          <span>Refresh</span>
+          <span class="icon-16" aria-hidden="true">⟳</span>
+        </button>
+
+        <button class="btn btn--primary" type="button" (click)="createProject()">
+          <span class="icon-16" aria-hidden="true">＋</span>
+          <span>New</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <main class="projects-content">
+    <div class="projects-grid" *ngIf="!loading; else loadingTpl">
+      <article class="project-card" *ngFor="let project of projects">
+        <header class="project-card__header">
+          <div class="icon-24" aria-hidden="true">📁</div>
+          <div class="project-card__meta">
+            <div class="project-card__title-row">
+              <h2 class="project-card__title" *ngIf="renameProjectId !== project.id; else renameTpl">{{ project.name }}</h2>
+              <div class="project-card__subtitle">Ostatnia edycja: {{ project.updatedAt | date: 'short' }}</div>
+            </div>
+          </div>
+        </header>
+
+        <div class="project-card__preview" aria-hidden="true"></div>
+
+        <footer class="project-card__footer" *ngIf="renameProjectId !== project.id; else renameActions">
+          <button class="btn btn--ghost btn--small" type="button" (click)="openProject(project.id)">
+            <span class="icon-16" aria-hidden="true">↗</span>
+            <span>Wybierz</span>
+          </button>
+          <div class="project-card__actions">
+            <button class="btn btn--ghost btn--small" type="button" (click)="startRename(project)">
+              Zmień nazwę
+            </button>
+            <button class="btn btn--primary btn--small" type="button" (click)="deleteProject(project)">
+              Usuń
+            </button>
+          </div>
+        </footer>
+
+        <ng-template #renameTpl>
+          <div class="rename-row">
+            <input [(ngModel)]="renameValue" />
+          </div>
+        </ng-template>
+
+        <ng-template #renameActions>
+          <footer class="project-card__footer">
+            <button class="btn btn--ghost btn--small" type="button" (click)="confirmRename(project)">Zapisz</button>
+            <button class="btn btn--ghost btn--small" type="button" (click)="cancelRename()">Anuluj</button>
+          </footer>
+        </ng-template>
+      </article>
+
+      <article class="project-card project-card--new">
+        <div class="project-card__new">
+          <div class="icon-24" aria-hidden="true">＋</div>
+          <div class="project-card__meta">
+            <h3 class="project-card__title">Nowy projekt</h3>
+            <p class="project-card__subtitle">Podaj nazwę i zacznij edytować</p>
+          </div>
+        </div>
+        <div class="project-card__new-form">
+          <input
+            class="project-card__new-input"
+            type="text"
+            [(ngModel)]="newProjectName"
+            placeholder="Nazwa projektu"
+            aria-label="New project name"
+          />
+          <button class="btn btn--primary" type="button" (click)="createProject()">Utwórz</button>
+        </div>
+      </article>
+    </div>
+  </main>
 </div>
 
 <ng-template #loadingTpl>
-  <p>Wczytywanie projektów...</p>
+  <div class="projects-loading">Wczytywanie projektów...</div>
 </ng-template>

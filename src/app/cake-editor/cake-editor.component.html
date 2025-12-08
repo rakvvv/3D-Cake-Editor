@@ -1,15 +1,69 @@
-<div class="editor-shell">
-  <div class="editor-topbar">
-    <div class="editor-topbar__left">
-      <button type="button" (click)="goToProjects()">← Projekty</button>
-      <span class="editor-topbar__title">{{ projectName || 'Projekt tortu' }}</span>
+<div class="cake-editor">
+  <header class="app-topbar">
+    <div class="app-topbar__inner">
+      <div class="app-topbar__logo" aria-label="3D Cake Editor">🍰</div>
+      <div class="app-topbar__spacer"></div>
+      <button class="btn btn--ghost" type="button" (click)="goToProjects()">
+        <span class="icon-16" aria-hidden="true">←</span>
+        <span>My projects</span>
+      </button>
     </div>
-    <button type="button" (click)="onLogout()">Wyloguj</button>
-  </div>
+  </header>
+
+  <section class="editor-toolbar">
+    <div class="editor-toolbar__inner">
+      <div class="editor-toolbar__left">
+        <button class="icon-button" type="button" (click)="goToProjects()">
+          <span class="icon-16" aria-hidden="true">←</span>
+          <span>Back</span>
+        </button>
+        <div class="workspace-toolbar__title">
+          <span class="workspace-toolbar__label">Project</span>
+          <span class="workspace-toolbar__name">{{ projectName || 'UNTITLED' }}</span>
+        </div>
+      </div>
+
+      <div class="editor-toolbar__right">
+        <button class="btn btn--ghost icon-only" type="button" (click)="onToolbarResetCamera()" title="Resetuj widok">
+          <span class="icon-16" aria-hidden="true">⟳</span>
+        </button>
+        <button class="btn btn--primary" type="button" (click)="onSaveScene()">
+          <span class="icon-16" aria-hidden="true">💾</span>
+          <span>Zapisz</span>
+        </button>
+      </div>
+    </div>
+  </section>
 
   <ng-container *ngIf="!loadingProject && !loadError; else loadingOrError">
-    <div class="editor-container">
-      <app-cake-sidebar
+    <div class="editor-layout">
+      <aside class="editor-sidebar">
+        <button class="editor-sidebar__item editor-sidebar__item--active" type="button">
+          <span class="icon-24" aria-hidden="true">🎂</span>
+          <span>Tort</span>
+        </button>
+        <button class="editor-sidebar__item" type="button">
+          <span class="icon-24" aria-hidden="true">🖌️</span>
+          <span>Tekstury</span>
+        </button>
+        <button class="editor-sidebar__item" type="button">
+          <span class="icon-24" aria-hidden="true">🌈</span>
+          <span>Kolory</span>
+        </button>
+        <button class="editor-sidebar__item" type="button">
+          <span class="icon-24" aria-hidden="true">🍫</span>
+          <span>Polewa</span>
+        </button>
+
+        <div class="editor-sidebar__bottom">
+          <button class="btn btn--ghost icon-only" type="button" (click)="onExportGltf()" title="Eksport GLTF">
+            <span class="icon-16" aria-hidden="true">⇣</span>
+          </button>
+        </div>
+      </aside>
+
+      <section class="editor-panel">
+        <app-cake-sidebar
           [validationSummary]="validationSummary"
           [validationIssues]="validationIssues"
           [pendingValidationLabel]="pendingValidationLabel"
@@ -19,123 +73,101 @@
           (cakeOptionsChange)="updateCakeOptions($event)"
           (validateDecorations)="onValidateDecorations()"
           (applyCakePreset)="onApplyCakePreset($event)"
-        (transformModeChange)="onTransformModeChange($event)"
-        (paintModeChange)="onTogglePaintMode($event)"
-        (brushChange)="onBrushChanged($event)"
-        (saveSceneEvent)="onSaveScene()"
-        (exportObj)="onExportObj()"
-        (exportStl)="onExportStl()"
-        (exportGltf)="onExportGltf()"
-        (screenshot)="onScreenshot()"
-        (proceedDespiteWarnings)="onProceedDespiteWarnings()"
-      ></app-cake-sidebar>
+          (transformModeChange)="onTransformModeChange($event)"
+          (paintModeChange)="onTogglePaintMode($event)"
+          (brushChange)="onBrushChanged($event)"
+          (saveSceneEvent)="onSaveScene()"
+          (exportObj)="onExportObj()"
+          (exportStl)="onExportStl()"
+          (exportGltf)="onExportGltf()"
+          (screenshot)="onScreenshot()"
+          (proceedDespiteWarnings)="onProceedDespiteWarnings()"
+        ></app-cake-sidebar>
+      </section>
 
-      <div class="editor-stage">
-        <div
-          class="editor-toolbar"
-          role="group"
-          aria-label="Główne narzędzia edytora"
-        >
-          <button
-            type="button"
-            class="editor-toolbar__button"
-            (click)="onToolbarResetCamera()"
-            title="Resetuj widok (klawisz R)"
-          >
-            Reset widoku
-          </button>
-        </div>
+      <section class="editor-viewport">
+        <div class="editor-viewport__inner">
+          <div #canvasContainer class="canvas-container"></div>
 
-        <div #canvasContainer class="canvas-container"></div>
-
-        <div
-          *ngIf="contextMenuVisible"
-          class="context-menu"
-          [style.left.px]="contextMenuX"
-          [style.top.px]="contextMenuY"
-        >
-          <button type="button" (click)="onContextResetCamera()">Resetuj widok kamery</button>
-          <button type="button" (click)="onContextDeselectDecoration()" [disabled]="!contextMenuHasSelection">
-            Odznacz dekorację
-          </button>
-          <div class="context-menu__separator" aria-hidden="true"></div>
-          <button type="button" (click)="onContextSnapToTop()" [disabled]="!contextMenuCanSnap">Przyczep do góry tortu</button>
-          <button type="button" (click)="onContextSnapToSide()" [disabled]="!contextMenuCanSnap">Przyczep do boku tortu</button>
-          <button
-            type="button"
-            (click)="onContextLockDecoration()"
-            [disabled]="!contextMenuHasSelection || contextMenuIsLocked"
-          >
-            Zablokuj przesuwanie
-          </button>
-          <button
-            type="button"
-            (click)="onContextUnlockDecoration()"
-            [disabled]="!contextMenuIsLocked"
-          >
-            Odblokuj przesuwanie
-          </button>
-          <button type="button" (click)="onContextDeleteDecoration()" [disabled]="!contextMenuHasSelection">
-            Usuń
-          </button>
-          <div class="context-menu__separator" aria-hidden="true"></div>
-          <button type="button" (click)="onContextCopyDecoration()" [disabled]="!contextMenuHasSelection">
-            Kopiuj
-          </button>
-          <button
-            type="button"
-            (click)="onContextPasteDecoration()"
-            [disabled]="!sceneService.hasCopiedDecoration()"
-          >
-            Wklej
-          </button>
-          <div class="context-menu__separator" aria-hidden="true"></div>
           <div
-            class="context-menu__item context-menu__item--submenu"
-            [class.context-menu__item--inactive]="!contextMenuHasSelection"
+            *ngIf="contextMenuVisible"
+            class="context-menu"
+            [style.left.px]="contextMenuX"
+            [style.top.px]="contextMenuY"
           >
-            <button type="button" class="context-menu__submenu-trigger" [disabled]="!contextMenuHasSelection">
-              Orientacja
-              <span aria-hidden="true" class="context-menu__submenu-arrow">▶</span>
+            <button type="button" (click)="onContextResetCamera()">Resetuj widok kamery</button>
+            <button type="button" (click)="onContextDeselectDecoration()" [disabled]="!contextMenuHasSelection">
+              Odznacz dekorację
             </button>
-            <div class="context-menu__submenu" role="menu">
-              <button type="button" (click)="onContextAlignToSurface()" [disabled]="!contextMenuHasSelection">
-                Wyrównaj do powierzchni
+            <div class="context-menu__separator" aria-hidden="true"></div>
+            <button type="button" (click)="onContextSnapToTop()" [disabled]="!contextMenuCanSnap">Przyczep do góry tortu</button>
+            <button type="button" (click)="onContextSnapToSide()" [disabled]="!contextMenuCanSnap">Przyczep do boku tortu</button>
+            <button
+              type="button"
+              (click)="onContextLockDecoration()"
+              [disabled]="!contextMenuHasSelection || contextMenuIsLocked"
+            >
+              Zablokuj przesuwanie
+            </button>
+            <button type="button" (click)="onContextUnlockDecoration()" [disabled]="!contextMenuIsLocked">
+              Odblokuj przesuwanie
+            </button>
+            <button type="button" (click)="onContextDeleteDecoration()" [disabled]="!contextMenuHasSelection">
+              Usuń
+            </button>
+            <div class="context-menu__separator" aria-hidden="true"></div>
+            <button type="button" (click)="onContextCopyDecoration()" [disabled]="!contextMenuHasSelection">
+              Kopiuj
+            </button>
+            <button type="button" (click)="onContextPasteDecoration()" [disabled]="!sceneService.hasCopiedDecoration()">
+              Wklej
+            </button>
+            <div class="context-menu__separator" aria-hidden="true"></div>
+            <div
+              class="context-menu__item context-menu__item--submenu"
+              [class.context-menu__item--inactive]="!contextMenuHasSelection"
+            >
+              <button type="button" class="context-menu__submenu-trigger" [disabled]="!contextMenuHasSelection">
+                Orientacja
+                <span aria-hidden="true" class="context-menu__submenu-arrow">▶</span>
               </button>
-              <div class="context-menu__submenu-grid">
-                <button type="button" (click)="onContextRotateQuarter(1)" [disabled]="!contextMenuHasSelection">
-                  Obróć 90° w prawo
+              <div class="context-menu__submenu" role="menu">
+                <button type="button" (click)="onContextAlignToSurface()" [disabled]="!contextMenuHasSelection">
+                  Wyrównaj do powierzchni
                 </button>
-                <button type="button" (click)="onContextRotateQuarter(-1)" [disabled]="!contextMenuHasSelection">
-                  Obróć 90° w lewo
+                <div class="context-menu__submenu-grid">
+                  <button type="button" (click)="onContextRotateQuarter(1)" [disabled]="!contextMenuHasSelection">
+                    Obróć 90° w prawo
+                  </button>
+                  <button type="button" (click)="onContextRotateQuarter(-1)" [disabled]="!contextMenuHasSelection">
+                    Obróć 90° w lewo
+                  </button>
+                  <button type="button" (click)="onContextRotateDegrees(45)" [disabled]="!contextMenuHasSelection">
+                    Obróć 45° w prawo
+                  </button>
+                  <button type="button" (click)="onContextRotateDegrees(-45)" [disabled]="!contextMenuHasSelection">
+                    Obróć 45° w lewo
+                  </button>
+                  <button type="button" (click)="onContextRotateDegrees(30)" [disabled]="!contextMenuHasSelection">
+                    Obróć 30° w prawo
+                  </button>
+                  <button type="button" (click)="onContextRotateDegrees(-30)" [disabled]="!contextMenuHasSelection">
+                    Obróć 30° w lewo
+                  </button>
+                </div>
+                <button type="button" (click)="onContextRotateHalf()" [disabled]="!contextMenuHasSelection">
+                  Obróć 180°
                 </button>
-                <button type="button" (click)="onContextRotateDegrees(45)" [disabled]="!contextMenuHasSelection">
-                  Obróć 45° w prawo
-                </button>
-                <button type="button" (click)="onContextRotateDegrees(-45)" [disabled]="!contextMenuHasSelection">
-                  Obróć 45° w lewo
-                </button>
-                <button type="button" (click)="onContextRotateDegrees(30)" [disabled]="!contextMenuHasSelection">
-                  Obróć 30° w prawo
-                </button>
-                <button type="button" (click)="onContextRotateDegrees(-30)" [disabled]="!contextMenuHasSelection">
-                  Obróć 30° w lewo
+                <button type="button" (click)="onContextResetOrientation()" [disabled]="!contextMenuHasSelection">
+                  Ustaw pionowo
                 </button>
               </div>
-              <button type="button" (click)="onContextRotateHalf()" [disabled]="!contextMenuHasSelection">
-                Obróć 180°
-              </button>
-              <button type="button" (click)="onContextResetOrientation()" [disabled]="!contextMenuHasSelection">
-                Ustaw pionowo
-              </button>
             </div>
           </div>
+
+          <div *ngIf="statusMessage" class="status-banner">{{ statusMessage }}</div>
         </div>
-
-        <div *ngIf="statusMessage" class="status-banner">{{ statusMessage }}</div>
-      </div>
-
-      <app-preset-export-dialog *ngIf="authorModeEnabled"></app-preset-export-dialog>
+      </section>
     </div>
   </ng-container>
 

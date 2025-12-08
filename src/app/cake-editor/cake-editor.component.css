@@ -1,47 +1,229 @@
-.editor-container {
-  position: relative;
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  height: 100dvh;
-  overflow: hidden;
-  background: var(--color-background);
-  color: var(--color-text);
-  box-sizing: border-box;
+:host {
+  display: block;
+  background: #181818;
+  color: #fcfcfc;
+  min-height: 100dvh;
+  font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-.editor-container > app-cake-sidebar {
-  position: relative;
-  z-index: 940;
-  flex: 0 0 320px;
-  flex-shrink: 0;
-  width: 320px;
-  height: calc(100dvh - 24px);
-  max-height: calc(100dvh - 24px);
-  overflow: hidden;
-  pointer-events: auto;
-  display: flex;
-}
-
-.editor-stage {
-  position: relative;
-  height: 100%;
-  min-width: 0;
-  flex: 1 1 auto;
-  background: var(--color-stage);
+.cake-editor {
+  background: #242424;
   border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
   overflow: hidden;
+}
+
+.app-topbar {
+  background: #242424;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.32), 0 0 1px rgba(0, 0, 0, 0.04);
+  padding: 8px 24px;
+}
+
+.app-topbar__inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.app-topbar__logo {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #05acee;
+  border-radius: 6px;
+  color: #0b1520;
+  font-weight: 700;
+}
+
+.app-topbar__spacer {
+  flex: 1;
+}
+
+.btn {
+  border-radius: 6px;
+  padding: 6px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 20px;
+  color: #fcfcfc;
+  background: transparent;
+}
+
+.btn--ghost {
+  background: #1c1c1c;
+  color: #fcfcfc;
+  border: 1px solid #303030;
+}
+
+.btn--primary {
+  background: #05acee;
+  color: #f8fafc;
+}
+
+.icon-only {
+  padding: 6px;
+  width: 32px;
+  justify-content: center;
+}
+
+.icon-16 {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editor-toolbar {
+  background: #242424;
+  border-bottom: 1px solid #303030;
+  padding: 12px 24px;
+}
+
+.editor-toolbar__inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.editor-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.icon-button {
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  color: #fcfcfc;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.workspace-toolbar__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspace-toolbar__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b5b5b5;
+}
+
+.workspace-toolbar__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fcfcfc;
+}
+
+.editor-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 120px 320px minmax(0, 1fr);
+  height: calc(100dvh - 96px);
+}
+
+.editor-sidebar {
+  background: #242424;
+  border-right: 1px solid #303030;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.editor-sidebar__item {
+  border-radius: 6px;
+  padding: 12px 8px;
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fcfcfc;
+  font-size: 12px;
+}
+
+.editor-sidebar__item--active {
+  background: #1c1c1c;
+  color: #43bff0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.32), 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.editor-sidebar__bottom {
+  margin-top: auto;
+}
+
+.editor-panel {
+  background: #242424;
+  border-right: 1px solid #303030;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.editor-panel > app-cake-sidebar {
+  flex: 1;
+}
+
+.editor-viewport {
+  background: #1c1c1c;
+  position: relative;
+}
+
+.editor-viewport__inner {
+  width: 100%;
+  height: 100%;
+  background: #111;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
 }
 
 .canvas-container {
   position: relative;
   height: 100%;
   width: 100%;
-  background: var(--color-stage);
+  background: #0f0f0f;
   overflow: hidden;
 }
 
-.context-menu { 
+/* Context menu and banners preserved from previous layout */
+.context-menu {
   position: fixed;
   z-index: 1000;
   display: flex;
@@ -62,7 +244,6 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: background 0.2s;
 }
 
 .context-menu button:hover {
@@ -91,21 +272,15 @@
   opacity: 0.4;
 }
 
-.context-menu__item--submenu::after {
-  content: '';
-  position: absolute;
-  top: -8px;
-  bottom: -8px;
-  left: 100%;
-  width: 12px;
-  pointer-events: none;
-}
-
-.context-menu__item--submenu > .context-menu__submenu-trigger {
+.context-menu__submenu-trigger {
   display: flex;
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0;
 }
 
 .context-menu__submenu-arrow {
@@ -117,7 +292,6 @@
   position: absolute;
   top: -6px;
   left: calc(100% - 4px);
-  transform: none;
   display: none;
   flex-direction: column;
   padding: 6px;
@@ -132,19 +306,11 @@
   display: flex;
 }
 
-.context-menu__submenu button {
-  white-space: nowrap;
-}
-
 .context-menu__submenu-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   margin: 4px 0;
-}
-
-.context-menu__submenu-grid button {
-  width: 100%;
 }
 
 .context-menu__separator {
@@ -168,132 +334,20 @@
   z-index: 900;
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
-}
-
-.editor-toolbar {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 950;
-}
-
-.editor-toolbar__button {
-  border: none;
-  border-radius: 999px;
-  background: rgba(31, 31, 31, 0.85);
-  color: #fff;
-  padding: 10px 18px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-}
-
-.editor-toolbar__button:hover,
-.editor-toolbar__button:focus {
-  background: rgba(31, 31, 31, 0.95);
-  transform: translateY(-1px);
-  outline: none;
-}
-
-.editor-toolbar__button--active {
-  box-shadow: 0 0 0 2px rgba(255, 77, 109, 0.7), 0 6px 18px rgba(255, 77, 109, 0.35);
-}
-
-.editor-toolbar__button[disabled] {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-@media (max-width: 1180px) {
-  .editor-container {
-    padding: 8px;
-    gap: 8px;
-  }
-
-  .editor-container > app-cake-sidebar {
-    width: 300px;
-    flex: 0 0 300px;
-  }
-}
-
-@media (max-width: 900px) {
-  .editor-container {
-    flex-direction: column;
-    padding: 0;
-    gap: 0;
-  }
-
-  .editor-container > app-cake-sidebar {
-    position: relative;
-    inset: auto;
-    max-width: none;
-    width: 100%;
-    flex-basis: auto;
-    height: auto;
-    max-height: none;
-  }
-
-  .editor-stage {
-    position: relative;
-    height: auto;
-    min-height: 65dvh;
-    border-radius: 0;
-  }
-
-  .status-banner {
-    bottom: 16px;
-  }
-
-  .view-controls {
-    right: 16px;
-    bottom: 16px;
-  }
-}
-
-.editor-shell {
-  min-height: 100dvh;
-  background: var(--color-background);
-}
-
-.editor-topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: #f5f5f5;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.editor-topbar__left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.editor-topbar__title {
-  font-weight: 700;
-}
-
 .editor-loader,
 .editor-error {
-  padding: 24px;
+  padding: 32px;
   text-align: center;
 }
 
 .editor-error {
-  color: #b00020;
+  color: #ffb4b4;
+}
+
+.icon-24 {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
