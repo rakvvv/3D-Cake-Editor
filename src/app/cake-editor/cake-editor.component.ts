@@ -1,12 +1,13 @@
 import {Component, AfterViewInit, ViewChild, ElementRef, Inject, PLATFORM_ID, OnDestroy, OnInit} from '@angular/core';
 import {CommonModule, isPlatformBrowser} from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import {CakeSidebarComponent} from '../cake-sidebar/cake-sidebar.component';
+import { SceneOutlineComponent } from '../cake-sidebar/scene-outline/scene-outline.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
 import {PaintService} from '../services/paint.service';
 import {TransformControlsService} from '../services/transform-controls-service';
-import {CakeOptions} from '../models/cake.options';
+import {CakeOptions, TextureMaps} from '../models/cake.options';
 import {DecorationValidationIssue} from '../models/decoration-validation';
 import {AddDecorationRequest} from '../models/add-decoration-request';
 import {AnchorPresetsService} from '../services/anchor-presets.service';
@@ -20,11 +21,50 @@ import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-o
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, CakeSidebarComponent],
+  imports: [CommonModule, SceneOutlineComponent, FormsModule],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
 export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
+  mode: 'setup' | 'workspace' = 'setup';
+  setupTab: 'cake' | 'texture' | 'color' | 'glaze' = 'cake';
+  workspaceTab: 'decor' | 'made' = 'decor';
+  paintingMode: 'decor3d' | 'brush' | 'extruder' = 'decor3d';
+  selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
+  selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
+  selectedLayers = 1;
+  selectedTextureId = 'vanilla';
+  gradientEnabled = false;
+  gradientDirection: 'top-bottom' | 'bottom-top' = 'top-bottom';
+  primaryColor = '#ffffff';
+  gradientFirst = '#ffffff';
+  gradientSecond = '#ffffff';
+  glazeMode: 'taffla' | 'plain' = 'taffla';
+  glazeEnabled = true;
+  waferEnabled = false;
+
+  readonly setupTextures = [
+    {
+      id: 'vanilla',
+      name: 'Wanilia',
+      preview: 'assets/textures/Candy001_1K-JPG_Color.jpg',
+      maps: {
+        baseColor: 'assets/textures/Candy001_1K-JPG_Color.jpg',
+        normal: 'assets/textures/Candy001_1K-JPG_NormalGL.jpg',
+      } as TextureMaps,
+    },
+    {
+      id: 'choco-02',
+      name: 'Czekolada',
+      preview: 'assets/textures/Chocolate 02_Albedo.jpg',
+      maps: {
+        baseColor: 'assets/textures/Chocolate 02_Albedo.jpg',
+        normal: 'assets/textures/Chocolate 02_Normal.jpg',
+        roughness: 'assets/textures/Chocolate 02_Roughness.jpg',
+        displacement: 'assets/textures/Chocolate 02_Displacement.jpg',
+      } as TextureMaps,
+    },
+  ];
   private container?: ElementRef;
   @ViewChild('canvasContainer') set canvasContainer(element: ElementRef | undefined) {
     this.container = element;
@@ -96,6 +136,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.loadingProject = false;
       this.loadError = 'Nie znaleziono projektu.';
     }
+
+    this.syncSetupStateWithOptions();
   }
 
   ngAfterViewInit(): void {
@@ -121,6 +163,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         this.pendingPreset = preset;
         this.options = cloneCakeOptions(preset.options);
         this.loadingProject = false;
+        this.syncSetupStateWithOptions();
         this.maybeInitializeScene();
       },
       error: () => {
@@ -199,6 +242,109 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   updateCakeOptions(newOptions: CakeOptions): void {
     this.options = newOptions;
     this.sceneService.updateCakeOptions(newOptions);
+    this.syncSetupStateWithOptions();
+  }
+
+  continueToWorkspace(): void {
+    this.mode = 'workspace';
+  }
+
+  selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze'): void {
+    this.setupTab = tab;
+  }
+
+  selectCakeSize(size: 'small' | 'medium' | 'large'): void {
+    const mappedSize = size === 'small' ? 0.9 : size === 'large' ? 1.1 : 1;
+    this.selectedCakeSize = size;
+    this.patchOptions({ cake_size: mappedSize });
+  }
+
+  selectShape(shape: 'cylinder' | 'cuboid'): void {
+    this.selectedShape = shape;
+    this.patchOptions({ shape });
+  }
+
+  selectLayers(layers: number): void {
+    this.selectedLayers = layers;
+    const sizes = Array.from({ length: layers }, () => 1);
+    this.patchOptions({ layers, layerSizes: sizes });
+  }
+
+  selectTexture(textureId: string): void {
+    const match = this.setupTextures.find((t) => t.id === textureId);
+    this.selectedTextureId = textureId;
+    if (!match) {
+      return;
+    }
+    this.patchOptions({
+      cake_textures: match.maps,
+      cake_color: '#ffffff',
+    });
+  }
+
+  setCakeColor(color: string): void {
+    this.primaryColor = color;
+    if (!this.gradientEnabled) {
+      this.patchOptions({ cake_color: color, cake_textures: this.options.cake_textures ?? null });
+    }
+  }
+
+  setGradientColor(which: 'first' | 'second', color: string): void {
+    if (which === 'first') {
+      this.gradientFirst = color;
+    } else {
+      this.gradientSecond = color;
+    }
+
+    if (this.gradientEnabled) {
+      this.patchOptions({ cake_color: this.gradientFirst });
+    }
+  }
+
+  toggleGradient(enabled: boolean): void {
+    this.gradientEnabled = enabled;
+    if (enabled) {
+      this.patchOptions({ cake_color: this.gradientFirst, cake_textures: this.options.cake_textures ?? null });
+    } else {
+      this.patchOptions({ cake_color: this.primaryColor });
+    }
+  }
+
+  setGradientDirection(direction: 'top-bottom' | 'bottom-top'): void {
+    this.gradientDirection = direction;
+  }
+
+  toggleGlaze(enabled: boolean): void {
+    this.glazeEnabled = enabled;
+    this.patchOptions({ glaze_enabled: enabled });
+  }
+
+  setGlazeMode(mode: 'taffla' | 'plain'): void {
+    this.glazeMode = mode;
+    this.patchOptions({ glaze_top_enabled: mode === 'taffla' });
+  }
+
+  setGlazeColor(color: string): void {
+    this.patchOptions({ glaze_color: color });
+  }
+
+  toggleWafer(enabled: boolean): void {
+    this.waferEnabled = enabled;
+    this.patchOptions({ wafer_texture_url: enabled ? 'assets/textures/Pink Candy_BaseColor.jpg' : null });
+  }
+
+  setWaferColor(color: string): void {
+    if (this.waferEnabled) {
+      this.patchOptions({ glaze_color: color });
+    }
+  }
+
+  selectPaintingMode(mode: 'decor3d' | 'brush' | 'extruder'): void {
+    this.paintingMode = mode;
+  }
+
+  selectWorkspaceTab(tab: 'decor' | 'made'): void {
+    this.workspaceTab = tab;
   }
 
   onValidateDecorations(): void {
@@ -498,6 +644,26 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private resetCameraView(): void {
     this.sceneService.resetCameraView();
     this.showStatus('Widok kamery został przywrócony.');
+  }
+
+  private patchOptions(partial: Partial<CakeOptions>): void {
+    const merged: CakeOptions = {
+      ...this.options,
+      ...partial,
+    };
+    this.updateCakeOptions(merged);
+  }
+
+  private syncSetupStateWithOptions(): void {
+    this.selectedCakeSize = this.options.cake_size < 1 ? 'small' : this.options.cake_size > 1 ? 'large' : 'medium';
+    this.selectedShape = this.options.shape;
+    this.selectedLayers = this.options.layers;
+    this.primaryColor = this.options.cake_color;
+    this.gradientFirst = this.options.cake_color;
+    this.gradientSecond = this.gradientSecond || '#ffffff';
+    this.glazeEnabled = this.options.glaze_enabled;
+    this.glazeMode = this.options.glaze_top_enabled ? 'taffla' : 'plain';
+    this.waferEnabled = !!this.options.wafer_texture_url;
   }
 
   private shouldHandleResetShortcut(event: KeyboardEvent): boolean {
