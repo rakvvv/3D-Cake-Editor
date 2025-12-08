@@ -140,6 +140,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.sceneInitialized = false;
     }
     this.container = element;
+    if (this.viewReady) {
+      this.rebindCanvasListeners();
+    }
     this.maybeInitializeScene();
   }
   @ViewChild(EditorSidebarComponent) sidebar?: EditorSidebarComponent;
@@ -182,6 +185,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private statusTimeoutId: number | null = null;
   private anchorClickSubscription?: Subscription;
   private outlineSubscription?: Subscription;
+  private canvasListenerTarget?: HTMLElement;
   private rightClickDrag?: { x: number; y: number; moved: boolean };
 
   private readonly handleDocumentClick = () => this.hideContextMenu();
@@ -290,10 +294,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         void this.handleAnchorClick(anchorId);
       });
       const containerEl = this.container?.nativeElement as HTMLElement | undefined;
-      containerEl?.addEventListener('pointerdown', this.handlePointerDown, { passive: true });
-      containerEl?.addEventListener('pointermove', this.handlePointerMove, { passive: true });
-      containerEl?.addEventListener('pointerup', this.handlePointerUp);
-      containerEl?.addEventListener('contextmenu', this.contextMenuListener);
+      this.rebindCanvasListeners(containerEl);
       document.addEventListener('click', this.handleDocumentClick);
       document.addEventListener('keydown', this.handleKeyDown);
     }
@@ -367,13 +368,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.outlineSubscription?.unsubscribe();
 
     if (isPlatformBrowser(this.platformId)) {
+      this.teardownCanvasListeners();
       document.removeEventListener('click', this.handleDocumentClick);
       document.removeEventListener('keydown', this.handleKeyDown);
-      const containerEl = this.container?.nativeElement as HTMLElement | undefined;
-      containerEl?.removeEventListener('pointerup', this.handlePointerUp);
-      containerEl?.removeEventListener('pointerdown', this.handlePointerDown);
-      containerEl?.removeEventListener('pointermove', this.handlePointerMove);
-      containerEl?.removeEventListener('contextmenu', this.contextMenuListener);
     }
   }
 
@@ -957,6 +954,40 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.sceneService.selectDecorationAt(event.clientX, event.clientY);
     this.openContextMenuAt(event.clientX, event.clientY);
+  }
+
+  private rebindCanvasListeners(target?: HTMLElement): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    const nextTarget = target ?? (this.container?.nativeElement as HTMLElement | undefined);
+    if (this.canvasListenerTarget === nextTarget) {
+      return;
+    }
+
+    this.teardownCanvasListeners();
+    if (!nextTarget) {
+      return;
+    }
+
+    nextTarget.addEventListener('pointerdown', this.handlePointerDown, { passive: true });
+    nextTarget.addEventListener('pointermove', this.handlePointerMove, { passive: true });
+    nextTarget.addEventListener('pointerup', this.handlePointerUp);
+    nextTarget.addEventListener('contextmenu', this.contextMenuListener);
+    this.canvasListenerTarget = nextTarget;
+  }
+
+  private teardownCanvasListeners(): void {
+    if (!this.canvasListenerTarget) {
+      return;
+    }
+
+    this.canvasListenerTarget.removeEventListener('pointerdown', this.handlePointerDown);
+    this.canvasListenerTarget.removeEventListener('pointermove', this.handlePointerMove);
+    this.canvasListenerTarget.removeEventListener('pointerup', this.handlePointerUp);
+    this.canvasListenerTarget.removeEventListener('contextmenu', this.contextMenuListener);
+    this.canvasListenerTarget = undefined;
   }
 
   private openContextMenuAt(x: number, y: number): void {

@@ -263,6 +263,10 @@ export class ThreeSceneService {
         return;
       }
 
+      if (event.repeat) {
+        return;
+      }
+
       const key = event.key.toLowerCase();
       const wantsUndo = key === 'z' && !event.shiftKey;
       const wantsRedo = key === 'y' || (key === 'z' && event.shiftKey);
