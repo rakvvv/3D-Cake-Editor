@@ -65,6 +65,10 @@ export class ThreeSceneService {
   private readonly outlineChanged = new Subject<void>();
   public readonly outlineChanges$ = this.outlineChanged.asObservable();
 
+  // Prevent multiple undo/redo executions from a single physical keydown.
+  private lastUndoEventStamp: number | null = null;
+  private lastRedoEventStamp: number | null = null;
+
 
 
   constructor(
@@ -273,11 +277,19 @@ export class ThreeSceneService {
 
       if (wantsUndo) {
         if (this.paintService.canUndo()) {
+          if (this.lastUndoEventStamp === event.timeStamp) {
+            return;
+          }
+          this.lastUndoEventStamp = event.timeStamp;
           this.paintService.undo();
           event.preventDefault();
         }
       } else if (wantsRedo) {
         if (this.paintService.canRedo()) {
+          if (this.lastRedoEventStamp === event.timeStamp) {
+            return;
+          }
+          this.lastRedoEventStamp = event.timeStamp;
           this.paintService.redo();
           event.preventDefault();
         }
