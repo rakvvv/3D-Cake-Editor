@@ -2,12 +2,16 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import * as THREE from 'three';
+import { BehaviorSubject } from 'rxjs';
 
 import { CakeEditorComponent } from './cake-editor.component';
 import { ThreeSceneService } from '../services/three-scene.service';
 import { DecorationsService } from '../services/decorations.service';
 import { TransformControlsService } from '../services/transform-controls-service';
 import { PaintService } from '../services/paint.service';
+import { CakePresetsService } from '../services/cake-presets.service';
+import { DecoratedCakePreset } from '../models/cake-preset';
+import { DecorationInfo } from '../models/decorationInfo';
 
 type PaintServiceStubType = {
   paintMode: boolean;
@@ -67,6 +71,7 @@ describe('CakeEditorComponent', () => {
       exportGLTF: jasmine
         .createSpy('exportGLTF')
         .and.callFake((callback: (gltf: unknown) => void) => callback({})),
+      loadDecorationsData: jasmine.createSpy('loadDecorationsData').and.resolveTo(),
       hasCopiedDecoration: jasmine.createSpy('hasCopiedDecoration').and.returnValue(false),
       isOrbitBusy: jasmine.createSpy('isOrbitBusy').and.returnValue(false),
       selectDecorationAt: jasmine.createSpy('selectDecorationAt'),
@@ -81,10 +86,20 @@ describe('CakeEditorComponent', () => {
       ['setTransformMode'],
     );
 
-    const decorationsServiceStub = jasmine.createSpyObj<DecorationsService>(
-      'DecorationsService',
-      ['addDecorationFromModel'],
-    );
+    const decorationsSubject = new BehaviorSubject<DecorationInfo[]>([]);
+    const decorationsServiceStub = {
+      addDecorationFromModel: jasmine.createSpy('addDecorationFromModel'),
+      decorations$: decorationsSubject.asObservable(),
+      setDecorations: jasmine
+        .createSpy('setDecorations')
+        .and.callFake((decorations: DecorationInfo[]) => decorationsSubject.next(decorations)),
+    } as Partial<DecorationsService>;
+
+    const presetsSubject = new BehaviorSubject<DecoratedCakePreset[]>([]);
+    const cakePresetsServiceStub = {
+      loadPresets: jasmine.createSpy('loadPresets').and.resolveTo(),
+      presets$: presetsSubject.asObservable(),
+    } as Partial<CakePresetsService>;
 
     paintServiceStub = {
       paintMode: false,
@@ -102,6 +117,7 @@ describe('CakeEditorComponent', () => {
         { provide: ThreeSceneService, useValue: threeSceneServiceStub },
         { provide: TransformControlsService, useValue: transformControlsServiceStub },
         { provide: DecorationsService, useValue: decorationsServiceStub },
+        { provide: CakePresetsService, useValue: cakePresetsServiceStub },
         { provide: PaintService, useValue: paintServiceStub },
       ],
       schemas: [NO_ERRORS_SCHEMA],

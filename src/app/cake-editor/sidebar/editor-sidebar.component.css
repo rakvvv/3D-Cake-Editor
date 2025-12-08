@@ -1,0 +1,43 @@
+.workspace-panel {
+  background: #141414;
+  border-left: 1px solid #1f1f1f;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 12px;
+}
+
+.panel-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.panel-nav__item {
+  background: #0f0f0f;
+  color: #dcdcdc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  border: 1px solid #1f1f1f;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.panel-nav__item--active {
+  background: #0b2530;
+  border-color: #0c6cae;
+  color: #43bff0;
+}
+
+.workspace-panel__content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.workspace-panel__actions {
+  display: flex;
+  gap: 6px;
+}

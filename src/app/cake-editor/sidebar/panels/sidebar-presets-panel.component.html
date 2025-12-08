@@ -1,0 +1,16 @@
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Gotowe torty</div>
+  </div>
+  <div class="decorations-list">
+    <button
+      class="decorations-list__item"
+      type="button"
+      *ngFor="let preset of presets"
+      (click)="onApplyPreset(preset)"
+    >
+      {{ preset.name }}
+    </button>
+    <div class="panel-hint" *ngIf="!presets.length">Brak dostępnych presetów.</div>
+  </div>
+</div>

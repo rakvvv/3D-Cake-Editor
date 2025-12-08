@@ -1,0 +1,80 @@
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Kolory</div>
+  </div>
+  <div class="color-row">
+    <span class="color-row__label">Kolor tortu</span>
+    <div class="color-row__input">
+      <input type="color" [ngModel]="options?.cake_color" (ngModelChange)="onCakeColorChange($event)" />
+      <input type="text" [ngModel]="options?.cake_color" (ngModelChange)="onCakeColorChange($event)" />
+    </div>
+    <div class="color-swatch" [style.background]="options?.cake_color"></div>
+  </div>
+</div>
+
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Tekstury</div>
+  </div>
+  <div class="texture-grid">
+    <button
+      *ngFor="let texture of textures"
+      type="button"
+      class="texture-card"
+      [class.texture-card--active]="options?.cake_textures?.baseColor === texture.maps.baseColor"
+      (click)="onTextureSelected(texture)"
+    >
+      <div
+        class="texture-card__preview"
+        [style.background-image]="'url(' + texture.preview + ')'"
+        role="presentation"
+      ></div>
+      <div class="texture-card__name">{{ texture.name }}</div>
+    </button>
+  </div>
+</div>
+
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Polewa</div>
+    <button class="btn-toggle" type="button" [class.btn-toggle--active]="options?.glaze_enabled" (click)="onGlazeToggle(!options?.glaze_enabled)">
+      <span class="icon-16" aria-hidden="true">⏻</span>
+    </button>
+  </div>
+  <div class="color-row">
+    <span class="color-row__label">Kolor polewy</span>
+    <div class="color-row__input">
+      <input type="color" [ngModel]="options?.glaze_color" (ngModelChange)="onGlazeColorChange($event)" />
+      <input type="text" [ngModel]="options?.glaze_color" (ngModelChange)="onGlazeColorChange($event)" />
+    </div>
+    <div class="color-swatch" [style.background]="options?.glaze_color"></div>
+  </div>
+  <div class="toggle-tab">
+    <button
+      class="toggle-tab__item"
+      [class.toggle-tab__item--active]="options?.glaze_top_enabled"
+      type="button"
+      (click)="onGlazeTopToggle(true)"
+    >
+      Tafla
+    </button>
+    <button
+      class="toggle-tab__item"
+      [class.toggle-tab__item--active]="!options?.glaze_top_enabled"
+      type="button"
+      (click)="onGlazeTopToggle(false)"
+    >
+      Bez tafli
+    </button>
+  </div>
+</div>
+
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Oblep waflem</div>
+    <button class="btn-toggle" type="button" [class.btn-toggle--active]="!!options?.wafer_texture_url" (click)="onWaferToggle(!options?.wafer_texture_url)">
+      <span class="icon-16" aria-hidden="true">⏻</span>
+    </button>
+  </div>
+  <p class="panel-hint">Dodaj teksturę waflową dla efektu patternu na bokach tortu.</p>
+</div>

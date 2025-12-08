@@ -1,0 +1,66 @@
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Szukaj dekoracji</div>
+  </div>
+  <div class="input input--with-icon">
+    <input type="text" [(ngModel)]="searchTerm" placeholder="Szukaj dekoracji" />
+    <span class="icon-20" aria-hidden="true">⌕</span>
+  </div>
+</div>
+
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Opcje dodawania</div>
+  </div>
+  <div class="select-row">
+    <span class="select-row__label">Powierzchnia</span>
+    <div class="toggle-tab">
+      <button
+        class="toggle-tab__item"
+        [class.toggle-tab__item--active]="preferredSurface === 'AUTO'"
+        type="button"
+        (click)="preferredSurface = 'AUTO'"
+      >
+        Automatycznie
+      </button>
+      <button
+        class="toggle-tab__item"
+        [class.toggle-tab__item--active]="preferredSurface === 'TOP'"
+        type="button"
+        (click)="preferredSurface = 'TOP'"
+      >
+        Góra
+      </button>
+      <button
+        class="toggle-tab__item"
+        [class.toggle-tab__item--active]="preferredSurface === 'SIDE'"
+        type="button"
+        (click)="preferredSurface = 'SIDE'"
+      >
+        Boki
+      </button>
+    </div>
+  </div>
+  <div class="slider-row">
+    <span class="slider-row__label">Warstwa</span>
+    <input type="range" min="0" [max]="Math.max(layerCount - 1, 0)" [ngModel]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" class="slider-row__range" />
+    <div class="slider-row__value">{{ targetLayerIndex + 1 }}</div>
+  </div>
+</div>
+
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Dekoracje</div>
+  </div>
+  <div class="decorations-list">
+    <button
+      class="decorations-list__item"
+      type="button"
+      *ngFor="let decoration of filteredDecorations"
+      (click)="onAddDecoration(decoration)"
+    >
+      {{ decoration.name }}
+    </button>
+    <div class="panel-hint" *ngIf="!filteredDecorations.length">Brak dekoracji do wyświetlenia.</div>
+  </div>
+</div>

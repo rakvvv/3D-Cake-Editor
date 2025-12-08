@@ -1,0 +1,91 @@
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Kształt i warstwy</div>
+  </div>
+  <div class="toggle-tab" role="tablist" aria-label="Kształt tortu">
+    <button
+      class="toggle-tab__item"
+      [class.toggle-tab__item--active]="options?.shape === 'cylinder'"
+      type="button"
+      (click)="onShapeChange('cylinder')"
+    >
+      Walec
+    </button>
+    <button
+      class="toggle-tab__item"
+      [class.toggle-tab__item--active]="options?.shape === 'cuboid'"
+      type="button"
+      (click)="onShapeChange('cuboid')"
+    >
+      Prostopadłościan
+    </button>
+  </div>
+
+  <div class="slider-row">
+    <span class="slider-row__label">Liczba warstw</span>
+    <input
+      type="range"
+      min="1"
+      max="4"
+      [ngModel]="options?.layers"
+      (ngModelChange)="onLayerCountChange($event)"
+      class="slider-row__range"
+    />
+    <div class="slider-row__value">{{ options?.layers }}</div>
+  </div>
+
+  <div class="select-row">
+    <span class="select-row__label">Wielkość</span>
+    <div class="toggle-tab">
+      <button
+        class="toggle-tab__item"
+        [class.toggle-tab__item--active]="sizePreset === 'small'"
+        type="button"
+        (click)="onSizePresetChange('small')"
+      >
+        Mały
+      </button>
+      <button
+        class="toggle-tab__item"
+        [class.toggle-tab__item--active]="sizePreset === 'medium'"
+        type="button"
+        (click)="onSizePresetChange('medium')"
+      >
+        Średni
+      </button>
+      <button
+        class="toggle-tab__item"
+        [class.toggle-tab__item--active]="sizePreset === 'large'"
+        type="button"
+        (click)="onSizePresetChange('large')"
+      >
+        Duży
+      </button>
+    </div>
+  </div>
+
+  <div class="slider-row">
+    <span class="slider-row__label">Skala</span>
+    <input
+      type="range"
+      min="0.6"
+      max="1.6"
+      step="0.02"
+      [ngModel]="options?.cake_size"
+      (ngModelChange)="onCakeScaleChange($event)"
+      class="slider-row__range"
+    />
+    <div class="slider-row__value">{{ options?.cake_size | number: '1.2-2' }}</div>
+  </div>
+
+  <div class="panel-block">
+    <div class="panel-block__title">Podgląd szerokości</div>
+    <div class="layer-stack">
+      <div
+        *ngFor="let size of options?.layerSizes; trackBy: trackLayer"
+        class="layer-stack__item"
+        [style.width.%]="size * 60"
+      ></div>
+    </div>
+  </div>
+</div>

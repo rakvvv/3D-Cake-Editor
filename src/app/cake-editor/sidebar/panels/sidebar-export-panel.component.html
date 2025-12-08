@@ -1,0 +1,35 @@
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Weryfikacja dekoracji</div>
+  </div>
+  <p class="panel-hint" *ngIf="!validationSummary">Uruchom weryfikację, aby upewnić się, że dekoracje są poprawnie rozmieszczone.</p>
+  <p class="panel-hint" *ngIf="validationSummary">{{ validationSummary }}</p>
+  <div class="chip" *ngIf="validationIssues?.length">
+    Problemy: {{ validationIssues?.length }}
+  </div>
+  <div class="actions-row">
+    <button class="btn btn--primary" type="button" (click)="validateDecorations.emit()">Sprawdź dekoracje</button>
+    <button
+      class="btn btn--ghost"
+      type="button"
+      *ngIf="pendingValidationLabel"
+      (click)="proceedDespiteWarnings.emit()"
+    >
+      {{ pendingValidationLabel }}
+    </button>
+  </div>
+</div>
+
+<div class="panel-card">
+  <div class="panel-block__header">
+    <div class="panel-block__title">Eksport sceny</div>
+    <button class="btn btn--ghost icon-only" type="button" (click)="saveScene.emit()" title="Zapisz projekt">
+      <span class="icon-16" aria-hidden="true">💾</span>
+    </button>
+  </div>
+  <div class="actions-row actions-row--column">
+    <button class="btn btn--primary" type="button" (click)="exportGltf.emit()">Eksport GLTF</button>
+    <button class="btn btn--ghost" type="button" (click)="exportObj.emit()">Eksport OBJ</button>
+    <button class="btn btn--ghost" type="button" (click)="exportStl.emit()">Eksport STL</button>
+  </div>
+</div>

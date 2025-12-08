@@ -26,19 +26,21 @@ import { ProjectsService } from '../services/projects.service';
 import { AuthService } from '../services/auth.service';
 import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-options';
 import { SceneOutlineNode } from '../models/scene-outline';
+import { EditorSidebarComponent } from './sidebar/editor-sidebar.component';
+import { BrushSettings, SidebarPanelKey, SidebarPaintMode } from './sidebar/sidebar.types';
 
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, EditorSidebarComponent],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
 export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   mode: 'setup' | 'workspace' = 'setup';
   setupTab: 'cake' | 'texture' | 'color' | 'glaze' = 'cake';
-  paintingMode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles' = 'decor3d';
-  activeWorkspacePanel: 'decor' | 'paint' = 'decor';
+  paintingMode: SidebarPaintMode = 'decor3d';
+  activeSidebarPanel: SidebarPanelKey = 'decorations';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
   selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
   selectedLayers = 1;
@@ -140,6 +142,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.container = element;
     this.maybeInitializeScene();
   }
+  @ViewChild(EditorSidebarComponent) sidebar?: EditorSidebarComponent;
 
   readonly authorModeEnabled = environment.authorMode;
 
@@ -157,6 +160,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public validationIssues: DecorationValidationIssue[] = [];
   public pendingValidationLabel: string | null = null;
   public statusMessage: string | null = null;
+
+  public paintBrushId = 'trawa.glb';
+  public paintColor = '#ff4d6d';
+  public penSize = 0.05;
+  public penThickness = 0.02;
 
   public contextMenuVisible = false;
   public contextMenuX = 0;
@@ -225,6 +233,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.refreshSceneOutline(),
     );
     this.refreshSceneOutline();
+
+    this.paintBrushId = this.paintService.currentBrush;
+    this.paintColor = this.paintService.penColor;
+    this.penSize = this.paintService.penSize;
+    this.penThickness = this.paintService.penThickness;
   }
 
   ngAfterViewInit(): void {
@@ -335,7 +348,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   continueToWorkspace(): void {
     this.mode = 'workspace';
-    this.activeWorkspacePanel = 'decor';
+    this.activeSidebarPanel = 'decorations';
     this.paintingMode = 'decor3d';
     if (this.sceneInitialized) {
       this.pendingPreset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
@@ -552,22 +565,49 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     reader.readAsDataURL(file);
   }
 
-  selectPaintingMode(mode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles'): void {
-    this.paintingMode = mode;
-    if (this.activeWorkspacePanel === 'paint') {
-      this.onTogglePaintMode(mode !== 'decor3d');
-    }
-  }
-
   openDecorPanel(): void {
-    this.activeWorkspacePanel = 'decor';
-    this.paintingMode = 'decor3d';
-    this.onTogglePaintMode(false);
+    this.activeSidebarPanel = 'decorations';
+    this.sidebar?.focusPanel('decorations');
+    this.onSidebarPaintModeChange('decor3d');
   }
 
-  openPaintPanel(mode: 'decor3d' | 'brush' | 'extruder' | 'sprinkles' = this.paintingMode): void {
-    this.activeWorkspacePanel = 'paint';
-    this.selectPaintingMode(mode);
+  openPaintPanel(mode: SidebarPaintMode = this.paintingMode): void {
+    this.activeSidebarPanel = 'paint';
+    this.sidebar?.focusPanel('paint');
+    this.onSidebarPaintModeChange(mode);
+  }
+
+  onSidebarPanelChange(panel: SidebarPanelKey): void {
+    this.activeSidebarPanel = panel;
+  }
+
+  onSidebarPaintModeChange(mode: SidebarPaintMode): void {
+    this.paintingMode = mode;
+    const tool = mode === 'brush' ? 'pen' : mode === 'extruder' ? 'extruder' : 'decoration';
+    this.paintService.setPaintTool(tool as 'decoration' | 'pen' | 'extruder');
+    this.onTogglePaintMode(mode !== 'decor3d');
+  }
+
+  onSidebarBrushChange(settings: BrushSettings): void {
+    if (settings.brushId) {
+      this.paintBrushId = settings.brushId;
+      if (this.paintingMode === 'extruder') {
+        this.paintService.setExtruderBrush(settings.brushId);
+      } else {
+        this.paintService.setCurrentBrush(settings.brushId);
+      }
+    }
+
+    if (settings.color || settings.size !== undefined || settings.thickness !== undefined) {
+      this.paintColor = settings.color ?? this.paintColor;
+      this.penSize = settings.size ?? this.penSize;
+      this.penThickness = settings.thickness ?? this.penThickness;
+      this.paintService.updatePenSettings({
+        size: settings.size,
+        thickness: settings.thickness,
+        color: settings.color,
+      });
+    }
   }
 
   onValidateDecorations(): void {

@@ -343,10 +343,10 @@
         <section class="workspace-viewport">
           <div class="workspace-viewport__inner">
             <div class="workspace-toolbar">
-              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'decor'" (click)="openDecorPanel()">
+              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="activeSidebarPanel === 'decorations'" (click)="openDecorPanel()">
                 <span aria-hidden="true">🧁</span>
               </button>
-              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'paint'" (click)="openPaintPanel()">
+              <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="activeSidebarPanel === 'paint'" (click)="openPaintPanel()">
                 <span aria-hidden="true">🎨</span>
               </button>
               <div class="workspace-toolbar__divider"></div>
@@ -382,198 +382,30 @@
           </div>
         </section>
 
-        <section class="workspace-panel" *ngIf="activeWorkspacePanel === 'decor'">
-          <header class="workspace-panel__header">
-            <div class="workspace-panel__title">Dekoracje</div>
-          </header>
-          <div class="workspace-panel__content">
-            <div class="panel-block">
-              <div class="panel-block__header">
-                <div class="panel-block__title">Szukaj</div>
-              </div>
-              <div class="input input--with-icon">
-                <input type="text" placeholder="Szukaj dekoracji" />
-                <span class="icon-20" aria-hidden="true">⌕</span>
-              </div>
-            </div>
-            <div class="panel-block">
-              <div class="panel-block__title">Dekoracje</div>
-              <div class="decorations-list">
-                <button class="decorations-list__item decorations-list__item--active" type="button">Brówka</button>
-                <button class="decorations-list__item" type="button">Kiwi</button>
-                <button class="decorations-list__item" type="button">Kwiat 1</button>
-                <button class="decorations-list__item" type="button">Kwiat 2</button>
-                <button class="decorations-list__item" type="button">Krem 1</button>
-                <button class="decorations-list__item" type="button">Krem 2</button>
-                <button class="decorations-list__item" type="button">Disk</button>
-                <button class="decorations-list__item" type="button">Circular Arrow</button>
-              </div>
-            </div>
-            <div class="panel-block">
-              <div class="panel-block__header">
-                <div class="panel-block__title">Opcje dodawania</div>
-                <button class="btn-toggle" type="button"><span class="icon-16" aria-hidden="true">⏻</span></button>
-              </div>
-              <div class="select-row">
-                <span class="select-row__label">Powierzchnia</span>
-                <div class="select-row__input">
-                  <span>Automatycznie</span>
-                  <span class="icon-12" aria-hidden="true">▾</span>
-                </div>
-              </div>
-            </div>
-            <div class="panel-block">
-              <div class="panel-block__header">
-                <div class="panel-block__title">Presety</div>
-                <button class="btn-toggle" type="button"><span class="icon-16" aria-hidden="true">⏻</span></button>
-              </div>
-              <div class="select-row">
-                <span class="select-row__label">Preset</span>
-                <div class="select-row__input">
-                  <span>Dekoracje owoców</span>
-                  <span class="icon-12" aria-hidden="true">▾</span>
-                </div>
-              </div>
-              <div class="toggle-tab toggle-tab--vertical">
-                <button class="toggle-tab__item toggle-tab__item--active" type="button">Wybór z listy</button>
-                <button class="toggle-tab__item" type="button">Przenoszenie zaznaczonej</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="workspace-panel" *ngIf="activeWorkspacePanel === 'paint'">
-          <header class="workspace-panel__header">
-            <div class="workspace-panel__title">Tryby malowania</div>
-          </header>
-          <div class="workspace-panel__content">
-            <div class="panel-block">
-              <div class="toggle-tab">
-                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'decor3d'" type="button" (click)="selectPaintingMode('decor3d')">Dekoracje 3D</button>
-                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'brush'" type="button" (click)="selectPaintingMode('brush')">Smugi</button>
-                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'extruder'" type="button" (click)="selectPaintingMode('extruder')">Ekstruder</button>
-                <button class="toggle-tab__item" [class.toggle-tab__item--active]="paintingMode === 'sprinkles'" type="button" (click)="selectPaintingMode('sprinkles')">Posypka</button>
-              </div>
-            </div>
-
-            <div class="panel-card" *ngIf="paintingMode === 'decor3d'">
-              <div class="panel-block__title">Dekoracje</div>
-              <div class="decorations-list">
-                <button class="decorations-list__item decorations-list__item--active" type="button">Brówka</button>
-                <button class="decorations-list__item" type="button">Kiwi</button>
-                <button class="decorations-list__item" type="button">Kwiat 1</button>
-                <button class="decorations-list__item" type="button">Kwiat 2</button>
-                <button class="decorations-list__item" type="button">Krem 1</button>
-                <button class="decorations-list__item" type="button">Krem 2</button>
-                <button class="decorations-list__item" type="button">Disk</button>
-                <button class="decorations-list__item" type="button">Circular Arrow</button>
-              </div>
-              <div class="panel-block">
-                <div class="panel-block__header">
-                  <div class="panel-block__title">Opcje dodawania</div>
-                  <button class="btn-toggle" type="button"><span class="icon-16" aria-hidden="true">⏻</span></button>
-                </div>
-                <div class="select-row">
-                  <span class="select-row__label">Powierzchnia</span>
-                  <div class="select-row__input">
-                    <span>Automatycznie</span>
-                    <span class="icon-12" aria-hidden="true">▾</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-card" *ngIf="paintingMode === 'brush'">
-              <div class="panel-block__header">
-                <div class="panel-block__title">Smugi (pędzel)</div>
-              </div>
-              <div class="color-row">
-                <span class="color-row__label">Kolor kremu</span>
-                <div class="color-row__input">
-                  <input type="color" [ngModel]="primaryColor" (input)="setCakeColor(getInputValue($event))" />
-                  <input type="text" [ngModel]="primaryColor" (ngModelChange)="setCakeColor($event)" />
-                </div>
-                <div class="color-swatch" [style.background]="primaryColor"></div>
-              </div>
-              <div class="slider-row">
-                <span class="slider-row__label">Rozmiar</span>
-                <input type="range" min="1" max="100" value="90" class="slider-row__range" />
-                <div class="slider-row__value">90</div>
-              </div>
-            </div>
-
-            <div class="panel-card" *ngIf="paintingMode === 'extruder'">
-              <div class="panel-block__header">
-                <div class="panel-block__title">Ekstruder</div>
-              </div>
-              <div class="toggle-tab">
-                <button class="toggle-tab__item toggle-tab__item--active" type="button">Rysowanie ręczne</button>
-                <button class="toggle-tab__item" type="button">Presety</button>
-              </div>
-              <div class="panel-block">
-                <div class="panel-block__title">Rodzaj końcówek</div>
-                <div class="decorations-list">
-                  <button class="decorations-list__item decorations-list__item--active" type="button">Łezki</button>
-                  <button class="decorations-list__item" type="button">Gwiazdki</button>
-                  <button class="decorations-list__item" type="button">Gwiazdki 2</button>
-                </div>
-              </div>
-              <div class="panel-block">
-                <div class="select-row">
-                  <span class="select-row__label">Preset</span>
-                  <div class="select-row__input">
-                    <span>Korona górna</span>
-                    <span class="icon-12" aria-hidden="true">▾</span>
-                  </div>
-                </div>
-                <div class="select-row">
-                  <span class="select-row__label">Warstwa</span>
-                  <div class="select-row__input">
-                    <span>Warstwa 1</span>
-                    <span class="icon-12" aria-hidden="true">▾</span>
-                  </div>
-                </div>
-              </div>
-              <div class="color-row">
-                <span class="color-row__label">Kolor kremu</span>
-                <div class="color-row__input">
-                  <span class="icon-16" aria-hidden="true">#</span>
-                  <input type="text" [ngModel]="primaryColor" (ngModelChange)="setCakeColor($event)" />
-                </div>
-                <div class="color-swatch" [style.background]="primaryColor"></div>
-              </div>
-              <div class="panel-block">
-                <div class="panel-block__header">
-                  <div class="panel-block__title">Punkty</div>
-                  <button class="btn-toggle" type="button"><span class="icon-16" aria-hidden="true">⏻</span></button>
-                </div>
-                <div class="panel-block__header">
-                  <div class="panel-block__title">Opcje zaawansowane</div>
-                  <button class="btn-toggle" type="button"><span class="icon-16" aria-hidden="true">⏻</span></button>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel-card" *ngIf="paintingMode === 'sprinkles'">
-              <div class="panel-block__header">
-                <div class="panel-block__title">Posypka</div>
-              </div>
-              <div class="slider-row">
-                <span class="slider-row__label">Gęstość</span>
-                <input type="range" min="1" max="100" value="40" class="slider-row__range" />
-                <div class="slider-row__value">40</div>
-              </div>
-              <div class="color-row">
-                <span class="color-row__label">Kolor</span>
-                <div class="color-row__input">
-                  <input type="color" [ngModel]="gradientFirst" (input)="setGradientColor('first', getInputValue($event))" />
-                  <input type="text" [ngModel]="gradientFirst" (ngModelChange)="setGradientColor('first', $event)" />
-                </div>
-                <div class="color-swatch" [style.background]="gradientFirst"></div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <app-editor-sidebar
+          [options]="options"
+          [validationSummary]="validationSummary"
+          [validationIssues]="validationIssues"
+          [pendingValidationLabel]="pendingValidationLabel"
+          [authorModeEnabled]="authorModeEnabled"
+          [paintingMode]="paintingMode"
+          [paintColor]="paintColor"
+          [penSize]="penSize"
+          [penThickness]="penThickness"
+          [paintBrushId]="paintBrushId"
+          (optionsChange)="updateCakeOptions($event)"
+          (addDecoration)="onAddDecoration($event)"
+          (validateDecorations)="onValidateDecorations()"
+          (saveScene)="onSaveScene()"
+          (applyCakePreset)="onApplyCakePreset($event)"
+          (proceedDespiteWarnings)="onProceedDespiteWarnings()"
+          (exportObj)="onExportObj()"
+          (exportStl)="onExportStl()"
+          (exportGltf)="onExportGltf()"
+          (brushChange)="onSidebarBrushChange($event)"
+          (paintModeChange)="onSidebarPaintModeChange($event)"
+          (panelChange)="onSidebarPanelChange($event)"
+        ></app-editor-sidebar>
       </div>
 </ng-template>
 
