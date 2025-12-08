@@ -5,7 +5,7 @@
   <div class="toggle-tab" role="tablist" aria-label="Kształt tortu">
     <button
       class="toggle-tab__item"
-      [class.toggle-tab__item--active]="options?.shape === 'cylinder'"
+      [class.toggle-tab__item--active]="options.shape === 'cylinder'"
       type="button"
       (click)="onShapeChange('cylinder')"
     >
@@ -13,7 +13,7 @@
     </button>
     <button
       class="toggle-tab__item"
-      [class.toggle-tab__item--active]="options?.shape === 'cuboid'"
+      [class.toggle-tab__item--active]="options.shape === 'cuboid'"
       type="button"
       (click)="onShapeChange('cuboid')"
     >
@@ -27,11 +27,11 @@
       type="range"
       min="1"
       max="4"
-      [ngModel]="options?.layers"
+      [ngModel]="options.layers"
       (ngModelChange)="onLayerCountChange($event)"
       class="slider-row__range"
     />
-    <div class="slider-row__value">{{ options?.layers }}</div>
+    <div class="slider-row__value">{{ options.layers }}</div>
   </div>
 
   <div class="select-row">
@@ -71,18 +71,18 @@
       min="0.6"
       max="1.6"
       step="0.02"
-      [ngModel]="options?.cake_size"
+      [ngModel]="options.cake_size"
       (ngModelChange)="onCakeScaleChange($event)"
       class="slider-row__range"
     />
-    <div class="slider-row__value">{{ options?.cake_size | number: '1.2-2' }}</div>
+    <div class="slider-row__value">{{ options.cake_size | number: '1.2-2' }}</div>
   </div>
 
   <div class="panel-block">
     <div class="panel-block__title">Podgląd szerokości</div>
     <div class="layer-stack">
       <div
-        *ngFor="let size of options?.layerSizes; trackBy: trackLayer"
+        *ngFor="let size of options.layerSizes; trackBy: trackLayer"
         class="layer-stack__item"
         [style.width.%]="size * 60"
       ></div>

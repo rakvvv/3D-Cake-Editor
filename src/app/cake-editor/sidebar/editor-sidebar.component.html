@@ -76,7 +76,7 @@
     <app-sidebar-decorations-panel
       *ngSwitchCase="'decorations'"
       [decorations]="decorations"
-      [layerCount]="options?.layers || 1"
+      [layerCount]="options.layers || 1"
       (addDecoration)="onAddDecoration($event)"
     ></app-sidebar-decorations-panel>
 

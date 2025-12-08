@@ -19,6 +19,7 @@ export class SidebarDecorationsPanelComponent {
   searchTerm = '';
   preferredSurface: DecorationSurfaceTarget = 'AUTO';
   targetLayerIndex = 0;
+  readonly Math = Math;
 
   get filteredDecorations(): DecorationInfo[] {
     const term = this.searchTerm.trim().toLowerCase();

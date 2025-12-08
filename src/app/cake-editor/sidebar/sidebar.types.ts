@@ -1,3 +1,5 @@
+import { TextureMaps } from '../../models/cake.options';
+
 export type SidebarPanelKey = 'layers' | 'textures' | 'decorations' | 'presets' | 'paint' | 'export';
 
 export type SidebarPaintMode = 'decor3d' | 'brush' | 'extruder' | 'sprinkles';
@@ -13,5 +15,5 @@ export interface SidebarTextureOption {
   id: string;
   name: string;
   preview: string;
-  maps: Record<string, unknown>;
+  maps: TextureMaps;
 }
