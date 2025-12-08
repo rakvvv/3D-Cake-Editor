@@ -329,7 +329,7 @@
             </button>
           </div>
 
-          <div class="scene-tree scene-tree--padded">
+          <div class="scene-tree">
             <app-scene-outline></app-scene-outline>
           </div>
 
@@ -347,6 +347,7 @@
                 type="button"
                 [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'decor'"
                 (click)="openDecorPanel()"
+                [attr.aria-pressed]="activeWorkspacePanel === 'decor'"
                 title="Dekoracje"
               >
                 <img src="assets/ui/icons/select.svg" alt="Dekoracje" class="icon-16" />
@@ -356,6 +357,7 @@
                 type="button"
                 [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'paint'"
                 (click)="openPaintPanel()"
+                [attr.aria-pressed]="activeWorkspacePanel === 'paint'"
                 title="Tryb malowania"
               >
                 <img src="assets/ui/icons/grid.svg" alt="Tryb malowania" class="icon-16" />
@@ -366,6 +368,7 @@
                 type="button"
                 [class.workspace-toolbar__btn--active]="transformMode === 'translate'"
                 (click)="onTransformModeChange('translate')"
+                [attr.aria-pressed]="transformMode === 'translate'"
                 title="Przesuwanie"
               >
                 <img src="assets/ui/icons/move.svg" alt="Move" class="icon-16" />
@@ -375,6 +378,7 @@
                 type="button"
                 [class.workspace-toolbar__btn--active]="transformMode === 'rotate'"
                 (click)="onTransformModeChange('rotate')"
+                [attr.aria-pressed]="transformMode === 'rotate'"
                 title="Obracanie"
               >
                 <img src="assets/ui/icons/rotate.svg" alt="Rotate" class="icon-16" />
@@ -384,6 +388,7 @@
                 type="button"
                 [class.workspace-toolbar__btn--active]="transformMode === 'scale'"
                 (click)="onTransformModeChange('scale')"
+                [attr.aria-pressed]="transformMode === 'scale'"
                 title="Skalowanie"
               >
                 <img src="assets/ui/icons/scale.svg" alt="Scale" class="icon-16" />
