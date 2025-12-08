@@ -11,7 +11,6 @@ import {
 import {CommonModule, isPlatformBrowser} from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { SceneOutlineComponent } from '../cake-sidebar/scene-outline/scene-outline.component';
 import {ThreeSceneService} from '../services/three-scene.service';
 import {DecorationsService} from '../services/decorations.service';
 import {PaintService} from '../services/paint.service';
@@ -26,11 +25,12 @@ import { DecoratedCakePreset } from '../models/cake-preset';
 import { ProjectsService } from '../services/projects.service';
 import { AuthService } from '../services/auth.service';
 import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-options';
+import { SceneOutlineNode } from '../models/scene-outline';
 
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, SceneOutlineComponent, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
@@ -165,9 +165,14 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public contextMenuCanSnap = false;
   public contextMenuIsLocked = false;
 
+  public sceneOutline: SceneOutlineNode | null = null;
+  public sceneSelectedNodeId: string | null = null;
+  public sceneExpandedNodes = new Set<string>();
+
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
   private anchorClickSubscription?: Subscription;
+  private outlineSubscription?: Subscription;
 
   private readonly handleDocumentClick = () => this.hideContextMenu();
   private readonly handleKeyDown = (event: KeyboardEvent) => {
@@ -216,6 +221,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.syncSetupStateWithOptions();
+    this.outlineSubscription = this.sceneService.outlineChanges$.subscribe(() =>
+      this.refreshSceneOutline(),
+    );
+    this.refreshSceneOutline();
   }
 
   ngAfterViewInit(): void {
@@ -297,6 +306,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.anchorClickSubscription?.unsubscribe();
+    this.outlineSubscription?.unsubscribe();
 
     if (isPlatformBrowser(this.platformId)) {
       document.removeEventListener('click', this.handleDocumentClick);
@@ -332,6 +342,64 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.sceneInitialized = false;
     }
     this.maybeInitializeScene();
+  }
+
+  refreshSceneOutline(): void {
+    this.sceneOutline = this.sceneService.getSceneOutline();
+    this.sceneSelectedNodeId = this.sceneService.getSelectedDecorationId();
+    this.ensureSceneRootExpanded(this.sceneOutline);
+  }
+
+  trackSceneNode(_: number, node: SceneOutlineNode): string {
+    return node.id;
+  }
+
+  isSceneNodeExpanded(nodeId: string): boolean {
+    return this.sceneExpandedNodes.has(nodeId);
+  }
+
+  toggleSceneNodeExpanded(nodeId: string): void {
+    if (this.sceneExpandedNodes.has(nodeId)) {
+      this.sceneExpandedNodes.delete(nodeId);
+    } else {
+      this.sceneExpandedNodes.add(nodeId);
+    }
+  }
+
+  selectSceneNode(node: SceneOutlineNode): void {
+    if (!this.isSceneNodeSelectable(node)) {
+      return;
+    }
+
+    const success = this.sceneService.selectDecorationById(node.id);
+    this.sceneSelectedNodeId = success ? node.id : this.sceneSelectedNodeId;
+  }
+
+  toggleSceneNodeVisibility(node: SceneOutlineNode): void {
+    if (!this.isSceneNodeSelectable(node)) {
+      return;
+    }
+
+    const nextState = !node.visible;
+    const changed = this.sceneService.setDecorationVisibility(node.id, nextState);
+    if (changed) {
+      this.refreshSceneOutline();
+    }
+  }
+
+  private isSceneNodeSelectable(node: SceneOutlineNode): boolean {
+    return node.type === 'decoration' || node.type === 'group';
+  }
+
+  private ensureSceneRootExpanded(node: SceneOutlineNode | null): void {
+    if (!node) {
+      return;
+    }
+
+    if (!this.sceneExpandedNodes.size) {
+      this.sceneExpandedNodes.add(node.id);
+      node.children.forEach((child) => this.sceneExpandedNodes.add(child.id));
+    }
   }
 
   selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze'): void {

@@ -328,9 +328,12 @@
               <span class="icon-16" aria-hidden="true">💾</span>
             </button>
           </div>
-          <div class="scene-tree">
-            <app-scene-outline></app-scene-outline>
+          <div class="scene-tree" *ngIf="sceneOutline; else sceneEmpty">
+            <ng-container *ngTemplateOutlet="sceneNodeTpl; context: { node: sceneOutline }"></ng-container>
           </div>
+          <ng-template #sceneEmpty>
+            <div class="scene-tree scene-tree--empty">Brak elementów sceny.</div>
+          </ng-template>
           <button class="btn btn--primary workspace-sidebar__save" type="button" (click)="onSaveScene()">
             <span class="icon-16" aria-hidden="true">💾</span>
             <span>Zapisz</span>
@@ -572,7 +575,46 @@
           </div>
         </section>
       </div>
-    </ng-template>
+</ng-template>
+
+<ng-template #sceneNodeTpl let-node="node">
+  <div class="scene-node" [class.scene-node--selected]="sceneSelectedNodeId === node.id">
+    <div class="scene-node__header">
+      <button
+        type="button"
+        class="scene-node__toggle"
+        *ngIf="node.children.length"
+        (click)="toggleSceneNodeExpanded(node.id)"
+        [attr.aria-expanded]="isSceneNodeExpanded(node.id)"
+        aria-label="Przełącz rozwinięcie"
+      >
+        {{ isSceneNodeExpanded(node.id) ? '▾' : '▸' }}
+      </button>
+      <div class="scene-node__title" (click)="selectSceneNode(node)">
+        <span class="scene-node__icon" aria-hidden="true">
+          {{ node.type === 'group' ? '🗂️' : node.type === 'decoration' ? '🧁' : '🎂' }}
+        </span>
+        <span class="scene-node__name">{{ node.name }}</span>
+      </div>
+      <button
+        type="button"
+        class="scene-node__visibility"
+        *ngIf="node.type === 'decoration' || node.type === 'group'"
+        (click)="toggleSceneNodeVisibility(node)"
+        [attr.aria-pressed]="node.visible"
+        [title]="node.visible ? 'Ukryj' : 'Pokaż'"
+      >
+        {{ node.visible ? '👁' : '🙈' }}
+      </button>
+    </div>
+
+    <div class="scene-node__children" *ngIf="node.children.length && isSceneNodeExpanded(node.id)">
+      <ng-container *ngFor="let child of node.children; trackBy: trackSceneNode">
+        <ng-container *ngTemplateOutlet="sceneNodeTpl; context: { node: child }"></ng-container>
+      </ng-container>
+    </div>
+  </div>
+</ng-template>
   </ng-container>
 
   <ng-template #loadingOrError>
