@@ -218,6 +218,27 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   };
 
+  private readonly handlePointerUp = (event: PointerEvent) => {
+    if (event.button !== 2) {
+      return;
+    }
+
+    const drag = this.rightClickDrag;
+    this.rightClickDrag = undefined;
+    const orbitBusy = this.sceneService.isOrbitBusy();
+    const paintBusy = this.paintService.paintMode && this.paintService.isPainting;
+    const allowDespiteOrbit = !!drag && !drag.moved;
+    if ((orbitBusy && !allowDespiteOrbit) || paintBusy || drag?.moved) {
+      this.hideContextMenu();
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.sceneService.selectDecorationAt(event.clientX, event.clientY);
+    this.openContextMenuAt(event.clientX, event.clientY);
+  };
+
   constructor(
     public readonly sceneService: ThreeSceneService,
     private transformService: TransformControlsService,
@@ -271,6 +292,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       const containerEl = this.container?.nativeElement as HTMLElement | undefined;
       containerEl?.addEventListener('pointerdown', this.handlePointerDown, { passive: true });
       containerEl?.addEventListener('pointermove', this.handlePointerMove, { passive: true });
+      containerEl?.addEventListener('pointerup', this.handlePointerUp);
       containerEl?.addEventListener('contextmenu', this.contextMenuListener);
       document.addEventListener('click', this.handleDocumentClick);
       document.addEventListener('keydown', this.handleKeyDown);
@@ -348,6 +370,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       document.removeEventListener('click', this.handleDocumentClick);
       document.removeEventListener('keydown', this.handleKeyDown);
       const containerEl = this.container?.nativeElement as HTMLElement | undefined;
+      containerEl?.removeEventListener('pointerup', this.handlePointerUp);
       containerEl?.removeEventListener('pointerdown', this.handlePointerDown);
       containerEl?.removeEventListener('pointermove', this.handlePointerMove);
       containerEl?.removeEventListener('contextmenu', this.contextMenuListener);
