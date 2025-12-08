@@ -11,7 +11,7 @@
           aria-haspopup="true"
           [attr.aria-expanded]="userMenuOpen"
         >
-          {{ (user$ | async)?.email[0] | uppercase }}
+          {{ ((user$ | async)?.email?.charAt(0) || 'U') | uppercase }}
         </button>
         <div class="user-menu" *ngIf="userMenuOpen">
           <div class="user-menu__email">{{ (user$ | async)?.email }}</div>
@@ -44,7 +44,7 @@
             class="toggle-view__btn"
             type="button"
             [class.toggle-view__btn--active]="viewMode === 'grid'"
-            aria-pressed="{{ viewMode === 'grid' }}"
+            [attr.aria-pressed]="viewMode === 'grid'"
             (click)="setViewMode('grid')"
             title="Widok siatki"
           >
@@ -54,7 +54,7 @@
             class="toggle-view__btn"
             type="button"
             [class.toggle-view__btn--active]="viewMode === 'list'"
-            aria-pressed="{{ viewMode === 'list' }}"
+            [attr.aria-pressed]="viewMode === 'list'"
             (click)="setViewMode('list')"
             title="Widok listy"
           >

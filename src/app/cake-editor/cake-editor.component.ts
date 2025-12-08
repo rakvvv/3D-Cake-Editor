@@ -12,7 +12,6 @@ import {AddDecorationRequest} from '../models/add-decoration-request';
 import {AnchorPresetsService} from '../services/anchor-presets.service';
 import {Subscription} from 'rxjs';
 import { environment } from '../../environments/environment';
-import { PresetExportDialogComponent } from '../preset-export-dialog/preset-export-dialog.component';
 import { DecoratedCakePreset } from '../models/cake-preset';
 import { ProjectsService } from '../services/projects.service';
 import { AuthService } from '../services/auth.service';
@@ -21,7 +20,7 @@ import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-o
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
-  imports: [CommonModule, CakeSidebarComponent, PresetExportDialogComponent],
+  imports: [CommonModule, CakeSidebarComponent],
   templateUrl: './cake-editor.component.html',
   styleUrls: ['./cake-editor.component.css']
 })
