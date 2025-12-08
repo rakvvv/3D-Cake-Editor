@@ -556,65 +556,60 @@
   height: 100%;
 }
 
-.workspace-toolbar {
+.viewport-toolbar {
   position: absolute;
   left: 16px;
   top: 16px;
-  background: rgba(24, 24, 24, 0.96);
-  border-radius: 14px;
-  padding: 8px 6px;
+  background: rgba(36, 36, 36, 0.96);
+  border-radius: 8px;
+  padding: 6px;
   display: inline-flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  gap: 4px;
+  box-shadow: var(--shadow-soft);
   z-index: 4;
 }
 
-.workspace-toolbar__btn {
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
-  background: #111;
-  padding: 10px;
-  width: 42px;
-  height: 42px;
+.viewport-toolbar__btn {
+  border-radius: 6px;
+  border: none;
+  background: var(--color-surface-alt);
+  padding: 6px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #e0e0e0;
+  color: #f0f0f0;
+  border: 1px solid var(--color-border);
 }
 
-.workspace-toolbar__btn--active {
+.viewport-toolbar__btn--primary,
+.viewport-toolbar__btn--active {
   background: var(--color-accent);
   color: #0b1520;
   border-color: var(--color-accent);
 }
 
-.workspace-toolbar__divider {
-  width: 24px;
-  height: 1px;
+.viewport-toolbar__divider {
+  width: 1px;
+  height: 24px;
   background: var(--color-border);
-  margin: 2px auto;
+  margin: 0 4px;
 }
 
-.viewport-bottom-bar {
+.viewport-toggles {
   position: absolute;
-  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: rgba(24, 24, 24, 0.96);
-  padding: 10px 14px;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.viewport-camera {
+  bottom: 16px;
+  background: rgba(36, 36, 36, 0.96);
+  border-radius: 999px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   gap: 8px;
+  box-shadow: var(--shadow-soft);
 }
 
 .workspace-panel {

@@ -1,10 +1,13 @@
 <div class="cake-editor" [ngClass]="{ 'cake-editor--workspace': mode === 'workspace' }">
+  <!-- TOPBAR -->
   <header class="app-topbar">
     <div class="app-topbar__inner">
       <div class="app-topbar__logo" aria-label="3D Cake Editor">
         <span class="icon icon-24 icon--logo" aria-hidden="true"></span>
       </div>
+
       <div class="app-topbar__spacer"></div>
+
       <button class="btn btn--ghost" type="button" (click)="goToProjects()">
         <span class="icon icon-16 icon--arrow-left" aria-hidden="true"></span>
         <span>My projects</span>
@@ -12,6 +15,7 @@
     </div>
   </header>
 
+  <!-- TOOLBAR -->
   <section class="editor-toolbar">
     <div class="editor-toolbar__inner">
       <div class="editor-toolbar__left">
@@ -73,22 +77,43 @@
   </section>
 
   <ng-container *ngIf="!loadingProject && !loadError; else loadingOrError">
-        <ng-container *ngIf="mode === 'setup'; else workspaceTpl">
+    <ng-container *ngIf="mode === 'setup'; else workspaceTpl">
       <div class="editor-layout">
+        <!-- LEWA NAWIGACJA -->
         <aside class="editor-sidebar">
-          <button class="editor-sidebar__item" type="button" [class.editor-sidebar__item--active]="setupTab === 'cake'" (click)="selectSetupTab('cake')">
+          <button
+            class="editor-sidebar__item"
+            type="button"
+            [class.editor-sidebar__item--active]="setupTab === 'cake'"
+            (click)="selectSetupTab('cake')"
+          >
             <span class="icon icon-24 icon--cake" aria-hidden="true"></span>
             <span>Tort</span>
           </button>
-          <button class="editor-sidebar__item" type="button" [class.editor-sidebar__item--active]="setupTab === 'texture'" (click)="selectSetupTab('texture')">
+          <button
+            class="editor-sidebar__item"
+            type="button"
+            [class.editor-sidebar__item--active]="setupTab === 'texture'"
+            (click)="selectSetupTab('texture')"
+          >
             <span class="icon icon-24 icon--texture" aria-hidden="true"></span>
             <span>Textura</span>
           </button>
-          <button class="editor-sidebar__item" type="button" [class.editor-sidebar__item--active]="setupTab === 'color'" (click)="selectSetupTab('color')">
+          <button
+            class="editor-sidebar__item"
+            type="button"
+            [class.editor-sidebar__item--active]="setupTab === 'color'"
+            (click)="selectSetupTab('color')"
+          >
             <span class="icon icon-24 icon--color" aria-hidden="true"></span>
             <span>Kolor</span>
           </button>
-          <button class="editor-sidebar__item" type="button" [class.editor-sidebar__item--active]="setupTab === 'glaze'" (click)="selectSetupTab('glaze')">
+          <button
+            class="editor-sidebar__item"
+            type="button"
+            [class.editor-sidebar__item--active]="setupTab === 'glaze'"
+            (click)="selectSetupTab('glaze')"
+          >
             <span class="icon icon-24 icon--drip" aria-hidden="true"></span>
             <span>Polewa</span>
           </button>
@@ -100,113 +125,131 @@
           </div>
         </aside>
 
+        <!-- PANEL WŁAŚCIWOŚCI -->
         <section class="editor-panel">
           <ng-container [ngSwitch]="setupTab">
-            <div *ngSwitchCase="'cake'" class="editor-panel__section">
-              <div class="panel-block">
-                <div class="panel-block__title">Rozmiar</div>
+            <ng-container *ngSwitchCase="'cake'">
+              <section class="editor-panel__section">
+                <div class="section-header">
+                  <span class="section-header__icon icon icon-24 icon--size" aria-hidden="true"></span>
+                  <h2 class="section-header__title">Rozmiar</h2>
+                </div>
                 <div class="toggle-tab">
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedCakeSize === 'small'" type="button" (click)="selectCakeSize('small')">Mały</button>
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedCakeSize === 'medium'" type="button" (click)="selectCakeSize('medium')">Średni</button>
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedCakeSize === 'large'" type="button" (click)="selectCakeSize('large')">Duży</button>
                 </div>
-              </div>
+              </section>
 
-              <div class="panel-block">
-                <div class="panel-block__title">Kształt</div>
+              <hr class="editor-divider" />
+
+              <section class="editor-panel__section">
+                <div class="section-header">
+                  <span class="section-header__icon icon icon-24 icon--shape" aria-hidden="true"></span>
+                  <h2 class="section-header__title">Kształt</h2>
+                </div>
                 <div class="toggle-tab">
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedShape === 'cuboid'" type="button" (click)="selectShape('cuboid')">Prostokątny</button>
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedShape === 'cylinder'" type="button" (click)="selectShape('cylinder')">Okrągły</button>
                 </div>
-              </div>
+              </section>
 
-              <div class="panel-block">
-                <div class="panel-block__title">Liczba pięter</div>
+              <hr class="editor-divider" />
+
+              <section class="editor-panel__section">
+                <div class="section-header">
+                  <span class="section-header__icon icon icon-24 icon--layers" aria-hidden="true"></span>
+                  <h2 class="section-header__title">Liczba pięter</h2>
+                </div>
                 <div class="toggle-tab">
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedLayers === 1" type="button" (click)="selectLayers(1)">1</button>
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedLayers === 2" type="button" (click)="selectLayers(2)">2</button>
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="selectedLayers === 3" type="button" (click)="selectLayers(3)">3</button>
                 </div>
-              </div>
-            </div>
+              </section>
+            </ng-container>
 
-            <div *ngSwitchCase="'texture'" class="editor-panel__section">
-              <div class="panel-block__title">Textury tortu</div>
-              <div class="texture-grid">
-                <button
-                  *ngFor="let texture of setupTextures"
-                  type="button"
-                  class="texture-card"
-                  [class.texture-card--active]="selectedTextureId === texture.id"
-                  (click)="selectTexture(texture.id)"
-                >
-                  <div class="texture-card__header">
-                    <span class="icon icon-24 icon--file" aria-hidden="true"></span>
-                    <div class="texture-card__name">{{ texture.name }}</div>
-                  </div>
-                  <div class="texture-card__preview" [style.background-image]="'url(' + texture.preview + ')'" aria-hidden="true"></div>
-                </button>
-              </div>
-            </div>
+            <ng-container *ngSwitchCase="'texture'">
+              <section class="editor-panel__section">
+                <div class="section-header">
+                  <span class="section-header__icon icon icon-24 icon--texture" aria-hidden="true"></span>
+                  <h2 class="section-header__title">Textury tortu</h2>
+                </div>
+                <div class="texture-grid">
+                  <article
+                    class="texture-card"
+                    *ngFor="let texture of setupTextures"
+                    [class.texture-card--active]="selectedTextureId === texture.id"
+                    (click)="selectTexture(texture.id)"
+                  >
+                    <header class="texture-card__header">
+                      <span class="icon icon-24 icon--file" aria-hidden="true"></span>
+                      <div>
+                        <div class="texture-card__name">{{ texture.name }}</div>
+                      </div>
+                    </header>
+                    <div class="texture-card__preview" [style.background-image]="'url(' + texture.preview + ')'" aria-hidden="true"></div>
+                  </article>
+                </div>
+              </section>
+            </ng-container>
 
-            <div *ngSwitchCase="'color'" class="editor-panel__section">
-              <div class="panel-block">
+            <ng-container *ngSwitchCase="'color'">
+              <section class="editor-panel__section">
                 <div class="color-row">
                   <span class="color-row__label">Kolor tortu</span>
                   <div class="color-row__input">
                     <span class="icon icon-16 icon--hash" aria-hidden="true"></span>
-                    <input
-                      type="text"
-                      [ngModel]="primaryColor"
-                      (ngModelChange)="setCakeColor($event)"
-                    />
+                    <input type="text" [ngModel]="primaryColor" (input)="setCakeColor(getInputValue($event))" />
                   </div>
                   <div class="color-swatch" [style.background]="primaryColor"></div>
                 </div>
-              </div>
+              </section>
 
-              <div class="panel-block">
+              <section class="editor-panel__section">
                 <div class="functions-row">
                   <div class="section-header__title">Gradient</div>
                   <button class="btn-toggle" type="button" (click)="toggleGradient(!gradientEnabled)">
                     <span class="icon icon-16 icon--power" aria-hidden="true"></span>
                   </button>
                 </div>
-
                 <div class="toggle-tab">
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="gradientDirection === 'top-bottom'" type="button" (click)="setGradientDirection('top-bottom')">Góra → dół</button>
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="gradientDirection === 'bottom-top'" type="button" (click)="setGradientDirection('bottom-top')">Dół → góra</button>
                 </div>
+              </section>
 
+              <section class="editor-panel__section">
                 <div class="color-row">
                   <span class="color-row__label">Pierwszy kolor</span>
                   <div class="color-row__input">
                     <span class="icon icon-16 icon--hash" aria-hidden="true"></span>
-                    <input type="text" [ngModel]="gradientFirst" (ngModelChange)="setGradientColor('first', $event)" />
+                    <input type="text" [value]="gradientFirst" [disabled]="!gradientEnabled" (input)="setGradientColor('first', getInputValue($event))" />
                   </div>
                   <div class="color-swatch" [style.background]="gradientFirst"></div>
                 </div>
+              </section>
 
+              <section class="editor-panel__section">
                 <div class="color-row">
                   <span class="color-row__label">Drugi kolor</span>
                   <div class="color-row__input">
                     <span class="icon icon-16 icon--hash" aria-hidden="true"></span>
-                    <input type="text" [ngModel]="gradientSecond" (ngModelChange)="setGradientColor('second', $event)" />
+                    <input type="text" [value]="gradientSecond" [disabled]="!gradientEnabled" (input)="setGradientColor('second', getInputValue($event))" />
                   </div>
                   <div class="color-swatch" [style.background]="gradientSecond"></div>
                 </div>
-              </div>
-            </div>
+              </section>
+            </ng-container>
 
-            <div *ngSwitchCase="'glaze'" class="editor-panel__section">
-              <div class="panel-block">
+            <ng-container *ngSwitchCase="'glaze'">
+              <section class="editor-panel__section">
                 <div class="functions-row">
                   <div class="section-header__title">Polewa</div>
                   <button class="btn-toggle" type="button" (click)="toggleGlaze(!glazeEnabled)">
                     <span class="icon icon-16 icon--power" aria-hidden="true"></span>
                   </button>
                 </div>
-
                 <div class="color-row">
                   <span class="color-row__label">Kolor polewy</span>
                   <div class="color-row__input">
@@ -215,21 +258,19 @@
                   </div>
                   <div class="color-swatch" [style.background]="options.glaze_color"></div>
                 </div>
-
                 <div class="toggle-tab">
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="glazeMode === 'taffla'" type="button" (click)="setGlazeMode('taffla')">Tafla</button>
                   <button class="toggle-tab__item" [class.toggle-tab__item--active]="glazeMode === 'plain'" type="button" (click)="setGlazeMode('plain')">Bez tafli</button>
                 </div>
-              </div>
+              </section>
 
-              <div class="panel-block">
+              <section class="editor-panel__section">
                 <div class="functions-row">
                   <div class="section-header__title">Opłatek</div>
                   <button class="btn-toggle" type="button" (click)="toggleWafer(!waferEnabled)">
                     <span class="icon icon-16 icon--power" aria-hidden="true"></span>
                   </button>
                 </div>
-
                 <div class="functions-row">
                   <span class="color-row__label">Wybierz obraz</span>
                   <label class="file-input" [class.file-input--disabled]="!waferEnabled">
@@ -237,23 +278,26 @@
                     <span>Wybierz plik</span>
                   </label>
                 </div>
-
                 <div class="color-row">
                   <span class="color-row__label">Lights color</span>
                   <div class="color-row__input">
                     <span class="icon icon-16 icon--hash" aria-hidden="true"></span>
-                    <input type="text" [ngModel]="options.glaze_color" (ngModelChange)="setWaferColor($event)" />
+                    <input type="text" [value]="options.glaze_color" [disabled]="!waferEnabled" (input)="setWaferColor(getInputValue($event))" />
                   </div>
                   <div class="color-swatch" [style.background]="options.glaze_color"></div>
                 </div>
-              </div>
-            </div>
+              </section>
+            </ng-container>
           </ng-container>
         </section>
 
+        <!-- VIEWPORT 3D -->
         <section class="editor-viewport">
           <div class="editor-viewport__inner">
             <div #canvasContainer class="canvas-container"></div>
+            <button class="btn btn--ghost icon-only editor-viewport__camera" type="button" title="Camera controls">
+              <span class="icon icon-16 icon--camera-orbit" aria-hidden="true"></span>
+            </button>
           </div>
         </section>
       </div>
@@ -261,10 +305,11 @@
 
     <ng-template #workspaceTpl>
       <div class="workspace-layout">
+        <!-- LEWY PANEL: SCENA -->
         <aside class="workspace-sidebar">
           <div class="workspace-sidebar__header">
             <div class="section-header">
-              <span class="icon section-header__icon icon--scene" aria-hidden="true"></span>
+              <span class="section-header__icon icon icon-24 icon--scene" aria-hidden="true"></span>
               <h2 class="section-header__title">Scene</h2>
             </div>
             <button class="btn btn--ghost icon-only" type="button" (click)="onSaveScene()" aria-label="Dodaj element">
@@ -272,9 +317,9 @@
             </button>
           </div>
 
-          <div class="scene-tree">
+          <ul class="scene-tree">
             <app-scene-outline></app-scene-outline>
-          </div>
+          </ul>
 
           <button class="btn btn--primary workspace-sidebar__save" type="button" (click)="onSaveScene()">
             <span class="icon icon-16 icon--save" aria-hidden="true"></span>
@@ -285,11 +330,11 @@
         <ng-container *ngIf="workspaceTab === 'decor'; else madeCakesTpl">
           <section class="workspace-viewport">
             <div class="workspace-viewport__inner">
-              <div class="workspace-toolbar">
+              <div class="viewport-toolbar">
                 <button
-                  class="workspace-toolbar__btn"
+                  class="viewport-toolbar__btn"
                   type="button"
-                  [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'decor'"
+                  [class.viewport-toolbar__btn--primary]="activeWorkspacePanel === 'decor'"
                   (click)="openDecorPanel()"
                   [attr.aria-pressed]="activeWorkspacePanel === 'decor'"
                   title="Dekoracje"
@@ -297,20 +342,22 @@
                   <span class="icon icon-16 icon--select" aria-hidden="true"></span>
                 </button>
                 <button
-                  class="workspace-toolbar__btn"
+                  class="viewport-toolbar__btn"
                   type="button"
-                  [class.workspace-toolbar__btn--active]="activeWorkspacePanel === 'paint'"
+                  [class.viewport-toolbar__btn--primary]="activeWorkspacePanel === 'paint'"
                   (click)="openPaintPanel()"
                   [attr.aria-pressed]="activeWorkspacePanel === 'paint'"
                   title="Tryb malowania"
                 >
                   <span class="icon icon-16 icon--grid" aria-hidden="true"></span>
                 </button>
-                <div class="workspace-toolbar__divider"></div>
+
+                <div class="viewport-toolbar__divider"></div>
+
                 <button
-                  class="workspace-toolbar__btn"
+                  class="viewport-toolbar__btn"
                   type="button"
-                  [class.workspace-toolbar__btn--active]="transformMode === 'translate'"
+                  [class.viewport-toolbar__btn--active]="transformMode === 'translate'"
                   (click)="onTransformModeChange('translate')"
                   [attr.aria-pressed]="transformMode === 'translate'"
                   title="Przesuwanie"
@@ -318,9 +365,9 @@
                   <span class="icon icon-16 icon--move" aria-hidden="true"></span>
                 </button>
                 <button
-                  class="workspace-toolbar__btn"
+                  class="viewport-toolbar__btn"
                   type="button"
-                  [class.workspace-toolbar__btn--active]="transformMode === 'rotate'"
+                  [class.viewport-toolbar__btn--active]="transformMode === 'rotate'"
                   (click)="onTransformModeChange('rotate')"
                   [attr.aria-pressed]="transformMode === 'rotate'"
                   title="Obracanie"
@@ -328,9 +375,9 @@
                   <span class="icon icon-16 icon--rotate" aria-hidden="true"></span>
                 </button>
                 <button
-                  class="workspace-toolbar__btn"
+                  class="viewport-toolbar__btn"
                   type="button"
-                  [class.workspace-toolbar__btn--active]="transformMode === 'scale'"
+                  [class.viewport-toolbar__btn--active]="transformMode === 'scale'"
                   (click)="onTransformModeChange('scale')"
                   [attr.aria-pressed]="transformMode === 'scale'"
                   title="Skalowanie"
@@ -341,15 +388,13 @@
 
               <div #canvasContainer class="workspace-viewport__canvas"></div>
 
-              <div class="viewport-bottom-bar">
-                <div class="viewport-camera">
-                  <button class="btn btn--ghost icon-only" type="button" title="Orbit">
-                    <span class="icon icon-16 icon--camera-orbit" aria-hidden="true"></span>
-                  </button>
-                  <button class="btn btn--ghost icon-only" type="button" title="Front">
-                    <span class="icon icon-16 icon--camera-front" aria-hidden="true"></span>
-                  </button>
-                </div>
+              <div class="viewport-toggles">
+                <button class="btn btn--ghost icon-only" type="button" title="Orbit">
+                  <span class="icon icon-16 icon--camera-orbit" aria-hidden="true"></span>
+                </button>
+                <button class="btn btn--ghost icon-only" type="button" title="Front">
+                  <span class="icon icon-16 icon--camera-front" aria-hidden="true"></span>
+                </button>
                 <div class="select-row select-row--compact">
                   <div class="select-row__input">
                     <span>Perspective</span>
