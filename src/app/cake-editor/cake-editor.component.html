@@ -318,15 +318,23 @@
 
     <ng-template #workspaceTpl>
       <div class="workspace-layout">
-        <aside class="workspace-sidebar">
+        <aside class="workspace-sidebar" [style.--scene-tree-scale]="sceneTreeScale">
           <div class="workspace-sidebar__header">
             <div class="section-header">
               <span class="section-header__icon" aria-hidden="true">📂</span>
               <h2 class="section-header__title">Scene</h2>
             </div>
-            <button class="btn btn--ghost icon-only" type="button" (click)="onSaveScene()" title="Zapisz">
-              <span class="icon-16" aria-hidden="true">💾</span>
-            </button>
+            <div class="workspace-sidebar__actions">
+              <button class="btn btn--ghost icon-only" type="button" (click)="changeSceneTreeScale(-0.1)" title="Zmniejsz">
+                <span aria-hidden="true">−</span>
+              </button>
+              <button class="btn btn--ghost icon-only" type="button" (click)="changeSceneTreeScale(0.1)" title="Powiększ">
+                <span aria-hidden="true">＋</span>
+              </button>
+              <button class="btn btn--ghost icon-only" type="button" (click)="onSaveScene()" title="Zapisz">
+                <span class="icon-16" aria-hidden="true">💾</span>
+              </button>
+            </div>
           </div>
           <div class="scene-tree" *ngIf="sceneOutline; else sceneEmpty">
             <ng-container *ngTemplateOutlet="sceneNodeTpl; context: { node: sceneOutline }"></ng-container>
@@ -334,6 +342,34 @@
           <ng-template #sceneEmpty>
             <div class="scene-tree scene-tree--empty">Brak elementów sceny.</div>
           </ng-template>
+
+          <div class="scene-selection" *ngIf="selectedSceneNode as selectedNode">
+            <div class="scene-selection__header">
+              <div class="scene-selection__title">{{ selectedNode.name }}</div>
+              <div class="scene-selection__subtitle">{{ selectedNode.type | uppercase }}</div>
+            </div>
+            <div class="scene-selection__actions">
+              <button class="btn btn--ghost" type="button" (click)="toggleSelectedVisibility()">
+                {{ selectedNode.visible ? 'Ukryj' : 'Pokaż' }}
+              </button>
+              <button class="btn btn--ghost" type="button" (click)="toggleSelectedLock()">
+                {{ sceneService.isSelectedDecorationLocked() ? 'Odblokuj' : 'Zablokuj' }}
+              </button>
+              <button class="btn btn--ghost" type="button" (click)="onContextDeleteDecoration()">Usuń</button>
+            </div>
+            <div class="scene-selection__actions scene-selection__actions--grid">
+              <button class="btn btn--secondary" type="button" (click)="onContextSnapToCake()">Snap do tortu</button>
+              <button class="btn btn--secondary" type="button" (click)="onContextSnapToTop()">Snap góra</button>
+              <button class="btn btn--secondary" type="button" (click)="onContextSnapToSide()">Snap bok</button>
+              <button class="btn btn--secondary" type="button" (click)="onContextAlignToSurface()">Wyrównaj</button>
+              <button class="btn btn--secondary" type="button" (click)="onContextRotateQuarter(1)">Obrót 90°</button>
+              <button class="btn btn--secondary" type="button" (click)="onContextRotateHalf()">Obrót 180°</button>
+              <button class="btn btn--secondary" type="button" (click)="onContextCopyDecoration()">Kopiuj</button>
+              <button class="btn btn--secondary" type="button" (click)="onContextPasteDecoration()">Wklej</button>
+              <button class="btn btn--secondary" type="button" (click)="onContextResetOrientation()">Reset orientacji</button>
+            </div>
+          </div>
+
           <button class="btn btn--primary workspace-sidebar__save" type="button" (click)="onSaveScene()">
             <span class="icon-16" aria-hidden="true">💾</span>
             <span>Zapisz</span>
@@ -407,7 +443,45 @@
           (panelChange)="onSidebarPanelChange($event)"
         ></app-editor-sidebar>
       </div>
-</ng-template>
+
+      <div
+        class="context-menu"
+        *ngIf="contextMenuVisible"
+        [style.left.px]="contextMenuX"
+        [style.top.px]="contextMenuY"
+        role="menu"
+      >
+        <div class="context-menu__group" *ngIf="contextMenuHasSelection">
+          <button type="button" (click)="onContextSnapToCake()" [disabled]="!contextMenuCanSnap">Snap do tortu</button>
+          <button type="button" (click)="onContextSnapToTop()" [disabled]="!contextMenuCanSnap">Snap do góry</button>
+          <button type="button" (click)="onContextSnapToSide()" [disabled]="!contextMenuCanSnap">Snap do boku</button>
+          <button type="button" (click)="onContextAlignToSurface()">Wyrównaj</button>
+        </div>
+
+        <div class="context-menu__group" *ngIf="contextMenuHasSelection">
+          <button type="button" (click)="onContextRotateQuarter(1)">Obrót 90°</button>
+          <button type="button" (click)="onContextRotateHalf()">Obrót 180°</button>
+          <button type="button" (click)="onContextResetOrientation()">Reset orientacji</button>
+        </div>
+
+        <div class="context-menu__group" *ngIf="contextMenuHasSelection">
+          <button type="button" (click)="onContextCopyDecoration()">Kopiuj</button>
+          <button type="button" (click)="onContextPasteDecoration()">Wklej</button>
+          <button type="button" (click)="onContextDeleteDecoration()">Usuń</button>
+        </div>
+
+        <div class="context-menu__group" *ngIf="contextMenuHasSelection">
+          <button type="button" (click)="sceneService.isSelectedDecorationLocked() ? onContextUnlockDecoration() : onContextLockDecoration()">
+            {{ sceneService.isSelectedDecorationLocked() ? 'Odblokuj' : 'Zablokuj' }}
+          </button>
+          <button type="button" (click)="onContextDeselectDecoration()">Odznacz</button>
+        </div>
+
+        <div class="context-menu__group">
+          <button type="button" (click)="onContextResetCamera()">Resetuj kamerę</button>
+        </div>
+      </div>
+    </ng-template>
 
 <ng-template #sceneNodeTpl let-node="node">
   <div class="scene-node" [class.scene-node--selected]="sceneSelectedNodeId === node.id">

@@ -1,10 +1,11 @@
 .workspace-panel {
-  background: #141414;
-  border-left: 1px solid #1f1f1f;
+  background: radial-gradient(circle at top left, rgba(41, 182, 255, 0.06), transparent 46%) #111217;
+  border-left: 1px solid #0f1216;
   display: flex;
   flex-direction: column;
   padding: 16px;
   gap: 12px;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
 }
 
 .panel-nav {
@@ -14,19 +15,21 @@
 }
 
 .panel-nav__item {
-  background: #0f0f0f;
+  background: linear-gradient(145deg, #0f1116, #0c0d12);
   color: #dcdcdc;
-  border-radius: 8px;
-  padding: 8px 10px;
-  border: 1px solid #1f1f1f;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid #1b1f27;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .panel-nav__item--active {
-  background: #0b2530;
+  background: linear-gradient(145deg, #0b1f2c, #0c2d40);
   border-color: #0c6cae;
   color: #43bff0;
+  box-shadow: 0 8px 18px rgba(12, 108, 174, 0.22);
 }
 
 .workspace-panel__content {

@@ -172,6 +172,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public contextMenuHasSelection = false;
   public contextMenuCanSnap = false;
   public contextMenuIsLocked = false;
+  public sceneTreeScale = 1;
 
   public sceneOutline: SceneOutlineNode | null = null;
   public sceneSelectedNodeId: string | null = null;
@@ -198,7 +199,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private contextMenuListener = (event: MouseEvent) => this.onContextMenu(event);
 
   constructor(
-    public sceneService: ThreeSceneService,
+    public readonly sceneService: ThreeSceneService,
     private transformService: TransformControlsService,
     private decorationsService: DecorationsService,
     private paintService: PaintService,
@@ -413,6 +414,53 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.sceneExpandedNodes.add(node.id);
       node.children.forEach((child) => this.sceneExpandedNodes.add(child.id));
     }
+  }
+
+  get selectedSceneNode(): SceneOutlineNode | null {
+    return this.findSceneNode(this.sceneOutline, this.sceneSelectedNodeId);
+  }
+
+  changeSceneTreeScale(delta: number): void {
+    this.sceneTreeScale = Math.min(1.3, Math.max(0.9, this.sceneTreeScale + delta));
+  }
+
+  toggleSelectedVisibility(): void {
+    const selected = this.selectedSceneNode;
+    if (!selected) {
+      return;
+    }
+
+    const changed = this.sceneService.setDecorationVisibility(selected.id, !selected.visible);
+    if (changed) {
+      this.refreshSceneOutline();
+    }
+  }
+
+  toggleSelectedLock(): void {
+    if (this.sceneService.isSelectedDecorationLocked()) {
+      this.onContextUnlockDecoration();
+    } else {
+      this.onContextLockDecoration();
+    }
+  }
+
+  private findSceneNode(root: SceneOutlineNode | null, id: string | null): SceneOutlineNode | null {
+    if (!root || !id) {
+      return null;
+    }
+
+    if (root.id === id) {
+      return root;
+    }
+
+    for (const child of root.children) {
+      const found = this.findSceneNode(child, id);
+      if (found) {
+        return found;
+      }
+    }
+
+    return null;
   }
 
   selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze'): void {
