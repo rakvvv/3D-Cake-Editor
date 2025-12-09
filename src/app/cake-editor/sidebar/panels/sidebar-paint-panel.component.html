@@ -318,20 +318,6 @@
 
       <div class="advanced-panel" *ngIf="showPresetAdvanced">
         <div class="advanced-panel__row">
-          <button
-            type="button"
-            class="sidebar-panel__button"
-            [class.sidebar-panel__button--active]="extruderPathModeEnabled"
-            (click)="setExtruderDrawingMode(extruderPathModeEnabled ? 'free' : 'path')"
-          >
-            Tryb ścieżki
-          </button>
-          <p class="advanced-panel__hint">
-            W trybie ścieżki klikaj na torcie, aby dodać lub przesunąć punkty zgodnie z aktualnym presetem.
-          </p>
-        </div>
-
-        <div class="advanced-panel__row">
           <div class="paint-panel__tiles" aria-label="Końcówki kremu">
             <button
               type="button"
@@ -494,12 +480,22 @@
               (ngModelChange)="updateExtruderNode(idx, 'heightNorm', $event)"
             />
           </label>
-          <button class="btn btn--ghost" type="button" (click)="removeExtruderNode(idx)">
+          <button
+            class="sidebar-panel__button sidebar-panel__button--ghost sidebar-panel__button--compact"
+            type="button"
+            (click)="removeExtruderNode(idx)"
+          >
             Usuń
           </button>
         </div>
 
-        <button class="btn btn--primary points-panel__add" type="button" (click)="addExtruderNode()">Dodaj punkt</button>
+        <button
+          class="sidebar-panel__button sidebar-panel__button--primary points-panel__add"
+          type="button"
+          (click)="addExtruderNode()"
+        >
+          Dodaj punkt
+        </button>
       </div>
     </div>
   </div>

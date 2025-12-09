@@ -232,6 +232,11 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
   togglePresetPoints(): void {
     this.showPresetPoints = !this.showPresetPoints;
+    if (this.showPresetPoints) {
+      this.connectExtruderNodes();
+    } else if (this.extruderPathModeEnabled) {
+      this.setExtruderDrawingMode('free');
+    }
   }
 
   setExtruderDrawingMode(mode: 'path' | 'free'): void {
