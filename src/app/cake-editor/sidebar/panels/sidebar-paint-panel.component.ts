@@ -81,7 +81,10 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.subscriptions.add(
-      this.decorationsService.decorations$.subscribe((decorations) => (this.decorations = decorations)),
+      this.decorationsService.decorations$.subscribe((decorations) => {
+        this.decorations = decorations;
+        this.registerDecorationMetadata(decorations);
+      }),
     );
     this.subscriptions.add(
       this.anchorPresetsService.pendingDecoration$.subscribe((decoration) => {
@@ -352,6 +355,16 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       this.paintService.setExtruderPathMode(true);
       this.paintService.setExtruderPathNodes(nodes, preset);
     }
+  }
+
+  private registerDecorationMetadata(decorations: DecorationInfo[]): void {
+    decorations.forEach((decoration) => {
+      this.paintService.setBrushMetadata(decoration.modelFileName, {
+        initialScale: decoration.initialScale,
+        initialRotation: decoration.initialRotation,
+        material: decoration.material,
+      });
+    });
   }
 
   private getActivePreset(): CreamRingPreset | null {

@@ -76,6 +76,17 @@ export class PaintService {
   private brushCache = new Map<string, THREE.Object3D>();
   private brushPromises = new Map<string, Promise<THREE.Object3D>>();
   private brushSizes = new Map<string, THREE.Vector3>();
+  private brushMetadata = new Map<
+    string,
+    {
+      initialScale?: number;
+      initialRotation?: [number, number, number];
+      material?: {
+        roughness?: number;
+        metalness?: number;
+      };
+    }
+  >();
 
   private penMaterialCache = new Map<string, THREE.MeshStandardMaterial>();
   private penSphereGeometry = new THREE.SphereGeometry(0.5, 16, 12);
@@ -402,6 +413,34 @@ export class PaintService {
     return this.redoStack.length > 0;
   }
 
+  public setBrushMetadata(
+    brushId: string,
+    metadata: {
+      initialScale?: number;
+      initialRotation?: [number, number, number];
+      material?: { roughness?: number; metalness?: number };
+    } | null,
+  ): void {
+    const previous = this.brushMetadata.get(brushId);
+    const previousKey = previous ? JSON.stringify(previous) : null;
+    const nextKey = metadata ? JSON.stringify(metadata) : null;
+    if (previousKey === nextKey) {
+      return;
+    }
+
+    if (metadata) {
+      this.brushMetadata.set(brushId, metadata);
+    } else {
+      this.brushMetadata.delete(brushId);
+    }
+
+    this.brushCache.delete(brushId);
+    this.brushPromises.delete(brushId);
+    this.decorationVariants.delete(brushId);
+    this.decorationStrokeInstances.delete(brushId);
+    this.brushSizes.delete(brushId);
+  }
+
   public registerDecorationAddition(object: THREE.Object3D): void {
     if (!object) {
       return;
@@ -490,11 +529,12 @@ export class PaintService {
   }
 
   private getDecorationScale(brushId: string, variants: DecorationVariantData[]): number {
+    const scaleMultiplier = this.getBrushScaleMultiplier(brushId);
     const templateSize = this.brushSizes.get(brushId);
     if (templateSize) {
       const maxDim = Math.max(templateSize.x, templateSize.y, templateSize.z);
       if (maxDim > 0) {
-        return 0.5 / maxDim;
+        return (0.5 / maxDim) * scaleMultiplier;
       }
     }
 
@@ -511,26 +551,31 @@ export class PaintService {
       geometriesBox.getSize(mergedSize);
       const maxDim = Math.max(mergedSize.x, mergedSize.y, mergedSize.z);
       if (maxDim > 0) {
-        return 0.5 / maxDim;
+        return (0.5 / maxDim) * scaleMultiplier;
       }
     }
 
-    return 1;
+    return scaleMultiplier;
   }
 
   private getDecorationSpacing(brushId: string): number {
     const templateSize = this.brushSizes.get(brushId);
+    const scaleMultiplier = this.getBrushScaleMultiplier(brushId);
     if (templateSize) {
       const maxDim = Math.max(templateSize.x, templateSize.y, templateSize.z);
       if (maxDim > 0) {
-        const scale = 0.5 / maxDim;
+        const scale = (0.5 / maxDim) * scaleMultiplier;
         const scaledMax = maxDim * scale;
         const spacing = scaledMax * 0.35;
         return Math.max(this.baseMinDistance * 1.5, spacing);
       }
     }
 
-    return this.baseMinDistance * 1.5;
+    return this.baseMinDistance * 1.5 * scaleMultiplier;
+  }
+
+  private getBrushScaleMultiplier(brushId: string): number {
+    return this.brushMetadata.get(brushId)?.initialScale ?? 1;
   }
 
   private async getDecorationVariants(brushId: string): Promise<DecorationVariantData[]> {
@@ -1745,6 +1790,10 @@ export class PaintService {
 
     const promise = DecorationFactory.loadDecorationModel(`/models/${brushId}`)
       .then((model) => {
+        const metadata = this.brushMetadata.get(brushId);
+        if (metadata) {
+          this.applyBrushMetadataToTemplate(model, metadata);
+        }
         this.brushCache.set(brushId, model);
         this.brushSizes.set(brushId, this.computeBrushSize(model));
         this.brushPromises.delete(brushId);
@@ -2118,11 +2167,74 @@ export class PaintService {
     return Math.min(48, Math.max(16, Math.round(radius * 200)));
   }
 
+  private applyBrushMetadataToTemplate(
+    model: THREE.Object3D,
+    metadata: {
+      initialScale?: number;
+      initialRotation?: [number, number, number];
+      material?: { roughness?: number; metalness?: number };
+    },
+  ): void {
+    if (metadata.initialScale && metadata.initialScale > 0) {
+      model.scale.setScalar(metadata.initialScale);
+    }
+
+    if (metadata.initialRotation) {
+      const [x, y, z] = metadata.initialRotation;
+      model.rotation.set(
+        THREE.MathUtils.degToRad(x ?? 0),
+        THREE.MathUtils.degToRad(y ?? 0),
+        THREE.MathUtils.degToRad(z ?? 0),
+      );
+    }
+
+    if (metadata.material) {
+      this.applyMaterialOverrides(model, metadata.material);
+    }
+
+    model.updateMatrixWorld(true);
+  }
+
   private computeBrushSize(model: THREE.Object3D): THREE.Vector3 {
     const box = new THREE.Box3().setFromObject(model);
     const size = new THREE.Vector3();
     box.getSize(size);
     return size;
+  }
+
+  private applyMaterialOverrides(
+    object: THREE.Object3D,
+    materialConfig?: { roughness?: number; metalness?: number },
+  ): void {
+    if (!materialConfig) {
+      return;
+    }
+
+    object.traverse((child) => {
+      if (!(child as THREE.Mesh).isMesh) {
+        return;
+      }
+
+      const mesh = child as THREE.Mesh;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+      materials.forEach((material) => {
+        const hasUnlitExtension = !!(material as any).userData?.gltfExtensions?.KHR_materials_unlit;
+        if (hasUnlitExtension) {
+          return;
+        }
+
+        if (materialConfig.roughness !== undefined && 'roughness' in material) {
+          (material as any).roughness = materialConfig.roughness;
+          material.needsUpdate = true;
+        }
+
+        if (materialConfig.metalness !== undefined && 'metalness' in material) {
+          (material as any).metalness = materialConfig.metalness;
+          material.needsUpdate = true;
+        }
+      });
+    });
   }
 
   private recordPaintSnapPoint(point: THREE.Vector3, strokeGroup: THREE.Group): void {
