@@ -311,10 +311,11 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   }
 
   removeExtruderNode(index: number): void {
-    if (this.extruderPathNodes.length <= 2) {
-      return;
-    }
     this.persistExtruderNodes(this.extruderPathNodes.filter((_, idx) => idx !== index));
+  }
+
+  clearExtruderNodes(): void {
+    this.persistExtruderNodes([]);
   }
 
   private persistExtruderNodes(nodes: CreamPathNode[]): void {

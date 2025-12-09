@@ -468,6 +468,9 @@
           <button type="button" class="sidebar-panel__button" (click)="connectExtruderNodes()">
             Połącz punkty (tryb ścieżki)
           </button>
+          <button type="button" class="sidebar-panel__button sidebar-panel__button--ghost" (click)="clearExtruderNodes()">
+            Usuń wszystkie punkty
+          </button>
           <p class="advanced-panel__hint">
             Włącz tryb ścieżki, aby łączyć punkty bezpośrednio na torcie i edytować ich położenie.
           </p>
@@ -491,7 +494,7 @@
               (ngModelChange)="updateExtruderNode(idx, 'heightNorm', $event)"
             />
           </label>
-          <button class="btn btn--ghost" type="button" (click)="removeExtruderNode(idx)" [disabled]="extruderPathNodes.length <= 2">
+          <button class="btn btn--ghost" type="button" (click)="removeExtruderNode(idx)">
             Usuń
           </button>
         </div>
