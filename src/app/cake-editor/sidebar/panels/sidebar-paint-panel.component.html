@@ -317,40 +317,144 @@
       </div>
 
       <div class="advanced-panel" *ngIf="showPresetAdvanced">
-        <div class="select-row">
-          <span class="select-row__label">Warstwa</span>
-          <div class="select-row__input select-row__input--native">
-            <select [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Warstwa">
-              <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
-            </select>
-          </div>
+        <div class="advanced-panel__row">
+          <button
+            type="button"
+            class="sidebar-panel__button"
+            [class.sidebar-panel__button--active]="extruderPathModeEnabled"
+            (click)="setExtruderDrawingMode(extruderPathModeEnabled ? 'free' : 'path')"
+          >
+            Tryb ścieżki
+          </button>
+          <p class="advanced-panel__hint">
+            W trybie ścieżki klikaj na torcie, aby dodać lub przesunąć punkty zgodnie z aktualnym presetem.
+          </p>
         </div>
 
-        <div class="select-row">
-          <span class="select-row__label">Końcówka</span>
-          <div class="decorations-list decorations-list--inline">
+        <div class="advanced-panel__row">
+          <div class="paint-panel__tiles" aria-label="Końcówki kremu">
             <button
-              class="decorations-list__item"
-              *ngFor="let variant of extruderVariants"
-              [class.decorations-list__item--active]="variant.id === extruderSelection"
               type="button"
-              (click)="onExtruderSelectionChange(variant.id)">
-              <img *ngIf="variant.thumbnail" [src]="variant.thumbnail" alt="" class="decorations-list__icon" />
-              <span *ngIf="!variant.thumbnail" class="decorations-list__icon">🍥</span>
-              <span>{{ variant.name }}</span>
+              class="paint-panel__tile"
+              [class.paint-panel__tile--selected]="extruderSelection === 'random'"
+              (click)="onExtruderSelectionChange('random')"
+            >
+              <span class="paint-panel__tile-thumb" aria-hidden="true">🎲</span>
+              <span class="paint-panel__tile-name">Losowy</span>
+            </button>
+            <button
+              type="button"
+              class="paint-panel__tile"
+              *ngFor="let variant of extruderVariants"
+              [class.paint-panel__tile--selected]="variant.id === extruderSelection"
+              (click)="onExtruderSelectionChange(variant.id)"
+            >
+              <span class="paint-panel__tile-thumb" aria-hidden="true">
+                <img *ngIf="variant.thumbnail" [src]="variant.thumbnail" [alt]="variant.name" />
+                <span *ngIf="!variant.thumbnail" class="paint-panel__tile-placeholder">{{ variant.name }}</span>
+              </span>
+              <span class="paint-panel__tile-name">{{ variant.name }}</span>
             </button>
           </div>
         </div>
 
-        <div class="color-row">
-          <span class="color-row__label">Kolor kremu</span>
-          <div class="color-row__input">
-            <span class="icon-16" aria-hidden="true">#</span>
-            <input type="text" [ngModel]="paintColor" (ngModelChange)="onExtruderColorChange($event)" />
+        <div class="advanced-panel__row advanced-panel__row--split">
+          <div class="select-row select-row--compact">
+            <span class="select-row__label">Warstwa</span>
+            <div class="select-row__input select-row__input--native">
+              <select [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Warstwa">
+                <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
+              </select>
+            </div>
           </div>
-          <div class="color-swatch" [style.background]="paintColor"></div>
+
+          <div class="color-row color-row--compact">
+            <span class="color-row__label">Kolor kremu</span>
+            <div class="color-row__input">
+              <span class="icon-16" aria-hidden="true">#</span>
+              <input type="text" [ngModel]="extruderColor" (ngModelChange)="onExtruderColorChange($event)" />
+            </div>
+            <div class="color-swatch" [style.background]="extruderColor"></div>
+          </div>
         </div>
+
+        <details class="advanced-panel__details">
+          <summary>Ustawienia generatora</summary>
+          <div class="advanced-panel__grid">
+            <label>
+              Tryb generatora
+              <select class="sidebar-panel__select" [ngModel]="extruderMode" (ngModelChange)="onExtruderModeChange($event)">
+                <option [ngValue]="'RING'">Pełny pierścień</option>
+                <option [ngValue]="'ARC'">Łuk / pas</option>
+                <option [ngValue]="'PATH'">Łączenie punktów</option>
+              </select>
+            </label>
+            <label>
+              Pozycja
+              <select class="sidebar-panel__select" [ngModel]="extruderPosition" (ngModelChange)="onExtruderPositionChange($event)">
+                <option [ngValue]="'TOP_EDGE'">Krawędź górna</option>
+                <option [ngValue]="'BOTTOM_EDGE'">Krawędź dolna</option>
+                <option [ngValue]="'SIDE_ARC'">Bok / łuk</option>
+              </select>
+            </label>
+            <label>
+              Kąt startowy (°)
+              <input type="number" class="sidebar-panel__input" [(ngModel)]="extruderStartAngle" (change)="onExtruderAnglesChange()" />
+            </label>
+            <label>
+              Kąt końcowy (°)
+              <input
+                type="number"
+                class="sidebar-panel__input"
+                [(ngModel)]="extruderEndAngle"
+                [disabled]="extruderMode === 'RING'"
+                (change)="onExtruderAnglesChange()"
+              />
+            </label>
+            <label>
+              Gęstość
+              <input type="number" class="sidebar-panel__input" min="2" [(ngModel)]="extruderSegments" (change)="onExtruderSegmentsChange($any($event.target).value)" />
+            </label>
+            <label>
+              Wysokość (0-1)
+              <input
+                type="number"
+                class="sidebar-panel__input"
+                step="0.05"
+                min="0"
+                max="1"
+                [(ngModel)]="extruderHeightNorm"
+                (change)="onExtruderHeightChange($any($event.target).value)"
+              />
+            </label>
+            <label>
+              Odchylenie promienia (m)
+              <input
+                type="number"
+                class="sidebar-panel__input"
+                step="0.005"
+                [(ngModel)]="extruderRadiusOffset"
+                (change)="onExtruderRadiusChange($any($event.target).value)"
+              />
+            </label>
+            <label>
+              Skala końcówki
+              <input
+                type="number"
+                class="sidebar-panel__input"
+                step="0.05"
+                min="0.05"
+                [(ngModel)]="extruderScale"
+                (change)="onExtruderScaleChange($any($event.target).value)"
+              />
+            </label>
+          </div>
+        </details>
       </div>
+
+      <button type="button" class="sidebar-panel__button sidebar-panel__button--primary" (click)="onGenerateExtruderStroke()">
+        Generuj ścieżkę kremu
+      </button>
 
       <div class="functions-row">
         <div class="section-header__title">Punkty</div>

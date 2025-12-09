@@ -126,3 +126,96 @@
 .points-panel__add {
   width: 100%;
 }
+
+.advanced-panel__row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.advanced-panel__row--split {
+  gap: 14px;
+}
+
+.advanced-panel__hint {
+  margin: 0;
+  font-size: 12px;
+  color: #a8a8a8;
+}
+
+.advanced-panel__details {
+  border-radius: 8px;
+  border: 1px solid #1f1f1f;
+  background: #0b0b0b;
+  padding: 6px 10px;
+  color: #f0f0f0;
+}
+
+.advanced-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.paint-panel__tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.paint-panel__tile {
+  border: 1px solid #232323;
+  background: #0f0f0f;
+  border-radius: 10px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  min-width: 120px;
+  color: #eaeaea;
+}
+
+.paint-panel__tile--selected {
+  border-color: #ff7ea8;
+  box-shadow: 0 0 0 1px #ff7ea8 inset;
+}
+
+.paint-panel__tile-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #1b1b1b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.paint-panel__tile-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.paint-panel__tile-placeholder {
+  font-size: 11px;
+  color: #b9b9b9;
+  text-align: center;
+}
+
+.paint-panel__tile-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.select-row--compact .select-row__input,
+.color-row--compact .color-row__input {
+  max-width: 220px;
+}
+
+.sidebar-panel__button--primary {
+  width: 100%;
+  margin-top: 8px;
+}
