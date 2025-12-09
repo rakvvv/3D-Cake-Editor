@@ -8,7 +8,7 @@ import { DecorationsService } from '../../../services/decorations.service';
 import { AnchorPresetsService } from '../../../services/anchor-presets.service';
 import { PaintService } from '../../../services/paint.service';
 import { SurfacePaintingService } from '../../../services/surface-painting.service';
-import { CreamRingPreset } from '../../../models/cream-presets';
+import { CreamPathNode, CreamRingPreset } from '../../../models/cream-presets';
 import { DecorationSurfaceTarget } from '../../../models/add-decoration-request';
 
 @Component({
@@ -42,6 +42,10 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   extruderSelection: number | 'random' = 'random';
   creamPresets: CreamRingPreset[] = [];
   selectedCreamPresetId: string | null = null;
+  extruderTab: 'manual' | 'preset' = 'manual';
+  showPresetAdvanced = true;
+  showPresetPoints = true;
+  extruderPathNodes: CreamPathNode[] = [];
 
   brushSize = 90;
   sprinkleSize = 40;
@@ -76,6 +80,10 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
           this.selectedCreamPresetId = presets[0].id;
         }
       }),
+    );
+
+    this.subscriptions.add(
+      this.paintService.extruderPathNodes$.subscribe((nodes) => (this.extruderPathNodes = nodes)),
     );
 
     this.brushSize = this.surfacePaintingService.brushSize;
@@ -163,6 +171,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     if (preset) {
       this.paintService.setExtruderPathMode(true);
       this.paintService.setExtruderPathContext(preset);
+      this.paintService.setExtruderPathNodes(preset.nodes ?? [], preset);
     }
   }
 
@@ -190,6 +199,55 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.sprinkleColor = color;
     this.surfacePaintingService.sprinkleUseRandomColors = false;
     this.surfacePaintingService.sprinkleColor = color;
+  }
+
+  toggleExtruderTab(tab: 'manual' | 'preset'): void {
+    this.extruderTab = tab;
+  }
+
+  togglePresetAdvanced(): void {
+    this.showPresetAdvanced = !this.showPresetAdvanced;
+  }
+
+  togglePresetPoints(): void {
+    this.showPresetPoints = !this.showPresetPoints;
+  }
+
+  updateExtruderNode(index: number, key: keyof CreamPathNode, value: number): void {
+    const updatedNodes = this.extruderPathNodes.map((node, idx) =>
+      idx === index ? { ...node, [key]: key === 'angleDeg' ? Number(value) : Math.max(0, Math.min(1, Number(value))) } : node,
+    );
+    this.persistExtruderNodes(updatedNodes);
+  }
+
+  addExtruderNode(): void {
+    const last = this.extruderPathNodes[this.extruderPathNodes.length - 1];
+    const fallback: CreamPathNode = { angleDeg: 0, heightNorm: 0.6 };
+    this.persistExtruderNodes([...this.extruderPathNodes, last ? { ...last } : fallback]);
+  }
+
+  removeExtruderNode(index: number): void {
+    if (this.extruderPathNodes.length <= 2) {
+      return;
+    }
+    this.persistExtruderNodes(this.extruderPathNodes.filter((_, idx) => idx !== index));
+  }
+
+  private persistExtruderNodes(nodes: CreamPathNode[]): void {
+    this.extruderPathNodes = nodes;
+    const preset = this.getActivePreset();
+    if (preset) {
+      this.paintService.setExtruderPathMode(true);
+      this.paintService.setExtruderPathNodes(nodes, preset);
+    }
+  }
+
+  private getActivePreset(): CreamRingPreset | null {
+    const preset = this.creamPresets.find((item) => item.id === this.selectedCreamPresetId);
+    if (preset) {
+      return preset;
+    }
+    return this.creamPresets[0] ?? null;
   }
 
   private async loadExtruderVariants(): Promise<void> {

@@ -252,12 +252,26 @@
       </div>
 
       <div class="toggle-tab">
-        <button class="toggle-tab__item toggle-tab__item--active" type="button">Rysowanie ręczne</button>
-        <button class="toggle-tab__item" type="button">Presety</button>
+        <button
+          class="toggle-tab__item"
+          [class.toggle-tab__item--active]="extruderTab === 'manual'"
+          type="button"
+          (click)="toggleExtruderTab('manual')"
+        >
+          Rysowanie ręczne
+        </button>
+        <button
+          class="toggle-tab__item"
+          [class.toggle-tab__item--active]="extruderTab === 'preset'"
+          type="button"
+          (click)="toggleExtruderTab('preset')"
+        >
+          Łączenie obiektów
+        </button>
       </div>
     </div>
 
-    <div class="editor-panel__section">
+    <div class="editor-panel__section" *ngIf="extruderTab === 'manual'">
       <div class="section-header">
         <h3 class="section-header__title">Rodzaj końcówek</h3>
       </div>
@@ -274,9 +288,18 @@
           <span>{{ variant.name }}</span>
         </button>
       </div>
+
+      <div class="color-row">
+        <span class="color-row__label">Kolor kremu</span>
+        <div class="color-row__input">
+          <span class="icon-16" aria-hidden="true">#</span>
+          <input type="text" [ngModel]="paintColor" (ngModelChange)="onExtruderColorChange($event)" />
+        </div>
+        <div class="color-swatch" [style.background]="paintColor"></div>
+      </div>
     </div>
 
-    <div class="editor-panel__section">
+    <div class="editor-panel__section" *ngIf="extruderTab === 'preset'">
       <div class="select-row">
         <span class="select-row__label">Preset</span>
         <div class="select-row__input select-row__input--native">
@@ -285,16 +308,83 @@
           </select>
         </div>
       </div>
-    </div>
 
-    <div class="editor-panel__section">
-      <div class="color-row">
-        <span class="color-row__label">Kolor kremu</span>
-        <div class="color-row__input">
-          <span class="icon-16" aria-hidden="true">#</span>
-          <input type="text" [ngModel]="paintColor" (ngModelChange)="onExtruderColorChange($event)" />
+      <div class="functions-row">
+        <div class="section-header__title">Opcje zaawansowane</div>
+        <button class="btn-toggle" type="button" (click)="togglePresetAdvanced()">
+          <img src="assets/ui/icons/power.svg" alt="Przełącz opcje zaawansowane" class="icon-16" />
+        </button>
+      </div>
+
+      <div class="advanced-panel" *ngIf="showPresetAdvanced">
+        <div class="select-row">
+          <span class="select-row__label">Warstwa</span>
+          <div class="select-row__input select-row__input--native">
+            <select [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Warstwa">
+              <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
+            </select>
+          </div>
         </div>
-        <div class="color-swatch" [style.background]="paintColor"></div>
+
+        <div class="select-row">
+          <span class="select-row__label">Końcówka</span>
+          <div class="decorations-list decorations-list--inline">
+            <button
+              class="decorations-list__item"
+              *ngFor="let variant of extruderVariants"
+              [class.decorations-list__item--active]="variant.id === extruderSelection"
+              type="button"
+              (click)="onExtruderSelectionChange(variant.id)">
+              <img *ngIf="variant.thumbnail" [src]="variant.thumbnail" alt="" class="decorations-list__icon" />
+              <span *ngIf="!variant.thumbnail" class="decorations-list__icon">🍥</span>
+              <span>{{ variant.name }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="color-row">
+          <span class="color-row__label">Kolor kremu</span>
+          <div class="color-row__input">
+            <span class="icon-16" aria-hidden="true">#</span>
+            <input type="text" [ngModel]="paintColor" (ngModelChange)="onExtruderColorChange($event)" />
+          </div>
+          <div class="color-swatch" [style.background]="paintColor"></div>
+        </div>
+      </div>
+
+      <div class="functions-row">
+        <div class="section-header__title">Punkty</div>
+        <button class="btn-toggle" type="button" (click)="togglePresetPoints()">
+          <img src="assets/ui/icons/power.svg" alt="Przełącz punkty" class="icon-16" />
+        </button>
+      </div>
+
+      <div class="points-panel" *ngIf="showPresetPoints">
+        <div class="points-panel__empty" *ngIf="!extruderPathNodes.length">
+          Wybierz preset, aby załadować punkty ścieżki.
+        </div>
+        <div class="points-panel__row" *ngFor="let node of extruderPathNodes; let idx = index">
+          <label class="points-panel__field">
+            <span>Kąt</span>
+            <input type="number" [ngModel]="node.angleDeg" (ngModelChange)="updateExtruderNode(idx, 'angleDeg', $event)" />
+          </label>
+          <label class="points-panel__field">
+            <span>Wysokość</span>
+            <input
+              type="number"
+              min="0"
+              max="1"
+              step="0.05"
+              [ngModel]="node.heightNorm ?? 0"
+              (ngModelChange)="updateExtruderNode(idx, 'heightNorm', $event)"
+            />
+          </label>
+          <button class="btn btn--ghost" type="button" (click)="removeExtruderNode(idx)" [disabled]="extruderPathNodes.length <= 2">
+            Usuń
+          </button>
+        </div>
+
+        <button class="btn btn--primary points-panel__add" type="button" (click)="addExtruderNode()">Dodaj punkt</button>
       </div>
     </div>
   </div>
