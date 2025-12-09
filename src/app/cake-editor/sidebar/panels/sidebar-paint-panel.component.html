@@ -287,20 +287,32 @@
     </div>
 
     <div class="editor-panel__section" *ngIf="extruderTab === 'manual'">
-      <div class="section-header">
-        <h3 class="section-header__title">Rodzaj końcówek</h3>
-      </div>
 
-      <div class="decorations-list">
+      <div class="section-header section-header--tight">
+        <h3 class="section-header__title">Rodzaj końcówki</h3>
+      </div>
+      <div class="paint-panel__tiles paint-panel__tiles--inline" aria-label="Końcówki kremu">
         <button
-          class="decorations-list__item"
-          *ngFor="let variant of extruderVariants"
-          [class.decorations-list__item--active]="variant.id === extruderSelection"
           type="button"
-          (click)="onExtruderSelectionChange(variant.id)">
-          <img *ngIf="variant.thumbnail" [src]="variant.thumbnail" alt="" class="decorations-list__icon" />
-          <span *ngIf="!variant.thumbnail" class="decorations-list__icon">🍥</span>
-          <span>{{ variant.name }}</span>
+          class="paint-panel__tile"
+          [class.paint-panel__tile--selected]="extruderSelection === 'random'"
+          (click)="onExtruderSelectionChange('random')"
+        >
+          <span class="paint-panel__tile-thumb" aria-hidden="true">🎲</span>
+          <span class="paint-panel__tile-name">Losowy</span>
+        </button>
+        <button
+          type="button"
+          class="paint-panel__tile"
+          *ngFor="let variant of extruderVariants"
+          [class.paint-panel__tile--selected]="variant.id === extruderSelection"
+          (click)="onExtruderSelectionChange(variant.id)"
+        >
+          <span class="paint-panel__tile-thumb" aria-hidden="true">
+            <img *ngIf="variant.thumbnail" [src]="variant.thumbnail" [alt]="variant.name" />
+            <span *ngIf="!variant.thumbnail" class="paint-panel__tile-placeholder">{{ variant.name }}</span>
+          </span>
+          <span class="paint-panel__tile-name">{{ variant.name }}</span>
         </button>
       </div>
 
@@ -325,6 +337,14 @@
         <div class="select-row__input select-row__input--native">
           <select [ngModel]="selectedCreamPresetId" (ngModelChange)="onExtruderPresetSelect($event)">
             <option *ngFor="let preset of creamPresets" [value]="preset.id">{{ preset.name }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="select-row select-row--compact">
+        <span class="select-row__label">Warstwa</span>
+        <div class="select-row__input select-row__input--native">
+          <select [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Warstwa">
+            <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
           </select>
         </div>
       </div>
@@ -355,7 +375,25 @@
           </span>
           <span class="paint-panel__tile-name">{{ variant.name }}</span>
         </button>
+        <div class="color-row color-row--compact">
+          <span class="color-row__label">Kolor kremu</span>
+          <div class="color-picker color-picker--compact">
+            <input
+              type="color"
+              class="color-picker__native"
+              [ngModel]="extruderColor"
+              (ngModelChange)="onExtruderColorChange($event)"
+              aria-label="Kolor kremu"
+            />
+            <span class="color-picker__value">{{ extruderColor }}</span>
+          </div>
+        </div>
       </div>
+
+      <button type="button" class="sidebar-panel__button sidebar-panel__button--primary" (click)="onGenerateExtruderStroke()">
+        Generuj ścieżkę kremu
+      </button>
+
 
       <div class="functions-row">
         <div class="section-header__title">Opcje zaawansowane</div>
@@ -363,40 +401,12 @@
           class="btn-toggle"
           type="button"
           (click)="togglePresetAdvanced()"
-          [class.btn-toggle--active]="showPresetAdvanced"
         >
-          <img src="assets/ui/icons/power.svg" alt="Przełącz opcje zaawansowane" class="icon-16" />
+          <span class="icon-16" aria-hidden="true">{{ showPresetAdvanced ? '⏽' : '⭘' }}</span>
         </button>
       </div>
 
       <div class="advanced-panel" *ngIf="showPresetAdvanced">
-        <div class="advanced-panel__row advanced-panel__row--split">
-          <div class="select-row select-row--compact">
-            <span class="select-row__label">Warstwa</span>
-            <div class="select-row__input select-row__input--native">
-              <select [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Warstwa">
-                <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="color-row color-row--compact">
-            <span class="color-row__label">Kolor kremu</span>
-            <div class="color-picker color-picker--compact">
-              <input
-                type="color"
-                class="color-picker__native"
-                [ngModel]="extruderColor"
-                (ngModelChange)="onExtruderColorChange($event)"
-                aria-label="Kolor kremu"
-              />
-              <span class="color-picker__value">{{ extruderColor }}</span>
-            </div>
-          </div>
-        </div>
-
-        <details class="advanced-panel__details">
-          <summary>Ustawienia generatora</summary>
           <div class="advanced-panel__grid">
             <label>
               Tryb generatora
@@ -466,12 +476,8 @@
               />
             </label>
           </div>
-        </details>
-      </div>
 
-      <button type="button" class="sidebar-panel__button sidebar-panel__button--primary" (click)="onGenerateExtruderStroke()">
-        Generuj ścieżkę kremu
-      </button>
+      </div>
 
       <div class="functions-row">
         <div class="section-header__title">Punkty</div>
@@ -479,9 +485,8 @@
           class="btn-toggle"
           type="button"
           (click)="togglePresetPoints()"
-          [class.btn-toggle--active]="showPresetPoints"
         >
-          <img src="assets/ui/icons/power.svg" alt="Przełącz punkty" class="icon-16" />
+            <span class="icon-16" aria-hidden="true">{{ showPresetPoints ? '⏽' : '⭘' }}</span>
         </button>
       </div>
 

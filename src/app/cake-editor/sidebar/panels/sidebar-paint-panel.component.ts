@@ -21,7 +21,7 @@ import { DecorationSurfaceTarget } from '../../../models/add-decoration-request'
 export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   @Input() mode: SidebarPaintMode = 'decor3d';
   @Input() paintColor = '#ff4d6d';
-  @Input() penSize = 0.05;
+  @Input() penSize = 0.02;
   @Input() penThickness = 0.02;
   @Input() penOpacity = 1;
   @Input() brushId = 'trawa.glb';
@@ -43,8 +43,8 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   creamPresets: CreamRingPreset[] = [];
   selectedCreamPresetId: string | null = null;
   extruderTab: 'manual' | 'preset' = 'manual';
-  showPresetAdvanced = true;
-  showPresetPoints = true;
+  showPresetAdvanced = false;
+  showPresetPoints = false;
   extruderPathNodes: CreamPathNode[] = [];
   extruderMode: ExtruderStrokeMode = 'RING';
   extruderPosition: CreamPosition = 'SIDE_ARC';

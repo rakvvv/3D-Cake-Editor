@@ -11,6 +11,17 @@
     "scale": 1.05
   },
   {
+    "id": "bottom-rim",
+    "name": "Korona dolnej krawędzi",
+    "mode": "RING",
+    "layerIndex": -1,
+    "position": "TOP_EDGE",
+    "segments": 70,
+    "heightNorm": 0,
+    "radiusOffset": -0.03,
+    "scale": 1.05
+  },
+  {
     "id": "front-arc",
     "name": "Półłuk z przodu",
     "mode": "ARC",
