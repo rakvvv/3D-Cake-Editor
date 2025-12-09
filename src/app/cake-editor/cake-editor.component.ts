@@ -694,7 +694,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.surfacePaintingService.enabled = false;
     const tool = mode === 'extruder' ? 'extruder' : mode === 'decor3d' ? 'decoration' : 'pen';
     this.paintService.setPaintTool(tool as 'decoration' | 'pen' | 'extruder');
-    this.onTogglePaintMode(powerEnabled && mode !== 'decor3d');
+    this.onTogglePaintMode(powerEnabled);
   }
 
   onSidebarBrushChange(settings: BrushSettings): void {
@@ -724,7 +724,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.paintingPowerEnabled = enabled;
     const usesSurfacePainting = this.paintingMode === 'brush' || this.paintingMode === 'sprinkles';
     this.surfacePaintingService.enabled = enabled && usesSurfacePainting;
-    this.paintService.paintMode = enabled && !usesSurfacePainting && this.paintingMode !== 'decor3d';
+    this.paintService.paintMode = enabled && !usesSurfacePainting;
   }
 
   onValidateDecorations(): void {
