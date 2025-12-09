@@ -106,11 +106,16 @@
 
       <div class="color-row">
         <span class="color-row__label">Kolor kremu</span>
-        <div class="color-row__input">
-          <span class="icon-16" aria-hidden="true">#</span>
-          <input type="text" [ngModel]="paintColor" (ngModelChange)="onBrushColorChange($event)" />
+        <div class="color-picker">
+          <input
+            type="color"
+            class="color-picker__native"
+            [ngModel]="paintColor"
+            (ngModelChange)="onBrushColorChange($event)"
+            aria-label="Kolor kremu"
+          />
+          <span class="color-picker__value">{{ paintColor }}</span>
         </div>
-        <div class="color-swatch" [style.background]="paintColor"></div>
       </div>
 
       <div class="slider-row">
@@ -137,11 +142,16 @@
 
       <div class="color-row">
         <span class="color-row__label">Kolor pisaka</span>
-        <div class="color-row__input">
-          <span class="icon-16" aria-hidden="true">#</span>
-          <input type="text" [ngModel]="paintColor" (ngModelChange)="onBrushColorChange($event)" />
+        <div class="color-picker">
+          <input
+            type="color"
+            class="color-picker__native"
+            [ngModel]="paintColor"
+            (ngModelChange)="onBrushColorChange($event)"
+            aria-label="Kolor pisaka"
+          />
+          <span class="color-picker__value">{{ paintColor }}</span>
         </div>
-        <div class="color-swatch" [style.background]="paintColor"></div>
       </div>
 
       <div class="slider-row">
@@ -194,11 +204,16 @@
 
       <div class="color-row">
         <span class="color-row__label">Kolor posypki</span>
-        <div class="color-row__input">
-          <span class="icon-16" aria-hidden="true">#</span>
-          <input type="text" [ngModel]="sprinkleColor" (ngModelChange)="onSprinkleColorChange($event)" />
+        <div class="color-picker">
+          <input
+            type="color"
+            class="color-picker__native"
+            [ngModel]="sprinkleColor"
+            (ngModelChange)="onSprinkleColorChange($event)"
+            aria-label="Kolor posypki"
+          />
+          <span class="color-picker__value">{{ sprinkleColor }}</span>
         </div>
-        <div class="color-swatch" [style.background]="sprinkleColor"></div>
       </div>
     </div>
 
@@ -291,11 +306,16 @@
 
       <div class="color-row">
         <span class="color-row__label">Kolor kremu</span>
-        <div class="color-row__input">
-          <span class="icon-16" aria-hidden="true">#</span>
-          <input type="text" [ngModel]="paintColor" (ngModelChange)="onExtruderColorChange($event)" />
+        <div class="color-picker">
+          <input
+            type="color"
+            class="color-picker__native"
+            [ngModel]="paintColor"
+            (ngModelChange)="onExtruderColorChange($event)"
+            aria-label="Kolor kremu"
+          />
+          <span class="color-picker__value">{{ paintColor }}</span>
         </div>
-        <div class="color-swatch" [style.background]="paintColor"></div>
       </div>
     </div>
 
@@ -339,7 +359,12 @@
 
       <div class="functions-row">
         <div class="section-header__title">Opcje zaawansowane</div>
-        <button class="btn-toggle" type="button" (click)="togglePresetAdvanced()">
+        <button
+          class="btn-toggle"
+          type="button"
+          (click)="togglePresetAdvanced()"
+          [class.btn-toggle--active]="showPresetAdvanced"
+        >
           <img src="assets/ui/icons/power.svg" alt="Przełącz opcje zaawansowane" class="icon-16" />
         </button>
       </div>
@@ -357,11 +382,16 @@
 
           <div class="color-row color-row--compact">
             <span class="color-row__label">Kolor kremu</span>
-            <div class="color-row__input">
-              <span class="icon-16" aria-hidden="true">#</span>
-              <input type="text" [ngModel]="extruderColor" (ngModelChange)="onExtruderColorChange($event)" />
+            <div class="color-picker color-picker--compact">
+              <input
+                type="color"
+                class="color-picker__native"
+                [ngModel]="extruderColor"
+                (ngModelChange)="onExtruderColorChange($event)"
+                aria-label="Kolor kremu"
+              />
+              <span class="color-picker__value">{{ extruderColor }}</span>
             </div>
-            <div class="color-swatch" [style.background]="extruderColor"></div>
           </div>
         </div>
 
@@ -445,7 +475,12 @@
 
       <div class="functions-row">
         <div class="section-header__title">Punkty</div>
-        <button class="btn-toggle" type="button" (click)="togglePresetPoints()">
+        <button
+          class="btn-toggle"
+          type="button"
+          (click)="togglePresetPoints()"
+          [class.btn-toggle--active]="showPresetPoints"
+        >
           <img src="assets/ui/icons/power.svg" alt="Przełącz punkty" class="icon-16" />
         </button>
       </div>
