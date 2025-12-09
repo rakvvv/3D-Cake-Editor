@@ -80,6 +80,12 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
     this.selectedDecorationId = decoration.id ?? decoration.modelFileName;
     this.anchorPresetsService.setPendingDecoration(decoration);
     this.paintService.setCurrentBrush(decoration.modelFileName);
+
+    const shouldPlaceViaAnchor = this.markersVisible && this.actionMode === 'spawn';
+    if (shouldPlaceViaAnchor) {
+      return;
+    }
+
     const request: AddDecorationRequest = {
       modelFileName: decoration.modelFileName,
       preferredSurface: this.preferredSurface === 'AUTO' ? undefined : this.preferredSurface,
