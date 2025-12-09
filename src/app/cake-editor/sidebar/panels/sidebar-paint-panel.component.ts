@@ -236,14 +236,17 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
   setExtruderDrawingMode(mode: 'path' | 'free'): void {
     this.extruderPathModeEnabled = mode === 'path';
-    this.extruderMode = this.extruderPathModeEnabled ? 'PATH' : this.extruderMode === 'PATH' ? 'ARC' : this.extruderMode;
-    this.paintService.setExtruderPathMode(this.extruderPathModeEnabled);
     if (this.extruderPathModeEnabled) {
-      const config = this.getPresetConfig();
-      if (config) {
-        this.paintService.setExtruderPathNodes(this.extruderPathNodes, config);
+      this.extruderMode = 'PATH';
+      if (!this.extruderPathNodes.length) {
+        this.extruderPathNodes = this.getDefaultPathNodes();
       }
+    } else {
+      this.extruderMode = this.extruderMode === 'PATH' ? 'ARC' : this.extruderMode;
     }
+
+    this.paintService.setExtruderPathMode(this.extruderPathModeEnabled);
+    this.syncExtruderContext();
   }
 
   onExtruderModeChange(mode: ExtruderStrokeMode): void {
@@ -345,6 +348,9 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.targetLayerIndex = preset.layerIndex;
     this.extruderPathModeEnabled = preset.mode === 'PATH';
     this.extruderPathNodes = preset.nodes?.map((node) => ({ ...node })) ?? this.extruderPathNodes;
+    if (this.extruderPathModeEnabled && !this.extruderPathNodes.length) {
+      this.extruderPathNodes = this.getDefaultPathNodes();
+    }
   }
 
   private getPresetConfig(): CreamRingPreset | null {
@@ -380,5 +386,20 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     if (this.extruderMode === 'PATH') {
       this.paintService.setExtruderPathNodes(this.extruderPathNodes, config);
     }
+  }
+
+  connectExtruderNodes(): void {
+    if (!this.extruderPathNodes.length) {
+      this.extruderPathNodes = this.getDefaultPathNodes();
+    }
+    this.setExtruderDrawingMode('path');
+    this.syncExtruderContext();
+  }
+
+  private getDefaultPathNodes(): CreamPathNode[] {
+    return [
+      { angleDeg: 0, heightNorm: this.extruderHeightNorm },
+      { angleDeg: 180, heightNorm: this.extruderHeightNorm },
+    ];
   }
 }

@@ -464,6 +464,14 @@
       </div>
 
       <div class="points-panel" *ngIf="showPresetPoints">
+        <div class="points-panel__actions">
+          <button type="button" class="sidebar-panel__button" (click)="connectExtruderNodes()">
+            Połącz punkty (tryb ścieżki)
+          </button>
+          <p class="advanced-panel__hint">
+            Włącz tryb ścieżki, aby łączyć punkty bezpośrednio na torcie i edytować ich położenie.
+          </p>
+        </div>
         <div class="points-panel__empty" *ngIf="!extruderPathNodes.length">
           Wybierz preset, aby załadować punkty ścieżki.
         </div>
