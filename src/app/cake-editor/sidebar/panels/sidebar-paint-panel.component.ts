@@ -239,6 +239,11 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     }
   }
 
+  togglePathConnection(): void {
+    const enable = !this.extruderPathModeEnabled;
+    this.setExtruderDrawingMode(enable ? 'path' : 'free');
+  }
+
   setExtruderDrawingMode(mode: 'path' | 'free'): void {
     this.extruderPathModeEnabled = mode === 'path';
     if (this.extruderPathModeEnabled) {
