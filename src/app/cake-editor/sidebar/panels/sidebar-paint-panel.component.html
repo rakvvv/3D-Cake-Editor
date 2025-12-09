@@ -215,6 +215,26 @@
           <span class="color-picker__value">{{ sprinkleColor }}</span>
         </div>
       </div>
+
+      <div class="sprinkles-grid" role="list" aria-label="Rodzaj posypki">
+        <button
+          type="button"
+          class="sprinkles-item"
+          *ngFor="let sprinkle of sprinkleShapes"
+          [class.sprinkles-item--active]="sprinkle.id === sprinkleShape"
+          (click)="onSprinkleShapeSelect(sprinkle.id)"
+          role="listitem"
+        >
+          <span
+            class="sprinkles-item__dot"
+            [class.sprinkles-item__dot--multi]="sprinkle.id === 'star'"
+            aria-hidden="true"
+          >
+            {{ sprinkle.id === 'ball' ? '●' : sprinkle.id === 'star' ? '✦' : '▮' }}
+          </span>
+          <span class="sprinkles-item__label">{{ sprinkle.label }}</span>
+        </button>
+      </div>
     </div>
 
     <div class="editor-panel__section">

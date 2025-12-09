@@ -7,7 +7,7 @@ import { BrushSettings, SidebarPaintMode } from '../sidebar.types';
 import { DecorationsService } from '../../../services/decorations.service';
 import { AnchorPresetsService } from '../../../services/anchor-presets.service';
 import { PaintService } from '../../../services/paint.service';
-import { SurfacePaintingService } from '../../../services/surface-painting.service';
+import { SurfacePaintingService, SprinkleShape } from '../../../services/surface-painting.service';
 import { CreamPathNode, CreamPosition, CreamRingPreset, ExtruderStrokeMode } from '../../../models/cream-presets';
 import { DecorationSurfaceTarget } from '../../../models/add-decoration-request';
 
@@ -62,6 +62,13 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   sprinkleDensity = 70;
   sprinkleRandomness = 30;
   sprinkleColor = '#ffffff';
+  sprinkleShape: SprinkleShape = 'stick';
+
+  sprinkleShapes: { id: SprinkleShape; label: string }[] = [
+    { id: 'stick', label: 'Patyczki' },
+    { id: 'ball', label: 'Kuleczki' },
+    { id: 'star', label: 'Gwiazdki' },
+  ];
 
   private readonly subscriptions = new Subscription();
 
@@ -99,8 +106,9 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
     this.brushSize = this.surfacePaintingService.brushSize;
     this.sprinkleDensity = this.surfacePaintingService.sprinkleDensity * 10;
-    this.sprinkleRandomness = 30;
+    this.sprinkleRandomness = Math.round(this.surfacePaintingService.sprinkleRandomness * 100);
     this.sprinkleColor = this.surfacePaintingService.sprinkleColor;
+    this.sprinkleShape = this.surfacePaintingService.sprinkleShape;
   }
 
   get layerIndices(): number[] {
@@ -122,6 +130,9 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   togglePainting(): void {
     this.paintingEnabled = !this.paintingEnabled;
     this.paintingPowerChange.emit(this.paintingEnabled);
+    if (this.mode === 'brush' || this.mode === 'sprinkles') {
+      this.surfacePaintingService.setEnabled(this.paintingEnabled);
+    }
   }
 
   selectMode(mode: SidebarPaintMode): void {
@@ -214,12 +225,18 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
   onSprinkleRandomnessChange(value: number): void {
     this.sprinkleRandomness = value;
+    this.surfacePaintingService.sprinkleRandomness = value / 100;
   }
 
   onSprinkleColorChange(color: string): void {
     this.sprinkleColor = color;
     this.surfacePaintingService.sprinkleUseRandomColors = false;
     this.surfacePaintingService.sprinkleColor = color;
+  }
+
+  onSprinkleShapeSelect(shape: SprinkleShape): void {
+    this.sprinkleShape = shape;
+    this.surfacePaintingService.setSprinkleShape(shape);
   }
 
   toggleExtruderTab(tab: 'manual' | 'preset'): void {

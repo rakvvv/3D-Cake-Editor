@@ -49,6 +49,7 @@ export class SurfacePaintingService {
   public sprinkleMaxScale = 1.2;
   public sprinkleUseRandomColors = true;
   public sprinkleColor = DEFAULT_SPRINKLE_COLOR;
+  public sprinkleRandomness = 0.3;
 
   private readonly isBrowser: boolean;
   private gradientCanvas?: HTMLCanvasElement;
@@ -988,7 +989,8 @@ export class SurfacePaintingService {
 
     if (!this.isReplayingSprinkles) {
       if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPoint) < clusterSpacing) return;
-      if (!isFirstCluster && Math.random() < 0.4) return;
+      const skipChance = THREE.MathUtils.lerp(0, 0.4, this.sprinkleRandomness);
+      if (!isFirstCluster && Math.random() < skipChance) return;
     }
     this.lastSprinklePoint = anchorPoint.clone();
 
@@ -1005,7 +1007,8 @@ export class SurfacePaintingService {
 
     const densityFactor = THREE.MathUtils.clamp(this.sprinkleDensity / 20, 0, 1);
     const count = Math.max(2, Math.round(THREE.MathUtils.lerp(3, 7, densityFactor)));
-    const scatterRadius = THREE.MathUtils.lerp(0.08, 0.16, densityFactor);
+    const randomnessFactor = THREE.MathUtils.clamp(this.sprinkleRandomness, 0, 1);
+    const scatterRadius = THREE.MathUtils.lerp(0.08, 0.16, densityFactor + randomnessFactor * 0.25);
 
     for (let i = 0; i < count; i++) {
       if (this.sprinkleStrokeIndex >= this.sprinkleStrokeCapacity) break;
@@ -1020,7 +1023,7 @@ export class SurfacePaintingService {
       const baseQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
       const twist = new THREE.Quaternion().setFromAxisAngle(normal, Math.random() * Math.PI * 2);
       const tiltAxis = Math.random() < 0.5 ? tangent : bitangent;
-      const tiltAmount = THREE.MathUtils.degToRad(20 + Math.random() * 50);
+      const tiltAmount = THREE.MathUtils.degToRad(15 + Math.random() * (20 + randomnessFactor * 80));
       const tilt = new THREE.Quaternion().setFromAxisAngle(tiltAxis, tiltAmount);
       baseQuat.multiply(tilt).multiply(twist);
 
