@@ -866,18 +866,18 @@ export class SurfacePaintingService {
     ctx.clearRect(0, 0, w, h);
 
     const coreGradient = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, w * 0.35);
-    coreGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+    coreGradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
     coreGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = coreGradient;
     ctx.fillRect(0,0,w,h);
 
-    const bristles = 150;
+    const bristles = 40;
     for(let i=0; i<bristles; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const r = Math.random() * (w * 0.45);
+      const r = Math.pow(Math.random(), 1.5) * (w * 0.32);
       const x = w/2 + Math.cos(angle) * r;
       const y = h/2 + Math.sin(angle) * r;
-      const size = 1 + Math.random() * 2;
+      const size = 1 + Math.random() * 1.5;
 
       ctx.beginPath();
       ctx.arc(x, y, size, 0, Math.PI*2);
@@ -886,7 +886,7 @@ export class SurfacePaintingService {
     }
 
     ctx.globalCompositeOperation = 'destination-in';
-    const gradient = ctx.createRadialGradient(w/2, h/2, w*0.3, w/2, h/2, w*0.5);
+    const gradient = ctx.createRadialGradient(w/2, h/2, w*0.3, w/2, h/2, w*0.45);
     gradient.addColorStop(0, 'rgba(255,255,255,1)');
     gradient.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = gradient;
