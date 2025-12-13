@@ -278,34 +278,42 @@ export class SurfacePaintingService {
     const finishedStroke = this.activeStroke;
     this.activeStroke = null;
 
-    // Pędzel
+    // --- PĘDZEL ---
     if (this.brushStrokeGroup && this.brushStrokeMesh && this.brushStrokeIndex > 0) {
-      // Zapisujemy tylko jeśli pociągnięcie ma punkty (min 6 liczb)
+      // Pobieramy listę pociągnięć, które JUŻ są w tym meshu
+      const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
+
+      // Sprawdzamy czy bieżące pociągnięcie jest poprawne (ma dane)
       if (finishedStroke?.mode === 'brush' && finishedStroke.pathData.length >= 6) {
         this.brushStrokes.push(finishedStroke);
-        const strokeIds =
-          (this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
-        strokeIds.push(finishedStroke.id);
-        this.brushStrokeGroup.userData['strokeIds'] = strokeIds;
-        this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id;
+        existingIds.push(finishedStroke.id);
+        this.brushStrokeGroup.userData['strokeIds'] = existingIds;
+        this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id; // ID ostatniego
       } else {
-        // Puste kliknięcie -> śmieć
-        this.brushStrokeGroup.userData['removedByUndo'] = true;
-        this.brushStrokeGroup.visible = false;
+        // Ukrywamy grupę TYLKO wtedy, gdy to było pierwsze pociągnięcie w tej grupie i jest puste.
+        if (existingIds.length === 0) {
+          this.brushStrokeGroup.userData['removedByUndo'] = true;
+          this.brushStrokeGroup.visible = false;
+        }
       }
 
       this.brushStrokeMesh.computeBoundingSphere();
     }
 
-    // Posypka
+    // --- POSYPKA ---
     if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh && this.sprinkleStrokeIndex > 0) {
+      const existingIds = (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
+
       if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
         this.sprinkleStrokes.push(finishedStroke);
-        const strokeIds =
-          (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
-        strokeIds.push(finishedStroke.id);
-        this.sprinkleStrokeGroup.userData['strokeIds'] = strokeIds;
+        existingIds.push(finishedStroke.id);
+        this.sprinkleStrokeGroup.userData['strokeIds'] = existingIds;
         this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
+      } else {
+        // Ukrywamy grupę TYLKO wtedy, gdy to było pierwsze pociągnięcie w tej grupie i jest puste.
+        if (existingIds.length === 0) {
+          this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
+        }
       }
 
       this.sprinkleStrokeMesh.computeBoundingSphere();
