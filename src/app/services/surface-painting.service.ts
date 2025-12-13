@@ -745,6 +745,15 @@ export class SurfacePaintingService {
       normal.set(0, 1, 0);
     }
 
+    if (this.cakeGroup) {
+      const cakeCenter = this.tempVec3_6;
+      this.cakeGroup.getWorldPosition(cakeCenter);
+      const toSurface = this.tempVec3_7.copy(currentPoint).sub(cakeCenter);
+      if (normal.dot(toSurface) < 0) {
+        normal.negate();
+      }
+    }
+
     const rawProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
     const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
     const easedPressure = pressure * pressure * (3 - 2 * pressure);
@@ -925,36 +934,29 @@ export class SurfacePaintingService {
     const radius = this.computeBrushRadius();
 
     const worldNormal = this.tempVec3.copy(normal).normalize();
-    const localNormal = anchorInverse
-      ? this.tempVec3_7.copy(normal).transformDirection(anchorInverse).normalize()
-      : this.tempVec3_7.copy(worldNormal);
-    const zAxis = localNormal;
-
-    const worldDirection = this.tempVec3_2.copy(direction);
-    const yAxis = anchorInverse
-      ? this.tempVec3_3.copy(worldDirection).transformDirection(anchorInverse)
-      : this.tempVec3_3.copy(worldDirection);
-    if (yAxis.lengthSq() < 1e-6) {
-      yAxis.copy(this.tempVec3_5.set(1, 0, 0));
+    const worldDirection = this.tempVec3_2.copy(direction).normalize();
+    if (worldDirection.lengthSq() < 1e-6) {
+      worldDirection.set(0, 1, 0);
     }
-    yAxis.projectOnPlane(zAxis);
-    if (yAxis.lengthSq() < 1e-6) {
-      yAxis.copy(this.tempVec3_5.set(0, 0, 1)).projectOnPlane(zAxis);
+    const worldYAxis = this.tempVec3_3.copy(worldDirection).projectOnPlane(worldNormal);
+    if (worldYAxis.lengthSq() < 1e-6) {
+      worldYAxis.copy(this.tempVec3_5.set(1, 0, 0)).projectOnPlane(worldNormal);
     }
-    yAxis.normalize().negate();
-    const xAxis = this.tempVec3_4.crossVectors(yAxis, zAxis).normalize();
-
-    const matrix = this.tempMatrix.identity().makeBasis(xAxis, yAxis, zAxis);
+    worldYAxis.normalize().negate();
+    const worldXAxis = this.tempVec3_4.crossVectors(worldYAxis, worldNormal).normalize();
 
     const baseOffset = 0.0015;
     const sortingOffset = this.brushStrokeIndex * 0.000002;
     const positionWorld = this.tempVec3_6
       .copy(point)
       .add(this.tempVec3_5.copy(worldNormal).multiplyScalar(baseOffset + sortingOffset));
-    const positionLocal = anchorGroup
-      ? anchorGroup.worldToLocal(positionWorld)
-      : positionWorld;
-    matrix.setPosition(positionLocal);
+
+    const matrixWorld = this.tempMatrix.identity().makeBasis(worldXAxis, worldYAxis, worldNormal);
+    matrixWorld.setPosition(positionWorld);
+
+    const matrixLocal = anchorInverse
+      ? this.tempMatrix2.copy(anchorInverse).multiply(matrixWorld)
+      : matrixWorld;
 
     const widthScale = THREE.MathUtils.lerp(1.1, 0.7, pressure);
     const lengthScale = THREE.MathUtils.lerp(1.2, 3.5, pressure);
@@ -964,12 +966,12 @@ export class SurfacePaintingService {
 
     const jitterAmount = THREE.MathUtils.lerp(0.1, 0.3, pressure);
     const jitter = (Math.random() - 0.5) * jitterAmount;
-    this.tempMatrix2.makeRotationZ(jitter);
-    matrix.multiply(this.tempMatrix2);
+    const jitterMatrix = this.tempMatrixInverse.makeRotationZ(jitter);
+    matrixLocal.multiply(jitterMatrix);
 
-    matrix.scale(this.tempScale);
+    matrixLocal.scale(this.tempScale);
 
-    this.brushStrokeMesh.setMatrixAt(this.brushStrokeIndex, matrix);
+    this.brushStrokeMesh.setMatrixAt(this.brushStrokeIndex, matrixLocal);
 
     const instanceMatrix = this.brushStrokeMesh.instanceMatrix;
     instanceMatrix.needsUpdate = true;
@@ -1013,6 +1015,14 @@ export class SurfacePaintingService {
       worldNormal.transformDirection(hit.object.matrixWorld).normalize();
     }
     if (worldNormal.lengthSq() < 1e-4) worldNormal.set(0, 1, 0);
+    if (this.cakeGroup) {
+      const cakeCenter = this.tempVec3_6;
+      this.cakeGroup.getWorldPosition(cakeCenter);
+      const toSurface = this.tempVec3.copy(hit.point).sub(cakeCenter);
+      if (worldNormal.dot(toSurface) < 0) {
+        worldNormal.negate();
+      }
+    }
 
     const localNormal = anchorInverse
       ? this.tempVec3_3.copy(worldNormal).transformDirection(anchorInverse).normalize()
@@ -1023,26 +1033,29 @@ export class SurfacePaintingService {
     tangent.normalize();
     const bitangent = this.tempVec3_5.copy(localNormal).cross(tangent).normalize();
 
-    const anchorPoint = this.tempVec3.copy(hit.point);
+    const anchorPointWorld = this.tempVec3.copy(hit.point);
+    const liftWorld = 0.0008;
     const anchorPointLocal = anchorGroup
-      ? anchorGroup.worldToLocal(this.tempVec3_7.copy(anchorPoint))
-      : this.tempVec3_7.copy(anchorPoint);
+      ? anchorGroup.worldToLocal(
+          this.tempVec3_7.copy(anchorPointWorld).add(this.tempVec3.copy(worldNormal).multiplyScalar(liftWorld))
+        )
+      : this.tempVec3_7.copy(anchorPointWorld).add(this.tempVec3.copy(worldNormal).multiplyScalar(liftWorld));
     const clusterSpacing = 0.16;
     const isFirstCluster = !this.lastSprinklePoint;
 
     if (!this.isReplayingSprinkles) {
-      if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPoint) < clusterSpacing) return;
+      if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPointWorld) < clusterSpacing) return;
       const skipChance = THREE.MathUtils.lerp(0, 0.4, this.sprinkleRandomness);
       if (!isFirstCluster && Math.random() < skipChance) return;
     }
     this.lastSprinklePoint = this.lastSprinklePoint ?? new THREE.Vector3();
-    this.lastSprinklePoint.copy(anchorPoint);
+    this.lastSprinklePoint.copy(anchorPointWorld);
 
     if (this.activeStroke?.mode === 'sprinkles') {
       this.activeStroke.pathData.push(
-        this.round(anchorPoint.x),
-        this.round(anchorPoint.y),
-        this.round(anchorPoint.z),
+        this.round(anchorPointWorld.x),
+        this.round(anchorPointWorld.y),
+        this.round(anchorPointWorld.z),
         this.round(worldNormal.x),
         this.round(worldNormal.y),
         this.round(worldNormal.z)
@@ -1067,7 +1080,7 @@ export class SurfacePaintingService {
       const position = this.tempVec3_4
         .copy(anchorPointLocal)
         .add(offset)
-        .add(this.tempVec3_5.copy(localNormal).multiplyScalar(0.0015));
+        .add(this.tempVec3_5.copy(localNormal).multiplyScalar(0.0005));
       const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale + 0.4, Math.random());
 
       const baseQuat = this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), localNormal);
