@@ -494,8 +494,14 @@ export class SurfacePaintingService {
       const z = data[i + 2];
 
       // --- FIX NA DUCHY ---
-      if (Math.abs(x - STROKE_SEPARATOR) < 1) continue;
-      if (Math.abs(x) < 0.0001 && Math.abs(y) < 0.0001 && Math.abs(z) < 0.0001) continue;
+      if (Math.abs(x - STROKE_SEPARATOR) < 1) {
+        this.lastSprinklePoint = null;
+        continue;
+      }
+      if (Math.abs(x) < 0.0001 && Math.abs(y) < 0.0001 && Math.abs(z) < 0.0001) {
+        this.lastSprinklePoint = null;
+        continue;
+      }
 
       const nx = data[i + 3];
       const ny = data[i + 4];
@@ -786,6 +792,9 @@ export class SurfacePaintingService {
 
   private paintBrush(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
+
+    // Jeśli punkt to idealne (0,0,0), to błąd odczytu/separator – ignorujemy.
+    if (hit.point.lengthSq() < 0.0001) return;
 
     if (!this.brushStrokeGroup || !this.brushStrokeMesh) {
       this.createBrushStroke(scene);
@@ -1086,6 +1095,8 @@ export class SurfacePaintingService {
 
   private placeSprinkles(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
+    // Ignorujemy punkty (0,0,0) pochodzące z błędów odczytu
+    if (hit.point.lengthSq() < 0.0001) return;
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup || this.sprinkleStrokeShape !== this.sprinkleShape) {
       this.prepareSprinkleStroke(scene);
     }
