@@ -951,8 +951,8 @@ export class SurfacePaintingService {
 
     const instanceMatrix = this.brushStrokeMesh.instanceMatrix;
     instanceMatrix.needsUpdate = true;
-    instanceMatrix.updateRange.offset = this.brushStrokeIndex * 16;
-    instanceMatrix.updateRange.count = 16;
+    instanceMatrix.clearUpdateRanges();
+    instanceMatrix.addUpdateRange(this.brushStrokeIndex * 16, 16);
 
     this.brushStrokeIndex++;
     this.brushStrokeMesh.count = Math.max(this.brushStrokeMesh.count, this.brushStrokeIndex);
@@ -1059,11 +1059,11 @@ export class SurfacePaintingService {
     const addedCount = this.sprinkleStrokeIndex - startUpdateIndex;
     this.sprinkleStrokeMesh.count = Math.max(this.sprinkleStrokeMesh.count, this.sprinkleStrokeIndex);
     this.sprinkleStrokeMesh.instanceMatrix.needsUpdate = true;
-    this.sprinkleStrokeMesh.instanceMatrix.updateRange.offset = startUpdateIndex * 16;
-    this.sprinkleStrokeMesh.instanceMatrix.updateRange.count = addedCount * 16;
+    this.sprinkleStrokeMesh.instanceMatrix.clearUpdateRanges();
+    this.sprinkleStrokeMesh.instanceMatrix.addUpdateRange(startUpdateIndex * 16, addedCount * 16);
     this.sprinkleStrokeMesh.instanceColor!.needsUpdate = true;
-    this.sprinkleStrokeMesh.instanceColor!.updateRange.offset = startUpdateIndex * 3;
-    this.sprinkleStrokeMesh.instanceColor!.updateRange.count = addedCount * 3;
+    this.sprinkleStrokeMesh.instanceColor!.clearUpdateRanges();
+    this.sprinkleStrokeMesh.instanceColor!.addUpdateRange(startUpdateIndex * 3, addedCount * 3);
   }
 
   private ensureSprinkleResources(): void {
