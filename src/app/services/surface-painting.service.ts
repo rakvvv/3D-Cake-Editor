@@ -924,11 +924,13 @@ export class SurfacePaintingService {
 
     const radius = this.computeBrushRadius();
 
-    const worldNormal = this.tempVec3.copy(normal);
+    const worldNormal = this.tempVec3.copy(normal).normalize();
+    const localNormal = anchorInverse
+      ? this.tempVec3_7.copy(normal).transformDirection(anchorInverse).normalize()
+      : this.tempVec3_7.copy(worldNormal);
+    const zAxis = localNormal;
+
     const worldDirection = this.tempVec3_2.copy(direction);
-    const zAxis = anchorInverse
-      ? worldNormal.transformDirection(anchorInverse).normalize()
-      : worldNormal;
     const yAxis = anchorInverse
       ? this.tempVec3_3.copy(worldDirection).transformDirection(anchorInverse)
       : this.tempVec3_3.copy(worldDirection);
@@ -946,9 +948,9 @@ export class SurfacePaintingService {
 
     const baseOffset = 0.0015;
     const sortingOffset = this.brushStrokeIndex * 0.000002;
-    const positionWorld = this.tempVec3_2
+    const positionWorld = this.tempVec3_6
       .copy(point)
-      .add(worldNormal.multiplyScalar(baseOffset + sortingOffset));
+      .add(this.tempVec3_5.copy(worldNormal).multiplyScalar(baseOffset + sortingOffset));
     const positionLocal = anchorGroup
       ? anchorGroup.worldToLocal(positionWorld)
       : positionWorld;
@@ -1022,8 +1024,8 @@ export class SurfacePaintingService {
     const bitangent = this.tempVec3_5.copy(localNormal).cross(tangent).normalize();
 
     const anchorPoint = this.tempVec3.copy(hit.point);
-    const anchorPointLocal = anchorInverse
-      ? this.tempVec3_7.copy(anchorPoint).applyMatrix4(anchorInverse)
+    const anchorPointLocal = anchorGroup
+      ? anchorGroup.worldToLocal(this.tempVec3_7.copy(anchorPoint))
       : this.tempVec3_7.copy(anchorPoint);
     const clusterSpacing = 0.16;
     const isFirstCluster = !this.lastSprinklePoint;
@@ -1065,7 +1067,7 @@ export class SurfacePaintingService {
       const position = this.tempVec3_4
         .copy(anchorPointLocal)
         .add(offset)
-        .add(this.tempVec3_5.copy(localNormal).multiplyScalar(0.0025));
+        .add(this.tempVec3_5.copy(localNormal).multiplyScalar(0.0015));
       const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale + 0.4, Math.random());
 
       const baseQuat = this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), localNormal);
