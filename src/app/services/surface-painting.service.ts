@@ -874,7 +874,7 @@ export class SurfacePaintingService {
     const bristles = 40;
     for(let i=0; i<bristles; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const r = Math.pow(Math.random(), 1.5) * (w * 0.32);
+      const r = Math.pow(Math.random(), 1.5) * (w * 0.38);
       const x = w/2 + Math.cos(angle) * r;
       const y = h/2 + Math.sin(angle) * r;
       const size = 1 + Math.random() * 1.5;
