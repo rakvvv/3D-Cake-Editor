@@ -100,6 +100,7 @@ export class SurfacePaintingService {
   private readonly tempVec3_4 = new THREE.Vector3();
   private readonly tempVec3_5 = new THREE.Vector3();
   private readonly tempVec3_6 = new THREE.Vector3();
+  private readonly tempVec3_7 = new THREE.Vector3();
   private readonly tempQuat = new THREE.Quaternion();
   private readonly tempQuat2 = new THREE.Quaternion();
   private readonly tempQuat3 = new THREE.Quaternion();
@@ -740,6 +741,10 @@ export class SurfacePaintingService {
       normal.transformDirection(hit.object.matrixWorld).normalize();
     }
 
+    if (normal.lengthSq() < 1e-4) {
+      normal.set(0, 1, 0);
+    }
+
     const rawProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
     const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
     const easedPressure = pressure * pressure * (3 - 2 * pressure);
@@ -777,7 +782,11 @@ export class SurfacePaintingService {
         this.lastStrokeDir.copy(strokeDir);
       }
     } else {
-      const defaultDir = this.tempVec3_3.set(0, 1, 0).projectOnPlane(normal).normalize();
+      const defaultDir = this.tempVec3_3.set(0, 1, 0).projectOnPlane(normal);
+      if (defaultDir.lengthSq() < 1e-4) {
+        defaultDir.copy(this.tempVec3_4.set(1, 0, 0).projectOnPlane(normal));
+      }
+      defaultDir.normalize();
       this.addBrushBlob(currentPoint, normal, defaultDir, 0.0);
       this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
       this.lastStrokeDir.copy(defaultDir);
@@ -923,7 +932,14 @@ export class SurfacePaintingService {
     const yAxis = anchorInverse
       ? this.tempVec3_3.copy(worldDirection).transformDirection(anchorInverse)
       : this.tempVec3_3.copy(worldDirection);
-    yAxis.projectOnPlane(zAxis).normalize().negate();
+    if (yAxis.lengthSq() < 1e-6) {
+      yAxis.copy(this.tempVec3_5.set(1, 0, 0));
+    }
+    yAxis.projectOnPlane(zAxis);
+    if (yAxis.lengthSq() < 1e-6) {
+      yAxis.copy(this.tempVec3_5.set(0, 0, 1)).projectOnPlane(zAxis);
+    }
+    yAxis.normalize().negate();
     const xAxis = this.tempVec3_4.crossVectors(yAxis, zAxis).normalize();
 
     const matrix = this.tempMatrix.identity().makeBasis(xAxis, yAxis, zAxis);
@@ -989,17 +1005,26 @@ export class SurfacePaintingService {
       ? this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert()
       : null;
 
-    const normal = hit.face?.normal ? this.tempVec3_2.copy(hit.face.normal) : this.tempVec3_2.set(0, 1, 0);
+    const worldNormal = hit.face?.normal ? this.tempVec3_2.copy(hit.face.normal) : this.tempVec3_2.set(0, 1, 0);
     if (hit.object) {
       hit.object.updateMatrixWorld();
-      normal.transformDirection(hit.object.matrixWorld).normalize();
+      worldNormal.transformDirection(hit.object.matrixWorld).normalize();
     }
-    const tangent = this.tempVec3_3.copy(normal).cross(this.tempVec3_4.set(0, 1, 0));
+    if (worldNormal.lengthSq() < 1e-4) worldNormal.set(0, 1, 0);
+
+    const localNormal = anchorInverse
+      ? this.tempVec3_3.copy(worldNormal).transformDirection(anchorInverse).normalize()
+      : this.tempVec3_3.copy(worldNormal);
+
+    const tangent = this.tempVec3_4.copy(localNormal).cross(this.tempVec3_5.set(0, 1, 0));
     if (tangent.lengthSq() < 0.0001) tangent.set(1, 0, 0);
     tangent.normalize();
-    const bitangent = this.tempVec3_4.copy(normal).cross(tangent).normalize();
+    const bitangent = this.tempVec3_5.copy(localNormal).cross(tangent).normalize();
 
     const anchorPoint = this.tempVec3.copy(hit.point);
+    const anchorPointLocal = anchorInverse
+      ? this.tempVec3_7.copy(anchorPoint).applyMatrix4(anchorInverse)
+      : this.tempVec3_7.copy(anchorPoint);
     const clusterSpacing = 0.16;
     const isFirstCluster = !this.lastSprinklePoint;
 
@@ -1016,9 +1041,9 @@ export class SurfacePaintingService {
         this.round(anchorPoint.x),
         this.round(anchorPoint.y),
         this.round(anchorPoint.z),
-        this.round(normal.x),
-        this.round(normal.y),
-        this.round(normal.z)
+        this.round(worldNormal.x),
+        this.round(worldNormal.y),
+        this.round(worldNormal.z)
       );
     }
 
@@ -1033,27 +1058,26 @@ export class SurfacePaintingService {
       if (this.sprinkleStrokeIndex >= this.sprinkleStrokeCapacity) break;
       const angle = Math.random() * Math.PI * 2;
       const radius = Math.sqrt(Math.random()) * scatterRadius;
-      const offset = this.tempVec3_5
+      const offset = this.tempVec3_6
         .copy(tangent)
         .multiplyScalar(Math.cos(angle) * radius)
-        .add(this.tempVec3_6.copy(bitangent).multiplyScalar(Math.sin(angle) * radius));
+        .add(this.tempVec3_2.copy(bitangent).multiplyScalar(Math.sin(angle) * radius));
       const position = this.tempVec3_4
-        .copy(anchorPoint)
+        .copy(anchorPointLocal)
         .add(offset)
-        .add(this.tempVec3_6.copy(normal).multiplyScalar(0.006));
+        .add(this.tempVec3_5.copy(localNormal).multiplyScalar(0.0025));
       const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale + 0.4, Math.random());
 
-      const baseQuat = this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), normal);
-      const twist = this.tempQuat2.setFromAxisAngle(normal, Math.random() * Math.PI * 2);
+      const baseQuat = this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), localNormal);
+      const twist = this.tempQuat2.setFromAxisAngle(localNormal, Math.random() * Math.PI * 2);
       const tiltAxis = Math.random() < 0.5 ? tangent : bitangent;
       const tiltAmount = THREE.MathUtils.degToRad(15 + Math.random() * (20 + randomnessFactor * 80));
       const tilt = this.tempQuat3.setFromAxisAngle(tiltAxis, tiltAmount);
       baseQuat.multiply(tilt).multiply(twist);
 
       this.tempScale.set(scale, scale, scale);
-      const matrixWorld = this.tempMatrix2.compose(position, baseQuat, this.tempScale);
-      const matrix = anchorInverse ? matrixWorld.premultiply(anchorInverse) : matrixWorld;
-      this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, matrix);
+      const matrixLocal = this.tempMatrix2.compose(position, baseQuat, this.tempScale);
+      this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, matrixLocal);
       const colorValue = this.sprinkleUseRandomColors
         ? SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]
         : this.sprinkleColor;
