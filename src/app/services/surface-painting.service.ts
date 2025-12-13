@@ -67,6 +67,9 @@ export class SurfacePaintingService {
   private brushStrokeIndex = 0;
   private brushStrokeCapacity = 0;
 
+  // Kolejność rysowania dla nowych pociągnięć
+  private globalRenderOrder = 100;
+
   // Optymalizacja zapisu (nie zapisujemy punktów gęściej niż co 1.5cm)
   private readonly RECORDING_DIST_SQ = 0.015 * 0.015;
 
@@ -479,6 +482,9 @@ export class SurfacePaintingService {
     this.activeStroke = null;
     this.nextStrokeId = 1;
     this.lastRecordedPoint = null;
+
+    // Reset kolejności rysowania warstw
+    this.globalRenderOrder = 100;
   }
 
   public clearSprinkles(): void {
@@ -912,7 +918,7 @@ export class SurfacePaintingService {
       alphaMap: alphaMask,
       transparent: true,
       opacity: 1.0,
-      alphaTest: 0.1,
+      alphaTest: 0.05,
       depthWrite: false,
       depthTest: true,
       normalMap: normalMap,
@@ -920,8 +926,8 @@ export class SurfacePaintingService {
       roughness: 0.6,
       side: THREE.DoubleSide,
       polygonOffset: true,
-      polygonOffsetFactor: -4,
-      polygonOffsetUnits: -4,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
 
     const mesh = new THREE.InstancedMesh(geometry, material, maxInstances);
@@ -929,7 +935,7 @@ export class SurfacePaintingService {
     mesh.name = 'Malowanie pędzlem';
     mesh.count = 0;
     mesh.frustumCulled = false;
-    mesh.renderOrder = 20;
+    mesh.renderOrder = this.globalRenderOrder++;
 
     const group = new THREE.Group();
     group.name = 'Malowanie pędzlem';
@@ -1246,6 +1252,7 @@ export class SurfacePaintingService {
     mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
     mesh.name = 'Posypka';
     mesh.frustumCulled = false;
+    mesh.renderOrder = this.globalRenderOrder++;
 
     const group = new THREE.Group();
     group.name = 'Posypka';
