@@ -70,6 +70,11 @@ export class SurfacePaintingService {
   // Kolejność rysowania dla nowych pociągnięć
   private globalRenderOrder = 100;
 
+  // Batching state to continue strokes on the same mesh
+  private lastUsedBrushColor: string | null = null;
+  private lastUsedSprinkleShape: string | null = null;
+  private lastUsedSprinkleColor: string | null = null;
+
   // Optymalizacja zapisu (nie zapisujemy punktów gęściej niż co 1.5cm)
   private readonly RECORDING_DIST_SQ = 0.015 * 0.015;
 
@@ -160,6 +165,15 @@ export class SurfacePaintingService {
     this.lastRecordedPoint = null;
 
     if (this.mode === 'brush') {
+      const isSameColor = this.lastUsedBrushColor === this.brushColor;
+      const hasCapacity =
+        this.brushStrokeMesh && this.brushStrokeIndex < this.brushStrokeCapacity - 50;
+
+      if (!this.brushStrokeMesh || !isSameColor || !hasCapacity) {
+        this.finalizePreviousBatch();
+        this.lastUsedBrushColor = this.brushColor;
+      }
+
       this.activeStroke = {
         id: `brush-${this.nextStrokeId++}`,
         mode: 'brush',
@@ -168,6 +182,19 @@ export class SurfacePaintingService {
         pathData: [], // Płaska tablica
       };
     } else if (this.mode === 'sprinkles') {
+      const isSameShape = this.lastUsedSprinkleShape === this.sprinkleShape;
+      const isSameColor =
+        this.lastUsedSprinkleColor === this.sprinkleColor || this.sprinkleUseRandomColors;
+      const hasCapacity =
+        this.sprinkleStrokeMesh && this.sprinkleStrokeIndex < this.sprinkleStrokeCapacity - 20;
+
+      if (!this.sprinkleStrokeMesh || !isSameShape || !isSameColor || !hasCapacity) {
+        this.finalizePreviousBatch();
+        this.lastUsedSprinkleShape = this.sprinkleShape;
+        this.lastUsedSprinkleColor = this.sprinkleColor;
+        this.prepareSprinkleStroke();
+      }
+
       this.activeStroke = {
         id: `sprinkles-${this.nextStrokeId++}`,
         mode: 'sprinkles',
@@ -177,8 +204,23 @@ export class SurfacePaintingService {
         color: this.sprinkleColor,
         pathData: [], // Płaska tablica
       };
-      this.prepareSprinkleStroke();
     }
+  }
+
+  // Czyści referencje, aby wymusić utworzenie nowego mesha przy kolejnej serii
+  private finalizePreviousBatch(): void {
+    this.brushStrokeGroup = null;
+    this.brushStrokeMesh = null;
+    this.brushStrokeIndex = 0;
+    this.brushStrokeCapacity = 0;
+    this.lastUsedBrushColor = null;
+
+    this.sprinkleStrokeGroup = null;
+    this.sprinkleStrokeMesh = null;
+    this.sprinkleStrokeIndex = 0;
+    this.sprinkleStrokeCapacity = 0;
+    this.lastUsedSprinkleShape = null;
+    this.lastUsedSprinkleColor = null;
   }
 
   public async handlePointer(hit: THREE.Intersection, scene: THREE.Scene): Promise<void> {
@@ -238,12 +280,13 @@ export class SurfacePaintingService {
 
     // Pędzel
     if (this.brushStrokeGroup && this.brushStrokeMesh && this.brushStrokeIndex > 0) {
-      this.paintService.registerDecorationAddition(this.brushStrokeGroup);
-      this.paintEntries.push(this.brushStrokeGroup);
-
       // Zapisujemy tylko jeśli pociągnięcie ma punkty (min 6 liczb)
       if (finishedStroke?.mode === 'brush' && finishedStroke.pathData.length >= 6) {
         this.brushStrokes.push(finishedStroke);
+        const strokeIds =
+          (this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
+        strokeIds.push(finishedStroke.id);
+        this.brushStrokeGroup.userData['strokeIds'] = strokeIds;
         this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id;
       } else {
         // Puste kliknięcie -> śmieć
@@ -253,27 +296,20 @@ export class SurfacePaintingService {
 
       this.brushStrokeMesh.computeBoundingSphere();
     }
-    this.brushStrokeGroup = null;
-    this.brushStrokeMesh = null;
-    this.brushStrokeIndex = 0;
 
     // Posypka
     if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh && this.sprinkleStrokeIndex > 0) {
-      this.paintService.registerDecorationAddition(this.sprinkleStrokeGroup);
-      this.sprinkleEntries.push(this.sprinkleStrokeGroup);
-
       if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
         this.sprinkleStrokes.push(finishedStroke);
+        const strokeIds =
+          (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
+        strokeIds.push(finishedStroke.id);
+        this.sprinkleStrokeGroup.userData['strokeIds'] = strokeIds;
         this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
       }
 
       this.sprinkleStrokeMesh.computeBoundingSphere();
     }
-    this.sprinkleStrokeGroup = null;
-    this.sprinkleStrokeMesh = null;
-    this.sprinkleStrokeIndex = 0;
-    this.sprinkleStrokeCapacity = 0;
-    this.sprinkleStrokeShape = null;
   }
 
   // --- EKSPORT I ODTWARZANIE (Z OPTYMALIZACJĄ) ---
@@ -281,12 +317,18 @@ export class SurfacePaintingService {
   public exportPaintingPreset(): SurfacePaintingPreset {
     // 1. Filtrujemy (usuwamy undo)
     const validBrushStrokes = this.brushStrokes.filter((stroke) => {
-      const group = this.paintEntries.find((g) => g.userData?.['strokeId'] === stroke.id);
+      const group = this.paintEntries.find((g) => {
+        const strokeIds = g.userData?.['strokeIds'] as string[] | undefined;
+        return strokeIds?.includes(stroke.id) || g.userData?.['strokeId'] === stroke.id;
+      });
       return group && !group.userData?.['removedByUndo'];
     });
 
     const validSprinkleStrokes = this.sprinkleStrokes.filter((stroke) => {
-      const group = this.sprinkleEntries.find((g) => g.userData?.['strokeId'] === stroke.id);
+      const group = this.sprinkleEntries.find((g) => {
+        const strokeIds = g.userData?.['strokeIds'] as string[] | undefined;
+        return strokeIds?.includes(stroke.id) || g.userData?.['strokeId'] === stroke.id;
+      });
       return group && !group.userData?.['removedByUndo'];
     });
 
@@ -477,6 +519,7 @@ export class SurfacePaintingService {
   }
 
   public clearPaint(): void {
+    this.finalizePreviousBatch();
     this.clearSprinkles();
     this.clearBrushStrokes();
     this.activeStroke = null;
@@ -497,9 +540,8 @@ export class SurfacePaintingService {
 
   public setSprinkleShape(shape: SprinkleShape): void {
     if (this.sprinkleShape === shape) return;
-    this.finalizeCurrentSprinkleStroke();
+    this.finalizePreviousBatch();
     this.sprinkleShape = shape;
-    this.prepareSprinkleStroke();
   }
 
   public setSprinkleColorMode(useRandom: boolean): void {
@@ -508,6 +550,7 @@ export class SurfacePaintingService {
   }
 
   public setSprinkleColor(color: string): void {
+    this.finalizePreviousBatch();
     this.sprinkleUseRandomColors = false;
     this.sprinkleColor = this.sanitizeHexColor(color, this.sprinkleColor);
     this.refreshSprinkleMaterialColor();
@@ -941,6 +984,7 @@ export class SurfacePaintingService {
     group.name = 'Malowanie pędzlem';
     group.userData['displayName'] = 'Malowanie pędzlem';
     group.userData['isPaintStroke'] = true;
+    group.userData['strokeIds'] = [] as string[];
     group.add(mesh);
     anchor.add(group);
 
@@ -948,6 +992,9 @@ export class SurfacePaintingService {
     this.brushStrokeMesh = mesh;
     this.brushStrokeIndex = 0;
     this.brushStrokeCapacity = maxInstances;
+
+    this.paintService.registerDecorationAddition(this.brushStrokeGroup);
+    this.paintEntries.push(this.brushStrokeGroup);
   }
 
   private addBrushBlob(
@@ -1242,7 +1289,6 @@ export class SurfacePaintingService {
     if (this.sprinkleStrokeMesh && this.sprinkleStrokeShape === this.sprinkleShape) return;
     const anchor = this.ensurePaintAnchor(scene);
     if (!anchor) return;
-    if (this.sprinkleStrokeGroup) this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
 
     const capacity = 3000;
     const geometry = this.sprinkleGeometryCache![this.sprinkleShape];
@@ -1259,6 +1305,7 @@ export class SurfacePaintingService {
     group.userData['displayName'] = 'Posypka';
     group.userData['isPaintDecoration'] = true;
     group.userData['isPaintStroke'] = true;
+    group.userData['strokeIds'] = [] as string[];
     group.add(mesh);
     anchor.add(group);
 
@@ -1267,22 +1314,9 @@ export class SurfacePaintingService {
     this.sprinkleStrokeIndex = 0;
     this.sprinkleStrokeCapacity = capacity;
     this.sprinkleStrokeShape = this.sprinkleShape;
-  }
 
-  private finalizeCurrentSprinkleStroke(): void {
-    if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh) {
-      if (this.sprinkleStrokeIndex > 0) {
-        this.paintService.registerDecorationAddition(this.sprinkleStrokeGroup);
-        this.sprinkleEntries.push(this.sprinkleStrokeGroup);
-      } else {
-        this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
-      }
-    }
-    this.sprinkleStrokeGroup = null;
-    this.sprinkleStrokeMesh = null;
-    this.sprinkleStrokeIndex = 0;
-    this.sprinkleStrokeCapacity = 0;
-    this.sprinkleStrokeShape = null;
+    this.paintService.registerDecorationAddition(this.sprinkleStrokeGroup);
+    this.sprinkleEntries.push(this.sprinkleStrokeGroup);
   }
 
   private flagMaterialUpdate(): void {
