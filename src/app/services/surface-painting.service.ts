@@ -92,7 +92,17 @@ export class SurfacePaintingService {
   private shaderUniforms?: PaintingShaderUniforms;
   private readonly tempMatrix = new THREE.Matrix4();
   private readonly tempMatrixInverse = new THREE.Matrix4();
+  private readonly tempMatrix2 = new THREE.Matrix4();
   private readonly tempColor = new THREE.Color();
+  private readonly tempVec3 = new THREE.Vector3();
+  private readonly tempVec3_2 = new THREE.Vector3();
+  private readonly tempVec3_3 = new THREE.Vector3();
+  private readonly tempVec3_4 = new THREE.Vector3();
+  private readonly tempVec3_5 = new THREE.Vector3();
+  private readonly tempQuat = new THREE.Quaternion();
+  private readonly tempQuat2 = new THREE.Quaternion();
+  private readonly tempQuat3 = new THREE.Quaternion();
+  private readonly tempScale = new THREE.Vector3();
 
   // Tutaj przechowujemy surowe pociągnięcia przed scaleniem
   private brushStrokes: SerializedBrushStroke[] = [];
@@ -901,25 +911,24 @@ export class SurfacePaintingService {
 
     const radius = this.computeBrushRadius();
 
-    const worldNormal = normal.clone();
-    const worldDirection = direction.clone();
+    const worldNormal = this.tempVec3.copy(normal);
+    const worldDirection = this.tempVec3_2.copy(direction);
     const zAxis = anchorInverse
       ? worldNormal.transformDirection(anchorInverse).normalize()
       : worldNormal;
-    const yAxis = (anchorInverse
-        ? worldDirection.transformDirection(anchorInverse)
-        : worldDirection
-    )
-      .projectOnPlane(zAxis)
-      .normalize();
-    yAxis.negate();
-    const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
+    const yAxis = anchorInverse
+      ? this.tempVec3_3.copy(worldDirection).transformDirection(anchorInverse)
+      : this.tempVec3_3.copy(worldDirection);
+    yAxis.projectOnPlane(zAxis).normalize().negate();
+    const xAxis = this.tempVec3_4.crossVectors(yAxis, zAxis).normalize();
 
     const matrix = this.tempMatrix.identity().makeBasis(xAxis, yAxis, zAxis);
 
     const baseOffset = 0.0015;
-    const sortingOffset = (this.brushStrokeIndex * 0.000002);
-    const positionWorld = point.clone().add(worldNormal.clone().multiplyScalar(baseOffset + sortingOffset));
+    const sortingOffset = this.brushStrokeIndex * 0.000002;
+    const positionWorld = this.tempVec3_2
+      .copy(point)
+      .add(worldNormal.multiplyScalar(baseOffset + sortingOffset));
     const positionLocal = anchorGroup
       ? anchorGroup.worldToLocal(positionWorld)
       : positionWorld;
@@ -929,21 +938,24 @@ export class SurfacePaintingService {
     const lengthScale = THREE.MathUtils.lerp(1.2, 3.5, pressure);
 
     const scaleBase = radius * 2.5;
-    const scaleX = scaleBase * widthScale;
-    const scaleY = scaleBase * lengthScale;
+    this.tempScale.set(scaleBase * widthScale, scaleBase * lengthScale, 1);
 
     const jitterAmount = THREE.MathUtils.lerp(0.1, 0.3, pressure);
     const jitter = (Math.random() - 0.5) * jitterAmount;
-    const rotMatrix = new THREE.Matrix4().makeRotationZ(jitter);
-    matrix.multiply(rotMatrix);
+    this.tempMatrix2.makeRotationZ(jitter);
+    matrix.multiply(this.tempMatrix2);
 
-    const scaleVec = new THREE.Vector3(scaleX, scaleY, 1);
-    matrix.scale(scaleVec);
+    matrix.scale(this.tempScale);
 
     this.brushStrokeMesh.setMatrixAt(this.brushStrokeIndex, matrix);
+
+    const instanceMatrix = this.brushStrokeMesh.instanceMatrix;
+    instanceMatrix.needsUpdate = true;
+    instanceMatrix.updateRange.offset = this.brushStrokeIndex * 16;
+    instanceMatrix.updateRange.count = 16;
+
     this.brushStrokeIndex++;
     this.brushStrokeMesh.count = Math.max(this.brushStrokeMesh.count, this.brushStrokeIndex);
-    this.brushStrokeMesh.instanceMatrix.needsUpdate = true;
   }
 
   private computeBrushRadius(): number {
@@ -978,10 +990,10 @@ export class SurfacePaintingService {
       hit.object.updateMatrixWorld();
       normal.transformDirection(hit.object.matrixWorld).normalize();
     }
-    const tangent = new THREE.Vector3().crossVectors(normal, new THREE.Vector3(0, 1, 0));
+    const tangent = this.tempVec3_3.copy(normal).cross(this.tempVec3_4.set(0, 1, 0));
     if (tangent.lengthSq() < 0.0001) tangent.set(1, 0, 0);
     tangent.normalize();
-    const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+    const bitangent = this.tempVec3_5.copy(normal).cross(tangent).normalize();
 
     const anchorPoint = hit.point.clone();
     const clusterSpacing = 0.12;
@@ -1010,24 +1022,31 @@ export class SurfacePaintingService {
     const randomnessFactor = THREE.MathUtils.clamp(this.sprinkleRandomness, 0, 1);
     const scatterRadius = THREE.MathUtils.lerp(0.08, 0.16, densityFactor + randomnessFactor * 0.25);
 
+    const startUpdateIndex = this.sprinkleStrokeIndex;
+
     for (let i = 0; i < count; i++) {
       if (this.sprinkleStrokeIndex >= this.sprinkleStrokeCapacity) break;
       const angle = Math.random() * Math.PI * 2;
       const radius = Math.sqrt(Math.random()) * scatterRadius;
-      const offset = tangent.clone().multiplyScalar(Math.cos(angle) * radius).add(
-        bitangent.clone().multiplyScalar(Math.sin(angle) * radius),
-      );
-      const position = anchorPoint.clone().add(offset).add(normal.clone().multiplyScalar(0.006));
+      const offset = this.tempVec3
+        .copy(tangent)
+        .multiplyScalar(Math.cos(angle) * radius)
+        .add(this.tempVec3_2.copy(bitangent).multiplyScalar(Math.sin(angle) * radius));
+      const position = this.tempVec3_4
+        .copy(anchorPoint)
+        .add(offset)
+        .add(this.tempVec3_5.copy(normal).multiplyScalar(0.006));
       const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale + 0.4, Math.random());
 
-      const baseQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-      const twist = new THREE.Quaternion().setFromAxisAngle(normal, Math.random() * Math.PI * 2);
+      const baseQuat = this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), normal);
+      const twist = this.tempQuat2.setFromAxisAngle(normal, Math.random() * Math.PI * 2);
       const tiltAxis = Math.random() < 0.5 ? tangent : bitangent;
       const tiltAmount = THREE.MathUtils.degToRad(15 + Math.random() * (20 + randomnessFactor * 80));
-      const tilt = new THREE.Quaternion().setFromAxisAngle(tiltAxis, tiltAmount);
+      const tilt = this.tempQuat3.setFromAxisAngle(tiltAxis, tiltAmount);
       baseQuat.multiply(tilt).multiply(twist);
 
-      const matrixWorld = new THREE.Matrix4().compose(position, baseQuat, new THREE.Vector3(scale, scale, scale));
+      this.tempScale.set(scale, scale, scale);
+      const matrixWorld = this.tempMatrix2.compose(position, baseQuat, this.tempScale);
       const matrix = anchorInverse ? matrixWorld.premultiply(anchorInverse) : matrixWorld;
       this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, matrix);
       const colorValue = this.sprinkleUseRandomColors
@@ -1037,9 +1056,14 @@ export class SurfacePaintingService {
       this.sprinkleStrokeMesh.setColorAt(this.sprinkleStrokeIndex, this.tempColor);
       this.sprinkleStrokeIndex++;
     }
+    const addedCount = this.sprinkleStrokeIndex - startUpdateIndex;
     this.sprinkleStrokeMesh.count = Math.max(this.sprinkleStrokeMesh.count, this.sprinkleStrokeIndex);
     this.sprinkleStrokeMesh.instanceMatrix.needsUpdate = true;
+    this.sprinkleStrokeMesh.instanceMatrix.updateRange.offset = startUpdateIndex * 16;
+    this.sprinkleStrokeMesh.instanceMatrix.updateRange.count = addedCount * 16;
     this.sprinkleStrokeMesh.instanceColor!.needsUpdate = true;
+    this.sprinkleStrokeMesh.instanceColor!.updateRange.offset = startUpdateIndex * 3;
+    this.sprinkleStrokeMesh.instanceColor!.updateRange.count = addedCount * 3;
   }
 
   private ensureSprinkleResources(): void {
