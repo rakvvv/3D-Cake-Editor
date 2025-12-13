@@ -247,6 +247,8 @@ export class SurfacePaintingService {
         this.brushStrokeGroup.userData['removedByUndo'] = true;
         this.brushStrokeGroup.visible = false;
       }
+
+      this.brushStrokeMesh.computeBoundingSphere();
     }
     this.brushStrokeGroup = null;
     this.brushStrokeMesh = null;
@@ -261,6 +263,8 @@ export class SurfacePaintingService {
         this.sprinkleStrokes.push(finishedStroke);
         this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
       }
+
+      this.sprinkleStrokeMesh.computeBoundingSphere();
     }
     this.sprinkleStrokeGroup = null;
     this.sprinkleStrokeMesh = null;
@@ -733,23 +737,33 @@ export class SurfacePaintingService {
     }
     if (!this.brushStrokeMesh || !this.brushStrokeGroup) return;
 
-    // Używamy lokalnych zmiennych dla bezpieczeństwa w tej funkcji
-    const currentPoint = new THREE.Vector3().copy(hit.point);
-    const normal = hit.face?.normal ? new THREE.Vector3().copy(hit.face.normal) : new THREE.Vector3(0, 1, 0);
+    // REZERWACJA ZMIENNYCH 1-3 dla tej funkcji
+    const currentPoint = this.tempVec3.copy(hit.point);
+    const normal = this.tempVec3_2;
+
+    if (hit.face?.normal) {
+      normal.copy(hit.face.normal);
+    } else {
+      normal.set(0, 1, 0);
+    }
 
     if (hit.object) {
+      // Optymalizacja: updateMatrixWorld jest kosztowne. 
+      // Jeśli tort się nie rusza w trakcie malowania, można to pominąć lub robić rzadziej.
+      // Tutaj zostawiamy dla poprawności.
       hit.object.updateMatrixWorld();
       normal.transformDirection(hit.object.matrixWorld).normalize();
     }
 
-    if (normal.lengthSq() < 1e-4) {
-      normal.set(0, 1, 0);
-    }
+    if (normal.lengthSq() < 1e-4) normal.set(0, 1, 0);
 
     if (this.cakeGroup) {
-      const cakeCenter = new THREE.Vector3();
+      // Używamy wektora pomocniczego nr 3
+      const cakeCenter = this.tempVec3_3;
       this.cakeGroup.getWorldPosition(cakeCenter);
-      const toSurface = new THREE.Vector3().copy(currentPoint).sub(cakeCenter);
+      // Obliczamy wektor od środka tortu do punktu malowania
+      // Możemy tu bezpiecznie użyć tempVec3_4, bo addBrushBlob jeszcze nie wywołane
+      const toSurface = this.tempVec3_4.copy(currentPoint).sub(cakeCenter);
       if (normal.dot(toSurface) < 0) {
         normal.negate();
       }
@@ -760,56 +774,59 @@ export class SurfacePaintingService {
     const easedPressure = pressure * pressure * (3 - 2 * pressure);
 
     const spacingBase = this.computeBrushWorldSpacing();
-    const startSpacing = spacingBase * 0.32;
-    const endSpacing = spacingBase * 0.22;
-    const dynamicSpacing = THREE.MathUtils.lerp(startSpacing, endSpacing, easedPressure);
+    const dynamicSpacing = THREE.MathUtils.lerp(spacingBase * 0.32, spacingBase * 0.22, easedPressure);
 
     if (this.lastBrushPoint) {
-      const segmentDir = new THREE.Vector3().copy(currentPoint).sub(this.lastBrushPoint);
-      const distance = segmentDir.length();
+      // Używamy vec3 do kierunku
+      const segmentVec = this.tempVec3_3.copy(currentPoint).sub(this.lastBrushPoint);
+      const distance = segmentVec.length();
 
       if (distance >= dynamicSpacing) {
         this.strokeCurrentLength += distance;
-
         const steps = Math.max(1, Math.floor(distance / dynamicSpacing));
 
-        // Obliczamy kierunek i normalizujemy. Jeśli ruch jest zbyt mały, używamy poprzedniego.
-        let strokeDir = new THREE.Vector3().copy(segmentDir).normalize();
+        // Normalizujemy kierunek
+        const strokeDir = segmentVec.normalize();
         if (strokeDir.lengthSq() < 0.01 && this.lastStrokeDir) {
           strokeDir.copy(this.lastStrokeDir);
         }
 
         for (let i = 1; i <= steps; i++) {
           const t = i / steps;
-          const point = new THREE.Vector3().copy(this.lastBrushPoint).lerp(currentPoint, t);
+          // Interpolacja punktu - używamy vec4 jako tymczasowego punktu dla bloba
+          const p = this.tempVec3_4.copy(this.lastBrushPoint).lerp(currentPoint, t);
 
           const stepTotalLen = this.strokeCurrentLength - distance * (1 - t);
-          const stepProgress = stepTotalLen / this.RAMP_UP_DISTANCE;
-          const stepPressure = Math.min(1.0, Math.max(0.0, stepProgress));
+          const stepPressure = Math.min(1.0, Math.max(0.0, stepTotalLen / this.RAMP_UP_DISTANCE));
 
-          this.addBrushBlob(point, normal, strokeDir, stepPressure);
+          // WAŻNE: addBrushBlob używa wewnątrz vec5, vec6, vec7, matrix1, matrix2.
+          // Nie nadpisze nam p (vec4), normal (vec2) ani strokeDir (vec3).
+          this.addBrushBlob(p, normal, strokeDir, stepPressure);
         }
-        
-        // Aktualizujemy lastStrokeDir (bezpieczna kopia)
+
         this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
         this.lastStrokeDir.copy(strokeDir);
       }
     } else {
-      const defaultDir = new THREE.Vector3(0, 1, 0).projectOnPlane(normal);
-      if (defaultDir.lengthSq() < 1e-4) {
-        defaultDir.set(1, 0, 0).projectOnPlane(normal);
-      }
+      // Start stroke
+      const defaultDir = this.tempVec3_3.set(0, 1, 0).projectOnPlane(normal);
+      if (defaultDir.lengthSq() < 1e-4) defaultDir.set(1, 0, 0).projectOnPlane(normal);
       defaultDir.normalize();
+
       this.addBrushBlob(currentPoint, normal, defaultDir, 0.0);
-      
+
       this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
       this.lastStrokeDir.copy(defaultDir);
     }
 
-    // WAŻNE: Aktualizujemy instancje RAZ na klatkę, a nie w pętli wewnątrz addBrushBlob (optymalizacja)
+    // UPDATE RAZ NA KLATKĘ
     if (this.brushStrokeMesh) {
       this.brushStrokeMesh.count = this.brushStrokeIndex;
       this.brushStrokeMesh.instanceMatrix.needsUpdate = true;
+      // Jeśli mesh rośnie, trzeba zaktualizować bounding sphere, żeby nie znikał pod kątem
+      if (this.brushStrokeIndex % 50 === 0) {
+        this.brushStrokeMesh.computeBoundingSphere();
+      }
     }
 
     this.lastBrushPoint = this.lastBrushPoint ?? new THREE.Vector3();
@@ -895,7 +912,7 @@ export class SurfacePaintingService {
       alphaMap: alphaMask,
       transparent: true,
       opacity: 1.0,
-      alphaTest: 0.4,
+      alphaTest: 0.1,
       depthWrite: false,
       depthTest: true,
       normalMap: normalMap,
@@ -903,8 +920,8 @@ export class SurfacePaintingService {
       roughness: 0.6,
       side: THREE.DoubleSide,
       polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
+      polygonOffsetFactor: -4,
+      polygonOffsetUnits: -4,
     });
 
     const mesh = new THREE.InstancedMesh(geometry, material, maxInstances);
@@ -937,67 +954,60 @@ export class SurfacePaintingService {
     if (this.brushStrokeIndex >= this.brushStrokeCapacity) return;
 
     const anchorGroup = this.paintAnchor;
-    if (anchorGroup) anchorGroup.updateMatrixWorld(true);
 
-    // FIX: Używamy nowej zmiennej dla Inverse, żeby nie nadpisać jej później przy Jitterze
-    const anchorInverse = new THREE.Matrix4();
+    // Obliczamy inverse anchor
     if (anchorGroup) {
-        anchorInverse.copy(anchorGroup.matrixWorld).invert();
+      anchorGroup.updateMatrixWorld(true);
+      this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert();
     }
 
     const radius = this.computeBrushRadius();
 
-    // Używamy lokalnych wektorów, żeby nie psuć obliczeń w pętli wyżej
-    const worldNormal = new THREE.Vector3().copy(normal).normalize();
-    const worldDirection = new THREE.Vector3().copy(direction).normalize();
-    
-    if (worldDirection.lengthSq() < 1e-6) {
-      worldDirection.set(0, 1, 0);
-    }
-    
-    const worldYAxis = new THREE.Vector3().copy(worldDirection).projectOnPlane(worldNormal);
-    if (worldYAxis.lengthSq() < 1e-6) {
-      worldYAxis.set(1, 0, 0).projectOnPlane(worldNormal);
-    }
+    // Obliczanie bazy (worldY, worldX)
+    const worldYAxis = this.tempVec3_5.copy(direction).projectOnPlane(normal);
+    if (worldYAxis.lengthSq() < 1e-6) worldYAxis.set(1, 0, 0).projectOnPlane(normal);
     worldYAxis.normalize().negate();
-    
-    const worldXAxis = new THREE.Vector3().crossVectors(worldYAxis, worldNormal).normalize();
 
+    const worldXAxis = this.tempVec3_6.crossVectors(worldYAxis, normal).normalize();
+
+    // Offset + Sortowanie (ważne dla unikania migotania Z-fighting wewnątrz pędzla)
     const baseOffset = 0.0005;
-    // Lekkie przesunięcie, żeby uniknąć z-fighting (migotania)
-    const sortingOffset = (this.brushStrokeIndex % 50) * 0.000002;
-    
-    const positionWorld = new THREE.Vector3()
+    const sortingOffset = (this.brushStrokeIndex % 100) * 0.000005; // Nieco większy rozrzut
+
+    const positionWorld = this.tempVec3_7
       .copy(point)
-      .add(new THREE.Vector3().copy(worldNormal).multiplyScalar(baseOffset + sortingOffset));
+      .add(this.tempVec3_4.copy(normal).multiplyScalar(baseOffset + sortingOffset));
 
-    const matrixWorld = new THREE.Matrix4().identity().makeBasis(worldXAxis, worldYAxis, worldNormal);
-    matrixWorld.setPosition(positionWorld);
+    // Tworzenie macierzy świata
+    // tempMatrix = World Matrix
+    this.tempMatrix.identity().makeBasis(worldXAxis, worldYAxis, normal);
+    this.tempMatrix.setPosition(positionWorld);
 
-    // Mnożenie macierzy: Local = ParentInverse * World
-    const matrixLocal = new THREE.Matrix4();
+    // Transformacja do local space (ParentInverse * World)
+    // tempMatrix2 = Local Matrix
     if (anchorGroup) {
-        matrixLocal.copy(anchorInverse).multiply(matrixWorld);
+      this.tempMatrix2.copy(this.tempMatrixInverse).multiply(this.tempMatrix);
     } else {
-        matrixLocal.copy(matrixWorld);
+      this.tempMatrix2.copy(this.tempMatrix);
     }
 
+    // Skalowanie i Jitter
     const widthScale = THREE.MathUtils.lerp(1.1, 0.7, pressure);
     const lengthScale = THREE.MathUtils.lerp(1.2, 3.5, pressure);
     const scaleBase = radius * 2.5;
 
-    // Losowy obrót (jitter)
-    const jitterAmount = THREE.MathUtils.lerp(0.1, 0.3, pressure);
-    const jitter = (Math.random() - 0.5) * jitterAmount;
-    
-    // FIX: Tu był błąd - makeRotationZ nadpisywało tempMatrixInverse!
-    const jitterMatrix = new THREE.Matrix4().makeRotationZ(jitter);
-    
-    matrixLocal.multiply(jitterMatrix);
-    matrixLocal.scale(new THREE.Vector3(scaleBase * widthScale, scaleBase * lengthScale, 1));
+    // Obrót losowy (Jitter) - robimy to na macierzy lokalnej
+    const jitter = (Math.random() - 0.5) * THREE.MathUtils.lerp(0.1, 0.3, pressure);
+    // Używamy tempQuat zamiast alokować nową macierz rotacji
+    this.tempQuat.setFromAxisAngle(this.tempVec3_4.set(0, 0, 1), jitter);
+    // Mnożenie macierzy przez rotację (tempMatrix jako pomocnicza)
+    const rotationMatrix = this.tempMatrix.makeRotationFromQuaternion(this.tempQuat);
+    this.tempMatrix2.multiply(rotationMatrix);
 
-    this.brushStrokeMesh.setMatrixAt(this.brushStrokeIndex, matrixLocal);
+    // Skalowanie
+    this.tempMatrix2.scale(this.tempVec3_4.set(scaleBase * widthScale, scaleBase * lengthScale, 1));
 
+    this.brushStrokeMesh.setMatrixAt(this.brushStrokeIndex, this.tempMatrix2);
     // Zwiększamy licznik, ale aktualizację GPU robimy w paintBrush na końcu (dla wydajności)
     this.brushStrokeIndex++;
   }
@@ -1024,52 +1034,50 @@ export class SurfacePaintingService {
     this.refreshSprinkleMaterialColor();
 
     const anchorGroup = this.paintAnchor;
+    // Nie robimy updateMatrixWorld w każdej klatce jeśli nie trzeba, ale dla pewności zostawiamy
     if (anchorGroup) anchorGroup.updateMatrixWorld(true);
-    
-    // FIX: Bezpieczne obliczenie inverse
-    const anchorInverse = new THREE.Matrix4();
-    if (anchorGroup) anchorInverse.copy(anchorGroup.matrixWorld).invert();
 
-    // Lokalne wektory
-    const worldNormal = hit.face?.normal ? new THREE.Vector3().copy(hit.face.normal) : new THREE.Vector3(0, 1, 0);
+    // Obliczamy inverse raz przed pętlą
+    if (anchorGroup) {
+      this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert();
+    }
+
+    // --- Używamy puli zmiennych tempVec3, tempVec3_2, tempVec3_3 ---
+    const anchorPointWorld = this.tempVec3.copy(hit.point);
+    const worldNormal = this.tempVec3_2;
+    if (hit.face?.normal) worldNormal.copy(hit.face.normal);
+    else worldNormal.set(0, 1, 0);
+
     if (hit.object) {
-      hit.object.updateMatrixWorld();
+      // hit.object.updateMatrixWorld(); // Zakładamy, że zrobione w handlePointer lub paintBrush
       worldNormal.transformDirection(hit.object.matrixWorld).normalize();
     }
-    if (worldNormal.lengthSq() < 1e-4) worldNormal.set(0, 1, 0);
-    
+
+    // Korekta normalnej względem środka
     if (this.cakeGroup) {
-      const cakeCenter = new THREE.Vector3();
-      this.cakeGroup.getWorldPosition(cakeCenter);
-      const toSurface = new THREE.Vector3().copy(hit.point).sub(cakeCenter);
-      if (worldNormal.dot(toSurface) < 0) {
-        worldNormal.negate();
-      }
+      const center = this.tempVec3_3;
+      this.cakeGroup.getWorldPosition(center);
+      // Używamy tempVec3_4 jako wektor pomocniczy
+      const toSurf = this.tempVec3_4.copy(anchorPointWorld).sub(center);
+      if (worldNormal.dot(toSurf) < 0) worldNormal.negate();
     }
 
-    // Normalna w przestrzeni lokalnej (dla orientacji posypki)
-    const localNormal = anchorGroup
-      ? new THREE.Vector3().copy(worldNormal).transformDirection(anchorInverse).normalize()
-      : new THREE.Vector3().copy(worldNormal);
+    // Local Normal
+    const localNormal = this.tempVec3_3.copy(worldNormal);
+    if (anchorGroup) localNormal.transformDirection(this.tempMatrixInverse).normalize();
 
-    const tangent = new THREE.Vector3().copy(localNormal).cross(new THREE.Vector3(0, 1, 0));
-    if (tangent.lengthSq() < 0.0001) tangent.set(1, 0, 0);
+    // Tangents (vec4, vec5)
+    const tangent = this.tempVec3_4.copy(localNormal).cross(this.tempVec3_5.set(0, 1, 0));
+    if (tangent.lengthSq() < 0.001) tangent.set(1, 0, 0);
     tangent.normalize();
-    const bitangent = new THREE.Vector3().copy(localNormal).cross(tangent).normalize();
+    const bitangent = this.tempVec3_5.copy(localNormal).cross(tangent).normalize();
 
-    const anchorPointWorld = new THREE.Vector3().copy(hit.point);
-    const liftWorld = 0.003; // Podniesienie nad powierzchnię
-    
-    // Konwersja punktu kliknięcia do local space
-    const anchorPointLocal = new THREE.Vector3()
-        .copy(anchorPointWorld)
-        .add(new THREE.Vector3().copy(worldNormal).multiplyScalar(liftWorld));
-        
-    if (anchorGroup) {
-        anchorGroup.worldToLocal(anchorPointLocal);
-    }
+    // Anchor Local (vec6)
+    const anchorPointLocal = this.tempVec3_6.copy(anchorPointWorld)
+      .add(this.tempVec3_7.copy(worldNormal).multiplyScalar(0.003)); // Lift
+    if (anchorGroup) anchorGroup.worldToLocal(anchorPointLocal);
 
-    // --- Logika pomijania klastrów ---
+    // --- Logika zapisu (Record) i pomijania (Cluster) ---
     const clusterSpacing = 0.16;
     const isFirstCluster = !this.lastSprinklePoint;
 
@@ -1083,68 +1091,83 @@ export class SurfacePaintingService {
 
     if (this.activeStroke?.mode === 'sprinkles') {
       this.activeStroke.pathData.push(
-        this.round(anchorPointWorld.x), this.round(anchorPointWorld.y), this.round(anchorPointWorld.z),
-        this.round(worldNormal.x), this.round(worldNormal.y), this.round(worldNormal.z)
+        this.round(anchorPointWorld.x),
+        this.round(anchorPointWorld.y),
+        this.round(anchorPointWorld.z),
+        this.round(worldNormal.x),
+        this.round(worldNormal.y),
+        this.round(worldNormal.z)
       );
     }
 
-    const densityFactor = THREE.MathUtils.clamp(this.sprinkleDensity / 20, 0, 1);
-    const count = Math.max(2, Math.round(THREE.MathUtils.lerp(3, 7, densityFactor)));
-    const randomnessFactor = THREE.MathUtils.clamp(this.sprinkleRandomness, 0, 1);
-    const scatterRadius = THREE.MathUtils.lerp(0.08, 0.16, densityFactor + randomnessFactor * 0.25);
-
+    const count = Math.max(2, Math.round(THREE.MathUtils.lerp(3, 7, this.sprinkleDensity / 20)));
     const startUpdateIndex = this.sprinkleStrokeIndex;
 
+    // --- PĘTLA OPTYMALNA ---
     for (let i = 0; i < count; i++) {
       if (this.sprinkleStrokeIndex >= this.sprinkleStrokeCapacity) break;
-      
+
       const angle = Math.random() * Math.PI * 2;
-      const radius = Math.sqrt(Math.random()) * scatterRadius;
-      
-      const offset = new THREE.Vector3()
-        .copy(tangent).multiplyScalar(Math.cos(angle) * radius)
-        .add(new THREE.Vector3().copy(bitangent).multiplyScalar(Math.sin(angle) * radius));
-        
-      const position = new THREE.Vector3()
-        .copy(anchorPointLocal)
-        .add(offset)
-        // Drobne losowe uniesienie, żeby nie przenikały
-        .add(new THREE.Vector3().copy(localNormal).multiplyScalar(Math.random() * 0.002));
+      const r = Math.sqrt(Math.random()) * 0.12; // Radius
 
-      const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale + 0.4, Math.random());
+      // Obliczanie offsetu bez 'new'
+      // offset = tangent * cos + bitangent * sin
+      // Używamy tempVec3_7 jako offset
+      this.tempVec3_7
+        .copy(tangent)
+        .multiplyScalar(Math.cos(angle) * r)
+        .add(this.tempVec3_2.copy(bitangent).multiplyScalar(Math.sin(angle) * r)); // vec2 tymczasowo jako helper
 
-      const baseQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), localNormal);
-      const twist = new THREE.Quaternion().setFromAxisAngle(localNormal, Math.random() * Math.PI * 2);
+      // Pozycja finalna
+      // position = anchorLocal + offset + lift
+      // Używamy vec7 jako final position
+      this.tempVec3_7
+        .add(anchorPointLocal)
+        .add(this.tempVec3_2.copy(localNormal).multiplyScalar(Math.random() * 0.002));
+
+      // Skala
+      const s = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale, Math.random());
+      this.tempScale.set(s, s, s);
+
+      // Rotacja
+      // Base rotation (Up -> Normal)
+      this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), localNormal);
+      // Twist
+      this.tempQuat2.setFromAxisAngle(localNormal, Math.random() * Math.PI * 2);
+      // Tilt
       const tiltAxis = Math.random() < 0.5 ? tangent : bitangent;
-      const tiltAmount = THREE.MathUtils.degToRad(15 + Math.random() * (20 + randomnessFactor * 80));
-      const tilt = new THREE.Quaternion().setFromAxisAngle(tiltAxis, tiltAmount);
-      
-      baseQuat.multiply(tilt).multiply(twist);
+      this.tempQuat3.setFromAxisAngle(tiltAxis, Math.random() - 0.5); // Lekki tilt
 
-      const matrixLocal = new THREE.Matrix4().compose(position, baseQuat, new THREE.Vector3(scale, scale, scale));
-      
-      this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, matrixLocal);
-      
-      const colorValue = this.sprinkleUseRandomColors
+      this.tempQuat.multiply(this.tempQuat3).multiply(this.tempQuat2);
+
+      // Złożenie macierzy (vec7 to pozycja)
+      this.tempMatrix.compose(this.tempVec3_7, this.tempQuat, this.tempScale);
+
+      this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, this.tempMatrix);
+
+      // Kolor
+      const colorHex = this.sprinkleUseRandomColors
         ? SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]
         : this.sprinkleColor;
-        
-      const tempColor = new THREE.Color(colorValue).convertSRGBToLinear();
-      this.sprinkleStrokeMesh.setColorAt(this.sprinkleStrokeIndex, tempColor);
+      this.tempColor.set(colorHex).convertSRGBToLinear();
+      this.sprinkleStrokeMesh.setColorAt(this.sprinkleStrokeIndex, this.tempColor);
+
       this.sprinkleStrokeIndex++;
     }
 
-    const addedCount = this.sprinkleStrokeIndex - startUpdateIndex;
-    this.sprinkleStrokeMesh.count = Math.max(this.sprinkleStrokeMesh.count, this.sprinkleStrokeIndex);
-
-    if (addedCount > 0) {
+    // UPDATE BATCHOWY
+    const added = this.sprinkleStrokeIndex - startUpdateIndex;
+    if (added > 0) {
+      this.sprinkleStrokeMesh.count = this.sprinkleStrokeIndex;
       this.sprinkleStrokeMesh.instanceMatrix.needsUpdate = true;
-      // Optymalizacja: aktualizujemy tylko dodany zakres
-      this.sprinkleStrokeMesh.instanceMatrix.addUpdateRange(startUpdateIndex * 16, addedCount * 16);
-      
+      this.sprinkleStrokeMesh.instanceMatrix.addUpdateRange(startUpdateIndex * 16, added * 16);
       if (this.sprinkleStrokeMesh.instanceColor) {
         this.sprinkleStrokeMesh.instanceColor.needsUpdate = true;
-        this.sprinkleStrokeMesh.instanceColor.addUpdateRange(startUpdateIndex * 3, addedCount * 3);
+        this.sprinkleStrokeMesh.instanceColor.addUpdateRange(startUpdateIndex * 3, added * 3);
+      }
+      // Fix na znikanie posypki pod kątem
+      if (this.sprinkleStrokeIndex % 100 === 0) {
+        this.sprinkleStrokeMesh.computeBoundingSphere();
       }
     }
   }
@@ -1152,8 +1175,8 @@ export class SurfacePaintingService {
   private ensureSprinkleResources(): void {
     if (!this.sprinkleGeometryCache) {
       this.sprinkleGeometryCache = {
-        stick: new THREE.CapsuleGeometry(0.005, 0.024, 4, 10),
-        ball: new THREE.SphereGeometry(0.008, 14, 12),
+        stick: new THREE.CapsuleGeometry(0.005, 0.024, 4, 8),
+        ball: new THREE.SphereGeometry(0.008, 8, 6),
         star: this.createStarGeometry(),
       };
     }
