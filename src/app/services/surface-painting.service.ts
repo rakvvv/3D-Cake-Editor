@@ -892,8 +892,8 @@ export class SurfacePaintingService {
       roughness: 0.6,
       side: THREE.DoubleSide,
       polygonOffset: true,
-      polygonOffsetFactor: -4,
-      polygonOffsetUnits: -4,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
 
     const mesh = new THREE.InstancedMesh(geometry, material, maxInstances);
@@ -945,8 +945,8 @@ export class SurfacePaintingService {
     worldYAxis.normalize().negate();
     const worldXAxis = this.tempVec3_4.crossVectors(worldYAxis, worldNormal).normalize();
 
-    const baseOffset = 0.0015;
-    const sortingOffset = this.brushStrokeIndex * 0.000002;
+    const baseOffset = 0.0005;
+    const sortingOffset = (this.brushStrokeIndex % 50) * 0.000002;
     const positionWorld = this.tempVec3_6
       .copy(point)
       .add(this.tempVec3_5.copy(worldNormal).multiplyScalar(baseOffset + sortingOffset));
@@ -1034,7 +1034,7 @@ export class SurfacePaintingService {
     const bitangent = this.tempVec3_5.copy(localNormal).cross(tangent).normalize();
 
     const anchorPointWorld = this.tempVec3.copy(hit.point);
-    const liftWorld = 0.0008;
+    const liftWorld = 0.003;
     const anchorPointLocal = anchorGroup
       ? anchorGroup.worldToLocal(
           this.tempVec3_7.copy(anchorPointWorld).add(this.tempVec3.copy(worldNormal).multiplyScalar(liftWorld))
