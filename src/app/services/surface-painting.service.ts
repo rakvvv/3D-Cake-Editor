@@ -99,6 +99,7 @@ export class SurfacePaintingService {
   private readonly tempVec3_3 = new THREE.Vector3();
   private readonly tempVec3_4 = new THREE.Vector3();
   private readonly tempVec3_5 = new THREE.Vector3();
+  private readonly tempVec3_6 = new THREE.Vector3();
   private readonly tempQuat = new THREE.Quaternion();
   private readonly tempQuat2 = new THREE.Quaternion();
   private readonly tempQuat3 = new THREE.Quaternion();
@@ -731,8 +732,8 @@ export class SurfacePaintingService {
     }
     if (!this.brushStrokeMesh || !this.brushStrokeGroup) return;
 
-    const currentPoint = hit.point.clone();
-    const normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
+    const currentPoint = this.tempVec3.copy(hit.point);
+    const normal = hit.face?.normal ? this.tempVec3_2.copy(hit.face.normal) : this.tempVec3_2.set(0, 1, 0);
 
     if (hit.object) {
       hit.object.updateMatrixWorld();
@@ -743,12 +744,13 @@ export class SurfacePaintingService {
     const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
     const easedPressure = pressure * pressure * (3 - 2 * pressure);
 
-    const startSpacing = this.computeBrushWorldSpacing() * 0.15;
-    const endSpacing = this.computeBrushWorldSpacing() * 0.1;
+    const spacingBase = this.computeBrushWorldSpacing();
+    const startSpacing = spacingBase * 0.32;
+    const endSpacing = spacingBase * 0.22;
     const dynamicSpacing = THREE.MathUtils.lerp(startSpacing, endSpacing, easedPressure);
 
     if (this.lastBrushPoint) {
-      const segmentDir = currentPoint.clone().sub(this.lastBrushPoint);
+      const segmentDir = this.tempVec3_3.copy(currentPoint).sub(this.lastBrushPoint);
       const distance = segmentDir.length();
 
       if (distance >= dynamicSpacing) {
@@ -756,14 +758,14 @@ export class SurfacePaintingService {
 
         const steps = Math.max(1, Math.floor(distance / dynamicSpacing));
 
-        let strokeDir = segmentDir.clone().normalize();
+        let strokeDir = this.tempVec3_4.copy(segmentDir).normalize();
         if (strokeDir.lengthSq() < 0.01 && this.lastStrokeDir) {
-          strokeDir = this.lastStrokeDir;
+          strokeDir.copy(this.lastStrokeDir);
         }
 
         for (let i = 1; i <= steps; i++) {
           const t = i / steps;
-          const point = this.lastBrushPoint.clone().lerp(currentPoint, t);
+          const point = this.tempVec3_5.copy(this.lastBrushPoint).lerp(currentPoint, t);
 
           const stepTotalLen = this.strokeCurrentLength - distance * (1-t);
           const stepProgress = stepTotalLen / this.RAMP_UP_DISTANCE;
@@ -771,16 +773,18 @@ export class SurfacePaintingService {
 
           this.addBrushBlob(point, normal, strokeDir, stepPressure);
         }
-        this.lastStrokeDir = strokeDir;
+        this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
+        this.lastStrokeDir.copy(strokeDir);
       }
     } else {
-      let defaultDir = new THREE.Vector3(0,1,0);
-      defaultDir.projectOnPlane(normal).normalize();
+      const defaultDir = this.tempVec3_3.set(0, 1, 0).projectOnPlane(normal).normalize();
       this.addBrushBlob(currentPoint, normal, defaultDir, 0.0);
-      this.lastStrokeDir = defaultDir;
+      this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
+      this.lastStrokeDir.copy(defaultDir);
     }
 
-    this.lastBrushPoint = currentPoint;
+    this.lastBrushPoint = this.lastBrushPoint ?? new THREE.Vector3();
+    this.lastBrushPoint.copy(currentPoint);
   }
 
   private loadCakeTextures(): void {
@@ -960,7 +964,7 @@ export class SurfacePaintingService {
 
   private computeBrushRadius(): number {
     const min = 0.04;
-    const max = 0.12;
+    const max = 0.18;
     const normalized = THREE.MathUtils.clamp(this.brushSize, 0, 150) / 150;
     return THREE.MathUtils.lerp(min, max, normalized);
   }
@@ -985,7 +989,7 @@ export class SurfacePaintingService {
       ? this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert()
       : null;
 
-    const normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
+    const normal = hit.face?.normal ? this.tempVec3_2.copy(hit.face.normal) : this.tempVec3_2.set(0, 1, 0);
     if (hit.object) {
       hit.object.updateMatrixWorld();
       normal.transformDirection(hit.object.matrixWorld).normalize();
@@ -993,10 +997,10 @@ export class SurfacePaintingService {
     const tangent = this.tempVec3_3.copy(normal).cross(this.tempVec3_4.set(0, 1, 0));
     if (tangent.lengthSq() < 0.0001) tangent.set(1, 0, 0);
     tangent.normalize();
-    const bitangent = this.tempVec3_5.copy(normal).cross(tangent).normalize();
+    const bitangent = this.tempVec3_4.copy(normal).cross(tangent).normalize();
 
-    const anchorPoint = hit.point.clone();
-    const clusterSpacing = 0.12;
+    const anchorPoint = this.tempVec3.copy(hit.point);
+    const clusterSpacing = 0.16;
     const isFirstCluster = !this.lastSprinklePoint;
 
     if (!this.isReplayingSprinkles) {
@@ -1004,7 +1008,8 @@ export class SurfacePaintingService {
       const skipChance = THREE.MathUtils.lerp(0, 0.4, this.sprinkleRandomness);
       if (!isFirstCluster && Math.random() < skipChance) return;
     }
-    this.lastSprinklePoint = anchorPoint.clone();
+    this.lastSprinklePoint = this.lastSprinklePoint ?? new THREE.Vector3();
+    this.lastSprinklePoint.copy(anchorPoint);
 
     if (this.activeStroke?.mode === 'sprinkles') {
       this.activeStroke.pathData.push(
@@ -1028,14 +1033,14 @@ export class SurfacePaintingService {
       if (this.sprinkleStrokeIndex >= this.sprinkleStrokeCapacity) break;
       const angle = Math.random() * Math.PI * 2;
       const radius = Math.sqrt(Math.random()) * scatterRadius;
-      const offset = this.tempVec3
+      const offset = this.tempVec3_5
         .copy(tangent)
         .multiplyScalar(Math.cos(angle) * radius)
-        .add(this.tempVec3_2.copy(bitangent).multiplyScalar(Math.sin(angle) * radius));
+        .add(this.tempVec3_6.copy(bitangent).multiplyScalar(Math.sin(angle) * radius));
       const position = this.tempVec3_4
         .copy(anchorPoint)
         .add(offset)
-        .add(this.tempVec3_5.copy(normal).multiplyScalar(0.006));
+        .add(this.tempVec3_6.copy(normal).multiplyScalar(0.006));
       const scale = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale + 0.4, Math.random());
 
       const baseQuat = this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), normal);
@@ -1058,12 +1063,16 @@ export class SurfacePaintingService {
     }
     const addedCount = this.sprinkleStrokeIndex - startUpdateIndex;
     this.sprinkleStrokeMesh.count = Math.max(this.sprinkleStrokeMesh.count, this.sprinkleStrokeIndex);
-    this.sprinkleStrokeMesh.instanceMatrix.needsUpdate = true;
-    this.sprinkleStrokeMesh.instanceMatrix.clearUpdateRanges();
-    this.sprinkleStrokeMesh.instanceMatrix.addUpdateRange(startUpdateIndex * 16, addedCount * 16);
-    this.sprinkleStrokeMesh.instanceColor!.needsUpdate = true;
-    this.sprinkleStrokeMesh.instanceColor!.clearUpdateRanges();
-    this.sprinkleStrokeMesh.instanceColor!.addUpdateRange(startUpdateIndex * 3, addedCount * 3);
+    if (addedCount > 0) {
+      this.sprinkleStrokeMesh.instanceMatrix.needsUpdate = true;
+      this.sprinkleStrokeMesh.instanceMatrix.clearUpdateRanges();
+      this.sprinkleStrokeMesh.instanceMatrix.addUpdateRange(startUpdateIndex * 16, addedCount * 16);
+      if (this.sprinkleStrokeMesh.instanceColor) {
+        this.sprinkleStrokeMesh.instanceColor.needsUpdate = true;
+        this.sprinkleStrokeMesh.instanceColor.clearUpdateRanges();
+        this.sprinkleStrokeMesh.instanceColor.addUpdateRange(startUpdateIndex * 3, addedCount * 3);
+      }
+    }
   }
 
   private ensureSprinkleResources(): void {
