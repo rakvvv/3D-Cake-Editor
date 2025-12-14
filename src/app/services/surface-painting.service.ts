@@ -280,40 +280,51 @@ export class SurfacePaintingService {
 
     // --- PĘDZEL ---
     if (this.brushStrokeGroup && this.brushStrokeMesh) {
-      const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
-
+      // Czyścimy puste
       if (this.brushStrokeMesh.count === 0) {
+        this.brushStrokeGroup.parent?.remove(this.brushStrokeGroup);
         this.brushStrokeGroup.userData['removedByUndo'] = true;
-        this.brushStrokeGroup.visible = false;
-      } else if (finishedStroke?.mode === 'brush' && finishedStroke.pathData.length >= 6) {
-        this.brushStrokes.push(finishedStroke);
-        existingIds.push(finishedStroke.id);
-        this.brushStrokeGroup.userData['strokeIds'] = existingIds;
-        this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id; // ID ostatniego
-      } else if (existingIds.length === 0) {
-        this.brushStrokeGroup.userData['removedByUndo'] = true;
-        this.brushStrokeGroup.visible = false;
-      }
+      } else if (this.brushStrokeIndex > 0) {
+        const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
 
-      this.brushStrokeMesh.computeBoundingSphere();
+        if (finishedStroke?.mode === 'brush' && finishedStroke.pathData.length >= 6) {
+          this.brushStrokes.push(finishedStroke);
+          existingIds.push(finishedStroke.id);
+          this.brushStrokeGroup.userData['strokeIds'] = existingIds;
+          this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id;
+        } else {
+          // Jeśli to było nowe pociągnięcie i jest puste, a grupa jest nowa -> usuń
+          if (existingIds.length === 0) {
+            this.brushStrokeGroup.userData['removedByUndo'] = true;
+            this.brushStrokeGroup.visible = false;
+            this.brushStrokeGroup.parent?.remove(this.brushStrokeGroup);
+          }
+        }
+        this.brushStrokeMesh.computeBoundingSphere();
+      }
     }
 
     // --- POSYPKA ---
     if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh) {
-      const existingIds = (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
-
+      // FIX: Bezwzględne usuwanie pustych grup
       if (this.sprinkleStrokeMesh.count === 0) {
         this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
-      } else if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
-        this.sprinkleStrokes.push(finishedStroke);
-        existingIds.push(finishedStroke.id);
-        this.sprinkleStrokeGroup.userData['strokeIds'] = existingIds;
-        this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
-      } else if (existingIds.length === 0) {
-        this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
-      }
+        // Oznaczamy jako usunięte z tablicy referencji
+        const idx = this.sprinkleEntries.indexOf(this.sprinkleStrokeGroup);
+        if (idx > -1) this.sprinkleEntries.splice(idx, 1);
+      } else if (this.sprinkleStrokeIndex > 0) {
+        const existingIds = (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
 
-      this.sprinkleStrokeMesh.computeBoundingSphere();
+        if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
+          this.sprinkleStrokes.push(finishedStroke);
+          existingIds.push(finishedStroke.id);
+          this.sprinkleStrokeGroup.userData['strokeIds'] = existingIds;
+          this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
+        } else if (existingIds.length === 0) {
+          this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
+        }
+        this.sprinkleStrokeMesh.computeBoundingSphere();
+      }
     }
   }
 
@@ -1120,10 +1131,8 @@ export class SurfacePaintingService {
   private placeSprinkles(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
 
-    // --- FILTR 1: Czy punkt jest sensowny? ---
-    if (hit.point.lengthSq() < 0.001 || hit.point.y < 0.001) {
-      return;
-    }
+    // Podstawowy filtr wejściowy
+    if (hit.point.lengthSq() < 0.001) return;
 
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup || this.sprinkleStrokeShape !== this.sprinkleShape) {
       this.prepareSprinkleStroke(scene);
@@ -1131,6 +1140,7 @@ export class SurfacePaintingService {
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup) return;
 
     const anchorGroup = this.paintAnchor;
+    // WAŻNE: Aktualizujemy macierz przed obliczeniami
     if (anchorGroup) anchorGroup.updateMatrixWorld(true);
     if (anchorGroup) {
       this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert();
@@ -1139,23 +1149,17 @@ export class SurfacePaintingService {
     const anchorPointWorld = this.tempVec3.copy(hit.point);
     const worldNormal = this.tempVec3_2;
 
-    // --- ODZYSKIWANIE NORMALNEJ ---
     if (this.isReplayingSprinkles) {
-      if (hit.face?.normal) {
-        worldNormal.copy(hit.face.normal);
-      } else {
-        return;
-      }
+      if (hit.face?.normal) worldNormal.copy(hit.face.normal);
+      else return;
     } else {
       if (hit.face?.normal) worldNormal.copy(hit.face.normal);
       else worldNormal.set(0, 1, 0);
-
       if (hit.object) {
         worldNormal.transformDirection(hit.object.matrixWorld).normalize();
       }
     }
 
-    // Dodatkowe zabezpieczenie: jeśli wektor jest zerowy (błąd danych), przerywamy
     if (worldNormal.lengthSq() < 0.001) return;
 
     if (this.cakeGroup) {
@@ -1177,15 +1181,14 @@ export class SurfacePaintingService {
       .add(this.tempVec3_7.copy(worldNormal).multiplyScalar(0.003));
     if (anchorGroup) anchorGroup.worldToLocal(anchorPointLocal);
 
+    // Odstępy
     const clusterSpacing = 0.16;
     const isFirstCluster = !this.lastSprinklePoint;
 
-    // Sprawdzamy odstępy ZAWSZE (naprawia nadmiar posypki)
     if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPointWorld) < clusterSpacing) {
       return;
     }
 
-    // Randomness tylko przy malowaniu ręcznym
     if (!this.isReplayingSprinkles && !isFirstCluster) {
       const skipChance = THREE.MathUtils.lerp(0, 0.4, this.sprinkleRandomness);
       if (Math.random() < skipChance) return;
@@ -1194,7 +1197,6 @@ export class SurfacePaintingService {
     this.lastSprinklePoint = this.lastSprinklePoint ?? new THREE.Vector3();
     this.lastSprinklePoint.copy(anchorPointWorld);
 
-    // Zapis do pathData (tylko live)
     if (this.activeStroke?.mode === 'sprinkles' && !this.isReplayingSprinkles) {
       this.activeStroke.pathData.push(
         this.round(anchorPointWorld.x),
@@ -1215,14 +1217,28 @@ export class SurfacePaintingService {
       const angle = Math.random() * Math.PI * 2;
       const r = Math.sqrt(Math.random()) * 0.12;
 
+      // Obliczamy offset
       this.tempVec3_7
-        .copy(tangent)
-        .multiplyScalar(Math.cos(angle) * r)
+        .copy(tangent).multiplyScalar(Math.cos(angle) * r)
         .add(this.tempVec3_2.copy(bitangent).multiplyScalar(Math.sin(angle) * r));
 
-      this.tempVec3_7
-        .add(anchorPointLocal)
+      // Obliczamy pozycję lokalną
+      this.tempVec3_7.add(anchorPointLocal)
         .add(this.tempVec3_2.copy(localNormal).multiplyScalar(Math.random() * 0.002));
+
+      // --- OSTATECZNA WERYFIKACJA POZYCJI W ŚWIECIE ---
+      // Sprawdzamy, gdzie ta konkretna kropka wyląduje w świecie.
+      // Używamy pomocniczego wektora (tempVec3_4), żeby nie psuć obliczeń.
+      this.tempVec3_4.copy(this.tempVec3_7);
+      if (anchorGroup) {
+        this.tempVec3_4.applyMatrix4(anchorGroup.matrixWorld);
+      }
+
+      // Jeśli punkt jest nisko (np. < 5cm nad ziemią) lub w zerze - POMIJAMY GO.
+      if (this.tempVec3_4.y < 0.05 || this.tempVec3_4.lengthSq() < 0.001) {
+        continue;
+      }
+      // ------------------------------------------------
 
       const s = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale, Math.random());
       this.tempScale.set(s, s, s);
