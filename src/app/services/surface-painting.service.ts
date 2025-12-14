@@ -279,41 +279,38 @@ export class SurfacePaintingService {
     this.activeStroke = null;
 
     // --- PĘDZEL ---
-    if (this.brushStrokeGroup && this.brushStrokeMesh && this.brushStrokeIndex > 0) {
-      // Pobieramy listę pociągnięć, które JUŻ są w tym meshu
+    if (this.brushStrokeGroup && this.brushStrokeMesh) {
       const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
 
-      // Sprawdzamy czy bieżące pociągnięcie jest poprawne (ma dane)
-      if (finishedStroke?.mode === 'brush' && finishedStroke.pathData.length >= 6) {
+      if (this.brushStrokeMesh.count === 0) {
+        this.brushStrokeGroup.userData['removedByUndo'] = true;
+        this.brushStrokeGroup.visible = false;
+      } else if (finishedStroke?.mode === 'brush' && finishedStroke.pathData.length >= 6) {
         this.brushStrokes.push(finishedStroke);
         existingIds.push(finishedStroke.id);
         this.brushStrokeGroup.userData['strokeIds'] = existingIds;
         this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id; // ID ostatniego
-      } else {
-        // Ukrywamy grupę TYLKO wtedy, gdy to było pierwsze pociągnięcie w tej grupie i jest puste.
-        if (existingIds.length === 0) {
-          this.brushStrokeGroup.userData['removedByUndo'] = true;
-          this.brushStrokeGroup.visible = false;
-        }
+      } else if (existingIds.length === 0) {
+        this.brushStrokeGroup.userData['removedByUndo'] = true;
+        this.brushStrokeGroup.visible = false;
       }
 
       this.brushStrokeMesh.computeBoundingSphere();
     }
 
     // --- POSYPKA ---
-    if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh && this.sprinkleStrokeIndex > 0) {
+    if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh) {
       const existingIds = (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
 
-      if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
+      if (this.sprinkleStrokeMesh.count === 0) {
+        this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
+      } else if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
         this.sprinkleStrokes.push(finishedStroke);
         existingIds.push(finishedStroke.id);
         this.sprinkleStrokeGroup.userData['strokeIds'] = existingIds;
         this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
-      } else {
-        // Ukrywamy grupę TYLKO wtedy, gdy to było pierwsze pociągnięcie w tej grupie i jest puste.
-        if (existingIds.length === 0) {
-          this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
-        }
+      } else if (existingIds.length === 0) {
+        this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
       }
 
       this.sprinkleStrokeMesh.computeBoundingSphere();
@@ -416,10 +413,9 @@ export class SurfacePaintingService {
 
     this.startStroke();
 
-    // Kopiujemy dane do activeStroke dla spójności
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
-      this.activeStroke.pathData = [...stroke.pathData];
+      this.activeStroke.pathData = stroke.pathData;
 
       const parts = stroke.id.split('-');
       const numericId = Number(parts[parts.length-1]);
@@ -481,8 +477,7 @@ export class SurfacePaintingService {
 
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
-      // Nie kopiujemy pathData, bo placeSprinkles w trybie replay tego nie robi
-      // (unikamy duplikacji danych w activeStroke)
+      this.activeStroke.pathData = stroke.pathData;
       const parts = stroke.id.split('-');
       const numericId = Number(parts[parts.length - 1]);
       if (!Number.isNaN(numericId)) {
