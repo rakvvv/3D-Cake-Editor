@@ -509,6 +509,12 @@ export class SurfacePaintingService {
         continue;
       }
 
+      // 3. Punkt pod podłogą
+      if (y < 0.001) {
+        this.lastSprinklePoint = null;
+        continue;
+      }
+
       const nx = data[i + 3];
       const ny = data[i + 4];
       const nz = data[i + 5];
@@ -533,6 +539,7 @@ export class SurfacePaintingService {
       if (this.sprinkleStrokeMesh.instanceColor) {
         this.sprinkleStrokeMesh.instanceColor.needsUpdate = true;
       }
+      this.sprinkleStrokeMesh.computeBoundingSphere();
     }
 
     this.endStroke();
@@ -815,8 +822,8 @@ export class SurfacePaintingService {
   private paintBrush(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
 
-    // Jeśli punkt to idealne (0,0,0), to błąd odczytu/separator – ignorujemy.
-    if (hit.point.lengthSq() < 0.0001) return;
+    // Jeśli punkt jest blisko (0,0,0) lub pod podłogą, to błąd odczytu/separator – ignorujemy.
+    if (hit.point.lengthSq() < 0.001 || hit.point.y < 0.001) return;
 
     if (!this.brushStrokeGroup || !this.brushStrokeMesh) {
       this.createBrushStroke(scene);
@@ -1118,9 +1125,10 @@ export class SurfacePaintingService {
   private placeSprinkles(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
 
-    // --- FIX NA DUCHY: Odrzucamy śmieciowe punkty (0,0,0) ---
-    // Jeśli punkt jest zbyt blisko środka świata (co jest niemożliwe na torcie), to błąd.
-    if (hit.point.lengthSq() < 0.001) return;
+    // --- FILTR 1: Czy punkt jest sensowny? ---
+    if (hit.point.lengthSq() < 0.001 || hit.point.y < 0.001) {
+      return;
+    }
 
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup || this.sprinkleStrokeShape !== this.sprinkleShape) {
       this.prepareSprinkleStroke(scene);
@@ -1136,18 +1144,14 @@ export class SurfacePaintingService {
     const anchorPointWorld = this.tempVec3.copy(hit.point);
     const worldNormal = this.tempVec3_2;
 
-    // --- KLUCZOWY FIX (Podwójna transformacja) ---
+    // --- ODZYSKIWANIE NORMALNEJ ---
     if (this.isReplayingSprinkles) {
-      // ODTWARZANIE: Wektor w hit.face.normal pochodzi z JSON i JEST JUŻ w World Space.
-      // Nie transformujemy go ponownie, bo go zepsujemy.
       if (hit.face?.normal) {
         worldNormal.copy(hit.face.normal);
       } else {
-        return; // Bez normalnej nie rysujemy
+        return;
       }
     } else {
-      // MALOWANIE NA ŻYWO: Wektor z Raycastera jest w Local Space obiektu.
-      // Musimy go przeliczyć na World Space.
       if (hit.face?.normal) worldNormal.copy(hit.face.normal);
       else worldNormal.set(0, 1, 0);
 
