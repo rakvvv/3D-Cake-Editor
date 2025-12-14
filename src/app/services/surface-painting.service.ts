@@ -475,15 +475,14 @@ export class SurfacePaintingService {
     this.sprinkleColor = stroke.color;
 
     this.isReplayingSprinkles = true;
-    
-    // Resetujemy punkt odniesienia, żeby nie łączyło z poprzednią posypką
+
     this.lastSprinklePoint = null;
     this.startStroke();
 
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
       const parts = stroke.id.split('-');
-      const numericId = Number(parts[parts.length-1]);
+      const numericId = Number(parts[parts.length - 1]);
       if (!Number.isNaN(numericId)) {
         this.nextStrokeId = Math.max(this.nextStrokeId, numericId + 1);
       }
@@ -495,25 +494,37 @@ export class SurfacePaintingService {
       const y = data[i + 1];
       const z = data[i + 2];
 
-      // --- FIX 4: Obsługa przerw w danych (usuwa linie pod tortem) ---
-      // Jeśli trafimy na separator lub (0,0,0), resetujemy lastSprinklePoint
+      // --- FIX NA DUCHY: Bardziej rygorystyczne sprawdzanie ---
+      // 1. Separator (99999)
       if (Math.abs(x - STROKE_SEPARATOR) < 1) {
         this.lastSprinklePoint = null;
         continue;
       }
-      if (Math.abs(x) < 0.0001 && Math.abs(y) < 0.0001 && Math.abs(z) < 0.0001) {
+
+      // 2. Punkt (0,0,0) - częsty błąd przy pustych danych
+      if (Math.abs(x) < 0.001 && Math.abs(y) < 0.001 && Math.abs(z) < 0.001) {
         this.lastSprinklePoint = null;
         continue;
       }
 
+      // 3. NOWE: Sprawdzenie normalnej. Jeśli normalna jest zerowa, to punkt jest błędny.
       const nx = data[i + 3];
       const ny = data[i + 4];
       const nz = data[i + 5];
+
+      if (Math.abs(nx) < 0.001 && Math.abs(ny) < 0.001 && Math.abs(nz) < 0.001) {
+        this.lastSprinklePoint = null;
+        continue;
+      }
+
+      const firstMesh = this.cakeGroup?.children.find((c) => (c as THREE.Mesh).isMesh) || this.cakeGroup;
+
       const hit = {
         point: new THREE.Vector3(x, y, z),
         face: { normal: new THREE.Vector3(nx, ny, nz) } as THREE.Face,
-        object: this.cakeGroup,
+        object: firstMesh,
       } as unknown as THREE.Intersection;
+
       this.placeSprinkles(hit, scene);
     }
     this.endStroke();
@@ -1101,6 +1112,9 @@ export class SurfacePaintingService {
 
     // --- FIX 1: Ignorujemy punkty (0,0,0) - usuwa duchy pod tortem ---
     if (hit.point.lengthSq() < 0.001) return;
+
+    // --- NOWY FIX: Ignorujemy punkty pod tortem ---
+    if (hit.point.y < 0.01) return;
 
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup || this.sprinkleStrokeShape !== this.sprinkleShape) {
       this.prepareSprinkleStroke(scene);
