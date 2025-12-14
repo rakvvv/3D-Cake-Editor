@@ -513,6 +513,11 @@ export class SurfacePaintingService {
       const ny = data[i + 4];
       const nz = data[i + 5];
 
+      if (Math.abs(nx) < 0.001 && Math.abs(ny) < 0.001 && Math.abs(nz) < 0.001) {
+        this.lastSprinklePoint = null;
+        continue;
+      }
+
       const hit = {
         point: new THREE.Vector3(x, y, z),
         face: { normal: new THREE.Vector3(nx, ny, nz) } as THREE.Face,
@@ -521,6 +526,15 @@ export class SurfacePaintingService {
 
       this.placeSprinkles(hit, scene);
     }
+
+    if (this.sprinkleStrokeMesh) {
+      this.sprinkleStrokeMesh.count = this.sprinkleStrokeIndex;
+      this.sprinkleStrokeMesh.instanceMatrix.needsUpdate = true;
+      if (this.sprinkleStrokeMesh.instanceColor) {
+        this.sprinkleStrokeMesh.instanceColor.needsUpdate = true;
+      }
+    }
+
     this.endStroke();
     this.isReplayingSprinkles = false;
   }
