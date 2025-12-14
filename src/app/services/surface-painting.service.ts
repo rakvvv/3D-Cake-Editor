@@ -481,6 +481,8 @@ export class SurfacePaintingService {
 
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
+      // Nie kopiujemy pathData, bo placeSprinkles w trybie replay tego nie robi
+      // (unikamy duplikacji danych w activeStroke)
       const parts = stroke.id.split('-');
       const numericId = Number(parts[parts.length - 1]);
       if (!Number.isNaN(numericId)) {
@@ -494,35 +496,27 @@ export class SurfacePaintingService {
       const y = data[i + 1];
       const z = data[i + 2];
 
-      // --- FIX NA DUCHY: Bardziej rygorystyczne sprawdzanie ---
-      // 1. Separator (99999)
+      // --- FILTROWANIE ŚMIECI ---
+      // 1. Separator linii
       if (Math.abs(x - STROKE_SEPARATOR) < 1) {
         this.lastSprinklePoint = null;
         continue;
       }
-
-      // 2. Punkt (0,0,0) - częsty błąd przy pustych danych
+      // 2. Punkty zerowe (częsty błąd przy pustych rekordach)
+      // To one tworzą białe kropki pod tortem. Wywalamy je.
       if (Math.abs(x) < 0.001 && Math.abs(y) < 0.001 && Math.abs(z) < 0.001) {
         this.lastSprinklePoint = null;
         continue;
       }
 
-      // 3. NOWE: Sprawdzenie normalnej. Jeśli normalna jest zerowa, to punkt jest błędny.
       const nx = data[i + 3];
       const ny = data[i + 4];
       const nz = data[i + 5];
 
-      if (Math.abs(nx) < 0.001 && Math.abs(ny) < 0.001 && Math.abs(nz) < 0.001) {
-        this.lastSprinklePoint = null;
-        continue;
-      }
-
-      const firstMesh = this.cakeGroup?.children.find((c) => (c as THREE.Mesh).isMesh) || this.cakeGroup;
-
       const hit = {
         point: new THREE.Vector3(x, y, z),
         face: { normal: new THREE.Vector3(nx, ny, nz) } as THREE.Face,
-        object: firstMesh,
+        object: this.cakeGroup,
       } as unknown as THREE.Intersection;
 
       this.placeSprinkles(hit, scene);
@@ -1110,11 +1104,9 @@ export class SurfacePaintingService {
   private placeSprinkles(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
 
-    // --- FIX 1: Ignorujemy punkty (0,0,0) - usuwa duchy pod tortem ---
+    // --- FIX NA DUCHY: Odrzucamy śmieciowe punkty (0,0,0) ---
+    // Jeśli punkt jest zbyt blisko środka świata (co jest niemożliwe na torcie), to błąd.
     if (hit.point.lengthSq() < 0.001) return;
-
-    // --- NOWY FIX: Ignorujemy punkty pod tortem ---
-    if (hit.point.y < 0.01) return;
 
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup || this.sprinkleStrokeShape !== this.sprinkleShape) {
       this.prepareSprinkleStroke(scene);
@@ -1129,14 +1121,28 @@ export class SurfacePaintingService {
 
     const anchorPointWorld = this.tempVec3.copy(hit.point);
     const worldNormal = this.tempVec3_2;
-    if (hit.face?.normal) worldNormal.copy(hit.face.normal);
-    else worldNormal.set(0, 1, 0);
 
-    if (hit.object) {
-      worldNormal.transformDirection(hit.object.matrixWorld).normalize();
+    // --- KLUCZOWY FIX (Podwójna transformacja) ---
+    if (this.isReplayingSprinkles) {
+      // ODTWARZANIE: Wektor w hit.face.normal pochodzi z JSON i JEST JUŻ w World Space.
+      // Nie transformujemy go ponownie, bo go zepsujemy.
+      if (hit.face?.normal) {
+        worldNormal.copy(hit.face.normal);
+      } else {
+        return; // Bez normalnej nie rysujemy
+      }
+    } else {
+      // MALOWANIE NA ŻYWO: Wektor z Raycastera jest w Local Space obiektu.
+      // Musimy go przeliczyć na World Space.
+      if (hit.face?.normal) worldNormal.copy(hit.face.normal);
+      else worldNormal.set(0, 1, 0);
+
+      if (hit.object) {
+        worldNormal.transformDirection(hit.object.matrixWorld).normalize();
+      }
     }
 
-    // --- FIX 2: Dodatkowe zabezpieczenie przed błędną normalną ---
+    // Dodatkowe zabezpieczenie: jeśli wektor jest zerowy (błąd danych), przerywamy
     if (worldNormal.lengthSq() < 0.001) return;
 
     if (this.cakeGroup) {
@@ -1158,14 +1164,15 @@ export class SurfacePaintingService {
       .add(this.tempVec3_7.copy(worldNormal).multiplyScalar(0.003));
     if (anchorGroup) anchorGroup.worldToLocal(anchorPointLocal);
 
-    // --- FIX 3: LOGIKA ODSTĘPÓW (NAPRAWA "ZA DUŻO POSYPKI") ---
     const clusterSpacing = 0.16;
     const isFirstCluster = !this.lastSprinklePoint;
 
+    // Sprawdzamy odstępy ZAWSZE (naprawia nadmiar posypki)
     if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPointWorld) < clusterSpacing) {
       return;
     }
 
+    // Randomness tylko przy malowaniu ręcznym
     if (!this.isReplayingSprinkles && !isFirstCluster) {
       const skipChance = THREE.MathUtils.lerp(0, 0.4, this.sprinkleRandomness);
       if (Math.random() < skipChance) return;
@@ -1174,6 +1181,7 @@ export class SurfacePaintingService {
     this.lastSprinklePoint = this.lastSprinklePoint ?? new THREE.Vector3();
     this.lastSprinklePoint.copy(anchorPointWorld);
 
+    // Zapis do pathData (tylko live)
     if (this.activeStroke?.mode === 'sprinkles' && !this.isReplayingSprinkles) {
       this.activeStroke.pathData.push(
         this.round(anchorPointWorld.x),
