@@ -475,11 +475,13 @@ export class SurfacePaintingService {
     this.sprinkleColor = stroke.color;
 
     this.isReplayingSprinkles = true;
+    
+    // Resetujemy punkt odniesienia, żeby nie łączyło z poprzednią posypką
+    this.lastSprinklePoint = null;
     this.startStroke();
 
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
-      this.activeStroke.pathData = [...stroke.pathData];
       const parts = stroke.id.split('-');
       const numericId = Number(parts[parts.length-1]);
       if (!Number.isNaN(numericId)) {
@@ -493,7 +495,8 @@ export class SurfacePaintingService {
       const y = data[i + 1];
       const z = data[i + 2];
 
-      // --- FIX NA DUCHY ---
+      // --- FIX 4: Obsługa przerw w danych (usuwa linie pod tortem) ---
+      // Jeśli trafimy na separator lub (0,0,0), resetujemy lastSprinklePoint
       if (Math.abs(x - STROKE_SEPARATOR) < 1) {
         this.lastSprinklePoint = null;
         continue;
@@ -1095,70 +1098,69 @@ export class SurfacePaintingService {
 
   private placeSprinkles(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
-    // Ignorujemy punkty (0,0,0) pochodzące z błędów odczytu
-    if (hit.point.lengthSq() < 0.0001) return;
+
+    // --- FIX 1: Ignorujemy punkty (0,0,0) - usuwa duchy pod tortem ---
+    if (hit.point.lengthSq() < 0.001) return;
+
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup || this.sprinkleStrokeShape !== this.sprinkleShape) {
       this.prepareSprinkleStroke(scene);
     }
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup) return;
 
     const anchorGroup = this.paintAnchor;
-    // Nie robimy updateMatrixWorld w każdej klatce jeśli nie trzeba, ale dla pewności zostawiamy
     if (anchorGroup) anchorGroup.updateMatrixWorld(true);
-
-    // Obliczamy inverse raz przed pętlą
     if (anchorGroup) {
       this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert();
     }
 
-    // --- Używamy puli zmiennych tempVec3, tempVec3_2, tempVec3_3 ---
     const anchorPointWorld = this.tempVec3.copy(hit.point);
     const worldNormal = this.tempVec3_2;
     if (hit.face?.normal) worldNormal.copy(hit.face.normal);
     else worldNormal.set(0, 1, 0);
 
     if (hit.object) {
-      // hit.object.updateMatrixWorld(); // Zakładamy, że zrobione w handlePointer lub paintBrush
       worldNormal.transformDirection(hit.object.matrixWorld).normalize();
     }
 
-    // Korekta normalnej względem środka
+    // --- FIX 2: Dodatkowe zabezpieczenie przed błędną normalną ---
+    if (worldNormal.lengthSq() < 0.001) return;
+
     if (this.cakeGroup) {
       const center = this.tempVec3_3;
       this.cakeGroup.getWorldPosition(center);
-      // Używamy tempVec3_4 jako wektor pomocniczy
       const toSurf = this.tempVec3_4.copy(anchorPointWorld).sub(center);
       if (worldNormal.dot(toSurf) < 0) worldNormal.negate();
     }
 
-    // Local Normal
     const localNormal = this.tempVec3_3.copy(worldNormal);
     if (anchorGroup) localNormal.transformDirection(this.tempMatrixInverse).normalize();
 
-    // Tangents (vec4, vec5)
     const tangent = this.tempVec3_4.copy(localNormal).cross(this.tempVec3_5.set(0, 1, 0));
     if (tangent.lengthSq() < 0.001) tangent.set(1, 0, 0);
     tangent.normalize();
     const bitangent = this.tempVec3_5.copy(localNormal).cross(tangent).normalize();
 
-    // Anchor Local (vec6)
     const anchorPointLocal = this.tempVec3_6.copy(anchorPointWorld)
-      .add(this.tempVec3_7.copy(worldNormal).multiplyScalar(0.003)); // Lift
+      .add(this.tempVec3_7.copy(worldNormal).multiplyScalar(0.003));
     if (anchorGroup) anchorGroup.worldToLocal(anchorPointLocal);
 
-    // --- Logika zapisu (Record) i pomijania (Cluster) ---
+    // --- FIX 3: LOGIKA ODSTĘPÓW (NAPRAWA "ZA DUŻO POSYPKI") ---
     const clusterSpacing = 0.16;
     const isFirstCluster = !this.lastSprinklePoint;
 
-    if (!this.isReplayingSprinkles) {
-      if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPointWorld) < clusterSpacing) return;
-      const skipChance = THREE.MathUtils.lerp(0, 0.4, this.sprinkleRandomness);
-      if (!isFirstCluster && Math.random() < skipChance) return;
+    if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPointWorld) < clusterSpacing) {
+      return;
     }
+
+    if (!this.isReplayingSprinkles && !isFirstCluster) {
+      const skipChance = THREE.MathUtils.lerp(0, 0.4, this.sprinkleRandomness);
+      if (Math.random() < skipChance) return;
+    }
+
     this.lastSprinklePoint = this.lastSprinklePoint ?? new THREE.Vector3();
     this.lastSprinklePoint.copy(anchorPointWorld);
 
-    if (this.activeStroke?.mode === 'sprinkles') {
+    if (this.activeStroke?.mode === 'sprinkles' && !this.isReplayingSprinkles) {
       this.activeStroke.pathData.push(
         this.round(anchorPointWorld.x),
         this.round(anchorPointWorld.y),
@@ -1172,59 +1174,45 @@ export class SurfacePaintingService {
     const count = Math.max(2, Math.round(THREE.MathUtils.lerp(3, 7, this.sprinkleDensity / 20)));
     const startUpdateIndex = this.sprinkleStrokeIndex;
 
-    // --- PĘTLA OPTYMALNA ---
     for (let i = 0; i < count; i++) {
       if (this.sprinkleStrokeIndex >= this.sprinkleStrokeCapacity) break;
 
       const angle = Math.random() * Math.PI * 2;
-      const r = Math.sqrt(Math.random()) * 0.12; // Radius
+      const r = Math.sqrt(Math.random()) * 0.12;
 
-      // Obliczanie offsetu bez 'new'
-      // offset = tangent * cos + bitangent * sin
-      // Używamy tempVec3_7 jako offset
       this.tempVec3_7
         .copy(tangent)
         .multiplyScalar(Math.cos(angle) * r)
-        .add(this.tempVec3_2.copy(bitangent).multiplyScalar(Math.sin(angle) * r)); // vec2 tymczasowo jako helper
+        .add(this.tempVec3_2.copy(bitangent).multiplyScalar(Math.sin(angle) * r));
 
-      // Pozycja finalna
-      // position = anchorLocal + offset + lift
-      // Używamy vec7 jako final position
       this.tempVec3_7
         .add(anchorPointLocal)
         .add(this.tempVec3_2.copy(localNormal).multiplyScalar(Math.random() * 0.002));
 
-      // Skala
       const s = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale, Math.random());
       this.tempScale.set(s, s, s);
 
-      // Rotacja
-      // Base rotation (Up -> Normal)
       this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), localNormal);
-      // Twist
       this.tempQuat2.setFromAxisAngle(localNormal, Math.random() * Math.PI * 2);
-      // Tilt
       const tiltAxis = Math.random() < 0.5 ? tangent : bitangent;
-      this.tempQuat3.setFromAxisAngle(tiltAxis, Math.random() - 0.5); // Lekki tilt
-
+      this.tempQuat3.setFromAxisAngle(tiltAxis, Math.random() - 0.5);
       this.tempQuat.multiply(this.tempQuat3).multiply(this.tempQuat2);
 
-      // Złożenie macierzy (vec7 to pozycja)
       this.tempMatrix.compose(this.tempVec3_7, this.tempQuat, this.tempScale);
 
-      this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, this.tempMatrix);
-
-      // Kolor
-      const colorHex = this.sprinkleUseRandomColors
-        ? SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]
-        : this.sprinkleColor;
+      let colorHex: string;
+      if (this.sprinkleUseRandomColors) {
+        colorHex = SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)];
+      } else {
+        colorHex = this.sprinkleColor;
+      }
       this.tempColor.set(colorHex).convertSRGBToLinear();
+      this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, this.tempMatrix);
       this.sprinkleStrokeMesh.setColorAt(this.sprinkleStrokeIndex, this.tempColor);
 
       this.sprinkleStrokeIndex++;
     }
 
-    // UPDATE BATCHOWY
     const added = this.sprinkleStrokeIndex - startUpdateIndex;
     if (added > 0) {
       this.sprinkleStrokeMesh.count = this.sprinkleStrokeIndex;
@@ -1234,7 +1222,6 @@ export class SurfacePaintingService {
         this.sprinkleStrokeMesh.instanceColor.needsUpdate = true;
         this.sprinkleStrokeMesh.instanceColor.addUpdateRange(startUpdateIndex * 3, added * 3);
       }
-      // Fix na znikanie posypki pod kątem
       if (this.sprinkleStrokeIndex % 100 === 0) {
         this.sprinkleStrokeMesh.computeBoundingSphere();
       }
