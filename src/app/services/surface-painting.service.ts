@@ -496,9 +496,9 @@ export class SurfacePaintingService {
 
     this.startStroke();
 
+    // --- FIX: Przypisanie danych, żeby endStroke nie usunął grupy ---
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
-      // WAŻNE: Kopiujemy dane, żeby endStroke nie uznał grupy za pustą
       this.activeStroke.pathData = [...stroke.pathData];
 
       const parts = stroke.id.split('-');
@@ -507,6 +507,7 @@ export class SurfacePaintingService {
         this.nextStrokeId = Math.max(this.nextStrokeId, numericId + 1);
       }
     }
+    // ---------------------------------------------------------------
 
     const data = stroke.pathData;
     for (let i = 0; i < data.length; i += 6) {
@@ -532,10 +533,6 @@ export class SurfacePaintingService {
 
       const hit = {
         point: new THREE.Vector3(x, y, z),
-        // Normal zapisaliśmy już w przestrzeni świata – wstawiamy ją bezpośrednio
-        // w polu `normal`, aby paintBrush nie transformował jej ponownie na bazie
-        // macierzy obiektu (co prowadziło do odwracania na dół i smug pod tortem).
-        normal: new THREE.Vector3(nx, ny, nz),
         face: { normal: new THREE.Vector3(nx, ny, nz) } as THREE.Face,
         object: this.cakeGroup,
       } as unknown as THREE.Intersection;
@@ -905,8 +902,6 @@ export class SurfacePaintingService {
 
   private paintBrush(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
-
-    // Odsiewanie błędów (0,0,0)
     if (hit.point.lengthSq() < 0.0001) return;
 
     // Automatyczny batching gdy kończy się miejsce
@@ -923,74 +918,67 @@ export class SurfacePaintingService {
     const currentPoint = this.tempVec3.copy(hit.point);
     const normal = this.tempVec3_2;
 
-    if (hit.normal) {
-      // Raycaster gives us the world normal directly (works for InstancedMesh)
-      normal.copy(hit.normal);
-    } else {
-      if (hit.face?.normal) normal.copy(hit.face.normal);
-      else normal.set(0, 1, 0);
+    if (hit.face?.normal) normal.copy(hit.face.normal);
+    else normal.set(0, 1, 0);
 
-      if (hit.object) {
-        normal.transformDirection(hit.object.matrixWorld).normalize();
-      }
+    if (hit.object) {
+      // Optymalizacja: pomijamy updateMatrixWorld dla płynności
+      normal.transformDirection(hit.object.matrixWorld).normalize();
     }
 
     if (normal.lengthSq() < 1e-4) normal.set(0, 1, 0);
 
     if (this.cakeGroup) {
-      const cakeCenter = this.tempVec3_4;
+      const cakeCenter = this.tempVec3_3;
       this.cakeGroup.getWorldPosition(cakeCenter);
-      const toSurface = this.tempVec3_4.subVectors(currentPoint, cakeCenter);
+      const toSurface = this.tempVec3_4.copy(currentPoint).sub(cakeCenter);
       if (normal.dot(toSurface) < 0) {
         normal.negate();
       }
     }
 
-    const rawProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
-    const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
-    const easedPressure = pressure * pressure * (3 - 2 * pressure);
-
+    // Parametry pędzla
     const spacingBase = this.computeBrushWorldSpacing();
-    const dynamicSpacing = THREE.MathUtils.lerp(spacingBase * 0.3, spacingBase * 0.2, easedPressure);
+    const dynamicSpacing = spacingBase * 0.25; // Gęstość kropek
 
     if (this.lastBrushPoint) {
       const distance = currentPoint.distanceTo(this.lastBrushPoint);
 
-      // --- FIX NA SMUGI (KULA POD TORTEM) ---
-      if (distance > this.MAX_JUMP_DIST) {
-        this.lastBrushPoint.copy(currentPoint);
-        this.lastStrokeDir = null;
-        return;
-      }
-
       if (distance >= dynamicSpacing) {
-        this.strokeCurrentLength += distance;
-
-        const steps = Math.max(1, Math.floor(distance / dynamicSpacing));
-        const strokeDir = this.tempVec3_3.copy(currentPoint).sub(this.lastBrushPoint).normalize();
+        // Liczba kroków do wypełnienia luki
+        const steps = Math.floor(distance / dynamicSpacing);
+        const strokeDir = this.tempVec3_5.copy(currentPoint).sub(this.lastBrushPoint).normalize();
 
         if (strokeDir.lengthSq() < 0.01 && this.lastStrokeDir) {
           strokeDir.copy(this.lastStrokeDir);
         }
 
+        // Pętla interpolacyjna
         for (let i = 1; i <= steps; i++) {
           const t = i / steps;
+          // Punkt pośredni
           const p = this.tempVec3_6.copy(this.lastBrushPoint).lerp(currentPoint, t);
 
-          const stepLen = this.strokeCurrentLength - distance * (1 - t);
-          const stepRaw = Math.min(1.0, stepLen / this.RAMP_UP_DISTANCE);
-          const stepPres = stepRaw * stepRaw * (3 - 2 * stepRaw);
+          // Aktualizacja długości i nacisku dla KAŻDEGO kroku
+          this.strokeCurrentLength += dynamicSpacing;
+          const stepProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
+          const pressure = Math.min(1.0, Math.max(0.0, stepProgress));
 
-          this.addBrushBlob(p, normal, strokeDir, stepPres);
+          this.addBrushBlob(p, normal, strokeDir, pressure);
         }
 
         this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
         this.lastStrokeDir.copy(strokeDir);
 
-        this.lastBrushPoint.copy(currentPoint);
+        // Przesuwamy punkt odniesienia o tyle, ile narysowaliśmy
+        // (zamiast skakać do currentPoint, co powodowało dziury przy szybkim ruchu)
+        const drawnDistance = steps * dynamicSpacing;
+        const moveVec = strokeDir.multiplyScalar(drawnDistance);
+        this.lastBrushPoint.add(moveVec);
       }
     } else {
-      const defaultDir = this.tempVec3_3.set(0, 1, 0).projectOnPlane(normal).normalize();
+      // Pierwszy punkt
+      const defaultDir = this.tempVec3_5.set(0, 1, 0).projectOnPlane(normal).normalize();
       this.addBrushBlob(currentPoint, normal, defaultDir, 0.0);
 
       this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
