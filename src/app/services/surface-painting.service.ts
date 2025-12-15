@@ -78,6 +78,9 @@ export class SurfacePaintingService {
   // Optymalizacja zapisu (nie zapisujemy punktów gęściej niż co 1.5cm)
   private readonly RECORDING_DIST_SQ = 0.015 * 0.015;
 
+  // Maksymalny skok pędzla (np. 5cm), powyżej którego przerywamy linię
+  private readonly MAX_JUMP_DIST = 0.05;
+
   private textureLoader = new THREE.TextureLoader();
   private cakeNormalMap: THREE.Texture | null = null;
   private cakeRoughnessMap: THREE.Texture | null = null;
@@ -214,15 +217,49 @@ export class SurfacePaintingService {
 
   // Czyści referencje, aby wymusić utworzenie nowego mesha przy kolejnej serii
   private finalizePreviousBatch(): void {
-    if (this.activeStroke && this.brushStrokeGroup) {
-      const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[]) ?? [];
-      if (!existingIds.includes(this.activeStroke.id)) {
-        existingIds.push(this.activeStroke.id);
-        this.brushStrokeGroup.userData['strokeIds'] = existingIds;
-        this.brushStrokeGroup.userData['strokeId'] = this.activeStroke.id;
+    // 1. Zabezpieczenie PĘDZLA
+    if (this.brushStrokeGroup) {
+      if (this.brushStrokeIndex > 0) {
+        // Dodajemy do listy obiektów sceny, żeby exporter widział ten fragment
+        if (!this.paintEntries.includes(this.brushStrokeGroup)) {
+          this.paintEntries.push(this.brushStrokeGroup);
+        }
+
+        // Jeśli mamy aktywny stroke, stemplujemy grupę jego ID
+        if (this.activeStroke) {
+          const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[]) ?? [];
+          if (!existingIds.includes(this.activeStroke.id)) {
+            existingIds.push(this.activeStroke.id);
+            this.brushStrokeGroup.userData['strokeIds'] = existingIds;
+            this.brushStrokeGroup.userData['strokeId'] = this.activeStroke.id;
+          }
+        }
+      } else {
+        // Pusta grupa - usuń
+        this.brushStrokeGroup.parent?.remove(this.brushStrokeGroup);
       }
     }
 
+    // 2. Zabezpieczenie POSYPKI
+    if (this.sprinkleStrokeGroup) {
+      if (this.sprinkleStrokeIndex > 0) {
+        if (!this.sprinkleEntries.includes(this.sprinkleStrokeGroup)) {
+          this.sprinkleEntries.push(this.sprinkleStrokeGroup);
+        }
+        if (this.activeStroke) {
+          const existingIds = (this.sprinkleStrokeGroup.userData['strokeIds'] as string[]) ?? [];
+          if (!existingIds.includes(this.activeStroke.id)) {
+            existingIds.push(this.activeStroke.id);
+            this.sprinkleStrokeGroup.userData['strokeIds'] = existingIds;
+            this.sprinkleStrokeGroup.userData['strokeId'] = this.activeStroke.id;
+          }
+        }
+      } else {
+        this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
+      }
+    }
+
+    // Reset referencji
     this.brushStrokeGroup = null;
     this.brushStrokeMesh = null;
     this.brushStrokeIndex = 0;
@@ -267,16 +304,20 @@ export class SurfacePaintingService {
       }
     }
 
-    if (!isValidTarget) {
-      return;
-    }
+    if (!isValidTarget) return;
 
     // 1. ZAPIS DANYCH
     if (this.activeStroke) {
       const p = hit.point;
-      let shouldRecord = false;
 
-      // Sampling: nie zapisujemy każdego piksela ruchu
+      // FIX NA SMUGI W DANYCH: Wykrywanie dużego skoku
+      if (this.lastRecordedPoint && this.lastRecordedPoint.distanceTo(p) > this.MAX_JUMP_DIST) {
+        // Wstawiamy separator zamiast łączyć linią
+        this.activeStroke.pathData.push(STROKE_SEPARATOR, 0, 0, 0, 0, 0);
+        this.lastRecordedPoint = p.clone();
+      }
+
+      let shouldRecord = false;
       if (!this.lastRecordedPoint) {
         shouldRecord = true;
       } else {
@@ -292,7 +333,6 @@ export class SurfacePaintingService {
           normal.transformDirection(hit.object.matrixWorld).normalize();
         }
 
-        // Płaski zapis: 6 liczb na jeden punkt
         this.activeStroke.pathData.push(
           this.round(p.x), this.round(p.y), this.round(p.z),
           this.round(normal.x), this.round(normal.y), this.round(normal.z)
@@ -858,19 +898,13 @@ export class SurfacePaintingService {
   private paintBrush(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
 
-    // 1. Odsiewanie punktów (0,0,0) - błędy raycastingu
+    // Odsiewanie błędów (0,0,0)
     if (hit.point.lengthSq() < 0.0001) return;
 
-    // 2. Automatyczne tworzenie nowej warstwy, gdy obecna się zapełni (NAPRAWA ZAPISU)
-    if (this.brushStrokeGroup && this.brushStrokeIndex >= this.brushStrokeCapacity - 10) {
-      if (this.activeStroke) {
-        const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[]) ?? [];
-        if (!existingIds.includes(this.activeStroke.id)) {
-          existingIds.push(this.activeStroke.id);
-          this.brushStrokeGroup.userData['strokeIds'] = existingIds;
-        }
-      }
+    // Automatyczny batching gdy kończy się miejsce
+    if (this.brushStrokeGroup && this.brushStrokeIndex >= this.brushStrokeCapacity - 50) {
       this.finalizePreviousBatch();
+      this.createBrushStroke(scene);
     }
 
     if (!this.brushStrokeGroup || !this.brushStrokeMesh) {
@@ -900,20 +934,21 @@ export class SurfacePaintingService {
       }
     }
 
+    // --- PRZYWRÓCONA FIZYKA PĘDZLA Z WERSJI 1 ---
     const rawProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
     const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
+    // Easing (miękki start)
+    const easedPressure = pressure * pressure * (3 - 2 * pressure);
 
-    // Ustawiamy gęstsze próbkowanie dla płynności
     const spacingBase = this.computeBrushWorldSpacing();
-    const dynamicSpacing = spacingBase * 0.25;
-
-    // Zabezpieczenie przed "skakaniem" pędzla (np. błędy odczytu lub zmiana strony tortu)
-    const MAX_JUMP_DIST = 0.05;
+    const dynamicSpacing = THREE.MathUtils.lerp(spacingBase * 0.3, spacingBase * 0.2, easedPressure);
 
     if (this.lastBrushPoint) {
       const distance = currentPoint.distanceTo(this.lastBrushPoint);
 
-      if (distance > MAX_JUMP_DIST) {
+      // --- FIX NA WIZUALNE SMUGI ---
+      // Jeśli skok jest za duży (np. > 5cm), przerywamy rysowanie linii
+      if (distance > this.MAX_JUMP_DIST) {
         this.lastBrushPoint.copy(currentPoint);
         this.lastStrokeDir = null;
         return;
@@ -934,7 +969,13 @@ export class SurfacePaintingService {
         for (let i = 1; i <= steps; i++) {
           const t = i / steps;
           const p = this.tempVec3_6.copy(this.lastBrushPoint).lerp(currentPoint, t);
-          this.addBrushBlob(p, normal, strokeDir, pressure);
+          
+          // Przeliczamy pressure dla płynności
+          const stepLen = this.strokeCurrentLength - distance * (1 - t);
+          const stepRaw = Math.min(1.0, stepLen / this.RAMP_UP_DISTANCE);
+          const stepPres = stepRaw * stepRaw * (3 - 2 * stepRaw);
+
+          this.addBrushBlob(p, normal, strokeDir, stepPres);
         }
 
         this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
