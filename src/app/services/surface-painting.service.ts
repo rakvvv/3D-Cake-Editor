@@ -166,10 +166,12 @@ export class SurfacePaintingService {
 
     if (this.mode === 'brush') {
       const isSameColor = this.lastUsedBrushColor === this.brushColor;
+      const meshExists =
+        this.brushStrokeMesh && this.brushStrokeGroup && this.brushStrokeGroup.parent;
       const hasCapacity =
         this.brushStrokeMesh && this.brushStrokeIndex < this.brushStrokeCapacity - 50;
 
-      if (!this.brushStrokeMesh || !isSameColor || !hasCapacity) {
+      if (!meshExists || !isSameColor || !hasCapacity) {
         this.finalizePreviousBatch();
         this.lastUsedBrushColor = this.brushColor;
       }
@@ -183,12 +185,14 @@ export class SurfacePaintingService {
       };
     } else if (this.mode === 'sprinkles') {
       const isSameShape = this.lastUsedSprinkleShape === this.sprinkleShape;
+      const meshExists =
+        this.sprinkleStrokeMesh && this.sprinkleStrokeGroup && this.sprinkleStrokeGroup.parent;
       const isSameColor =
         this.lastUsedSprinkleColor === this.sprinkleColor || this.sprinkleUseRandomColors;
       const hasCapacity =
         this.sprinkleStrokeMesh && this.sprinkleStrokeIndex < this.sprinkleStrokeCapacity - 20;
 
-      if (!this.sprinkleStrokeMesh || !isSameShape || !isSameColor || !hasCapacity) {
+      if (!meshExists || !isSameShape || !isSameColor || !hasCapacity) {
         this.finalizePreviousBatch();
         this.lastUsedSprinkleShape = this.sprinkleShape;
         this.lastUsedSprinkleColor = this.sprinkleColor;
@@ -916,8 +920,8 @@ export class SurfacePaintingService {
       this.lastStrokeDir.copy(defaultDir);
     }
 
-    // Aktualizacja w trybie Live (przy replayu robi to funkcja nadrzędna)
-    if (this.brushStrokeMesh && !this.activeStroke?.pathData) {
+    // Zawsze aktualizujemy instancje po dodaniu punktów, także podczas odtwarzania
+    if (this.brushStrokeMesh) {
       this.brushStrokeMesh.count = this.brushStrokeIndex;
       this.brushStrokeMesh.instanceMatrix.needsUpdate = true;
       if (this.brushStrokeIndex % 50 === 0) {
