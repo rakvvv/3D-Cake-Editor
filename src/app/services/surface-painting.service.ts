@@ -225,7 +225,24 @@ export class SurfacePaintingService {
 
   public async handlePointer(hit: THREE.Intersection, scene: THREE.Scene): Promise<void> {
     if (!this.isBrowser || !this.painting) return;
-    if (!hit.point) return;
+    if (!hit.point || !hit.object) return;
+
+    let isValidTarget = false;
+
+    const name = hit.object.name.toLowerCase();
+    if (name.includes('cake') || name.includes('icing') || name.includes('body') || name.includes('mesh')) {
+      isValidTarget = true;
+    }
+
+    if (!isValidTarget && this.cakeGroup) {
+      hit.object.traverseAncestors((parent) => {
+        if (parent === this.cakeGroup) isValidTarget = true;
+      });
+    }
+
+    if (!isValidTarget) {
+      return;
+    }
 
     // 1. ZAPIS DANYCH
     if (this.activeStroke) {
@@ -720,7 +737,7 @@ export class SurfacePaintingService {
     const group = new THREE.Group();
     group.name = 'Malowanie pędzlem';
     group.userData['displayName'] = 'Malowanie pędzlem';
-    group.userData['isPaintStroke'] = true;
+    group.userData['isSurfaceStroke'] = true;
     group.add(mesh);
 
     return { group, mesh };
@@ -1033,7 +1050,7 @@ export class SurfacePaintingService {
     const group = new THREE.Group();
     group.name = 'Malowanie pędzlem';
     group.userData['displayName'] = 'Malowanie pędzlem';
-    group.userData['isPaintStroke'] = true;
+    group.userData['isSurfaceStroke'] = true;
     group.userData['strokeIds'] = [] as string[];
     group.add(mesh);
     anchor.add(group);
@@ -1349,7 +1366,7 @@ export class SurfacePaintingService {
     group.name = 'Posypka';
     group.userData['displayName'] = 'Posypka';
     group.userData['isPaintDecoration'] = true;
-    group.userData['isPaintStroke'] = true;
+    group.userData['isSurfaceStroke'] = true;
     group.userData['strokeIds'] = [] as string[];
     group.add(mesh);
     anchor.add(group);
