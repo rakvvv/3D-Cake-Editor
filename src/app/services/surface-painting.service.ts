@@ -328,8 +328,11 @@ export class SurfacePaintingService {
       }
 
       if (shouldRecord) {
-        let normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
-        if (hit.object) {
+        // Prefer world-space normal provided by raycaster (important for InstancedMesh hits)
+        let normal = hit.normal?.clone() ?? hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
+
+        // If the normal is in local space, transform it to world space
+        if (!hit.normal && hit.object) {
           normal.transformDirection(hit.object.matrixWorld).normalize();
         }
 
@@ -915,11 +918,16 @@ export class SurfacePaintingService {
     const currentPoint = this.tempVec3.copy(hit.point);
     const normal = this.tempVec3_2;
 
-    if (hit.face?.normal) normal.copy(hit.face.normal);
-    else normal.set(0, 1, 0);
+    if (hit.normal) {
+      // Raycaster gives us the world normal directly (works for InstancedMesh)
+      normal.copy(hit.normal);
+    } else {
+      if (hit.face?.normal) normal.copy(hit.face.normal);
+      else normal.set(0, 1, 0);
 
-    if (hit.object) {
-      normal.transformDirection(hit.object.matrixWorld).normalize();
+      if (hit.object) {
+        normal.transformDirection(hit.object.matrixWorld).normalize();
+      }
     }
 
     if (normal.lengthSq() < 1e-4) normal.set(0, 1, 0);
