@@ -112,6 +112,7 @@ export class SurfacePaintingService {
   private readonly tempVec3_5 = new THREE.Vector3();
   private readonly tempVec3_6 = new THREE.Vector3();
   private readonly tempVec3_7 = new THREE.Vector3();
+  private readonly tempVec3_8 = new THREE.Vector3();
   private readonly tempQuat = new THREE.Quaternion();
   private readonly tempQuat2 = new THREE.Quaternion();
   private readonly tempQuat3 = new THREE.Quaternion();
@@ -1145,17 +1146,19 @@ export class SurfacePaintingService {
     }
 
     const radius = this.computeBrushRadius();
+    const baseOffset = 0.0005;
+    const sortingOffset = (this.brushStrokeIndex % 100) * 0.000005;
+
+    // Najpierw zapamiętujemy pozycję, zanim nadpiszemy współdzielone wektory.
+    const positionWorld = this.tempVec3_7
+      .copy(point)
+      .add(this.tempVec3_4.copy(normal).multiplyScalar(baseOffset + sortingOffset));
+
     const worldYAxis = this.tempVec3_5.copy(direction).projectOnPlane(normal);
     if (worldYAxis.lengthSq() < 1e-6) worldYAxis.set(1, 0, 0).projectOnPlane(normal);
     worldYAxis.normalize().negate();
 
-    const worldXAxis = this.tempVec3_6.crossVectors(worldYAxis, normal).normalize();
-    const baseOffset = 0.0005;
-    const sortingOffset = (this.brushStrokeIndex % 100) * 0.000005;
-
-    const positionWorld = this.tempVec3_7
-      .copy(point)
-      .add(this.tempVec3_4.copy(normal).multiplyScalar(baseOffset + sortingOffset));
+    const worldXAxis = this.tempVec3_8.crossVectors(worldYAxis, normal).normalize();
 
     this.tempMatrix.identity().makeBasis(worldXAxis, worldYAxis, normal);
     this.tempMatrix.setPosition(positionWorld);
