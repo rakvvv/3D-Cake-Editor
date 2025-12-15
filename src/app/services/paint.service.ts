@@ -191,21 +191,21 @@ export class PaintService {
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    raycaster.setFromCamera(mouse, camera);
-
-    if (!cakeBase) {
+    const targetCake = cakeBase ?? this.snapService.getCakeBase();
+    if (!targetCake) {
       return;
     }
 
     raycaster.layers.set(0);
-    const intersects = raycaster.intersectObject(cakeBase, true);
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObject(targetCake, true);
 
     if (intersects.length === 0) {
       return;
     }
 
-    const hit = intersects.find((i) => !this.isRaycastBlocker(i.object));
-    if (!hit) return; // <- ważne, bez tego weźmiesz intersects[0] i będzie dramat
+    const hit = intersects.find((i) => !this.isRaycastBlocker(i.object)) ?? intersects[0];
     const pointOnCakeWorld = hit.point.clone();
     const normal = this.getWorldNormal(hit) ?? new THREE.Vector3(0, 1, 0);
 

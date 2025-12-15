@@ -258,11 +258,21 @@ export class SnapService {
     return this.cakeBase?.userData['metadata'] as CakeMetadata | undefined;
   }
 
+  public forceCakeToLayer0(root: THREE.Object3D | null): void {
+    if (!root) {
+      return;
+    }
+
+    root.traverse((object) => object.layers.set(0));
+    root.layers.set(0);
+  }
+
   private isPaintStroke(object: THREE.Object3D): boolean {
     return object.userData['isPaintStroke'] === true;
   }
 
   public setCakeBase(cake: THREE.Object3D | null): void {
+    this.forceCakeToLayer0(cake);
     this.cakeBase = cake;
   }
 

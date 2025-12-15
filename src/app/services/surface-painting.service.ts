@@ -741,6 +741,7 @@ export class SurfacePaintingService {
     anchor.name = 'Cake Paint Anchor';
     anchor.userData['displayName'] = 'Malowanie tortu';
     anchor.userData['isPaintAnchor'] = true;
+    anchor.layers.set(2);
     parent.add(anchor);
     this.paintAnchor = anchor;
     return anchor;
