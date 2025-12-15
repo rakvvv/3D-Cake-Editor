@@ -197,15 +197,15 @@ export class PaintService {
       return;
     }
 
+    raycaster.layers.set(0);
     const intersects = raycaster.intersectObject(cakeBase, true);
 
     if (intersects.length === 0) {
       return;
     }
 
-    const hit =
-      intersects.find((intersection) => !this.isPaintStroke(intersection.object)) ??
-      intersects[0];
+    const hit = intersects.find((i) => !this.isRaycastBlocker(i.object));
+    if (!hit) return; // <- ważne, bez tego weźmiesz intersects[0] i będzie dramat
     const pointOnCakeWorld = hit.point.clone();
     const normal = this.getWorldNormal(hit) ?? new THREE.Vector3(0, 1, 0);
 
@@ -244,6 +244,16 @@ export class PaintService {
     } catch (error) {
       console.error('Paint: błąd procesu malowania:', error);
     }
+  }
+
+  private isRaycastBlocker(object: THREE.Object3D | null): boolean {
+    let current = object;
+    while (current) {
+      const ud = current.userData ?? {};
+      if (ud['isPaintStroke'] || ud['isSurfaceStroke'] || ud['isPaintAnchor']) return true;
+      current = current.parent;
+    }
+    return false;
   }
 
   public beginStroke(rect: DOMRect): void {
@@ -460,6 +470,7 @@ export class PaintService {
       this.activeDecorationGroup.userData['isPaintStroke'] = true;
       this.activeDecorationGroup.userData['paintStrokeType'] = 'decoration';
       this.activeDecorationGroup.userData['brushId'] = this.currentBrush;
+      this.activeDecorationGroup.layers.set(2);
       scene.add(this.activeDecorationGroup);
       this.redoStack = [];
     }
@@ -519,6 +530,7 @@ export class PaintService {
       mesh.userData['isPaintDecoration'] = true;
       mesh.userData['isPaintStroke'] = true;
       mesh.userData['brushId'] = brushId;
+      mesh.layers.set(2);
       decorationGroup.add(mesh);
 
       return { mesh, count: 0 };
@@ -1189,6 +1201,7 @@ export class PaintService {
     mesh.userData['isPaintStroke'] = true;
     mesh.userData['variantSourceId'] = variant.sourceId;
     mesh.userData['variantIndex'] = variantIndex;
+    mesh.layers.set(2);
     strokeGroup.add(mesh);
 
     const state: ExtruderInstanceState = { mesh, count: 0 };
@@ -1202,6 +1215,7 @@ export class PaintService {
       this.activeExtruderStrokeGroup.userData['isPaintStroke'] = true;
       this.activeExtruderStrokeGroup.userData['paintStrokeType'] = 'extruder';
       this.activeExtruderStrokeGroup.userData['snapPoints'] = [] as number[][];
+      this.activeExtruderStrokeGroup.layers.set(2);
       scene.add(this.activeExtruderStrokeGroup);
       this.redoStack = [];
       this.extruderStrokeInstances.clear();
@@ -1822,6 +1836,7 @@ export class PaintService {
     mesh.receiveShadow = true;
     mesh.userData['isPaintStroke'] = true;
     mesh.userData['penPart'] = 'cap';
+    mesh.layers.set(2);
     strokeGroup.add(mesh);
     this.penCapInstance = { mesh, count: 0 };
     return this.penCapInstance;
@@ -1909,6 +1924,7 @@ export class PaintService {
       this.activePenStrokeGroup.userData['penThickness'] = this.penThickness;
       this.activePenStrokeGroup.userData['penColor'] = this.penColor;
       this.activePenStrokeGroup.userData['penOpacity'] = this.penOpacity;
+      this.activePenStrokeGroup.layers.set(2);
       scene.add(this.activePenStrokeGroup);
       this.redoStack = [];
       this.activePenStrokePoints = [];
@@ -1964,6 +1980,7 @@ export class PaintService {
     mesh.receiveShadow = true;
     mesh.userData['isPaintStroke'] = true;
     mesh.userData['penPart'] = 'joint';
+    mesh.layers.set(2);
     strokeGroup.add(mesh);
     this.penSegmentInstance = { mesh, count: 0 };
     return this.penSegmentInstance;
@@ -1982,6 +1999,7 @@ export class PaintService {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData['isPaintStroke'] = true;
+    mesh.layers.set(2);
     strokeGroup.add(mesh);
     this.penJointInstance = { mesh, count: 0 };
     return this.penJointInstance;

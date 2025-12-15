@@ -148,6 +148,7 @@ export class ThreeSceneService {
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         this.raycaster.setFromCamera(this.mouse, this.camera);
+        this.raycaster.layers.set(0);
         const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
         const paintHit = this.pickPaintableHit(intersectsCake);
         if (!paintHit || this.transformControlsService.isDragging()) {

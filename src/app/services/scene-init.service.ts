@@ -26,6 +26,8 @@ export class SceneInitService {
 
     this.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
     this.camera.position.set(-10, 30, 30);
+    this.camera.layers.enable(0);
+    this.camera.layers.enable(2);
     this.initialCameraPosition.copy(this.camera.position);
 
     this.orbit = new OrbitControls(this.camera, this.renderer.domElement);
