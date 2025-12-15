@@ -166,6 +166,7 @@ export class SurfacePaintingService {
 
     if (this.mode === 'brush') {
       const isSameColor = this.lastUsedBrushColor === this.brushColor;
+      // FIX: Sprawdzenie czy mesh fizycznie istnieje na scenie
       const meshExists =
         this.brushStrokeMesh && this.brushStrokeGroup && this.brushStrokeGroup.parent;
       const hasCapacity =
