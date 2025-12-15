@@ -126,6 +126,25 @@ export class SurfacePaintingService {
   private lastRecordedPoint: THREE.Vector3 | null = null;
   private isReplayingSprinkles = false;
 
+  private isOnCake(obj: THREE.Object3D | null): boolean {
+    if (!obj || !this.cakeGroup) return false;
+    let cur: THREE.Object3D | null = obj;
+    while (cur) {
+      if (cur === this.cakeGroup) return true;
+      cur = cur.parent;
+    }
+    return false;
+  }
+
+  private isSurfaceStroke(obj: THREE.Object3D | null): boolean {
+    let cur: THREE.Object3D | null = obj;
+    while (cur) {
+      if (cur.userData?.['isSurfaceStroke'] === true) return true;
+      cur = cur.parent;
+    }
+    return false;
+  }
+
   constructor(@Inject(PLATFORM_ID) platformId: object, private readonly paintService: PaintService) {
     this.isBrowser = isPlatformBrowser(platformId);
     if (this.isBrowser) {
@@ -279,33 +298,14 @@ export class SurfacePaintingService {
     if (!this.isBrowser || !this.painting) return;
     if (!hit.point || !hit.object) return;
 
-    let isValidTarget = false;
+    const valid = this.isOnCake(hit.object) || this.isSurfaceStroke(hit.object);
+    if (!valid) return;
 
-    const name = hit.object.name.toLowerCase();
-    if (name.includes('cake') || name.includes('icing') || name.includes('body') || name.includes('mesh')) {
-      isValidTarget = true;
+    if (this.cakeGroup) {
+      const bbox = new THREE.Box3().setFromObject(this.cakeGroup);
+      const pad = 0.02;
+      if (hit.point.y < bbox.min.y - pad || hit.point.y > bbox.max.y + pad) return;
     }
-
-    if (!isValidTarget && this.cakeGroup) {
-      hit.object.traverseAncestors((parent) => {
-        if (parent === this.cakeGroup) isValidTarget = true;
-      });
-    }
-
-    // --- POZWALAMY MALOWAĆ NA ISTNIEJĄCYCH SMUGACH ---
-    if (!isValidTarget) {
-      let current: THREE.Object3D | null = hit.object;
-      while (current) {
-        // Szukamy flagi, którą nadajemy w createBrushStroke
-        if (current.userData['isSurfaceStroke'] === true) {
-          isValidTarget = true;
-          break;
-        }
-        current = current.parent;
-      }
-    }
-
-    if (!isValidTarget) return;
 
     // 1. ZAPIS DANYCH
     if (this.activeStroke) {
