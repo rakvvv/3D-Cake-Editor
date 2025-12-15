@@ -1,7 +1,6 @@
 import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import * as THREE from 'three';
-import { PaintService } from './paint.service';
 import {
   SerializedBrushStroke,
   SerializedSprinkleStroke,
@@ -98,6 +97,7 @@ export class SurfacePaintingService {
   private sprinkleEntries: THREE.Object3D[] = [];
   private paintEntries: THREE.Object3D[] = [];
   private shaderUniforms?: PaintingShaderUniforms;
+  private registerPaintAddition: ((object: THREE.Object3D) => void) | null = null;
   private readonly tempMatrix = new THREE.Matrix4();
   private readonly tempMatrixInverse = new THREE.Matrix4();
   private readonly tempMatrix2 = new THREE.Matrix4();
@@ -122,11 +122,15 @@ export class SurfacePaintingService {
   private lastRecordedPoint: THREE.Vector3 | null = null;
   private isReplayingSprinkles = false;
 
-  constructor(@Inject(PLATFORM_ID) platformId: object, private readonly paintService: PaintService) {
+  constructor(@Inject(PLATFORM_ID) platformId: object) {
     this.isBrowser = isPlatformBrowser(platformId);
     if (this.isBrowser) {
       this.ensureCanvases();
     }
+  }
+
+  public setPaintRegistrar(register: (object: THREE.Object3D) => void): void {
+    this.registerPaintAddition = register;
   }
 
   // --- GŁÓWNE METODY STERUJĄCE ---
@@ -1047,7 +1051,7 @@ export class SurfacePaintingService {
     this.brushStrokeIndex = 0;
     this.brushStrokeCapacity = maxInstances;
 
-    this.paintService.registerDecorationAddition(this.brushStrokeGroup);
+    this.registerPaintAddition?.(this.brushStrokeGroup);
     this.paintEntries.push(this.brushStrokeGroup);
   }
 
@@ -1348,7 +1352,7 @@ export class SurfacePaintingService {
     this.sprinkleStrokeCapacity = capacity;
     this.sprinkleStrokeShape = this.sprinkleShape;
 
-    this.paintService.registerDecorationAddition(this.sprinkleStrokeGroup);
+    this.registerPaintAddition?.(this.sprinkleStrokeGroup);
     this.sprinkleEntries.push(this.sprinkleStrokeGroup);
   }
 

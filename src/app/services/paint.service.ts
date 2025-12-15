@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
 import { SnapService } from './snap.service';
+import { SurfacePaintingService } from './surface-painting.service';
 import { CakeMetadata, LayerMetadata } from '../factories/three-objects.factory';
 import { ExtruderVariantInfo } from '../models/extruderVariantInfo';
 import { environment } from '../../environments/environment';
@@ -155,10 +156,12 @@ export class PaintService {
   constructor(
     private readonly transformManager: TransformManagerService,
     private readonly snapService: SnapService,
+    private readonly surfacePainting: SurfacePaintingService,
     private readonly http: HttpClient,
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
+    this.surfacePainting.setPaintRegistrar((object) => this.registerDecorationAddition(object));
     void this.loadCreamRingPresets();
   }
 
@@ -244,6 +247,106 @@ export class PaintService {
     } catch (error) {
       console.error('Paint: błąd procesu malowania:', error);
     }
+  }
+
+  public beginSurfaceStroke(
+    event: MouseEvent,
+    renderer: THREE.WebGLRenderer,
+    camera: THREE.PerspectiveCamera,
+    scene: THREE.Scene,
+    cakeBase: THREE.Object3D | null,
+    mouse: THREE.Vector2,
+    raycaster: THREE.Raycaster,
+  ): boolean {
+    if (!this.surfacePainting.enabled) {
+      return false;
+    }
+
+    this.sceneRef = scene;
+    this.cakeBaseRef = cakeBase;
+
+    const rect = this.paintCanvasRect ?? renderer.domElement.getBoundingClientRect();
+    if (!this.paintCanvasRect) {
+      this.paintCanvasRect = {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const targetCake = cakeBase ?? this.snapService.getCakeBase();
+    if (!targetCake) {
+      return false;
+    }
+
+    raycaster.layers.set(0);
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(targetCake, true);
+    if (!intersects.length) {
+      return false;
+    }
+
+    const hit = intersects.find((i) => !this.isRaycastBlocker(i.object)) ?? intersects[0];
+    if (!hit) {
+      return false;
+    }
+
+    this.surfacePainting.startStroke();
+    void this.surfacePainting.handlePointer(hit, scene);
+    return true;
+  }
+
+  public async handleSurfacePaint(
+    event: MouseEvent,
+    renderer: THREE.WebGLRenderer,
+    camera: THREE.PerspectiveCamera,
+    scene: THREE.Scene,
+    cakeBase: THREE.Object3D | null,
+    mouse: THREE.Vector2,
+    raycaster: THREE.Raycaster,
+  ): Promise<void> {
+    if (!this.surfacePainting.enabled || !this.surfacePainting.isPainting()) {
+      return;
+    }
+
+    this.sceneRef = scene;
+    this.cakeBaseRef = cakeBase;
+
+    const rect = this.paintCanvasRect ?? renderer.domElement.getBoundingClientRect();
+    if (!this.paintCanvasRect) {
+      this.paintCanvasRect = {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const targetCake = cakeBase ?? this.snapService.getCakeBase();
+    if (!targetCake) {
+      return;
+    }
+
+    raycaster.layers.set(0);
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(targetCake, true);
+    if (!intersects.length) {
+      return;
+    }
+
+    const hit = intersects.find((i) => !this.isRaycastBlocker(i.object)) ?? intersects[0];
+    if (!hit) {
+      return;
+    }
+
+    await this.surfacePainting.handlePointer(hit, scene);
   }
 
   private isRaycastBlocker(object: THREE.Object3D | null): boolean {

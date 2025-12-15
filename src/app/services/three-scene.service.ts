@@ -144,27 +144,24 @@ export class ThreeSceneService {
       }
 
       if (this.surfacePainting.enabled && this.cakeBase) {
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        this.raycaster.layers.set(0);
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-        const paintHit = this.pickPaintableHit(intersectsCake);
-        if (!paintHit || this.transformControlsService.isDragging()) {
+        if (this.transformControlsService.isDragging()) {
           this.onClickDown(event);
           return;
         }
 
-        if (!this.isPaintable(paintHit.object)) {
-          this.onClickDown(event);
+        const started = this.paintService.beginSurfaceStroke(
+          event,
+          this.renderer,
+          this.camera,
+          this.scene,
+          this.cakeBase,
+          this.mouse,
+          this.raycaster,
+        );
+        if (started) {
+          this.sceneInitService.setOrbitEnabled(false);
           return;
         }
-
-        this.surfacePainting.startStroke();
-        this.sceneInitService.setOrbitEnabled(false);
-        void this.surfacePainting.handlePointer(paintHit, this.scene);
-        return;
       }
 
       if (this.paintService.paintMode && this.cakeBase) {
@@ -207,21 +204,15 @@ export class ThreeSceneService {
           return;
         }
 
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        this.raycaster.layers.set(0);
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-        const paintHit = this.pickPaintableHit(intersectsCake);
-        if (!paintHit) {
-          return;
-        }
-        if (!this.isPaintable(paintHit.object)) {
-          // Opcja A: Przerywamy ten konkretny "krok" malowania (pędzel nie stawia kropki, ale jak zjedziesz z polewy to maluje dalej)
-          return;
-        }
-          void this.surfacePainting.handlePointer(paintHit, this.scene);
+        void this.paintService.handleSurfacePaint(
+          event,
+          this.renderer,
+          this.camera,
+          this.scene,
+          this.cakeBase,
+          this.mouse,
+          this.raycaster,
+        );
         return;
       }
 
@@ -2252,32 +2243,6 @@ export class ThreeSceneService {
     } else if (material && typeof material.dispose === 'function') {
       material.dispose();
     }
-  }
-
-  private isPaintable(object: THREE.Object3D): boolean {
-    let current: THREE.Object3D | null = object;
-
-    while (current) {
-      if (current.userData['isCakeGlaze'] || current.userData['isCakeWafer']) {
-        return false;
-      }
-      if (current.userData['isCakeLayer']) {
-        return true;
-      }
-
-      if (current.name === 'CakeBase') {
-        return false;
-      }
-
-      current = current.parent;
-    }
-
-    return false;
-  }
-
-  private pickPaintableHit(intersects: THREE.Intersection[]): THREE.Intersection | null {
-    if (!intersects.length) return null;
-    return intersects.find((intersection) => !this.isPaintStroke(intersection.object)) ?? intersects[0];
   }
 
   private isPaintStroke(object: THREE.Object3D): boolean {
