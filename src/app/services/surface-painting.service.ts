@@ -919,25 +919,22 @@ export class SurfacePaintingService {
     else normal.set(0, 1, 0);
 
     if (hit.object) {
-      // Optymalizacja: pomijamy updateMatrixWorld w pętli dla płynności
       normal.transformDirection(hit.object.matrixWorld).normalize();
     }
 
     if (normal.lengthSq() < 1e-4) normal.set(0, 1, 0);
 
     if (this.cakeGroup) {
-      const cakeCenter = this.tempVec3_3;
+      const cakeCenter = this.tempVec3_4;
       this.cakeGroup.getWorldPosition(cakeCenter);
-      const toSurface = this.tempVec3_4.copy(currentPoint).sub(cakeCenter);
+      const toSurface = this.tempVec3_4.subVectors(currentPoint, cakeCenter);
       if (normal.dot(toSurface) < 0) {
         normal.negate();
       }
     }
 
-    // --- PRZYWRÓCONA FIZYKA PĘDZLA Z WERSJI 1 ---
     const rawProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
     const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
-    // Easing (miękki start)
     const easedPressure = pressure * pressure * (3 - 2 * pressure);
 
     const spacingBase = this.computeBrushWorldSpacing();
@@ -946,21 +943,18 @@ export class SurfacePaintingService {
     if (this.lastBrushPoint) {
       const distance = currentPoint.distanceTo(this.lastBrushPoint);
 
-      // --- FIX NA WIZUALNE SMUGI ---
-      // Jeśli skok jest za duży (np. > 5cm), przerywamy rysowanie linii
+      // --- FIX NA SMUGI (KULA POD TORTEM) ---
       if (distance > this.MAX_JUMP_DIST) {
         this.lastBrushPoint.copy(currentPoint);
         this.lastStrokeDir = null;
         return;
       }
 
-      // Rysujemy TYLKO jeśli przesunęliśmy się o minimalny krok
       if (distance >= dynamicSpacing) {
         this.strokeCurrentLength += distance;
 
-        // Interpolacja
         const steps = Math.max(1, Math.floor(distance / dynamicSpacing));
-        const strokeDir = this.tempVec3_5.copy(currentPoint).sub(this.lastBrushPoint).normalize();
+        const strokeDir = this.tempVec3_3.copy(currentPoint).sub(this.lastBrushPoint).normalize();
 
         if (strokeDir.lengthSq() < 0.01 && this.lastStrokeDir) {
           strokeDir.copy(this.lastStrokeDir);
@@ -969,8 +963,7 @@ export class SurfacePaintingService {
         for (let i = 1; i <= steps; i++) {
           const t = i / steps;
           const p = this.tempVec3_6.copy(this.lastBrushPoint).lerp(currentPoint, t);
-          
-          // Przeliczamy pressure dla płynności
+
           const stepLen = this.strokeCurrentLength - distance * (1 - t);
           const stepRaw = Math.min(1.0, stepLen / this.RAMP_UP_DISTANCE);
           const stepPres = stepRaw * stepRaw * (3 - 2 * stepRaw);
@@ -981,13 +974,10 @@ export class SurfacePaintingService {
         this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
         this.lastStrokeDir.copy(strokeDir);
 
-        // KLUCZOWE: Aktualizujemy punkt odniesienia TYLKO po udanym narysowaniu!
         this.lastBrushPoint.copy(currentPoint);
       }
-      // Jeśli distance jest za mały, NIE robimy nic. Czekamy na większy ruch.
     } else {
-      // Pierwszy punkt
-      const defaultDir = this.tempVec3_5.set(0, 1, 0).projectOnPlane(normal).normalize();
+      const defaultDir = this.tempVec3_3.set(0, 1, 0).projectOnPlane(normal).normalize();
       this.addBrushBlob(currentPoint, normal, defaultDir, 0.0);
 
       this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
