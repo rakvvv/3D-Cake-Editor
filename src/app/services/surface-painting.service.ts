@@ -443,24 +443,23 @@ export class SurfacePaintingService {
 
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
-      this.activeStroke.pathData = stroke.pathData;
+      // WAŻNE: Kopiujemy dane, żeby endStroke nie uznał grupy za pustą
+      this.activeStroke.pathData = [...stroke.pathData];
 
       const parts = stroke.id.split('-');
-      const numericId = Number(parts[parts.length-1]);
+      const numericId = Number(parts[parts.length - 1]);
       if (!Number.isNaN(numericId)) {
         this.nextStrokeId = Math.max(this.nextStrokeId, numericId + 1);
       }
     }
 
     const data = stroke.pathData;
-    // Iteracja po 6 liczb (x,y,z,nx,ny,nz)
     for (let i = 0; i < data.length; i += 6) {
       const x = data[i];
       const y = data[i + 1];
       const z = data[i + 2];
 
-      // --- FIX NA DUCHY I SEPARATOR ---
-      // Jeśli napotkamy separator lub punkt (0,0,0), przerywamy linię
+      // Filtrowanie tylko ewidentnych błędów
       if (Math.abs(x - STROKE_SEPARATOR) < 1) {
         this.lastBrushPoint = null;
         this.lastStrokeDir = null;
@@ -484,6 +483,15 @@ export class SurfacePaintingService {
 
       this.paintBrush(hit, scene);
     }
+
+    // --- KLUCZOWE: Wymuszenie aktualizacji po pętli ---
+    if (this.brushStrokeMesh) {
+      this.brushStrokeMesh.count = this.brushStrokeIndex;
+      this.brushStrokeMesh.instanceMatrix.needsUpdate = true;
+      this.brushStrokeMesh.computeBoundingSphere();
+    }
+    // -------------------------------------------------
+
     this.endStroke();
   }
 
@@ -499,13 +507,14 @@ export class SurfacePaintingService {
     this.sprinkleColor = stroke.color;
 
     this.isReplayingSprinkles = true;
-
     this.lastSprinklePoint = null;
     this.startStroke();
 
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
-      this.activeStroke.pathData = stroke.pathData;
+      // WAŻNE: Kopiujemy dane, żeby endStroke nie uznał grupy za pustą
+      this.activeStroke.pathData = [...stroke.pathData];
+
       const parts = stroke.id.split('-');
       const numericId = Number(parts[parts.length - 1]);
       if (!Number.isNaN(numericId)) {
@@ -519,20 +528,16 @@ export class SurfacePaintingService {
       const y = data[i + 1];
       const z = data[i + 2];
 
-      // --- FILTROWANIE ŚMIECI ---
-      // 1. Separator linii
       if (Math.abs(x - STROKE_SEPARATOR) < 1) {
         this.lastSprinklePoint = null;
         continue;
       }
-      // 2. Punkty zerowe (częsty błąd przy pustych rekordach)
-      // To one tworzą białe kropki pod tortem. Wywalamy je.
-      if (Math.abs(x) < 0.001 && Math.abs(y) < 0.001 && Math.abs(z) < 0.001) {
+      if (Math.abs(x) < 0.0001 && Math.abs(y) < 0.0001 && Math.abs(z) < 0.0001) {
         this.lastSprinklePoint = null;
         continue;
       }
 
-      // 3. Punkt pod podłogą
+      // Filtr duchów pod spodem (mniej agresywny niż 0.05, ale skuteczny na 0.000)
       if (y < 0.001) {
         this.lastSprinklePoint = null;
         continue;
@@ -541,11 +546,6 @@ export class SurfacePaintingService {
       const nx = data[i + 3];
       const ny = data[i + 4];
       const nz = data[i + 5];
-
-      if (Math.abs(nx) < 0.001 && Math.abs(ny) < 0.001 && Math.abs(nz) < 0.001) {
-        this.lastSprinklePoint = null;
-        continue;
-      }
 
       const hit = {
         point: new THREE.Vector3(x, y, z),
@@ -556,6 +556,7 @@ export class SurfacePaintingService {
       this.placeSprinkles(hit, scene);
     }
 
+    // --- KLUCZOWE: Wymuszenie aktualizacji po pętli ---
     if (this.sprinkleStrokeMesh) {
       this.sprinkleStrokeMesh.count = this.sprinkleStrokeIndex;
       this.sprinkleStrokeMesh.instanceMatrix.needsUpdate = true;
@@ -564,6 +565,7 @@ export class SurfacePaintingService {
       }
       this.sprinkleStrokeMesh.computeBoundingSphere();
     }
+    // -------------------------------------------------
 
     this.endStroke();
     this.isReplayingSprinkles = false;
@@ -845,40 +847,31 @@ export class SurfacePaintingService {
   private paintBrush(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
 
-    // Jeśli punkt jest blisko (0,0,0) lub pod podłogą, to błąd odczytu/separator – ignorujemy.
-    if (hit.point.lengthSq() < 0.001 || hit.point.y < 0.001) return;
+    // Tylko podstawowy filtr zer
+    if (hit.point.lengthSq() < 0.0001) return;
 
     if (!this.brushStrokeGroup || !this.brushStrokeMesh) {
       this.createBrushStroke(scene);
     }
     if (!this.brushStrokeMesh || !this.brushStrokeGroup) return;
 
-    // REZERWACJA ZMIENNYCH 1-3 dla tej funkcji
     const currentPoint = this.tempVec3.copy(hit.point);
     const normal = this.tempVec3_2;
 
-    if (hit.face?.normal) {
-      normal.copy(hit.face.normal);
-    } else {
-      normal.set(0, 1, 0);
-    }
+    if (hit.face?.normal) normal.copy(hit.face.normal);
+    else normal.set(0, 1, 0);
 
     if (hit.object) {
-      // Optymalizacja: updateMatrixWorld jest kosztowne. 
-      // Jeśli tort się nie rusza w trakcie malowania, można to pominąć lub robić rzadziej.
-      // Tutaj zostawiamy dla poprawności.
-      hit.object.updateMatrixWorld();
+      // Optymalizacja: aktualizujemy macierze rzadziej, żeby ograniczyć lagi przy szybkim malowaniu
+      // hit.object.updateMatrixWorld();
       normal.transformDirection(hit.object.matrixWorld).normalize();
     }
 
     if (normal.lengthSq() < 1e-4) normal.set(0, 1, 0);
 
     if (this.cakeGroup) {
-      // Używamy wektora pomocniczego nr 3
       const cakeCenter = this.tempVec3_3;
       this.cakeGroup.getWorldPosition(cakeCenter);
-      // Obliczamy wektor od środka tortu do punktu malowania
-      // Możemy tu bezpiecznie użyć tempVec3_4, bo addBrushBlob jeszcze nie wywołane
       const toSurface = this.tempVec3_4.copy(currentPoint).sub(cakeCenter);
       if (normal.dot(toSurface) < 0) {
         normal.negate();
@@ -888,20 +881,16 @@ export class SurfacePaintingService {
     const rawProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
     const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
     const easedPressure = pressure * pressure * (3 - 2 * pressure);
-
     const spacingBase = this.computeBrushWorldSpacing();
     const dynamicSpacing = THREE.MathUtils.lerp(spacingBase * 0.32, spacingBase * 0.22, easedPressure);
 
     if (this.lastBrushPoint) {
-      // Używamy vec3 do kierunku
       const segmentVec = this.tempVec3_3.copy(currentPoint).sub(this.lastBrushPoint);
       const distance = segmentVec.length();
 
       if (distance >= dynamicSpacing) {
         this.strokeCurrentLength += distance;
         const steps = Math.max(1, Math.floor(distance / dynamicSpacing));
-
-        // Normalizujemy kierunek
         const strokeDir = segmentVec.normalize();
         if (strokeDir.lengthSq() < 0.01 && this.lastStrokeDir) {
           strokeDir.copy(this.lastStrokeDir);
@@ -909,14 +898,9 @@ export class SurfacePaintingService {
 
         for (let i = 1; i <= steps; i++) {
           const t = i / steps;
-          // Interpolacja punktu - używamy vec4 jako tymczasowego punktu dla bloba
           const p = this.tempVec3_4.copy(this.lastBrushPoint).lerp(currentPoint, t);
-
           const stepTotalLen = this.strokeCurrentLength - distance * (1 - t);
           const stepPressure = Math.min(1.0, Math.max(0.0, stepTotalLen / this.RAMP_UP_DISTANCE));
-
-          // WAŻNE: addBrushBlob używa wewnątrz vec5, vec6, vec7, matrix1, matrix2.
-          // Nie nadpisze nam p (vec4), normal (vec2) ani strokeDir (vec3).
           this.addBrushBlob(p, normal, strokeDir, stepPressure);
         }
 
@@ -924,22 +908,18 @@ export class SurfacePaintingService {
         this.lastStrokeDir.copy(strokeDir);
       }
     } else {
-      // Start stroke
       const defaultDir = this.tempVec3_3.set(0, 1, 0).projectOnPlane(normal);
       if (defaultDir.lengthSq() < 1e-4) defaultDir.set(1, 0, 0).projectOnPlane(normal);
       defaultDir.normalize();
-
       this.addBrushBlob(currentPoint, normal, defaultDir, 0.0);
-
       this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
       this.lastStrokeDir.copy(defaultDir);
     }
 
-    // UPDATE RAZ NA KLATKĘ
-    if (this.brushStrokeMesh) {
+    // Aktualizacja w trybie Live (przy replayu robi to funkcja nadrzędna)
+    if (this.brushStrokeMesh && !this.activeStroke?.pathData) {
       this.brushStrokeMesh.count = this.brushStrokeIndex;
       this.brushStrokeMesh.instanceMatrix.needsUpdate = true;
-      // Jeśli mesh rośnie, trzeba zaktualizować bounding sphere, żeby nie znikał pod kątem
       if (this.brushStrokeIndex % 50 === 0) {
         this.brushStrokeMesh.computeBoundingSphere();
       }
@@ -1147,8 +1127,6 @@ export class SurfacePaintingService {
 
   private placeSprinkles(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
-
-    // Podstawowy filtr wejściowy
     if (hit.point.lengthSq() < 0.001) return;
 
     if (!this.sprinkleStrokeMesh || !this.sprinkleStrokeGroup || this.sprinkleStrokeShape !== this.sprinkleShape) {
@@ -1194,8 +1172,10 @@ export class SurfacePaintingService {
     tangent.normalize();
     const bitangent = this.tempVec3_5.copy(localNormal).cross(tangent).normalize();
 
+    // --- FIX NA LEWITOWANIE: Minimalny odstęp 0.0002 zamiast 0.003 ---
+    const liftAmount = 0.0002;
     const anchorPointLocal = this.tempVec3_6.copy(anchorPointWorld)
-      .add(this.tempVec3_7.copy(worldNormal).multiplyScalar(0.003));
+      .add(this.tempVec3_7.copy(worldNormal).multiplyScalar(liftAmount));
     if (anchorGroup) anchorGroup.worldToLocal(anchorPointLocal);
 
     // Odstępy
@@ -1234,28 +1214,14 @@ export class SurfacePaintingService {
       const angle = Math.random() * Math.PI * 2;
       const r = Math.sqrt(Math.random()) * 0.12;
 
-      // Obliczamy offset
       this.tempVec3_7
-        .copy(tangent).multiplyScalar(Math.cos(angle) * r)
+        .copy(tangent)
+        .multiplyScalar(Math.cos(angle) * r)
         .add(this.tempVec3_2.copy(bitangent).multiplyScalar(Math.sin(angle) * r));
 
-      // Obliczamy pozycję lokalną
-      this.tempVec3_7.add(anchorPointLocal)
-        .add(this.tempVec3_2.copy(localNormal).multiplyScalar(Math.random() * 0.002));
-
-      // --- OSTATECZNA WERYFIKACJA POZYCJI W ŚWIECIE ---
-      // Sprawdzamy, gdzie ta konkretna kropka wyląduje w świecie.
-      // Używamy pomocniczego wektora (tempVec3_4), żeby nie psuć obliczeń.
-      this.tempVec3_4.copy(this.tempVec3_7);
-      if (anchorGroup) {
-        this.tempVec3_4.applyMatrix4(anchorGroup.matrixWorld);
-      }
-
-      // Jeśli punkt jest nisko (np. < 5cm nad ziemią) lub w zerze - POMIJAMY GO.
-      if (this.tempVec3_4.y < 0.05 || this.tempVec3_4.lengthSq() < 0.001) {
-        continue;
-      }
-      // ------------------------------------------------
+      this.tempVec3_7
+        .add(anchorPointLocal)
+        .add(this.tempVec3_2.copy(localNormal).multiplyScalar(Math.random() * 0.0005));
 
       const s = THREE.MathUtils.lerp(this.sprinkleMinScale, this.sprinkleMaxScale, Math.random());
       this.tempScale.set(s, s, s);
@@ -1282,7 +1248,7 @@ export class SurfacePaintingService {
     }
 
     const added = this.sprinkleStrokeIndex - startUpdateIndex;
-    if (added > 0) {
+    if (added > 0 && !this.isReplayingSprinkles) {
       this.sprinkleStrokeMesh.count = this.sprinkleStrokeIndex;
       this.sprinkleStrokeMesh.instanceMatrix.needsUpdate = true;
       this.sprinkleStrokeMesh.instanceMatrix.addUpdateRange(startUpdateIndex * 16, added * 16);
