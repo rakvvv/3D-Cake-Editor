@@ -214,6 +214,15 @@ export class SurfacePaintingService {
 
   // Czyści referencje, aby wymusić utworzenie nowego mesha przy kolejnej serii
   private finalizePreviousBatch(): void {
+    if (this.activeStroke && this.brushStrokeGroup) {
+      const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[]) ?? [];
+      if (!existingIds.includes(this.activeStroke.id)) {
+        existingIds.push(this.activeStroke.id);
+        this.brushStrokeGroup.userData['strokeIds'] = existingIds;
+        this.brushStrokeGroup.userData['strokeId'] = this.activeStroke.id;
+      }
+    }
+
     this.brushStrokeGroup = null;
     this.brushStrokeMesh = null;
     this.brushStrokeIndex = 0;
@@ -849,8 +858,20 @@ export class SurfacePaintingService {
   private paintBrush(hit: THREE.Intersection, scene: THREE.Scene): void {
     if (!hit.point) return;
 
-    // Tylko podstawowy filtr zer
+    // 1. Odsiewanie punktów (0,0,0) - błędy raycastingu
     if (hit.point.lengthSq() < 0.0001) return;
+
+    // 2. Automatyczne tworzenie nowej warstwy, gdy obecna się zapełni (NAPRAWA ZAPISU)
+    if (this.brushStrokeGroup && this.brushStrokeIndex >= this.brushStrokeCapacity - 10) {
+      if (this.activeStroke) {
+        const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[]) ?? [];
+        if (!existingIds.includes(this.activeStroke.id)) {
+          existingIds.push(this.activeStroke.id);
+          this.brushStrokeGroup.userData['strokeIds'] = existingIds;
+        }
+      }
+      this.finalizePreviousBatch();
+    }
 
     if (!this.brushStrokeGroup || !this.brushStrokeMesh) {
       this.createBrushStroke(scene);
@@ -881,25 +902,33 @@ export class SurfacePaintingService {
 
     const rawProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
     const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
-    
-    // Stały, gęsty spacing dla płynności (ćwierć pędzla)
+
+    // Ustawiamy gęstsze próbkowanie dla płynności
     const spacingBase = this.computeBrushWorldSpacing();
     const dynamicSpacing = spacingBase * 0.25;
+
+    // Zabezpieczenie przed "skakaniem" pędzla (np. błędy odczytu lub zmiana strony tortu)
+    const MAX_JUMP_DIST = 0.05;
 
     if (this.lastBrushPoint) {
       const distance = currentPoint.distanceTo(this.lastBrushPoint);
 
-      // --- KLUCZOWA POPRAWKA PŁYNNOŚCI ---
-      // Rysujemy tylko, jeśli przesunęliśmy się o minimalny krok
+      if (distance > MAX_JUMP_DIST) {
+        this.lastBrushPoint.copy(currentPoint);
+        this.lastStrokeDir = null;
+        return;
+      }
+
+      // Rysujemy TYLKO jeśli przesunęliśmy się o minimalny krok
       if (distance >= dynamicSpacing) {
         this.strokeCurrentLength += distance;
-        
-        // Interpolacja (wypełnianie dziur między ruchem myszki)
+
+        // Interpolacja
         const steps = Math.max(1, Math.floor(distance / dynamicSpacing));
         const strokeDir = this.tempVec3_5.copy(currentPoint).sub(this.lastBrushPoint).normalize();
-        
+
         if (strokeDir.lengthSq() < 0.01 && this.lastStrokeDir) {
-            strokeDir.copy(this.lastStrokeDir);
+          strokeDir.copy(this.lastStrokeDir);
         }
 
         for (let i = 1; i <= steps; i++) {
@@ -910,28 +939,26 @@ export class SurfacePaintingService {
 
         this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
         this.lastStrokeDir.copy(strokeDir);
-        
-        // WAŻNE: Aktualizujemy punkt odniesienia TYLKO po narysowaniu!
+
+        // KLUCZOWE: Aktualizujemy punkt odniesienia TYLKO po udanym narysowaniu!
         this.lastBrushPoint.copy(currentPoint);
       }
-      // Jeśli distance jest za mały, NIE aktualizujemy lastBrushPoint.
-      // Czekamy, aż myszka przesunie się dalej. To eliminuje "przerywane linie".
+      // Jeśli distance jest za mały, NIE robimy nic. Czekamy na większy ruch.
     } else {
       // Pierwszy punkt
       const defaultDir = this.tempVec3_5.set(0, 1, 0).projectOnPlane(normal).normalize();
       this.addBrushBlob(currentPoint, normal, defaultDir, 0.0);
-      
+
       this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
       this.lastStrokeDir.copy(defaultDir);
-      
+
       this.lastBrushPoint = new THREE.Vector3().copy(currentPoint);
     }
 
-    // Zawsze wymuszamy update mesha w trybie Live
+    // Zawsze update mesha
     if (this.brushStrokeMesh) {
       this.brushStrokeMesh.count = this.brushStrokeIndex;
       this.brushStrokeMesh.instanceMatrix.needsUpdate = true;
-      // Rzadsza aktualizacja BoundingSphere dla wydajności
       if (this.brushStrokeIndex % 50 === 0) {
         this.brushStrokeMesh.computeBoundingSphere();
       }
