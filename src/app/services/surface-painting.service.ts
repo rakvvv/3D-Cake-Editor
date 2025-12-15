@@ -244,6 +244,13 @@ export class SurfacePaintingService {
       });
     }
 
+    // --- POZWALAMY MALOWAĆ NA ISTNIEJĄCYCH SMUGACH ---
+    if (!isValidTarget) {
+      if (hit.object.userData['isSurfaceStroke'] === true) {
+        isValidTarget = true;
+      }
+    }
+
     if (!isValidTarget) {
       return;
     }
@@ -866,8 +873,6 @@ export class SurfacePaintingService {
     else normal.set(0, 1, 0);
 
     if (hit.object) {
-      // Optymalizacja: aktualizujemy macierze rzadziej, żeby ograniczyć lagi przy szybkim malowaniu
-      // hit.object.updateMatrixWorld();
       normal.transformDirection(hit.object.matrixWorld).normalize();
     }
 
@@ -1012,7 +1017,8 @@ export class SurfacePaintingService {
       alphaMap: alphaMask,
       transparent: true,
       opacity: 1.0,
-      alphaTest: 0.05,
+      // Niski alphaTest dla miękkich krawędzi pociągnięć
+      alphaTest: 0.01,
       depthWrite: false,
       depthTest: true,
       normalMap: normalMap,
