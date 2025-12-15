@@ -531,6 +531,10 @@ export class SurfacePaintingService {
 
       const hit = {
         point: new THREE.Vector3(x, y, z),
+        // Normal zapisaliśmy już w przestrzeni świata – wstawiamy ją bezpośrednio
+        // w polu `normal`, aby paintBrush nie transformował jej ponownie na bazie
+        // macierzy obiektu (co prowadziło do odwracania na dół i smug pod tortem).
+        normal: new THREE.Vector3(nx, ny, nz),
         face: { normal: new THREE.Vector3(nx, ny, nz) } as THREE.Face,
         object: this.cakeGroup,
       } as unknown as THREE.Intersection;
