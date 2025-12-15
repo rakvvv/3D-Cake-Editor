@@ -246,8 +246,14 @@ export class SurfacePaintingService {
 
     // --- POZWALAMY MALOWAĆ NA ISTNIEJĄCYCH SMUGACH ---
     if (!isValidTarget) {
-      if (hit.object.userData['isSurfaceStroke'] === true) {
-        isValidTarget = true;
+      let current: THREE.Object3D | null = hit.object;
+      while (current) {
+        // Szukamy flagi, którą nadajemy w createBrushStroke
+        if (current.userData['isSurfaceStroke'] === true) {
+          isValidTarget = true;
+          break;
+        }
+        current = current.parent;
       }
     }
 
@@ -308,51 +314,35 @@ export class SurfacePaintingService {
 
     // --- PĘDZEL ---
     if (this.brushStrokeGroup && this.brushStrokeMesh) {
-      // Czyścimy puste
+      const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
+
+      // Usuwamy tylko jeśli mesh jest pusty (nic nie narysowano)
       if (this.brushStrokeMesh.count === 0) {
         this.brushStrokeGroup.parent?.remove(this.brushStrokeGroup);
         this.brushStrokeGroup.userData['removedByUndo'] = true;
-      } else if (this.brushStrokeIndex > 0) {
-        const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
-
-        if (finishedStroke?.mode === 'brush' && finishedStroke.pathData.length >= 6) {
-          this.brushStrokes.push(finishedStroke);
-          existingIds.push(finishedStroke.id);
-          this.brushStrokeGroup.userData['strokeIds'] = existingIds;
-          this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id;
-        } else {
-          // Jeśli to było nowe pociągnięcie i jest puste, a grupa jest nowa -> usuń
-          if (existingIds.length === 0) {
-            this.brushStrokeGroup.userData['removedByUndo'] = true;
-            this.brushStrokeGroup.visible = false;
-            this.brushStrokeGroup.parent?.remove(this.brushStrokeGroup);
-          }
-        }
-        this.brushStrokeMesh.computeBoundingSphere();
+      } else if (finishedStroke?.mode === 'brush' && finishedStroke.pathData.length >= 6) {
+        this.brushStrokes.push(finishedStroke);
+        existingIds.push(finishedStroke.id);
+        this.brushStrokeGroup.userData['strokeIds'] = existingIds;
+        this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id;
       }
+
+      this.brushStrokeMesh.computeBoundingSphere();
     }
 
     // --- POSYPKA ---
     if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh) {
-      // FIX: Bezwzględne usuwanie pustych grup
+      const existingIds = (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
+
       if (this.sprinkleStrokeMesh.count === 0) {
         this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
-        // Oznaczamy jako usunięte z tablicy referencji
-        const idx = this.sprinkleEntries.indexOf(this.sprinkleStrokeGroup);
-        if (idx > -1) this.sprinkleEntries.splice(idx, 1);
-      } else if (this.sprinkleStrokeIndex > 0) {
-        const existingIds = (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
-
-        if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
-          this.sprinkleStrokes.push(finishedStroke);
-          existingIds.push(finishedStroke.id);
-          this.sprinkleStrokeGroup.userData['strokeIds'] = existingIds;
-          this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
-        } else if (existingIds.length === 0) {
-          this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
-        }
-        this.sprinkleStrokeMesh.computeBoundingSphere();
+      } else if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
+        this.sprinkleStrokes.push(finishedStroke);
+        existingIds.push(finishedStroke.id);
+        this.sprinkleStrokeGroup.userData['strokeIds'] = existingIds;
+        this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
       }
+      this.sprinkleStrokeMesh.computeBoundingSphere();
     }
   }
 
@@ -873,6 +863,7 @@ export class SurfacePaintingService {
     else normal.set(0, 1, 0);
 
     if (hit.object) {
+      // Optymalizacja: pomijamy updateMatrixWorld w pętli dla płynności
       normal.transformDirection(hit.object.matrixWorld).normalize();
     }
 
@@ -889,53 +880,61 @@ export class SurfacePaintingService {
 
     const rawProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
     const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
-    const easedPressure = pressure * pressure * (3 - 2 * pressure);
+    
+    // Stały, gęsty spacing dla płynności (ćwierć pędzla)
     const spacingBase = this.computeBrushWorldSpacing();
-    const dynamicSpacing = THREE.MathUtils.lerp(spacingBase * 0.32, spacingBase * 0.22, easedPressure);
+    const dynamicSpacing = spacingBase * 0.25;
 
     if (this.lastBrushPoint) {
-      const segmentVec = this.tempVec3_3.copy(currentPoint).sub(this.lastBrushPoint);
-      const distance = segmentVec.length();
+      const distance = currentPoint.distanceTo(this.lastBrushPoint);
 
+      // --- KLUCZOWA POPRAWKA PŁYNNOŚCI ---
+      // Rysujemy tylko, jeśli przesunęliśmy się o minimalny krok
       if (distance >= dynamicSpacing) {
         this.strokeCurrentLength += distance;
+        
+        // Interpolacja (wypełnianie dziur między ruchem myszki)
         const steps = Math.max(1, Math.floor(distance / dynamicSpacing));
-        const strokeDir = segmentVec.normalize();
+        const strokeDir = this.tempVec3_5.copy(currentPoint).sub(this.lastBrushPoint).normalize();
+        
         if (strokeDir.lengthSq() < 0.01 && this.lastStrokeDir) {
-          strokeDir.copy(this.lastStrokeDir);
+            strokeDir.copy(this.lastStrokeDir);
         }
 
         for (let i = 1; i <= steps; i++) {
           const t = i / steps;
-          const p = this.tempVec3_4.copy(this.lastBrushPoint).lerp(currentPoint, t);
-          const stepTotalLen = this.strokeCurrentLength - distance * (1 - t);
-          const stepPressure = Math.min(1.0, Math.max(0.0, stepTotalLen / this.RAMP_UP_DISTANCE));
-          this.addBrushBlob(p, normal, strokeDir, stepPressure);
+          const p = this.tempVec3_6.copy(this.lastBrushPoint).lerp(currentPoint, t);
+          this.addBrushBlob(p, normal, strokeDir, pressure);
         }
 
         this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
         this.lastStrokeDir.copy(strokeDir);
+        
+        // WAŻNE: Aktualizujemy punkt odniesienia TYLKO po narysowaniu!
+        this.lastBrushPoint.copy(currentPoint);
       }
+      // Jeśli distance jest za mały, NIE aktualizujemy lastBrushPoint.
+      // Czekamy, aż myszka przesunie się dalej. To eliminuje "przerywane linie".
     } else {
-      const defaultDir = this.tempVec3_3.set(0, 1, 0).projectOnPlane(normal);
-      if (defaultDir.lengthSq() < 1e-4) defaultDir.set(1, 0, 0).projectOnPlane(normal);
-      defaultDir.normalize();
+      // Pierwszy punkt
+      const defaultDir = this.tempVec3_5.set(0, 1, 0).projectOnPlane(normal).normalize();
       this.addBrushBlob(currentPoint, normal, defaultDir, 0.0);
+      
       this.lastStrokeDir = this.lastStrokeDir ?? new THREE.Vector3();
       this.lastStrokeDir.copy(defaultDir);
+      
+      this.lastBrushPoint = new THREE.Vector3().copy(currentPoint);
     }
 
-    // Zawsze aktualizujemy instancje po dodaniu punktów, także podczas odtwarzania
+    // Zawsze wymuszamy update mesha w trybie Live
     if (this.brushStrokeMesh) {
       this.brushStrokeMesh.count = this.brushStrokeIndex;
       this.brushStrokeMesh.instanceMatrix.needsUpdate = true;
+      // Rzadsza aktualizacja BoundingSphere dla wydajności
       if (this.brushStrokeIndex % 50 === 0) {
         this.brushStrokeMesh.computeBoundingSphere();
       }
     }
-
-    this.lastBrushPoint = this.lastBrushPoint ?? new THREE.Vector3();
-    this.lastBrushPoint.copy(currentPoint);
   }
 
   private loadCakeTextures(): void {
@@ -1064,57 +1063,43 @@ export class SurfacePaintingService {
     if (this.brushStrokeIndex >= this.brushStrokeCapacity) return;
 
     const anchorGroup = this.paintAnchor;
-
-    // Obliczamy inverse anchor
     if (anchorGroup) {
       anchorGroup.updateMatrixWorld(true);
       this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert();
     }
 
     const radius = this.computeBrushRadius();
-
-    // Obliczanie bazy (worldY, worldX)
     const worldYAxis = this.tempVec3_5.copy(direction).projectOnPlane(normal);
     if (worldYAxis.lengthSq() < 1e-6) worldYAxis.set(1, 0, 0).projectOnPlane(normal);
     worldYAxis.normalize().negate();
 
     const worldXAxis = this.tempVec3_6.crossVectors(worldYAxis, normal).normalize();
-
-    // Offset + Sortowanie (ważne dla unikania migotania Z-fighting wewnątrz pędzla)
     const baseOffset = 0.0005;
-    const sortingOffset = (this.brushStrokeIndex % 100) * 0.000005; // Nieco większy rozrzut
+    const sortingOffset = (this.brushStrokeIndex % 100) * 0.000005;
 
     const positionWorld = this.tempVec3_7
       .copy(point)
       .add(this.tempVec3_4.copy(normal).multiplyScalar(baseOffset + sortingOffset));
 
-    // Tworzenie macierzy świata
-    // tempMatrix = World Matrix
     this.tempMatrix.identity().makeBasis(worldXAxis, worldYAxis, normal);
     this.tempMatrix.setPosition(positionWorld);
 
-    // Transformacja do local space (ParentInverse * World)
-    // tempMatrix2 = Local Matrix
     if (anchorGroup) {
       this.tempMatrix2.copy(this.tempMatrixInverse).multiply(this.tempMatrix);
     } else {
       this.tempMatrix2.copy(this.tempMatrix);
     }
 
-    // Skalowanie i Jitter
     const widthScale = THREE.MathUtils.lerp(1.1, 0.7, pressure);
     const lengthScale = THREE.MathUtils.lerp(1.2, 3.5, pressure);
     const scaleBase = radius * 2.5;
 
-    // Obrót losowy (Jitter) - robimy to na macierzy lokalnej
-    const jitter = (Math.random() - 0.5) * THREE.MathUtils.lerp(0.1, 0.3, pressure);
-    // Używamy tempQuat zamiast alokować nową macierz rotacji
+    // FIX: Jitter (losowa rotacja)
+    const jitter = (Math.random() - 0.5) * 0.5;
     this.tempQuat.setFromAxisAngle(this.tempVec3_4.set(0, 0, 1), jitter);
-    // Mnożenie macierzy przez rotację (tempMatrix jako pomocnicza)
     const rotationMatrix = this.tempMatrix.makeRotationFromQuaternion(this.tempQuat);
-    this.tempMatrix2.multiply(rotationMatrix);
 
-    // Skalowanie
+    this.tempMatrix2.multiply(rotationMatrix);
     this.tempMatrix2.scale(this.tempVec3_4.set(scaleBase * widthScale, scaleBase * lengthScale, 1));
 
     this.brushStrokeMesh.setMatrixAt(this.brushStrokeIndex, this.tempMatrix2);
