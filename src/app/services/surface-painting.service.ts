@@ -1062,10 +1062,15 @@ export class SurfacePaintingService {
     if (!this.brushStrokeMesh) return;
     if (this.brushStrokeIndex >= this.brushStrokeCapacity) return;
 
+    // --- FIX NA SFERĘ POD TORTEM ---
+    // Używamy lokalnej zmiennej dla macierzy odwrotnej, zamiast globalnej tempMatrixInverse,
+    // która może być nadpisywana przez inne operacje w pętli.
+    const parentInverse = new THREE.Matrix4();
+
     const anchorGroup = this.paintAnchor;
     if (anchorGroup) {
       anchorGroup.updateMatrixWorld(true);
-      this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert();
+      parentInverse.copy(anchorGroup.matrixWorld).invert();
     }
 
     const radius = this.computeBrushRadius();
@@ -1085,7 +1090,8 @@ export class SurfacePaintingService {
     this.tempMatrix.setPosition(positionWorld);
 
     if (anchorGroup) {
-      this.tempMatrix2.copy(this.tempMatrixInverse).multiply(this.tempMatrix);
+      // Używamy naszej bezpiecznej zmiennej parentInverse
+      this.tempMatrix2.copy(parentInverse).multiply(this.tempMatrix);
     } else {
       this.tempMatrix2.copy(this.tempMatrix);
     }
