@@ -423,8 +423,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  overflow-y: auto;
+  overflow: hidden;
   position: relative;
+  min-height: 0;
 }
 
 .workspace-sidebar__header {
@@ -465,8 +466,8 @@
   border: 1px solid #1f1f1f;
   border-radius: 12px;
   padding: 8px;
-  min-height: 200px;
-  max-height: calc(100dvh - 320px);
+  min-height: 0;
+  flex: 1;
   overflow-y: auto;
   font-size: calc(13px * var(--scene-tree-scale, 1));
 }
@@ -476,6 +477,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
   font-size: 14px;
 }
 
@@ -545,10 +547,6 @@
   display: grid;
   gap: 4px;
   margin-top: 4px;
-}
-
-.workspace-sidebar__save {
-  width: 100%;
 }
 
 .workspace-viewport {
