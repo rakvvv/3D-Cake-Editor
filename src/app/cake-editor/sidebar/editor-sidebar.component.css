@@ -1,6 +1,6 @@
 .workspace-panel {
-  background: radial-gradient(circle at top left, rgba(41, 182, 255, 0.06), transparent 46%) #111217;
-  border-left: 1px solid #0f1216;
+  background: #141414;
+  border-left: 1px solid #1f1f1f;
   display: flex;
   flex-direction: column;
   padding: 16px;
@@ -22,10 +22,10 @@
 }
 
 .workspace-panel__placeholder {
-  color: #9ba1a9;
+  color: #b5b5b5;
   font-size: 14px;
-  background: #0f1116;
-  border: 1px dashed #1b1f27;
+  background: #1a1a1a;
+  border: 1px dashed #2a2a2a;
   border-radius: 10px;
   padding: 14px;
 }

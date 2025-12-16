@@ -577,15 +577,19 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return node.id;
   }
 
-  isSceneNodeExpanded(nodeId: string): boolean {
-    return this.sceneExpandedNodes.has(nodeId);
+  isSceneNodeExpanded(node: SceneOutlineNode): boolean {
+    return node.parentId === null || this.sceneExpandedNodes.has(node.id);
   }
 
-  toggleSceneNodeExpanded(nodeId: string): void {
-    if (this.sceneExpandedNodes.has(nodeId)) {
-      this.sceneExpandedNodes.delete(nodeId);
+  toggleSceneNodeExpanded(node: SceneOutlineNode): void {
+    if (node.parentId === null) {
+      return;
+    }
+
+    if (this.sceneExpandedNodes.has(node.id)) {
+      this.sceneExpandedNodes.delete(node.id);
     } else {
-      this.sceneExpandedNodes.add(nodeId);
+      this.sceneExpandedNodes.add(node.id);
     }
   }
 

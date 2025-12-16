@@ -27,13 +27,18 @@
   <section class="projects-toolbar">
     <div class="projects-toolbar__inner">
       <div class="projects-toolbar__title">
-        <h1>My projects</h1>
+        <h1>Moje projekty</h1>
         <p class="projects-toolbar__subtitle">Zarządzaj projektami tortów w jednym miejscu</p>
       </div>
 
       <div class="projects-toolbar__search">
         <div class="input input--with-icon">
-          <input type="text" placeholder="Type to search" aria-label="Search projects" />
+          <input
+            type="text"
+            placeholder="Type to search"
+            aria-label="Search projects"
+            [(ngModel)]="searchQuery"
+          />
           <span class="icon-20" aria-hidden="true">⌕</span>
         </div>
       </div>
@@ -77,47 +82,57 @@
 
   <main class="projects-content">
     <div class="projects-grid" [class.projects-grid--list]="viewMode === 'list'" *ngIf="!loading; else loadingTpl">
-      <article class="project-card" [class.project-card--list]="viewMode === 'list'" *ngFor="let project of projects">
-        <header class="project-card__header">
-          <div class="icon-24" aria-hidden="true">📁</div>
-          <div class="project-card__meta">
-            <div class="project-card__title-row">
-              <h2 class="project-card__title" *ngIf="renameProjectId !== project.id; else renameTpl">{{ project.name }}</h2>
-              <div class="project-card__subtitle">Ostatnia edycja: {{ project.updatedAt | date: 'short' }}</div>
+      <ng-container *ngIf="filteredProjects.length; else noResultsTpl">
+        <article
+          class="project-card"
+          [class.project-card--list]="viewMode === 'list'"
+          *ngFor="let project of filteredProjects"
+        >
+          <header class="project-card__header">
+            <div class="icon-24" aria-hidden="true">📁</div>
+            <div class="project-card__meta">
+              <div class="project-card__title-row">
+                <h2 class="project-card__title" *ngIf="renameProjectId !== project.id; else renameTpl">{{ project.name }}</h2>
+                <div class="project-card__subtitle">Ostatnia edycja: {{ project.updatedAt | date: 'short' }}</div>
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <div class="project-card__preview" aria-hidden="true"></div>
+          <div class="project-card__preview" aria-hidden="true"></div>
 
-        <footer class="project-card__footer" *ngIf="renameProjectId !== project.id; else renameActions">
-          <button class="btn btn--ghost btn--small" type="button" (click)="openProject(project.id)">
-            <span class="icon-16" aria-hidden="true">↗</span>
-            <span>Wybierz</span>
-          </button>
-          <div class="project-card__actions">
-            <button class="btn btn--ghost btn--small" type="button" (click)="startRename(project)">
-              Zmień nazwę
+          <footer class="project-card__footer" *ngIf="renameProjectId !== project.id; else renameActions">
+            <button class="btn btn--ghost btn--small" type="button" (click)="openProject(project.id)">
+              <span class="icon-16" aria-hidden="true">↗</span>
+              <span>Wybierz</span>
             </button>
-            <button class="btn btn--primary btn--small" type="button" (click)="deleteProject(project)">
-              Usuń
-            </button>
-          </div>
-        </footer>
-
-        <ng-template #renameTpl>
-          <div class="rename-row">
-            <input [(ngModel)]="renameValue" />
-          </div>
-        </ng-template>
-
-        <ng-template #renameActions>
-          <footer class="project-card__footer">
-            <button class="btn btn--ghost btn--small" type="button" (click)="confirmRename(project)">Zapisz</button>
-            <button class="btn btn--ghost btn--small" type="button" (click)="cancelRename()">Anuluj</button>
+            <div class="project-card__actions">
+              <button class="btn btn--ghost btn--small" type="button" (click)="startRename(project)">
+                Zmień nazwę
+              </button>
+              <button class="btn btn--primary btn--small" type="button" (click)="deleteProject(project)">
+                Usuń
+              </button>
+            </div>
           </footer>
-        </ng-template>
-      </article>
+
+          <ng-template #renameTpl>
+            <div class="rename-row">
+              <input [(ngModel)]="renameValue" />
+            </div>
+          </ng-template>
+
+          <ng-template #renameActions>
+            <footer class="project-card__footer">
+              <button class="btn btn--ghost btn--small" type="button" (click)="confirmRename(project)">Zapisz</button>
+              <button class="btn btn--ghost btn--small" type="button" (click)="cancelRename()">Anuluj</button>
+            </footer>
+          </ng-template>
+        </article>
+      </ng-container>
+
+      <ng-template #noResultsTpl>
+        <div class="projects-empty">Brak wyników dla "{{ searchQuery }}"</div>
+      </ng-template>
 
       <article class="project-card project-card--new" [class.project-card--list]="viewMode === 'list'">
         <div class="project-card__new">
@@ -140,6 +155,19 @@
       </article>
     </div>
   </main>
+
+  <footer class="projects-footer" aria-label="Informacje o aplikacji">
+    <div class="projects-footer__inner">
+      <div class="projects-footer__brand">
+      </div>
+      <div class="projects-footer__links" aria-label="Nawigacja pomocnicza">
+        <a href="#" class="projects-footer__link">Pomoc</a>
+        <a href="#" class="projects-footer__link">Aktualizacje</a>
+        <a href="#" class="projects-footer__link">Polityka prywatności</a>
+      </div>
+      <div class="projects-footer__meta">© 2025 Three Cake Editor</div>
+    </div>
+  </footer>
 </div>
 
 <ng-template #loadingTpl>

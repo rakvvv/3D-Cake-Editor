@@ -369,11 +369,6 @@
           <ng-template #sceneEmpty>
             <div class="scene-tree scene-tree--empty">Brak elementów sceny.</div>
           </ng-template>
-
-          <button class="btn btn--primary workspace-sidebar__save" type="button" (click)="onSaveScene()">
-            <span class="icon-16" aria-hidden="true">💾</span>
-            <span>Zapisz</span>
-          </button>
         </aside>
 
         <section class="workspace-viewport">
@@ -603,12 +598,12 @@
       <button
         type="button"
         class="scene-node__toggle"
-        *ngIf="node.children.length"
-        (click)="toggleSceneNodeExpanded(node.id)"
-        [attr.aria-expanded]="isSceneNodeExpanded(node.id)"
+        *ngIf="node.children.length && node.parentId"
+        (click)="toggleSceneNodeExpanded(node)"
+        [attr.aria-expanded]="isSceneNodeExpanded(node)"
         aria-label="Przełącz rozwinięcie"
       >
-        {{ isSceneNodeExpanded(node.id) ? '▾' : '▸' }}
+        {{ isSceneNodeExpanded(node) ? '▾' : '▸' }}
       </button>
       <div class="scene-node__title" (click)="selectSceneNode(node)">
         <span class="scene-node__icon" aria-hidden="true">
@@ -628,7 +623,7 @@
       </button>
     </div>
 
-    <div class="scene-node__children" *ngIf="node.children.length && isSceneNodeExpanded(node.id)">
+    <div class="scene-node__children" *ngIf="node.children.length && isSceneNodeExpanded(node)">
       <ng-container *ngFor="let child of node.children; trackBy: trackSceneNode">
         <ng-container *ngTemplateOutlet="sceneNodeTpl; context: { node: child }"></ng-container>
       </ng-container>
