@@ -32,6 +32,15 @@ import { EditorSidebarComponent } from './sidebar/editor-sidebar.component';
 import { SidebarExportPanelComponent } from './sidebar/panels/sidebar-export-panel.component';
 import { BrushSettings, SidebarPanelKey, SidebarPaintMode } from './sidebar/sidebar.types';
 
+type HelperSettings = {
+  grid: boolean;
+  axes: boolean;
+  bounding: boolean;
+  highQuality: boolean;
+};
+
+type CameraOption = 'perspective' | 'orthographic' | 'isometric' | 'top' | 'front' | 'right';
+
 @Component({
   selector: 'app-cake-editor',
   standalone: true,
@@ -176,6 +185,21 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public penOpacity = 1;
   public paintingPowerEnabled = true;
 
+  public helperMenuOpen = false;
+  public helpersMasterVisible = false;
+  public helperSettings: HelperSettings = {
+    grid: false,
+    axes: false,
+    bounding: false,
+    highQuality: true,
+  };
+  private helperSnapshot: Partial<HelperSettings> = {};
+  public cameraDropdownOpen = false;
+  public cameraMode: 'perspective' | 'orthographic' = 'perspective';
+  public cameraPreset: 'default' | 'isometric' | 'top' | 'front' | 'right' = 'default';
+  public horizontalOrbitLock = false;
+  public sceneBackground: 'light' | 'dark' = 'dark';
+
   public contextMenuVisible = false;
   public contextMenuX = 0;
   public contextMenuY = 0;
@@ -197,7 +221,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private canvasListenerTarget?: HTMLElement;
   private rightClickDrag?: { x: number; y: number; moved: boolean };
 
-  private readonly handleDocumentClick = () => this.hideContextMenu();
+  private readonly handleDocumentClick = () => {
+    this.hideContextMenu();
+    this.helperMenuOpen = false;
+    this.cameraDropdownOpen = false;
+  };
   private readonly handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       this.hideContextMenu();
@@ -208,6 +236,12 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.shouldHandleResetShortcut(event)) {
       event.preventDefault();
       this.resetCameraView();
+      return;
+    }
+
+    if (this.shouldHandleFocusShortcut(event)) {
+      event.preventDefault();
+      this.onFocusButtonClick();
     }
   };
 
@@ -375,6 +409,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneService.init(this.container.nativeElement, cloneCakeOptions(preset.options));
     this.sceneInitialized = true;
     this.options = cloneCakeOptions(preset.options);
+    this.sceneBackground = this.sceneService.getBackgroundMode();
+    this.applyHelperSettings();
+    this.sceneService.setCameraMode(this.cameraMode);
+    this.sceneService.setCameraPreset(this.cameraPreset);
+    this.sceneService.setHorizontalOrbitLock(this.horizontalOrbitLock);
     void this.sceneService.applyDecoratedCakePreset(preset);
   }
 
@@ -410,6 +449,111 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.options = newOptions;
     this.sceneService.updateCakeOptions(newOptions);
     this.syncSetupStateWithOptions();
+  }
+
+  toggleHelperMenu(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.cameraDropdownOpen = false;
+    this.helperMenuOpen = !this.helperMenuOpen;
+  }
+
+  toggleHelpersVisibility(): void {
+    const nextVisible = !this.helpersMasterVisible;
+    if (!nextVisible) {
+      this.helperSnapshot = { ...this.helperSettings };
+      this.helperSettings = {
+        ...this.helperSettings,
+        grid: false,
+        axes: false,
+        bounding: false,
+      };
+    } else {
+      const restored: HelperSettings = {
+        grid: true,
+        axes: true,
+        bounding: true,
+        highQuality: this.helperSettings.highQuality,
+        ...this.helperSnapshot,
+      };
+      this.helperSettings = restored;
+    }
+
+    this.helpersMasterVisible = nextVisible;
+    this.applyHelperSettings();
+  }
+
+  toggleHelperFlag(key: keyof HelperSettings): void {
+    this.helperSettings = {
+      ...this.helperSettings,
+      [key]: !this.helperSettings[key],
+    };
+    this.helpersMasterVisible =
+      this.helperSettings.grid || this.helperSettings.axes || this.helperSettings.bounding;
+    this.applyHelperSettings();
+  }
+
+  private applyHelperSettings(): void {
+    const enabled = this.helpersMasterVisible;
+    this.sceneService.setGridVisible(enabled && this.helperSettings.grid);
+    this.sceneService.setAxesVisible(enabled && this.helperSettings.axes);
+    this.sceneService.setBoundingBoxesVisible(enabled && this.helperSettings.bounding);
+    this.sceneService.setHighQualityMode(this.helperSettings.highQuality);
+  }
+
+  toggleCameraDropdown(event?: Event): void {
+    event?.stopPropagation();
+    this.helperMenuOpen = false;
+    this.cameraDropdownOpen = !this.cameraDropdownOpen;
+  }
+
+  selectCameraOption(option: CameraOption): void {
+    this.cameraDropdownOpen = false;
+    this.cameraPreset = option === 'perspective' || option === 'orthographic' ? 'default' : option;
+    this.cameraMode = option === 'perspective' ? 'perspective' : 'orthographic';
+
+    if (option === 'perspective') {
+      this.sceneService.setCameraMode('perspective');
+      this.sceneService.setCameraPreset('default');
+    } else if (option === 'orthographic') {
+      this.sceneService.setCameraMode('orthographic');
+      this.sceneService.setCameraPreset('default');
+    } else {
+      this.sceneService.setCameraPreset(option);
+    }
+
+    this.showStatus(`Tryb kamery: ${this.resolveCameraLabel(option)}.`);
+  }
+
+  toggleHorizontalOrbitLock(): void {
+    this.horizontalOrbitLock = !this.horizontalOrbitLock;
+    this.sceneService.setHorizontalOrbitLock(this.horizontalOrbitLock);
+    this.showStatus(this.horizontalOrbitLock ? 'Orbita zablokowana do poziomu.' : 'Orbita odblokowana.');
+  }
+
+  getCameraLabel(): string {
+    if (this.cameraPreset !== 'default') {
+      return this.resolveCameraLabel(this.cameraPreset);
+    }
+
+    return this.resolveCameraLabel(this.cameraMode);
+  }
+
+  private resolveCameraLabel(option: CameraOption): string {
+    switch (option) {
+      case 'orthographic':
+        return 'Orthographic';
+      case 'isometric':
+        return 'Isometric';
+      case 'top':
+        return 'Top';
+      case 'front':
+        return 'Front';
+      case 'right':
+        return 'Right';
+      default:
+        return 'Perspective';
+    }
   }
 
   continueToWorkspace(): void {
@@ -925,8 +1069,18 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.resetCameraView();
   }
 
-  onToolbarResetCamera(): void {
-    this.resetCameraView();
+  onFocusButtonClick(): void {
+    const result = this.sceneService.frameSelectionOrCake();
+    this.showStatus(result.message);
+  }
+
+  onFocusButtonDoubleClick(): void {
+    this.sceneService.resetOrbitPivot();
+    this.showStatus('Środek obrotu ustawiony na tort.');
+  }
+
+  onToggleSceneBackground(): void {
+    this.sceneBackground = this.sceneService.toggleBackgroundMode();
   }
 
   onToolbarUndo(): void {
@@ -1158,6 +1312,18 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return false;
     }
 
+    return this.isShortcutAllowedTarget(event);
+  }
+
+  private shouldHandleFocusShortcut(event: KeyboardEvent): boolean {
+    if (event.key.toLowerCase() !== 'f' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return false;
+    }
+
+    return this.isShortcutAllowedTarget(event);
+  }
+
+  private isShortcutAllowedTarget(event: KeyboardEvent): boolean {
     const target = event.target as HTMLElement | null;
     if (!target) {
       return true;

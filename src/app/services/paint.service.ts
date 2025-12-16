@@ -165,7 +165,7 @@ export class PaintService {
   public async handlePaint(
     event: MouseEvent,
     renderer: THREE.WebGLRenderer,
-    camera: THREE.PerspectiveCamera,
+    camera: THREE.Camera,
     scene: THREE.Scene,
     cakeBase: THREE.Object3D | null,
     mouse: THREE.Vector2,
