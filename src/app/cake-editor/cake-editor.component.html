@@ -398,17 +398,76 @@
 
             <div class="viewport-bottom-bar">
               <div class="viewport-camera">
-                <button class="btn btn--ghost icon-only" type="button" title="Orbit">
-                  <span class="icon-16" aria-hidden="true">🎥</span>
-                </button>
-                <button class="btn btn--ghost icon-only" type="button" title="Front">
+                <div class="helper-dropdown" [class.helper-dropdown--open]="helperMenuOpen">
+                  <button
+                    class="btn btn--ghost icon-only"
+                    type="button"
+                    title="Widok / Helpery"
+                    (click)="toggleHelpersVisibility()"
+                    (contextmenu)="toggleHelperMenu($event)"
+                  >
+                    <span class="icon-16" aria-hidden="true">🧱</span>
+                  </button>
+                  <div class="helper-dropdown__menu" *ngIf="helperMenuOpen">
+                    <div class="helper-dropdown__header">Helpery</div>
+                    <button class="helper-dropdown__item" type="button" (click)="toggleHelpersVisibility()">
+                      <span>{{ helpersMasterVisible ? 'Ukryj wszystkie' : 'Pokaż wszystkie' }}</span>
+                    </button>
+                    <div class="helper-dropdown__divider"></div>
+                    <label class="helper-dropdown__item helper-dropdown__item--check">
+                      <input type="checkbox" [checked]="helperSettings.grid && helpersMasterVisible" (change)="toggleHelperFlag('grid')" />
+                      <span>Grid</span>
+                    </label>
+                    <label class="helper-dropdown__item helper-dropdown__item--check">
+                      <input type="checkbox" [checked]="helperSettings.axes && helpersMasterVisible" (change)="toggleHelperFlag('axes')" />
+                      <span>Osie świata</span>
+                    </label>
+                    <label class="helper-dropdown__item helper-dropdown__item--check">
+                      <input type="checkbox" [checked]="helperSettings.anchors && helpersMasterVisible" (change)="toggleHelperFlag('anchors')" />
+                      <span>Ankory / sloty</span>
+                    </label>
+                    <label class="helper-dropdown__item helper-dropdown__item--check">
+                      <input type="checkbox" [checked]="helperSettings.outline && helpersMasterVisible" (change)="toggleHelperFlag('outline')" />
+                      <span>Obrys tortu</span>
+                    </label>
+                    <label class="helper-dropdown__item helper-dropdown__item--check">
+                      <input type="checkbox" [checked]="helperSettings.bounding && helpersMasterVisible" (change)="toggleHelperFlag('bounding')" />
+                      <span>Bounding boxy</span>
+                    </label>
+                    <label class="helper-dropdown__item helper-dropdown__item--check">
+                      <input type="checkbox" [checked]="helperSettings.highQuality" (change)="toggleHelperFlag('highQuality')" />
+                      <span>Wysoka jakość (cienie)</span>
+                    </label>
+                  </div>
+                </div>
+                <button
+                  class="btn btn--ghost icon-only"
+                  type="button"
+                  title="Wycentruj na zaznaczeniu (F)"
+                  (click)="onFocusButtonClick()"
+                  (dblclick)="onFocusButtonDoubleClick()"
+                >
                   <span class="icon-16" aria-hidden="true">🎯</span>
                 </button>
               </div>
-              <div class="select-row select-row--compact">
-                <div class="select-row__input">
-                  <span>Perspective</span>
+              <div class="select-row select-row--compact viewport-camera__select" [class.viewport-camera__select--open]="cameraDropdownOpen">
+                <button class="select-row__input" type="button" (click)="toggleCameraDropdown()" title="Tryb kamery">
+                  <span>{{ getCameraLabel() }}</span>
                   <span class="icon-12" aria-hidden="true">▾</span>
+                </button>
+                <div class="helper-dropdown__menu helper-dropdown__menu--right" *ngIf="cameraDropdownOpen">
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('perspective')">Perspective</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('orthographic')">Orthographic</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('isometric')">Isometric</button>
+                  <div class="helper-dropdown__divider"></div>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('top')">Top</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('front')">Front</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('right')">Right</button>
+                  <div class="helper-dropdown__divider"></div>
+                  <label class="helper-dropdown__item helper-dropdown__item--check">
+                    <input type="checkbox" [checked]="horizontalOrbitLock" (change)="toggleHorizontalOrbitLock()" />
+                    <span>Lock orbit to horizontal</span>
+                  </label>
                 </div>
               </div>
             </div>

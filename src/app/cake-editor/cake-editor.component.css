@@ -624,6 +624,83 @@
   gap: 8px;
 }
 
+.helper-dropdown {
+  position: relative;
+}
+
+.helper-dropdown__menu {
+  position: absolute;
+  bottom: 44px;
+  left: 0;
+  min-width: 200px;
+  background: #0f0f0f;
+  border: 1px solid #1f1f1f;
+  border-radius: 10px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 5;
+}
+
+.helper-dropdown__menu--right {
+  left: auto;
+  right: 0;
+  bottom: 40px;
+}
+
+.helper-dropdown__header {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #9ca3af;
+  letter-spacing: 0.08em;
+  padding: 4px 6px;
+}
+
+.helper-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: #f3f4f6;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.helper-dropdown__item:hover {
+  background: #1f1f1f;
+}
+
+.helper-dropdown__item--check {
+  font-size: 13px;
+}
+
+.helper-dropdown__item input[type='checkbox'] {
+  accent-color: #f97316;
+}
+
+.helper-dropdown__divider {
+  height: 1px;
+  background: #1f1f1f;
+  margin: 4px 0;
+}
+
+.viewport-camera__select {
+  position: relative;
+}
+
+.viewport-camera__select .select-row__input {
+  cursor: pointer;
+}
+
+.viewport-camera__select--open .select-row__input {
+  border-color: #f97316;
+}
+
 .workspace-panel {
   background: #151515;
   padding: 16px;

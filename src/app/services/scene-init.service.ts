@@ -5,16 +5,25 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 @Injectable({ providedIn: 'root' })
 export class SceneInitService {
   public scene!: THREE.Scene;
-  public camera!: THREE.PerspectiveCamera;
+  public camera!: THREE.Camera;
   public renderer!: THREE.WebGLRenderer;
   public orbit!: OrbitControls;
+  public cameraMode: 'perspective' | 'orthographic' = 'perspective';
+  public cameraPreset: 'default' | 'isometric' | 'top' | 'front' | 'right' = 'default';
   private initialCameraPosition = new THREE.Vector3();
   private initialOrbitTarget = new THREE.Vector3();
   private orbitInteracting = false;
   private lastOrbitInteractionTime = 0;
   private orbitChangedDuringInteraction = false;
+  private perspectiveCamera!: THREE.PerspectiveCamera;
+  private orthographicCamera!: THREE.OrthographicCamera;
+  private container?: HTMLElement;
+  private baseMinPolarAngle = THREE.MathUtils.degToRad(10);
+  private baseMaxPolarAngle = THREE.MathUtils.degToRad(170);
+  private lockHorizontalOrbit = false;
 
   public init(container: HTMLElement): void {
+    this.container = container;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xffffff);
 
@@ -24,7 +33,8 @@ export class SceneInitService {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    this.createCameras(container.clientWidth, container.clientHeight);
+    this.camera = this.perspectiveCamera;
     this.camera.position.set(-10, 30, 30);
     this.initialCameraPosition.copy(this.camera.position);
 
@@ -34,8 +44,8 @@ export class SceneInitService {
     this.orbit.dampingFactor = 0.08;
     this.orbit.minDistance = 4;
     this.orbit.maxDistance = 150;
-    this.orbit.minPolarAngle = THREE.MathUtils.degToRad(10);
-    this.orbit.maxPolarAngle = THREE.MathUtils.degToRad(170);
+    this.orbit.minPolarAngle = this.baseMinPolarAngle;
+    this.orbit.maxPolarAngle = this.baseMaxPolarAngle;
     this.initialOrbitTarget.copy(this.orbit.target);
 
     this.orbit.addEventListener('start', () => {
@@ -68,10 +78,24 @@ export class SceneInitService {
     this.animate();
 
     window.addEventListener('resize', () => {
-      this.camera.aspect = container.clientWidth / container.clientHeight;
-      this.camera.updateProjectionMatrix();
-      this.renderer.setSize(container.clientWidth, container.clientHeight);
+      this.handleResize();
     });
+  }
+
+  private createCameras(width: number, height: number): void {
+    const aspect = width / height;
+    this.perspectiveCamera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+
+    const frustumHeight = 32;
+    const frustumWidth = frustumHeight * aspect;
+    this.orthographicCamera = new THREE.OrthographicCamera(
+      -frustumWidth / 2,
+      frustumWidth / 2,
+      frustumHeight / 2,
+      -frustumHeight / 2,
+      -1000,
+      1000,
+    );
   }
 
   private animate(): void {
@@ -105,8 +129,10 @@ export class SceneInitService {
     const minAngleDeg = 15 - normalizedHeight * 10;
     const maxAngleDeg = 165 + normalizedHeight * 10;
 
-    this.orbit.minPolarAngle = THREE.MathUtils.degToRad(minAngleDeg);
-    this.orbit.maxPolarAngle = THREE.MathUtils.degToRad(maxAngleDeg);
+    if (!this.lockHorizontalOrbit) {
+      this.orbit.minPolarAngle = THREE.MathUtils.degToRad(minAngleDeg);
+      this.orbit.maxPolarAngle = THREE.MathUtils.degToRad(maxAngleDeg);
+    }
 
     this.initialOrbitTarget.copy(this.orbit.target);
     this.orbit.update();
@@ -136,5 +162,130 @@ export class SceneInitService {
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     return now - this.lastOrbitInteractionTime < bufferMs;
+  }
+
+  public setCameraMode(mode: 'perspective' | 'orthographic'): void {
+    if (this.cameraMode === mode) {
+      return;
+    }
+
+    this.cameraMode = mode;
+    const currentPosition = this.camera.position.clone();
+    const currentUp = this.camera.up.clone();
+    const target = this.orbit?.target.clone() ?? new THREE.Vector3();
+
+    this.camera = mode === 'perspective' ? this.perspectiveCamera : this.orthographicCamera;
+    this.camera.position.copy(currentPosition);
+    this.camera.up.copy(currentUp);
+    this.camera.lookAt(target);
+    if (mode === 'orthographic') {
+      this.adjustOrthographicZoomToDistance();
+    }
+
+    if (this.orbit) {
+      this.orbit.object = this.camera as THREE.Camera;
+      this.orbit.update();
+    }
+  }
+
+  public setCameraPreset(preset: 'default' | 'isometric' | 'top' | 'front' | 'right'): void {
+    this.cameraPreset = preset;
+    const target = this.orbit?.target ?? new THREE.Vector3();
+
+    if (preset === 'default') {
+      this.setCameraMode('perspective');
+      this.camera.position.copy(this.initialCameraPosition);
+      this.camera.up.set(0, 1, 0);
+    } else if (preset === 'isometric') {
+      this.setCameraMode('orthographic');
+      this.camera.position.set(18, 18, 18);
+    } else if (preset === 'top') {
+      this.setCameraMode('orthographic');
+      this.camera.position.set(target.x, target.y + 40, target.z);
+      this.camera.up.set(0, 0, -1);
+    } else if (preset === 'front') {
+      this.setCameraMode('orthographic');
+      this.camera.position.set(target.x, target.y + 4, target.z + 40);
+      this.camera.up.set(0, 1, 0);
+    } else if (preset === 'right') {
+      this.setCameraMode('orthographic');
+      this.camera.position.set(target.x + 40, target.y + 4, target.z);
+      this.camera.up.set(0, 1, 0);
+    }
+
+    this.camera.lookAt(target);
+    this.adjustOrthographicZoomToDistance();
+    this.orbit?.update();
+  }
+
+  public setHorizontalOrbitLock(enabled: boolean): void {
+    this.lockHorizontalOrbit = enabled;
+    if (!this.orbit) {
+      return;
+    }
+
+    if (enabled) {
+      this.orbit.minPolarAngle = Math.PI / 2;
+      this.orbit.maxPolarAngle = Math.PI / 2;
+    } else {
+      this.orbit.minPolarAngle = this.baseMinPolarAngle;
+      this.orbit.maxPolarAngle = this.baseMaxPolarAngle;
+    }
+    this.orbit.update();
+  }
+
+  public getOrbitTarget(): THREE.Vector3 {
+    return this.orbit?.target.clone() ?? new THREE.Vector3();
+  }
+
+  public setOrbitTarget(target: THREE.Vector3): void {
+    if (!this.orbit || !this.camera) {
+      return;
+    }
+
+    this.orbit.target.copy(target);
+    this.camera.lookAt(target);
+    this.orbit.update();
+  }
+
+  public resetOrbitPivot(): void {
+    this.setOrbitTarget(this.initialOrbitTarget.clone());
+  }
+
+  public adjustOrthographicZoomToDistance(): void {
+    if (!(this.camera instanceof THREE.OrthographicCamera)) {
+      return;
+    }
+
+    const distance = this.camera.position.length();
+    const base = 25;
+    this.camera.zoom = Math.max(0.4, Math.min(4, base / Math.max(distance, 1)));
+    this.camera.updateProjectionMatrix();
+  }
+
+  public handleResize(): void {
+    if (!this.container) {
+      return;
+    }
+
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    const aspect = width / height;
+    this.renderer.setSize(width, height);
+
+    this.perspectiveCamera.aspect = aspect;
+    this.perspectiveCamera.updateProjectionMatrix();
+
+    const frustumHeight = 32;
+    const frustumWidth = frustumHeight * aspect;
+    this.orthographicCamera.left = -frustumWidth / 2;
+    this.orthographicCamera.right = frustumWidth / 2;
+    this.orthographicCamera.top = frustumHeight / 2;
+    this.orthographicCamera.bottom = -frustumHeight / 2;
+    this.orthographicCamera.updateProjectionMatrix();
+
+    if (this.cameraMode === 'orthographic') {
+      this.adjustOrthographicZoomToDistance();
+    }
   }
 }

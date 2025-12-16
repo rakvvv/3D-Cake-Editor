@@ -61,6 +61,11 @@ export class ThreeSceneService {
   private mouse = new THREE.Vector2();
   private boxHelper: THREE.BoxHelper | null = null;
   private clipboard: DecorationClipboardEntry | null = null;
+  private gridHelper: THREE.GridHelper | null = null;
+  private axesHelper: THREE.AxesHelper | null = null;
+  private cakeOutlineHelper: THREE.BoxHelper | null = null;
+  private boundingBoxesEnabled = true;
+  private highQualityMode = true;
   private readonly anchorOccupants = new Map<string, THREE.Object3D>();
   private readonly outlineChanged = new Subject<void>();
   public readonly outlineChanges$ = this.outlineChanged.asObservable();
@@ -94,7 +99,7 @@ export class ThreeSceneService {
     this.outlineChanged.next();
   }
 
-  public get camera(): THREE.PerspectiveCamera {
+  public get camera(): THREE.Camera {
     return this.sceneInitService.camera;
   }
 
@@ -125,8 +130,8 @@ export class ThreeSceneService {
       () => this.pasteDecoration(),
     );
 
-    const grid = new THREE.GridHelper(50, 50);
-    this.scene.add(grid);
+    this.gridHelper = new THREE.GridHelper(50, 50);
+    this.scene.add(this.gridHelper);
 
     this.rebuildCake();
 
@@ -320,6 +325,94 @@ export class ThreeSceneService {
     const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * options.cake_size : options.cake_size;
     this.transformControlsService.updateCakeSize(effectiveSize);
     this.sceneInitService.updateOrbitForCake(effectiveSize);
+    this.updateCakeOutlineHelper();
+  }
+
+  public setGridVisible(visible: boolean): void {
+    if (!this.gridHelper) {
+      this.gridHelper = new THREE.GridHelper(50, 50);
+      this.scene.add(this.gridHelper);
+    }
+    this.gridHelper.visible = visible;
+  }
+
+  public setAxesVisible(visible: boolean): void {
+    if (!this.axesHelper) {
+      this.axesHelper = new THREE.AxesHelper(3);
+      this.scene.add(this.axesHelper);
+    }
+    this.axesHelper.visible = visible;
+  }
+
+  public setCakeOutlineVisible(visible: boolean): void {
+    if (!visible) {
+      this.disposeCakeOutline();
+      return;
+    }
+
+    if (!this.cakeBase) {
+      return;
+    }
+
+    if (!this.cakeOutlineHelper) {
+      this.cakeOutlineHelper = new THREE.BoxHelper(this.cakeBase, 0x3b82f6);
+      this.scene.add(this.cakeOutlineHelper);
+    }
+
+    this.cakeOutlineHelper.visible = true;
+    this.cakeOutlineHelper.update();
+  }
+
+  public setBoundingBoxesVisible(visible: boolean): void {
+    this.boundingBoxesEnabled = visible;
+    if (!visible) {
+      this.hideBoxHelper();
+    } else {
+      const selected = this.transformControlsService.getSelectedObject();
+      if (selected) {
+        this.showBoxHelperFor(selected);
+      }
+    }
+  }
+
+  public setAnchorMarkersVisible(visible: boolean): void {
+    this.anchorPresetsService.setMarkersVisible(visible);
+  }
+
+  public areAnchorMarkersVisible(): boolean {
+    return this.anchorPresetsService.areMarkersVisible();
+  }
+
+  public setHighQualityMode(enabled: boolean): void {
+    this.highQualityMode = enabled;
+    this.sceneInitService.renderer.shadowMap.enabled = enabled;
+    this.scene.traverse((child) => {
+      if ((child as THREE.Light).isLight) {
+        (child as THREE.Light).castShadow = enabled;
+      }
+    });
+  }
+
+  public isHighQualityMode(): boolean {
+    return this.highQualityMode;
+  }
+
+  public setCameraMode(mode: 'perspective' | 'orthographic'): void {
+    this.sceneInitService.setCameraMode(mode);
+  }
+
+  public setCameraPreset(preset: 'default' | 'isometric' | 'top' | 'front' | 'right'): void {
+    this.sceneInitService.setCameraPreset(preset);
+  }
+
+  public setHorizontalOrbitLock(enabled: boolean): void {
+    this.sceneInitService.setHorizontalOrbitLock(enabled);
+  }
+
+  public resetOrbitPivot(): void {
+    if (this.cakeMetadata) {
+      this.sceneInitService.resetOrbitPivot();
+    }
   }
 
   private rebuildCake(): void {
@@ -350,6 +443,7 @@ export class ThreeSceneService {
     const effectiveSize = this.cakeMetadata ? this.cakeMetadata.totalHeight * this.options.cake_size : this.options.cake_size;
     this.transformControlsService.updateCakeSize(effectiveSize);
     this.sceneInitService.updateOrbitForCake(effectiveSize);
+    this.updateCakeOutlineHelper();
 
     if (snappedState.length) {
       this.snapService.restoreSnappedDecorations(snappedState);
@@ -397,11 +491,31 @@ export class ThreeSceneService {
 
     waferObjects.forEach((wafer) => this.disposeWaferObject(wafer));
 
+    this.disposeCakeOutline();
     this.cakeBase = null;
     this.cakeLayers = [];
     this.cakeMetadata = null;
     this.anchorPresetsService.setContext(this.scene, null, null);
     this.snapService.setCakeBase(null);
+  }
+
+  private updateCakeOutlineHelper(): void {
+    if (!this.cakeOutlineHelper || !this.cakeBase) {
+      return;
+    }
+
+    this.cakeOutlineHelper.update();
+  }
+
+  private disposeCakeOutline(): void {
+    if (!this.cakeOutlineHelper) {
+      return;
+    }
+
+    this.scene.remove(this.cakeOutlineHelper);
+    this.cakeOutlineHelper.geometry.dispose();
+    (this.cakeOutlineHelper.material as THREE.Material).dispose();
+    this.cakeOutlineHelper = null;
   }
 
   private disposeGlazeObject(object: THREE.Object3D): void {
@@ -973,6 +1087,10 @@ export class ThreeSceneService {
 
   // --- Funkcje pomocnicze dla BoxHelper ---
   private showBoxHelperFor(object: THREE.Object3D): void {
+    if (!this.boundingBoxesEnabled) {
+      return;
+    }
+
     this.hideBoxHelper(); // Usuń stary
     this.boxHelper = new THREE.BoxHelper(object, 0xff0000); // Czerwony kolor
     this.scene.add(this.boxHelper);
@@ -995,6 +1113,44 @@ export class ThreeSceneService {
     }
   }
   // --- Koniec funkcji BoxHelper ---
+
+  private frameObject(object: THREE.Object3D): void {
+    const boundingBox = new THREE.Box3().setFromObject(object);
+    if (boundingBox.isEmpty()) {
+      return;
+    }
+
+    const size = boundingBox.getSize(new THREE.Vector3());
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    const maxSize = Math.max(size.x, size.y, size.z);
+    const padding = 1.6;
+
+    const currentDirection = this.sceneInitService.camera.position
+      .clone()
+      .sub(this.sceneInitService.getOrbitTarget())
+      .normalize();
+    if (currentDirection.lengthSq() < 1e-4) {
+      currentDirection.set(1, 1, 1).normalize();
+    }
+
+    if (this.sceneInitService.camera instanceof THREE.PerspectiveCamera) {
+      const camera = this.sceneInitService.camera as THREE.PerspectiveCamera;
+      const distance = (maxSize * padding) / Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      camera.position.copy(center.clone().add(currentDirection.multiplyScalar(distance + maxSize)));
+      camera.lookAt(center);
+    } else if (this.sceneInitService.camera instanceof THREE.OrthographicCamera) {
+      const camera = this.sceneInitService.camera as THREE.OrthographicCamera;
+      const viewWidth = camera.right - camera.left;
+      const viewHeight = camera.top - camera.bottom;
+      const requiredZoom = Math.min(viewWidth / (size.x * padding), viewHeight / (size.y * padding));
+      camera.zoom = Math.max(0.3, Math.min(6, requiredZoom));
+      camera.position.copy(center.clone().add(currentDirection.multiplyScalar(maxSize * padding * 2)));
+      camera.lookAt(center);
+      camera.updateProjectionMatrix();
+    }
+
+    this.sceneInitService.setOrbitTarget(center);
+  }
 
   public removeDecoration(object: THREE.Object3D): void {
     if (!object) {
@@ -1181,6 +1337,34 @@ export class ThreeSceneService {
     const modelId = (target.userData['modelFileName'] as string | undefined) ?? null;
     this.anchorPresetsService.setHighlightedDecoration(modelId);
     return true;
+  }
+
+  public frameSelection(): { success: boolean; message: string } {
+    const selection = this.transformControlsService.getSelectedObject();
+    if (!selection) {
+      return { success: false, message: 'Brak zaznaczonego obiektu do wycentrowania.' };
+    }
+
+    this.frameObject(selection);
+    return { success: true, message: 'Wycentrowano widok na zaznaczeniu.' };
+  }
+
+  public frameCake(): { success: boolean; message: string } {
+    if (!this.cakeBase) {
+      return { success: false, message: 'Brak tortu do wycentrowania.' };
+    }
+
+    this.frameObject(this.cakeBase);
+    return { success: true, message: 'Widok ustawiony na tort.' };
+  }
+
+  public frameSelectionOrCake(): { success: boolean; message: string } {
+    const selection = this.transformControlsService.getSelectedObject();
+    if (selection) {
+      return this.frameSelection();
+    }
+
+    return this.frameCake();
   }
 
   public setDecorationVisibility(id: string, visible: boolean): boolean {
