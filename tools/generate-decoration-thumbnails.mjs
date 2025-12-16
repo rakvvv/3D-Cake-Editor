@@ -26,6 +26,7 @@ function createServer() {
   const app = express();
   app.use(express.static(path.join(projectRoot, 'public')));
   app.use('/tools', express.static(path.join(projectRoot, 'tools')));
+  app.use('/node_modules', express.static(path.join(projectRoot, 'node_modules')));
   return new Promise((resolve) => {
     const server = app.listen(PORT, () => {
       console.log(`Static server running at http://localhost:${PORT}`);
@@ -47,8 +48,17 @@ async function generateThumbnails(force = false) {
   const decorations = await loadDecorations();
   await ensureOutputDir();
   const server = await createServer();
-  const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--enable-webgl',
+      '--ignore-gpu-blocklist',
+      '--use-gl=angle',
+      '--use-angle=swiftshader',
+    ],
+  });
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 256, height: 256 });
@@ -67,6 +77,15 @@ async function generateThumbnails(force = false) {
       try {
         await page.goto(rendererUrl, { waitUntil: 'networkidle0' });
         await page.waitForFunction(() => window.__THUMB_READY__ === true, { timeout: 30000 });
+
+        const ok = await page.evaluate(() => window.__THUMB_OK__ === true);
+        if (!ok) {
+          console.error(`Renderer failed for ${decoration.id}. Skipping screenshot.`);
+          continue;
+        }
+
+        await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+
         await page.screenshot({ path: outputPath });
         successCount += 1;
         console.log(`Generated thumbnail for ${decoration.id}`);

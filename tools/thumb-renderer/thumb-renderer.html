@@ -37,23 +37,39 @@
       font-size: 14px;
       text-align: center;
       padding: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.2;
     }
   </style>
 </head>
 <body>
 <div id="renderer-container"></div>
-<div id="error" hidden>Failed to load model</div>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "/node_modules/three/build/three.module.js",
+      "three/addons/": "/node_modules/three/examples/jsm/"
+    }
+  }
+</script>
 <script type="module">
-  import * as THREE from 'https://unpkg.com/three@0.174.0/build/three.module.js';
-  import { GLTFLoader } from 'https://unpkg.com/three@0.174.0/examples/jsm/loaders/GLTFLoader.js';
-  import { KTX2Loader } from 'https://unpkg.com/three@0.174.0/examples/jsm/loaders/KTX2Loader.js';
-  import { MeshoptDecoder } from 'https://unpkg.com/three@0.174.0/examples/jsm/libs/meshopt_decoder.module.js';
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+  import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+  import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
+  window.__THUMB_READY__ = false;
+  window.__THUMB_OK__ = false;
   const params = new URLSearchParams(window.location.search);
   const modelUrl = params.get('model');
   const container = document.getElementById('renderer-container');
   const errorEl = document.getElementById('error');
   const targetSize = 256;
+
+
+  console.log('THUMB RENDERER VERSION', new Date().toISOString());
 
   if (!modelUrl) {
     errorEl.textContent = 'Missing model query param';
@@ -66,7 +82,7 @@
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(targetSize, targetSize);
   renderer.setPixelRatio(1);
-  renderer.setClearColor(0xf8f8f8, 1);
+  renderer.setClearColor(0x1b1b1f, 1);
   container.appendChild(renderer.domElement);
 
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 2000);
@@ -80,6 +96,9 @@
   scene.add(dir);
 
   const loader = new GLTFLoader();
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('/node_modules/three/examples/jsm/libs/draco/');
+  loader.setDRACOLoader(dracoLoader);
   const ktx2Loader = new KTX2Loader();
   ktx2Loader.setTranscoderPath('/assets/ktx2/');
   ktx2Loader.detectSupport(renderer);
@@ -87,35 +106,71 @@
   loader.setMeshoptDecoder(MeshoptDecoder);
 
   function fitCameraToObject(object) {
-    const boundingBox = new THREE.Box3().setFromObject(object);
-    const size = boundingBox.getSize(new THREE.Vector3());
-    const center = boundingBox.getCenter(new THREE.Vector3());
+    object.updateWorldMatrix(true, true);
 
-    const maxSize = Math.max(size.x, size.y, size.z);
-    const radius = maxSize * 0.5;
+    const box = new THREE.Box3().setFromObject(object);
+    const center = box.getCenter(new THREE.Vector3());
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+
+    object.position.sub(center);
+    object.updateWorldMatrix(true, true);
+
+    const radius = Math.max(sphere.radius, 1e-6);
     const fov = THREE.MathUtils.degToRad(camera.fov);
-    const distance = radius / Math.sin(fov / 2) + maxSize * 0.6;
 
-    const direction = new THREE.Vector3(1.2, 1, 1.4).normalize();
-    camera.position.copy(center.clone().add(direction.multiplyScalar(distance)));
-    camera.lookAt(center);
+    const distance = radius / Math.sin(fov / 2);
+
+    const dir = new THREE.Vector3(1.2, 1.0, 1.4).normalize();
+    camera.position.copy(dir.multiplyScalar(distance * 1.25)); // margines
+    camera.near = distance / 100;
+    camera.far = distance * 100;
+    camera.updateProjectionMatrix();
+    camera.lookAt(0, 0, 0);
   }
 
-  function markReady() {
-    window.__THUMB_READY__ = true;
-  }
+  console.log('Attempting to load model from:', modelUrl);
+  loader.load(
+    modelUrl,
+    (gltf) => {
+      console.log('Model loaded successfully');
+      const root = new THREE.Group();
+      (gltf.scenes?.length ? gltf.scenes : [gltf.scene]).forEach(s => s && root.add(s));
+      scene.add(root);
+      root.updateWorldMatrix(true, true);
+      root.traverse((o) => {
+        if (o.isMesh && o.geometry) {
+          if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+          if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+          o.frustumCulled = false;
+        }
+      });
+      scene.add(root);
+      fitCameraToObject(root);
 
-  loader.load(modelUrl, (gltf) => {
-    const root = gltf.scene || gltf.scenes[0];
-    scene.add(root);
-    fitCameraToObject(root);
-    renderer.render(scene, camera);
-    markReady();
-  }, undefined, (error) => {
-    console.error('Failed to load model', error);
-    errorEl.hidden = false;
-    markReady();
-  });
+      renderer.render(scene, camera);
+      requestAnimationFrame(() => {
+        renderer.render(scene, camera);
+        requestAnimationFrame(() => {
+          window.__THUMB_OK__ = true;
+          window.__THUMB_READY__ = true;
+        });
+      });
+    },
+    (progress) => {
+      console.log(`Loading progress: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
+    },
+    (error) => {
+      console.error('FULL ERROR OBJECT:', error);
+      errorEl.hidden = false;
+
+      if (error.target && error.target.status) {
+        errorEl.textContent = `Network Error: ${error.target.status} ${error.target.statusText}`;
+      } else {
+        errorEl.textContent = `Load Error: ${error.message || 'Check browser console'}`;
+      }
+      window.__THUMB_READY__ = true;
+    }
+  );
 </script>
 </body>
 </html>

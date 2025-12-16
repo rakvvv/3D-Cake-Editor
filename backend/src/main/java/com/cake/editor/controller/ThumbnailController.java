@@ -59,20 +59,19 @@ public class ThumbnailController {
         return Map.of("thumbnailUrl", url);
     }
 
-    @GetMapping(path = "/{id}/thumbnail", produces = MediaType.IMAGE_PNG_VALUE)
-    public ResponseEntity<Resource> getThumbnail(@PathVariable Long id) {
-        User owner = currentUserService.requireCurrentUser();
-        projectRepository.findByIdAndOwner(id, owner)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+  @GetMapping(path = "/{id}/thumbnail", produces = MediaType.IMAGE_PNG_VALUE)
+  public ResponseEntity<Resource> getThumbnail(@PathVariable Long id) {
+      projectRepository.findById(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
 
-        try {
-            Resource resource = thumbnailService.loadCakeThumbnail(id);
-            if (resource == null || !resource.exists()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Thumbnail not found");
-            }
-            return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(resource);
-        } catch (MalformedURLException exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to read thumbnail", exception);
+      try {
+        Resource resource = thumbnailService.loadCakeThumbnail(id);
+        if (resource == null || !resource.exists()) {
+          throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Thumbnail not found");
         }
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(resource);
+      } catch (MalformedURLException e) {
+        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to read thumbnail", e);
+      }
     }
 }
