@@ -329,7 +329,7 @@
 }
 
 .project-card__preview {
-  height: 32px;
+  height: 140px;
   background: radial-gradient(circle at 30% 30%, rgba(67, 191, 240, 0.35), transparent),
     radial-gradient(circle at 70% 60%, rgba(5, 172, 238, 0.6), transparent),
     #0f0f0f;
@@ -338,7 +338,7 @@
 
 .project-card--list .project-card__preview {
   height: auto;
-  min-height: 70px;
+  min-height: 120px;
 }
 
 .project-card__footer {
