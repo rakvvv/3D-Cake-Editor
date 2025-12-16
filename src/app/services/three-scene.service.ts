@@ -98,6 +98,7 @@ export class ThreeSceneService {
 
   private emitOutlineChanged(): void {
     this.outlineChanged.next();
+    this.sceneInitService.requestRender();
   }
 
   public get camera(): THREE.Camera {
@@ -106,6 +107,10 @@ export class ThreeSceneService {
 
   public get renderer(): THREE.WebGLRenderer {
     return this.sceneInitService.renderer;
+  }
+
+  public requestRender(): void {
+    this.sceneInitService.requestRender();
   }
 
   public getBackgroundMode(): 'light' | 'dark' {
@@ -177,6 +182,7 @@ export class ThreeSceneService {
         this.surfacePainting.startStroke();
         this.sceneInitService.setOrbitEnabled(false);
         void this.surfacePainting.handlePointer(paintHit, this.scene);
+        this.requestRender();
         return;
       }
 
@@ -202,6 +208,7 @@ export class ThreeSceneService {
           this.mouse,
           this.raycaster,
         );
+        this.requestRender();
       } else {
         this.onClickDown(event);
       }
@@ -232,7 +239,8 @@ export class ThreeSceneService {
           // Opcja A: Przerywamy ten konkretny "krok" malowania (pędzel nie stawia kropki, ale jak zjedziesz z polewy to maluje dalej)
           return;
         }
-          void this.surfacePainting.handlePointer(paintHit, this.scene);
+        void this.surfacePainting.handlePointer(paintHit, this.scene);
+        this.requestRender();
         return;
       }
 
@@ -259,6 +267,7 @@ export class ThreeSceneService {
         this.mouse,
         this.raycaster,
       );
+      this.requestRender();
     });
 
     const stopPainting = () => this.stopPaintingStroke();
@@ -311,10 +320,16 @@ export class ThreeSceneService {
     });
   }
 
+  public reattachRenderer(container: HTMLElement): void {
+    this.sceneInitService.reattachRenderer(container);
+    this.requestRender();
+  }
+
   private stopPaintingStroke(): void {
     this.surfacePainting.endStroke();
     this.paintService.endStroke();
     this.sceneInitService.setOrbitEnabled(true);
+    this.requestRender();
   }
 
   public updateCakeOptions(options: CakeOptions): void {
@@ -335,6 +350,7 @@ export class ThreeSceneService {
     this.transformControlsService.updateCakeSize(effectiveSize);
     this.sceneInitService.updateOrbitForCake(effectiveSize);
     this.updateCakeOutlineHelper();
+    this.requestRender();
   }
 
   public setGridVisible(visible: boolean): void {
@@ -343,6 +359,7 @@ export class ThreeSceneService {
       this.scene.add(this.gridHelper);
     }
     this.gridHelper.visible = visible;
+    this.requestRender();
   }
 
   public setAxesVisible(visible: boolean): void {
@@ -352,6 +369,7 @@ export class ThreeSceneService {
       this.scene.add(this.axesHelper);
     }
     this.axesHelper.visible = visible;
+    this.requestRender();
   }
 
   public setCakeOutlineVisible(visible: boolean): void {
@@ -371,6 +389,7 @@ export class ThreeSceneService {
 
     this.cakeOutlineHelper.visible = true;
     this.cakeOutlineHelper.update();
+    this.requestRender();
   }
 
   public setBoundingBoxesVisible(visible: boolean): void {
@@ -384,10 +403,12 @@ export class ThreeSceneService {
         this.showBoxHelperFor(fallback);
       }
     }
+    this.requestRender();
   }
 
   public setAnchorMarkersVisible(visible: boolean): void {
     this.anchorPresetsService.setMarkersVisible(visible);
+    this.requestRender();
   }
 
   public areAnchorMarkersVisible(): boolean {
@@ -407,6 +428,7 @@ export class ThreeSceneService {
         }
       }
     });
+    this.requestRender();
   }
 
   public isHighQualityMode(): boolean {
@@ -429,6 +451,10 @@ export class ThreeSceneService {
     if (this.cakeMetadata) {
       this.sceneInitService.resetOrbitPivot();
     }
+  }
+
+  public hasDecorationsOrPaint(): boolean {
+    return this.collectDecorationRoots().length > 0;
   }
 
   private rebuildCake(): void {
@@ -468,6 +494,7 @@ export class ThreeSceneService {
     }
 
     this.emitOutlineChanged();
+    this.requestRender();
   }
 
   private disposeCake(): void {

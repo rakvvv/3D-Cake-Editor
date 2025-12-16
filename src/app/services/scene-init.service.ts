@@ -24,6 +24,7 @@ export class SceneInitService {
   private baseMinPolarAngle = THREE.MathUtils.degToRad(10);
   private baseMaxPolarAngle = THREE.MathUtils.degToRad(170);
   private lockHorizontalOrbit = false;
+  private renderPending = false;
 
   public init(container: HTMLElement): void {
     this.container = container;
@@ -53,10 +54,12 @@ export class SceneInitService {
     this.orbit.addEventListener('start', () => {
       this.orbitInteracting = true;
       this.orbitChangedDuringInteraction = false;
+      this.requestRender();
     });
     this.orbit.addEventListener('change', () => {
       this.orbitChangedDuringInteraction = true;
       this.markOrbitInteraction();
+      this.requestRender();
     });
     this.orbit.addEventListener('end', () => {
       this.orbitInteracting = false;
@@ -65,6 +68,7 @@ export class SceneInitService {
       } else {
         this.lastOrbitInteractionTime = 0;
       }
+      this.requestRender();
     });
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.8);
@@ -77,7 +81,7 @@ export class SceneInitService {
     directional.shadow.camera.far = 100;
     this.scene.add(directional);
 
-    this.animate();
+    this.requestRender();
 
     window.addEventListener('resize', () => {
       this.handleResize();
@@ -100,10 +104,21 @@ export class SceneInitService {
     );
   }
 
-  private animate(): void {
-    requestAnimationFrame(() => this.animate());
-    this.orbit.update();
-    this.renderer.render(this.scene, this.camera);
+  public requestRender(): void {
+    if (this.renderPending) {
+      return;
+    }
+
+    this.renderPending = true;
+    requestAnimationFrame(() => {
+      this.renderPending = false;
+      this.orbit.update();
+      this.renderer.render(this.scene, this.camera);
+
+      if (this.orbitInteracting) {
+        this.requestRender();
+      }
+    });
   }
 
   public toggleBackgroundMode(): 'light' | 'dark' {
@@ -115,6 +130,7 @@ export class SceneInitService {
   public setBackgroundMode(mode: 'light' | 'dark'): void {
     this.backgroundMode = mode;
     this.applyBackgroundMode(mode);
+    this.requestRender();
   }
 
   public getBackgroundMode(): 'light' | 'dark' {
@@ -136,6 +152,7 @@ export class SceneInitService {
     this.camera.lookAt(this.initialOrbitTarget);
     this.orbit.target.copy(this.initialOrbitTarget);
     this.orbit.update();
+    this.requestRender();
   }
 
   public updateOrbitForCake(totalHeight: number): void {
@@ -159,6 +176,7 @@ export class SceneInitService {
 
     this.initialOrbitTarget.copy(this.orbit.target);
     this.orbit.update();
+    this.requestRender();
   }
 
   public setOrbitEnabled(enabled: boolean): void {
@@ -167,6 +185,7 @@ export class SceneInitService {
     }
 
     this.orbit.enabled = enabled;
+    this.requestRender();
   }
 
   private markOrbitInteraction(): void {
@@ -209,6 +228,8 @@ export class SceneInitService {
       this.orbit.object = this.camera as THREE.Camera;
       this.orbit.update();
     }
+
+    this.requestRender();
   }
 
   public setCameraPreset(preset: 'default' | 'isometric' | 'top' | 'front' | 'right'): void {
@@ -239,6 +260,7 @@ export class SceneInitService {
     this.camera.lookAt(target);
     this.adjustOrthographicZoomToDistance();
     this.orbit?.update();
+    this.requestRender();
   }
 
   public setHorizontalOrbitLock(enabled: boolean): void {
@@ -255,6 +277,7 @@ export class SceneInitService {
       this.orbit.maxPolarAngle = this.baseMaxPolarAngle;
     }
     this.orbit.update();
+    this.requestRender();
   }
 
   public getOrbitTarget(): THREE.Vector3 {
@@ -269,6 +292,7 @@ export class SceneInitService {
     this.orbit.target.copy(target);
     this.camera.lookAt(target);
     this.orbit.update();
+    this.requestRender();
   }
 
   public resetOrbitPivot(): void {
@@ -284,6 +308,7 @@ export class SceneInitService {
     const base = 25;
     this.camera.zoom = Math.max(0.4, Math.min(4, base / Math.max(distance, 1)));
     this.camera.updateProjectionMatrix();
+    this.requestRender();
   }
 
   public handleResize(): void {
@@ -310,5 +335,18 @@ export class SceneInitService {
     if (this.cameraMode === 'orthographic') {
       this.adjustOrthographicZoomToDistance();
     }
+
+    this.requestRender();
+  }
+
+  public reattachRenderer(container: HTMLElement): void {
+    if (!this.renderer || !this.camera || !container || this.container === container) {
+      return;
+    }
+
+    container.appendChild(this.renderer.domElement);
+    this.container = container;
+    this.orbit?.connect(this.renderer.domElement);
+    this.handleResize();
   }
 }

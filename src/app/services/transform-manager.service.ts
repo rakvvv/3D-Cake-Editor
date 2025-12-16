@@ -232,6 +232,7 @@ export class TransformManagerService {
       return;
     }
 
+    this.orbit?.update();
     this.renderer.render(this.scene, this.camera);
   };
 
