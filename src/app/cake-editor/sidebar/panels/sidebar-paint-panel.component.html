@@ -49,21 +49,20 @@
         <button
           class="decorations-list__item"
           *ngFor="let decoration of filteredDecorations"
-          [class.decorations-list__item--active]="
-            decoration.modelFileName === selectedDecorationId || decoration.id === selectedDecorationId
-          "
-          (click)="selectDecoration(decoration)"
-          type="button"
-        >
-          <img
-            *ngIf="decoration.thumbnailUrl"
-            [src]="decoration.thumbnailUrl"
-            [alt]="decoration.name"
-            class="decorations-list__icon"
-          />
-          <span *ngIf="!decoration.thumbnailUrl" class="decorations-list__icon">🧁</span>
-          <span>{{ decoration.name }}</span>
-        </button>
+        [class.decorations-list__item--active]="
+          decoration.modelFileName === selectedDecorationId || decoration.id === selectedDecorationId
+        "
+        (click)="selectDecoration(decoration)"
+        type="button"
+      >
+        <img
+          class="decorations-list__icon"
+          [src]="getDecorationThumbnail(decoration)"
+          [alt]="decoration.name"
+          (error)="onDecorationThumbnailError($event, decoration)"
+        />
+        <span>{{ decoration.name }}</span>
+      </button>
       </div>
     </div>
 

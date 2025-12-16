@@ -7,7 +7,9 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:cukiernia-online": "node dist/cukiernia-online/server/server.mjs"
+    "serve:ssr:cukiernia-online": "node dist/cukiernia-online/server/server.mjs",
+    "thumbs:decorations": "node tools/generate-decoration-thumbnails.mjs",
+    "thumbs:decorations:force": "node tools/generate-decoration-thumbnails.mjs --force"
   },
   "private": true,
   "dependencies": {
@@ -42,6 +44,7 @@
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
+    "puppeteer": "^24.1.1",
     "typescript": "~5.7.2",
     "vite": "^6.2.2"
   }

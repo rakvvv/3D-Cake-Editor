@@ -21,7 +21,7 @@ import {DecorationValidationIssue} from '../models/decoration-validation';
 import {AddDecorationRequest} from '../models/add-decoration-request';
 import {AnchorPresetsService} from '../services/anchor-presets.service';
 import { SurfacePaintingService } from '../services/surface-painting.service';
-import {Subscription} from 'rxjs';
+import {Subscription, lastValueFrom} from 'rxjs';
 import { environment } from '../../environments/environment';
 import { DecoratedCakePreset } from '../models/cake-preset';
 import { ProjectsService } from '../services/projects.service';
@@ -169,6 +169,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public loadingProject = true;
   public loadError: string | null = null;
   private currentProjectId: number | null = null;
+  private currentProjectThumbnailUrl: string | null = null;
   private pendingPreset: DecoratedCakePreset | null = null;
   private sceneInitialized = false;
   private viewReady = false;
@@ -359,6 +360,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.projectsService.getProject(projectId).subscribe({
       next: (detail) => {
         this.projectName = detail.name;
+        this.currentProjectThumbnailUrl = detail.thumbnailUrl ?? null;
         const preset = this.parseProjectPreset(detail.dataJson, detail.name);
         this.pendingPreset = preset;
         this.options = cloneCakeOptions(preset.options);
@@ -911,9 +913,24 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     this.projectsService.updateProject(this.currentProjectId, payload).subscribe({
-      next: () => this.showStatus('Projekt zapisany.'),
+      next: () => {
+        this.showStatus('Projekt zapisany.');
+        void this.refreshProjectThumbnail(this.currentProjectId!);
+      },
       error: () => this.showStatus('Nie udało się zapisać projektu.'),
     });
+  }
+
+  private async refreshProjectThumbnail(projectId: number): Promise<void> {
+    try {
+      const blob = await this.sceneService.generateCakeThumbnailBlob();
+      const response = await lastValueFrom(this.projectsService.uploadThumbnail(projectId, blob));
+      if (response?.thumbnailUrl) {
+        this.currentProjectThumbnailUrl = response.thumbnailUrl;
+      }
+    } catch (error) {
+      console.warn('Failed to refresh thumbnail', error);
+    }
   }
 
   onLogout(): void {

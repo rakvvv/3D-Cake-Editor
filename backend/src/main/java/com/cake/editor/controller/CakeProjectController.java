@@ -89,6 +89,7 @@ public class CakeProjectController {
         dto.setCreatedAt(formatter.format(project.getCreatedAt()));
         dto.setUpdatedAt(formatter.format(project.getUpdatedAt()));
         dto.setHasPainting(false);
+        dto.setThumbnailUrl(project.getThumbnailUrl());
         return dto;
     }
 
@@ -99,6 +100,7 @@ public class CakeProjectController {
         dto.setCreatedAt(formatter.format(project.getCreatedAt()));
         dto.setUpdatedAt(formatter.format(project.getUpdatedAt()));
         dto.setDataJson(project.getDataJson());
+        dto.setThumbnailUrl(project.getThumbnailUrl());
         return dto;
     }
 }

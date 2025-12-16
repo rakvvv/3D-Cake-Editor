@@ -32,12 +32,11 @@
         (click)="onAddDecoration(decoration)"
       >
         <img
-          *ngIf="decoration.thumbnailUrl"
-          [src]="decoration.thumbnailUrl"
-          [alt]="decoration.name"
           class="decorations-list__icon"
+          [src]="getDecorationThumbnail(decoration)"
+          [alt]="decoration.name"
+          (error)="onDecorationThumbnailError($event, decoration)"
         />
-        <span *ngIf="!decoration.thumbnailUrl" class="decorations-list__icon">🧁</span>
         <span>{{ decoration.name }}</span>
       </button>
 
