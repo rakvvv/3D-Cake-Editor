@@ -198,6 +198,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public cameraMode: 'perspective' | 'orthographic' = 'perspective';
   public cameraPreset: 'default' | 'isometric' | 'top' | 'front' | 'right' = 'default';
   public horizontalOrbitLock = false;
+  public sceneBackground: 'light' | 'dark' = 'light';
 
   public contextMenuVisible = false;
   public contextMenuX = 0;
@@ -408,6 +409,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneService.init(this.container.nativeElement, cloneCakeOptions(preset.options));
     this.sceneInitialized = true;
     this.options = cloneCakeOptions(preset.options);
+    this.sceneBackground = this.sceneService.getBackgroundMode();
     this.applyHelperSettings();
     this.sceneService.setCameraMode(this.cameraMode);
     this.sceneService.setCameraPreset(this.cameraPreset);
@@ -1077,8 +1079,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showStatus('Środek obrotu ustawiony na tort.');
   }
 
-  onToolbarResetCamera(): void {
-    this.resetCameraView();
+  onToggleSceneBackground(): void {
+    this.sceneBackground = this.sceneService.toggleBackgroundMode();
   }
 
   onToolbarUndo(): void {

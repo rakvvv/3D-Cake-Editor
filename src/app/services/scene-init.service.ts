@@ -15,6 +15,9 @@ export class SceneInitService {
   private orbitInteracting = false;
   private lastOrbitInteractionTime = 0;
   private orbitChangedDuringInteraction = false;
+  private backgroundMode: 'light' | 'dark' = 'light';
+  private readonly lightBackground = new THREE.Color(0xffffff);
+  private readonly darkBackground = new THREE.Color(0x2d2d2d);
   private perspectiveCamera!: THREE.PerspectiveCamera;
   private orthographicCamera!: THREE.OrthographicCamera;
   private container?: HTMLElement;
@@ -25,12 +28,11 @@ export class SceneInitService {
   public init(container: HTMLElement): void {
     this.container = container;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xffffff);
-
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.applyBackgroundMode(this.backgroundMode);
     container.appendChild(this.renderer.domElement);
 
     this.createCameras(container.clientWidth, container.clientHeight);
@@ -102,6 +104,27 @@ export class SceneInitService {
     requestAnimationFrame(() => this.animate());
     this.orbit.update();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  public toggleBackgroundMode(): 'light' | 'dark' {
+    const nextMode = this.backgroundMode === 'light' ? 'dark' : 'light';
+    this.setBackgroundMode(nextMode);
+    return this.backgroundMode;
+  }
+
+  public setBackgroundMode(mode: 'light' | 'dark'): void {
+    this.backgroundMode = mode;
+    this.applyBackgroundMode(mode);
+  }
+
+  public getBackgroundMode(): 'light' | 'dark' {
+    return this.backgroundMode;
+  }
+
+  private applyBackgroundMode(mode: 'light' | 'dark'): void {
+    const background = mode === 'light' ? this.lightBackground : this.darkBackground;
+    this.scene.background = background;
+    this.renderer?.setClearColor(background);
   }
 
   public resetCameraView(): void {

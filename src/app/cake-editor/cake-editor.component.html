@@ -24,8 +24,14 @@
       </div>
 
       <div class="editor-toolbar__right">
-        <button class="btn btn--ghost icon-only" type="button" (click)="onToolbarResetCamera()" title="Resetuj widok">
-          <span class="icon-16" aria-hidden="true">⟳</span>
+        <button
+          class="btn icon-only"
+          [ngClass]="{ 'btn--primary': sceneBackground === 'dark', 'btn--ghost': sceneBackground !== 'dark' }"
+          type="button"
+          (click)="onToggleSceneBackground()"
+          [title]="sceneBackground === 'dark' ? 'Jasne tło sceny' : 'Ciemne tło sceny'"
+        >
+          <span class="icon-16" aria-hidden="true">◐</span>
         </button>
         <button
           class="btn btn--ghost icon-only"

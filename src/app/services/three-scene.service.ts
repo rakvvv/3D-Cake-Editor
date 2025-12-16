@@ -108,6 +108,14 @@ export class ThreeSceneService {
     return this.sceneInitService.renderer;
   }
 
+  public getBackgroundMode(): 'light' | 'dark' {
+    return this.sceneInitService.getBackgroundMode();
+  }
+
+  public toggleBackgroundMode(): 'light' | 'dark' {
+    return this.sceneInitService.toggleBackgroundMode();
+  }
+
   public isOrbitBusy(): boolean {
     return this.sceneInitService.isOrbitBusy();
   }
