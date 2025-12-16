@@ -279,7 +279,9 @@ export class PaintService {
   private isPaintStroke(object: THREE.Object3D | null): boolean {
     let current: THREE.Object3D | null = object;
     while (current) {
-      if (current.userData?.['isPaintStroke']) return true;
+      if (current.userData?.['isPaintStroke'] || current.userData?.['isSurfaceStroke']) {
+        return true;
+      }
       current = current.parent;
     }
     return false;
