@@ -398,17 +398,16 @@
 
             <div class="viewport-bottom-bar">
               <div class="viewport-camera">
-                <div class="helper-dropdown" [class.helper-dropdown--open]="helperMenuOpen">
-                  <button
-                    class="btn btn--ghost icon-only"
-                    type="button"
-                    title="Widok / Helpery"
-                    (click)="toggleHelpersVisibility()"
-                    (contextmenu)="toggleHelperMenu($event)"
-                  >
+                <div
+                  class="select-row select-row--compact viewport-helper__select"
+                  [class.viewport-helper__select--open]="helperMenuOpen"
+                >
+                  <button class="select-row__input" type="button" (click)="toggleHelperMenu($event)" title="Widok / Helpery">
                     <span class="icon-16" aria-hidden="true">🧱</span>
+                    <span>Helpery</span>
+                    <span class="icon-12" aria-hidden="true">▾</span>
                   </button>
-                  <div class="helper-dropdown__menu" *ngIf="helperMenuOpen">
+                  <div class="helper-dropdown__menu" *ngIf="helperMenuOpen" (click)="$event.stopPropagation()">
                     <div class="helper-dropdown__header">Helpery</div>
                     <button class="helper-dropdown__item" type="button" (click)="toggleHelpersVisibility()">
                       <span>{{ helpersMasterVisible ? 'Ukryj wszystkie' : 'Pokaż wszystkie' }}</span>
@@ -421,14 +420,6 @@
                     <label class="helper-dropdown__item helper-dropdown__item--check">
                       <input type="checkbox" [checked]="helperSettings.axes && helpersMasterVisible" (change)="toggleHelperFlag('axes')" />
                       <span>Osie świata</span>
-                    </label>
-                    <label class="helper-dropdown__item helper-dropdown__item--check">
-                      <input type="checkbox" [checked]="helperSettings.anchors && helpersMasterVisible" (change)="toggleHelperFlag('anchors')" />
-                      <span>Ankory / sloty</span>
-                    </label>
-                    <label class="helper-dropdown__item helper-dropdown__item--check">
-                      <input type="checkbox" [checked]="helperSettings.outline && helpersMasterVisible" (change)="toggleHelperFlag('outline')" />
-                      <span>Obrys tortu</span>
                     </label>
                     <label class="helper-dropdown__item helper-dropdown__item--check">
                       <input type="checkbox" [checked]="helperSettings.bounding && helpersMasterVisible" (change)="toggleHelperFlag('bounding')" />
@@ -451,11 +442,11 @@
                 </button>
               </div>
               <div class="select-row select-row--compact viewport-camera__select" [class.viewport-camera__select--open]="cameraDropdownOpen">
-                <button class="select-row__input" type="button" (click)="toggleCameraDropdown()" title="Tryb kamery">
+                <button class="select-row__input" type="button" (click)="toggleCameraDropdown($event)" title="Tryb kamery">
                   <span>{{ getCameraLabel() }}</span>
                   <span class="icon-12" aria-hidden="true">▾</span>
                 </button>
-                <div class="helper-dropdown__menu helper-dropdown__menu--right" *ngIf="cameraDropdownOpen">
+                <div class="helper-dropdown__menu helper-dropdown__menu--right" *ngIf="cameraDropdownOpen" (click)="$event.stopPropagation()">
                   <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('perspective')">Perspective</button>
                   <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('orthographic')">Orthographic</button>
                   <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('isometric')">Isometric</button>

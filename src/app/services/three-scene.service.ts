@@ -338,7 +338,8 @@ export class ThreeSceneService {
 
   public setAxesVisible(visible: boolean): void {
     if (!this.axesHelper) {
-      this.axesHelper = new THREE.AxesHelper(3);
+      this.axesHelper = new THREE.AxesHelper(6);
+      this.axesHelper.position.setY(0.01);
       this.scene.add(this.axesHelper);
     }
     this.axesHelper.visible = visible;
@@ -369,8 +370,9 @@ export class ThreeSceneService {
       this.hideBoxHelper();
     } else {
       const selected = this.transformControlsService.getSelectedObject();
-      if (selected) {
-        this.showBoxHelperFor(selected);
+      const fallback = selected ?? this.cakeBase ?? null;
+      if (fallback) {
+        this.showBoxHelperFor(fallback);
       }
     }
   }
@@ -1106,11 +1108,25 @@ export class ThreeSceneService {
   }
 
   public updateBoxHelper(): void {
-    if (this.boxHelper && this.transformControlsService.getSelectedObject()) {
-      this.boxHelper.update();
-    } else {
-      this.hideBoxHelper(); // Ukryj, jeśli nic nie jest zaznaczone
+    if (!this.boundingBoxesEnabled) {
+      this.hideBoxHelper();
+      return;
     }
+
+    const selected = this.transformControlsService.getSelectedObject();
+    const target = selected ?? this.cakeBase ?? null;
+
+    if (!target) {
+      this.hideBoxHelper();
+      return;
+    }
+
+    const currentObject = (this.boxHelper as THREE.BoxHelper | null)?.object ?? null;
+    if (!this.boxHelper || currentObject !== target) {
+      this.showBoxHelperFor(target);
+    }
+
+    this.boxHelper?.update();
   }
   // --- Koniec funkcji BoxHelper ---
 

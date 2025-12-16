@@ -701,6 +701,18 @@
   border-color: #f97316;
 }
 
+.viewport-helper__select .select-row__input {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+  justify-content: space-between;
+}
+
+.viewport-helper__select--open .select-row__input {
+  border-color: #f97316;
+}
+
 .workspace-panel {
   background: #151515;
   padding: 16px;

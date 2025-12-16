@@ -35,8 +35,6 @@ import { BrushSettings, SidebarPanelKey, SidebarPaintMode } from './sidebar/side
 type HelperSettings = {
   grid: boolean;
   axes: boolean;
-  anchors: boolean;
-  outline: boolean;
   bounding: boolean;
   highQuality: boolean;
 };
@@ -191,9 +189,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public helpersMasterVisible = true;
   public helperSettings: HelperSettings = {
     grid: true,
-    axes: false,
-    anchors: false,
-    outline: false,
+    axes: true,
     bounding: true,
     highQuality: true,
   };
@@ -455,6 +451,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleHelperMenu(event?: Event): void {
     event?.preventDefault();
+    event?.stopPropagation();
+    this.cameraDropdownOpen = false;
     this.helperMenuOpen = !this.helperMenuOpen;
   }
 
@@ -466,16 +464,12 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         ...this.helperSettings,
         grid: false,
         axes: false,
-        anchors: false,
-        outline: false,
         bounding: false,
       };
     } else {
       const restored: HelperSettings = {
         grid: true,
-        axes: false,
-        anchors: false,
-        outline: false,
+        axes: true,
         bounding: true,
         highQuality: this.helperSettings.highQuality,
         ...this.helperSnapshot,
@@ -493,11 +487,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       [key]: !this.helperSettings[key],
     };
     this.helpersMasterVisible =
-      this.helperSettings.grid ||
-      this.helperSettings.axes ||
-      this.helperSettings.anchors ||
-      this.helperSettings.outline ||
-      this.helperSettings.bounding;
+      this.helperSettings.grid || this.helperSettings.axes || this.helperSettings.bounding;
     this.applyHelperSettings();
   }
 
@@ -505,13 +495,13 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const enabled = this.helpersMasterVisible;
     this.sceneService.setGridVisible(enabled && this.helperSettings.grid);
     this.sceneService.setAxesVisible(enabled && this.helperSettings.axes);
-    this.sceneService.setCakeOutlineVisible(enabled && this.helperSettings.outline);
     this.sceneService.setBoundingBoxesVisible(enabled && this.helperSettings.bounding);
-    this.sceneService.setAnchorMarkersVisible(enabled && this.helperSettings.anchors);
     this.sceneService.setHighQualityMode(this.helperSettings.highQuality);
   }
 
-  toggleCameraDropdown(): void {
+  toggleCameraDropdown(event?: Event): void {
+    event?.stopPropagation();
+    this.helperMenuOpen = false;
     this.cameraDropdownOpen = !this.cameraDropdownOpen;
   }
 
