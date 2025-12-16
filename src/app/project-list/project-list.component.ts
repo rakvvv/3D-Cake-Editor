@@ -17,10 +17,20 @@ export class ProjectListComponent implements OnInit {
   projects: CakeProjectSummaryDto[] = [];
   loading = true;
   newProjectName = 'Nowy tort';
+  searchQuery = '';
   renameProjectId: number | null = null;
   renameValue = '';
   viewMode: 'grid' | 'list' = 'grid';
   userMenuOpen = false;
+
+  get filteredProjects(): CakeProjectSummaryDto[] {
+    const term = this.searchQuery.trim().toLowerCase();
+    if (!term) {
+      return this.projects;
+    }
+
+    return this.projects.filter((project) => project.name.toLowerCase().includes(term));
+  }
 
   get isAuthenticated(): boolean {
     return this.auth.isAuthenticated();
@@ -57,6 +67,7 @@ export class ProjectListComponent implements OnInit {
     const name = this.newProjectName?.trim() || 'Nowy tort';
     this.projectsService.createProject(name).subscribe((project) => {
       this.newProjectName = 'Nowy tort';
+      this.searchQuery = '';
       void this.router.navigate(['/editor', project.id]);
     });
   }
