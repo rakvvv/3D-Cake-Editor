@@ -346,7 +346,7 @@ export class SceneInitService {
 
     container.appendChild(this.renderer.domElement);
     this.container = container;
-    this.orbit?.connect(this.renderer.domElement);
+    this.orbit?.connect();
     this.handleResize();
   }
 }
