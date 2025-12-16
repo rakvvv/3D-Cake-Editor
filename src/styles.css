@@ -1,14 +1,14 @@
 :root {
   color-scheme: dark;
   --font-base: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-  --color-background: #0b0f18;
-  --color-surface: #141a24;
-  --color-surface-alt: #0f141d;
-  --color-stage: #0f172a;
-  --color-border: #1f2734;
-  --color-border-strong: #2c3443;
-  --color-text: #e6ebf5;
-  --color-text-muted: #9ba6b9;
+  --color-background: #0f0f0f;
+  --color-surface: #141414;
+  --color-surface-alt: #1a1a1a;
+  --color-stage: #1c1c1c;
+  --color-border: #1f1f1f;
+  --color-border-strong: #2b2b2b;
+  --color-text: #f1f1f1;
+  --color-text-muted: #b5b5b5;
   --color-accent: #f97316;
   --shadow-soft: 0 10px 30px rgba(10, 14, 24, 0.35);
   --radius-sm: 8px;
@@ -79,7 +79,7 @@ svg {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(15, 23, 42, 0.15);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 999px;
 }
 
