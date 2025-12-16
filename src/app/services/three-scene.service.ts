@@ -60,6 +60,7 @@ export class ThreeSceneService {
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private boxHelper: THREE.BoxHelper | null = null;
+  private boxHelperTarget: THREE.Object3D | null = null;
   private clipboard: DecorationClipboardEntry | null = null;
   private gridHelper: THREE.GridHelper | null = null;
   private axesHelper: THREE.AxesHelper | null = null;
@@ -1095,6 +1096,7 @@ export class ThreeSceneService {
 
     this.hideBoxHelper(); // Usuń stary
     this.boxHelper = new THREE.BoxHelper(object, 0xff0000); // Czerwony kolor
+    this.boxHelperTarget = object;
     this.scene.add(this.boxHelper);
     // Aktualizuj BoxHelper, gdy obiekt się porusza (w TransformControlsService)
   }
@@ -1104,6 +1106,7 @@ export class ThreeSceneService {
       this.scene.remove(this.boxHelper);
       this.boxHelper.dispose(); // Zwolnij zasoby
       this.boxHelper = null;
+      this.boxHelperTarget = null;
     }
   }
 
@@ -1121,8 +1124,7 @@ export class ThreeSceneService {
       return;
     }
 
-    const currentObject = (this.boxHelper as THREE.BoxHelper | null)?.object ?? null;
-    if (!this.boxHelper || currentObject !== target) {
+    if (!this.boxHelper || this.boxHelperTarget !== target) {
       this.showBoxHelperFor(target);
     }
 
