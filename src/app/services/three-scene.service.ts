@@ -399,7 +399,12 @@ export class ThreeSceneService {
     this.sceneInitService.renderer.shadowMap.enabled = enabled;
     this.scene.traverse((child) => {
       if ((child as THREE.Light).isLight) {
-        (child as THREE.Light).castShadow = enabled;
+        const light = child as THREE.Light;
+        if (light instanceof THREE.DirectionalLight || light instanceof THREE.SpotLight || light instanceof THREE.PointLight) {
+          light.castShadow = enabled;
+        } else {
+          light.castShadow = false;
+        }
       }
     });
   }
