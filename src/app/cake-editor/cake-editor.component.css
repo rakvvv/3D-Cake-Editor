@@ -412,7 +412,7 @@
   flex: 1;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 360px;
-  min-height: calc(100dvh - 96px);
+  height: calc(100dvh - 96px);
   position: relative;
 }
 
@@ -426,6 +426,7 @@
   overflow: hidden;
   position: relative;
   min-height: 0;
+  height: 100%;
 }
 
 .workspace-sidebar__header {
