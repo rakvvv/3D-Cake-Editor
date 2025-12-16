@@ -22,6 +22,7 @@ export class ProjectListComponent implements OnInit {
   renameValue = '';
   viewMode: 'grid' | 'list' = 'grid';
   userMenuOpen = false;
+  defaultThumbnail = '/assets/projects/thumbnail-placeholder.svg';
 
   get filteredProjects(): CakeProjectSummaryDto[] {
     const term = this.searchQuery.trim().toLowerCase();
@@ -119,6 +120,14 @@ export class ProjectListComponent implements OnInit {
 
   goToLogin(): void {
     void this.router.navigate(['/login']);
+  }
+
+  onProjectThumbnailError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    if (img.src === new URL(this.defaultThumbnail, img.baseURI).toString()) {
+      return;
+    }
+    img.src = this.defaultThumbnail;
   }
 
   private refreshAfterMutation(): void {

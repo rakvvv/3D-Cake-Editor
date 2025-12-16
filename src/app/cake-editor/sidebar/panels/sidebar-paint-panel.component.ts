@@ -70,6 +70,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     { id: 'star', label: 'Gwiazdki' },
   ];
 
+  private readonly decorationPlaceholder = '/assets/decorations/thumbnails/placeholder.svg';
   private readonly subscriptions = new Subscription();
 
   constructor(
@@ -128,6 +129,23 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       return this.decorations;
     }
     return this.decorations.filter((item) => item.name.toLowerCase().includes(term));
+  }
+
+  getDecorationThumbnail(decoration: DecorationInfo): string {
+    return decoration.thumbnailUrl ?? `/assets/decorations/thumbnails/${decoration.id}.png`;
+  }
+
+  onDecorationThumbnailError(event: Event, decoration: DecorationInfo): void {
+    const img = event.target as HTMLImageElement;
+    const generatedUrl = new URL(`/assets/decorations/thumbnails/${decoration.id}.png`, img.baseURI).toString();
+
+    if (img.dataset['fallback'] !== 'generated' && img.src !== generatedUrl) {
+      img.dataset['fallback'] = 'generated';
+      img.src = generatedUrl;
+      return;
+    }
+
+    img.src = new URL(this.decorationPlaceholder, img.baseURI).toString();
   }
 
   togglePainting(): void {

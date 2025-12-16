@@ -6,6 +6,7 @@ public class CakeProjectSummaryDto {
     private String createdAt;
     private String updatedAt;
     private boolean hasPainting;
+    private String thumbnailUrl;
 
     public Long getId() {
         return id;
@@ -45,5 +46,13 @@ public class CakeProjectSummaryDto {
 
     public void setHasPainting(boolean hasPainting) {
         this.hasPainting = hasPainting;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
     }
 }

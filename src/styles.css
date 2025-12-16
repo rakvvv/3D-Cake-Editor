@@ -214,6 +214,9 @@ svg {
 .decorations-list__icon {
   width: 20px;
   height: 20px;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .toggle-tab {

@@ -32,6 +32,12 @@ export class ProjectsService {
     return this.http.put<CakeProjectDetailDto>(`${this.baseUrl}/${id}`, request);
   }
 
+  uploadThumbnail(id: number, file: Blob): Observable<{ thumbnailUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file, 'thumbnail.png');
+    return this.http.post<{ thumbnailUrl: string }>(`${this.baseUrl}/${id}/thumbnail`, formData);
+  }
+
   deleteProject(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
   }

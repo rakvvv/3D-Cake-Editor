@@ -994,6 +994,116 @@ export class ThreeSceneService {
     this.exportService.exportGLTF(this.scene, callback);
   }
 
+  public async generateCakeThumbnailBlob(): Promise<Blob> {
+    if (!isPlatformBrowser(this.platformId)) {
+      throw new Error('Thumbnail generation is only available in the browser');
+    }
+
+    const targetSize = 512;
+    const boundingBox = new THREE.Box3();
+
+    if (this.cakeBase) {
+      boundingBox.expandByObject(this.cakeBase);
+    }
+
+    this.collectDecorationRoots().forEach((object) => boundingBox.expandByObject(object));
+
+    if (boundingBox.isEmpty()) {
+      throw new Error('Scene is empty; nothing to capture');
+    }
+
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    const sphere = boundingBox.getBoundingSphere(new THREE.Sphere());
+    const thumbnailCamera = new THREE.PerspectiveCamera(40, 1, 0.1, 2000);
+    const viewDirection = new THREE.Vector3(1.2, 1, 1.4).normalize();
+    const distance = (sphere.radius / Math.sin(THREE.MathUtils.degToRad(thumbnailCamera.fov) / 2)) * 1.2;
+
+    thumbnailCamera.position.copy(center.clone().add(viewDirection.multiplyScalar(distance)));
+    thumbnailCamera.up.set(0, 1, 0);
+    thumbnailCamera.lookAt(center);
+    thumbnailCamera.updateProjectionMatrix();
+
+    const renderTarget = new THREE.WebGLRenderTarget(targetSize, targetSize, {
+      samples: this.renderer.capabilities.isWebGL2 ? 4 : 0,
+    });
+
+    const previousTarget = this.renderer.getRenderTarget();
+    const previousSize = this.renderer.getSize(new THREE.Vector2());
+    const previousPixelRatio = this.renderer.getPixelRatio();
+    const previousClearColor = this.renderer.getClearColor(new THREE.Color());
+    const previousClearAlpha = this.renderer.getClearAlpha();
+    const previousBackground = this.scene.background;
+    const gridVisible = this.gridHelper?.visible ?? false;
+    const axesVisible = this.axesHelper?.visible ?? false;
+    const neutralBackground = new THREE.Color(0xf8f8f8);
+
+    if (this.gridHelper) {
+      this.gridHelper.visible = false;
+    }
+
+    if (this.axesHelper) {
+      this.axesHelper.visible = false;
+    }
+
+    try {
+      this.scene.background = neutralBackground;
+      this.renderer.setPixelRatio(1);
+      this.renderer.setRenderTarget(renderTarget);
+      this.renderer.setSize(targetSize, targetSize, false);
+      this.renderer.setClearColor(neutralBackground, 1);
+      this.renderer.render(this.scene, thumbnailCamera);
+
+      const buffer = new Uint8Array(targetSize * targetSize * 4);
+      this.renderer.readRenderTargetPixels(renderTarget, 0, 0, targetSize, targetSize, buffer);
+
+      const flipped = new Uint8ClampedArray(buffer.length);
+      const stride = targetSize * 4;
+      for (let y = 0; y < targetSize; y++) {
+        const srcStart = (targetSize - 1 - y) * stride;
+        const destStart = y * stride;
+        flipped.set(buffer.subarray(srcStart, srcStart + stride), destStart);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetSize;
+      canvas.height = targetSize;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Could not create canvas context');
+      }
+
+      const imageData = new ImageData(flipped, targetSize, targetSize);
+      ctx.putImageData(imageData, 0, 0);
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => {
+          if (result) {
+            resolve(result);
+          } else {
+            reject(new Error('Failed to generate thumbnail blob'));
+          }
+        }, 'image/png');
+      });
+
+      return blob;
+    } finally {
+      this.renderer.setRenderTarget(previousTarget);
+      this.renderer.setPixelRatio(previousPixelRatio);
+      this.renderer.setSize(previousSize.x, previousSize.y, false);
+      this.renderer.setClearColor(previousClearColor, previousClearAlpha);
+      this.scene.background = previousBackground;
+
+      if (this.gridHelper) {
+        this.gridHelper.visible = gridVisible;
+      }
+
+      if (this.axesHelper) {
+        this.axesHelper.visible = axesVisible;
+      }
+
+      renderTarget.dispose();
+    }
+  }
+
   public takeScreenshot(): string {
     return this.exportService.screenshot(this.renderer);
   }
