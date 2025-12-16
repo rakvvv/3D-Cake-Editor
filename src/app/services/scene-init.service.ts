@@ -15,7 +15,7 @@ export class SceneInitService {
   private orbitInteracting = false;
   private lastOrbitInteractionTime = 0;
   private orbitChangedDuringInteraction = false;
-  private backgroundMode: 'light' | 'dark' = 'light';
+  private backgroundMode: 'light' | 'dark' = 'dark';
   private readonly lightBackground = new THREE.Color(0xffffff);
   private readonly darkBackground = new THREE.Color(0x2d2d2d);
   private perspectiveCamera!: THREE.PerspectiveCamera;

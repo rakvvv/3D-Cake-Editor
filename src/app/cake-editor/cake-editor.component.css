@@ -320,7 +320,9 @@
 
 .btn-toggle--active {
   background: #0f0f0f;
-  color: #05acee;
+  color: #e6e6e6;
+  border-color: #2c2c2c;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 6px 14px rgba(0, 0, 0, 0.3);
 }
 
 .btn-toggle {
@@ -364,8 +366,8 @@
 }
 
 .texture-card--active {
-  border-color: #05acee;
-  box-shadow: 0 4px 12px rgba(5, 172, 238, 0.25);
+  border-color: #323232;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
 .texture-card__preview {
@@ -858,7 +860,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #05acee;
+  background: #d0d0d0;
   cursor: pointer;
   margin-top: -4px;
 }
@@ -867,7 +869,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #05acee;
+  background: #d0d0d0;
   cursor: pointer;
 }
 

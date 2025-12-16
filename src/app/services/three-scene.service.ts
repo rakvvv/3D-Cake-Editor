@@ -65,7 +65,7 @@ export class ThreeSceneService {
   private gridHelper: THREE.GridHelper | null = null;
   private axesHelper: THREE.AxesHelper | null = null;
   private cakeOutlineHelper: THREE.BoxHelper | null = null;
-  private boundingBoxesEnabled = true;
+  private boundingBoxesEnabled = false;
   private highQualityMode = true;
   private readonly anchorOccupants = new Map<string, THREE.Object3D>();
   private readonly outlineChanged = new Subject<void>();

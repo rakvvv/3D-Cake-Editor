@@ -186,11 +186,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public paintingPowerEnabled = true;
 
   public helperMenuOpen = false;
-  public helpersMasterVisible = true;
+  public helpersMasterVisible = false;
   public helperSettings: HelperSettings = {
-    grid: true,
-    axes: true,
-    bounding: true,
+    grid: false,
+    axes: false,
+    bounding: false,
     highQuality: true,
   };
   private helperSnapshot: Partial<HelperSettings> = {};
@@ -198,7 +198,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public cameraMode: 'perspective' | 'orthographic' = 'perspective';
   public cameraPreset: 'default' | 'isometric' | 'top' | 'front' | 'right' = 'default';
   public horizontalOrbitLock = false;
-  public sceneBackground: 'light' | 'dark' = 'light';
+  public sceneBackground: 'light' | 'dark' = 'dark';
 
   public contextMenuVisible = false;
   public contextMenuX = 0;
