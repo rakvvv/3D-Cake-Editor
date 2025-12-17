@@ -1,0 +1,16 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Brak miniatury">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a2a2a" />
+      <stop offset="100%" stop-color="#1a1a1a" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="36" fill="url(#bg)" />
+  <circle cx="256" cy="220" r="120" fill="#3b3b3b" />
+  <rect x="126" y="260" width="260" height="120" rx="40" fill="#4a4a4a" />
+  <circle cx="186" cy="240" r="18" fill="#ff7ea8" />
+  <circle cx="244" cy="210" r="14" fill="#ffd166" />
+  <circle cx="310" cy="240" r="16" fill="#6dd3ff" />
+  <path d="M156 320h200" stroke="#ffffff" stroke-width="12" stroke-linecap="round" opacity="0.4" />
+  <path d="M190 356c16 10 116 10 132 0" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.3" />
+</svg>

@@ -1,0 +1,18 @@
+<svg width="640" height="480" viewBox="0 0 640 480" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Podgląd tortu">
+  <defs>
+    <linearGradient id="bgp" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1f26" />
+      <stop offset="100%" stop-color="#0f1116" />
+    </linearGradient>
+  </defs>
+  <rect width="640" height="480" rx="28" fill="url(#bgp)" />
+  <ellipse cx="320" cy="338" rx="210" ry="24" fill="#0b0d12" opacity="0.55" />
+  <ellipse cx="320" cy="190" rx="180" ry="46" fill="#e9e9ed" />
+  <rect x="142" y="190" width="356" height="130" rx="70" fill="#d7dae2" />
+  <ellipse cx="320" cy="190" rx="180" ry="46" fill="#f3f3f7" />
+  <path d="M150 192c60 48 360 48 420 0" fill="none" stroke="#b8beca" stroke-width="14" stroke-linecap="round" />
+  <circle cx="256" cy="152" r="20" fill="#ff7ea8" />
+  <circle cx="320" cy="144" r="16" fill="#ffd166" />
+  <circle cx="384" cy="156" r="18" fill="#7cd1ff" />
+  <text x="320" y="368" text-anchor="middle" font-family="'Inter', 'Segoe UI', sans-serif" font-weight="700" font-size="26" fill="#ffffff" opacity="0.85">Podgląd tortu</text>
+</svg>

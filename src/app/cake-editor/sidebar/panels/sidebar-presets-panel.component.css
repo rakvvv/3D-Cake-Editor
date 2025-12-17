@@ -3,3 +3,14 @@
   color: #9a9a9a;
   padding: 4px 0;
 }
+
+.decorations-list--presets .decorations-list__item {
+  align-items: stretch;
+  gap: 8px;
+}
+
+.decorations-list--presets .decorations-list__label {
+  font-weight: 600;
+  color: #f5f5f5;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}

@@ -3,7 +3,7 @@
     "id": "cake-1765105082215",
     "name": "Waniliowy klasyk",
     "description": "Bazowy tort z owocami i kwaiatami.",
-    "thumbnailUrl": "/assets/presets/vanilla-classic.png",
+    "thumbnailUrl": "/assets/presets/vanilla-classic.svg",
     "options": {
       "cake_size": 1,
       "cake_color": "#ffffff",
@@ -3530,7 +3530,7 @@
       "brushColor": "#ff6b6b",
       "brushEntries": [],
       "sprinkles": []
-    }
+    },
+    "thumbnailUrl": "/assets/presets/berry-chocolate.svg"
   }
-
 ]

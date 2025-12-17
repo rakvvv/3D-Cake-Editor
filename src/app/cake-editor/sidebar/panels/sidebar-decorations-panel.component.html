@@ -29,6 +29,7 @@
         [class.decorations-list__item--active]="
           decoration.modelFileName === selectedDecorationId || decoration.id === selectedDecorationId
         "
+        [attr.aria-label]="decoration.name"
         (click)="onAddDecoration(decoration)"
       >
         <img
@@ -37,7 +38,7 @@
           [alt]="decoration.name"
           (error)="onDecorationThumbnailError($event, decoration)"
         />
-        <span>{{ decoration.name }}</span>
+        <span class="sr-only">{{ decoration.name }}</span>
       </button>
 
       <div class="panel-hint" *ngIf="!filteredDecorations.length">Brak dekoracji do wyświetlenia.</div>

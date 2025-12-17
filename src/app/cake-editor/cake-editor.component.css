@@ -753,29 +753,14 @@
 }
 
 .decorations-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   margin-top: 8px;
 }
 
 .decorations-list__item {
-  width: 100%;
-  border-radius: 8px;
-  border: 1px solid #1f1f1f;
-  background: #0f0f0f;
-  padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
   cursor: pointer;
-  font-size: 13px;
-  color: #f0f0f0;
-  text-align: left;
 }
 
 .decorations-list__item--active {
-  background: #202020;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.32);
 }
 

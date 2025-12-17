@@ -1,0 +1,34 @@
+<svg width="640" height="480" viewBox="0 0 640 480" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Czekoladowo-owocowy">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14171d" />
+      <stop offset="100%" stop-color="#0b0d11" />
+    </linearGradient>
+    <linearGradient id="cakeTop2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffe3f3" />
+      <stop offset="100%" stop-color="#ffd0ea" />
+    </linearGradient>
+    <linearGradient id="cakeSide2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4b2b1f" />
+      <stop offset="100%" stop-color="#2d1a12" />
+    </linearGradient>
+  </defs>
+  <rect width="640" height="480" rx="28" fill="url(#bg2)" />
+  <ellipse cx="320" cy="344" rx="210" ry="26" fill="#0b0b0c" opacity="0.65" />
+  <ellipse cx="320" cy="196" rx="186" ry="48" fill="url(#cakeTop2)" />
+  <rect x="136" y="196" width="368" height="140" rx="72" fill="url(#cakeSide2)" />
+  <ellipse cx="320" cy="196" rx="186" ry="48" fill="url(#cakeTop2)" />
+  <path d="M148 206c60 48 344 48 404 0" fill="none" stroke="#c27b58" stroke-width="14" stroke-linecap="round" />
+  <path d="M150 214c60 40 340 40 400 0" fill="none" stroke="#8c4c32" stroke-width="10" stroke-linecap="round" opacity="0.7" />
+  <circle cx="240" cy="168" r="20" fill="#ff6685" />
+  <circle cx="280" cy="154" r="16" fill="#ff8bbd" />
+  <circle cx="330" cy="150" r="14" fill="#ffd166" />
+  <circle cx="380" cy="160" r="16" fill="#63d6ff" />
+  <circle cx="420" cy="178" r="15" fill="#7cffb1" />
+  <circle cx="215" cy="220" r="12" fill="#ff9e2c" />
+  <circle cx="300" cy="228" r="12" fill="#ff5c7a" />
+  <circle cx="356" cy="222" r="11" fill="#ffd166" />
+  <circle cx="396" cy="232" r="11" fill="#63d6ff" />
+  <rect x="236" y="294" width="168" height="18" rx="9" fill="#fce4f6" opacity="0.8" />
+  <text x="320" y="382" text-anchor="middle" font-family="'Inter', 'Segoe UI', sans-serif" font-weight="700" font-size="26" fill="#f1f1f1" opacity="0.9">Czekoladowo-owocowy</text>
+</svg>

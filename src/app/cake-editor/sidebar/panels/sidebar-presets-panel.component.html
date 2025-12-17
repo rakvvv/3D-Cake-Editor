@@ -2,14 +2,21 @@
   <div class="panel-block__header">
     <div class="panel-block__title">Gotowe torty</div>
   </div>
-  <div class="decorations-list">
+  <div class="decorations-list decorations-list--presets">
     <button
       class="decorations-list__item"
       type="button"
       *ngFor="let preset of presets"
+      [attr.aria-label]="preset.name"
       (click)="onApplyPreset(preset)"
     >
-      {{ preset.name }}
+      <img
+        class="decorations-list__icon"
+        [src]="getPresetThumbnail(preset)"
+        [alt]="preset.name"
+        (error)="onPresetThumbnailError($event)"
+      />
+      <span class="decorations-list__label">{{ preset.name }}</span>
     </button>
     <div class="panel-hint" *ngIf="!presets.length">Brak dostępnych presetów.</div>
   </div>
