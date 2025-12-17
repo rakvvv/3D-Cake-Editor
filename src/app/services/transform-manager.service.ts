@@ -19,6 +19,7 @@ export class TransformManagerService {
   private removeDecorationCallback: ((object: THREE.Object3D) => void) | null = null;
   private copyDecorationCallback: (() => void) | null = null;
   private pasteDecorationCallback: (() => void) | null = null;
+  private anchorSnapshotCallback: ((object: THREE.Object3D | null) => void) | null = null;
   private cakeSize = 1;
   private lockedSelection: {
     object: THREE.Object3D | null;
@@ -50,6 +51,7 @@ export class TransformManagerService {
     removeDecorationCallback?: (object: THREE.Object3D) => void,
     copyDecorationCallback?: () => void,
     pasteDecorationCallback?: () => void,
+    anchorSnapshotCallback?: (object: THREE.Object3D | null) => void,
   ): void {
     if (!this.isBrowser) {
       return;
@@ -63,6 +65,7 @@ export class TransformManagerService {
     this.removeDecorationCallback = removeDecorationCallback || null;
     this.copyDecorationCallback = copyDecorationCallback || null;
     this.pasteDecorationCallback = pasteDecorationCallback || null;
+    this.anchorSnapshotCallback = anchorSnapshotCallback || null;
 
     this.orbit.addEventListener('change', this.renderScene);
 
@@ -287,6 +290,10 @@ export class TransformManagerService {
         this.snapService.captureSnappedOrientation(selectedObject);
       } else if (mode === 'translate' || mode === 'scale') {
         this.snapService.enforceSnappedPosition(selectedObject);
+      }
+
+      if (this.anchorSnapshotCallback) {
+        this.anchorSnapshotCallback(selectedObject);
       }
     }
   };

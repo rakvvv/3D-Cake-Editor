@@ -349,6 +349,7 @@ export class ThreeSceneService {
       (object) => this.removeDecoration(object),
       () => this.copySelectedDecoration(),
       () => this.pasteDecoration(),
+      (object) => this.persistAnchorOverrideForSelection(object),
     );
 
     this.gridHelper = new THREE.GridHelper(50, 50);
@@ -1350,16 +1351,6 @@ export class ThreeSceneService {
       if (selected.userData['isSnapped']) {
         this.snapService.captureSnappedOrientation(selected);
       }
-
-      const anchorId = selected.userData['anchorId'];
-      const decorationId =
-        (selected.userData['modelFileName'] as string | undefined) ??
-        (selected.userData['displayName'] as string | undefined) ??
-        selected.name;
-
-      if (anchorId && decorationId) {
-        this.snapshotAnchorDecorations(anchorId, decorationId);
-      }
     }
   }
   // --- Koniec funkcji BoxHelper ---
@@ -2315,6 +2306,29 @@ export class ThreeSceneService {
     }
 
     occupant.userData['anchorOptionMeta'] = { anchorId, decorationId };
+  }
+
+  private persistAnchorOverrideForSelection(object: THREE.Object3D | null): void {
+    const target = object ?? this.transformControlsService.getSelectedObject();
+    if (!target) {
+      return;
+    }
+
+    const anchorId = target.userData['anchorId'] as string | undefined;
+    if (!anchorId) {
+      return;
+    }
+
+    const decorationId =
+      (target.userData['modelFileName'] as string | undefined) ??
+      (target.userData['displayName'] as string | undefined) ??
+      target.name;
+
+    if (!decorationId) {
+      return;
+    }
+
+    this.snapshotAnchorDecorations(anchorId, decorationId);
   }
 
   private snapshotAnchorDecorations(anchorId: string, onlyDecorationId?: string): void {
