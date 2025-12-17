@@ -87,3 +87,131 @@
   color: #e5e7eb;
   margin-bottom: 0.1rem;
 }
+
+.anchor-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.anchor-tree__item {
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  padding: 0.5rem;
+  background: #0b1220;
+}
+
+.anchor-tree__item--active {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+}
+
+.anchor-tree__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.anchor-tree__anchor {
+  background: transparent;
+  color: #e5e7eb;
+  border: none;
+  font-weight: 600;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.anchor-tree__badge {
+  background: #1f2937;
+  color: #cbd5e1;
+  border-radius: 999px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.anchor-options {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.anchor-options__list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+}
+
+.anchor-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  background: #0f172a;
+  color: #e5e7eb;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.anchor-option:hover {
+  border-color: #3b82f6;
+  background: #111827;
+}
+
+.anchor-option__id {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.anchor-option__action {
+  color: #93c5fd;
+  font-size: 0.85rem;
+}
+
+.admin-panel__search {
+  margin-top: 0.25rem;
+}
+
+.admin-decorations {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.5rem;
+}
+
+.admin-decorations__item {
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  background: #0b1220;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
+  color: #e5e7eb;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.admin-decorations__item:hover {
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+}
+
+.admin-decorations__thumbnail {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #111827;
+  border: 1px solid #1f2937;
+}
+
+.admin-decorations__name {
+  font-size: 0.85rem;
+  text-align: center;
+}

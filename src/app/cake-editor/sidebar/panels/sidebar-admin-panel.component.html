@@ -50,6 +50,84 @@
         {{ recordAnchorOptions ? 'Wyłącz' : 'Włącz' }}
       </button>
     </div>
+
+    <label class="admin-panel__field">
+      <span>Wczytaj do edycji</span>
+      <select [(ngModel)]="selectedPresetId" (ngModelChange)="onPresetSelectionChange($event)">
+        <option *ngFor="let preset of anchorPresets" [value]="preset.id">{{ preset.name }}</option>
+      </select>
+    </label>
+
+    <div class="anchor-tree" *ngIf="getAnchors().length; else noAnchors">
+      <div
+        class="anchor-tree__item"
+        *ngFor="let anchor of getAnchors()"
+        [class.anchor-tree__item--active]="anchor.id === activeAnchorId"
+      >
+        <div class="anchor-tree__row">
+          <button class="anchor-tree__anchor" type="button" (click)="focusAnchor(anchor.id)">
+            {{ anchor.label || anchor.id }}
+          </button>
+          <span class="anchor-tree__badge">{{ listAllowedOptions(anchor).length || 0 }} opcji</span>
+        </div>
+
+        <div class="anchor-options" *ngIf="anchor.id === activeAnchorId">
+          <div class="anchor-options__list" *ngIf="listAllowedOptions(anchor).length; else emptyOptions">
+            <button
+              class="anchor-option"
+              type="button"
+              *ngFor="let option of listAllowedOptions(anchor)"
+              (click)="focusAnchorOption(anchor.id, option)"
+            >
+              <span class="anchor-option__id">{{ option }}</span>
+              <span class="anchor-option__action">Podgląd / edytuj</span>
+            </button>
+          </div>
+          <ng-template #emptyOptions>
+            <div class="panel-hint">Brak dodatkowych dekoracji dla tej kotwicy.</div>
+          </ng-template>
+          <p class="panel-hint">
+            Kliknięcie opcji ukryje pozostałe dekoracje z tej kotwicy, aby łatwiej ustawić pivot i rotację.
+          </p>
+        </div>
+      </div>
+    </div>
+    <ng-template #noAnchors>
+      <p class="panel-hint">Brak kotwic na scenie. Dodaj dekoracje i zapisz je jako preset kotwic.</p>
+    </ng-template>
+  </div>
+
+  <div class="admin-panel__section" *ngIf="activeAnchorId">
+    <div class="admin-panel__section-title">Dodaj dekoracje do kotwicy</div>
+    <p class="panel-hint">Z tej listy możesz od razu kłaść dekoracje na wybrany marker bez przełączania paneli.</p>
+
+    <div class="input input--with-icon admin-panel__search">
+      <input
+        type="text"
+        [(ngModel)]="decorationSearch"
+        placeholder="Szukaj dekoracji"
+        aria-label="Szukaj dekoracji"
+      />
+      <span class="icon-16" aria-hidden="true">🔍</span>
+    </div>
+
+    <div class="admin-decorations">
+      <button
+        class="admin-decorations__item"
+        type="button"
+        *ngFor="let decoration of filteredDecorations()"
+        (click)="addDecorationToAnchor(decoration.modelFileName)"
+      >
+        <img
+          class="admin-decorations__thumbnail"
+          [src]="getDecorationThumbnail(decoration)"
+          [alt]="decoration.name"
+          (error)="onDecorationThumbnailError($event, decoration)"
+        />
+        <span class="admin-decorations__name">{{ decoration.name }}</span>
+      </button>
+      <div class="panel-hint" *ngIf="!filteredDecorations().length">Brak dekoracji do wyświetlenia.</div>
+    </div>
   </div>
 
   <p class="admin-panel__status" *ngIf="statusMessage()">{{ statusMessage() }}</p>
