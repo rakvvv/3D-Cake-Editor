@@ -69,6 +69,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   waferScale = 1;
   waferOffsetX = 0;
   waferOffsetY = 0;
+  setupLocked = false;
   canUndoAction = false;
   canRedoAction = false;
 
@@ -149,13 +150,15 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private container?: ElementRef;
   @ViewChild('canvasContainer') set canvasContainer(element: ElementRef | undefined) {
     const hasChanged = !!element && this.container?.nativeElement !== element.nativeElement;
-    if (hasChanged && this.sceneInitialized) {
-      this.pendingPreset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
-      this.sceneInitialized = false;
+    if (hasChanged && this.sceneInitialized && element) {
+      this.sceneService.reattachRenderer(element.nativeElement);
     }
     this.container = element;
     if (this.viewReady) {
       this.rebindCanvasListeners();
+      if (hasChanged && this.sceneInitialized) {
+        this.sceneService.requestRender();
+      }
     }
     this.maybeInitializeScene();
   }
@@ -336,9 +339,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.penOpacity = this.paintService.penOpacity;
 
     this.refreshUndoRedoAvailability();
-    this.paintSceneSubscription = this.paintService.sceneChanged$.subscribe(() =>
-      this.refreshUndoRedoAvailability(),
-    );
+    this.paintSceneSubscription = this.paintService.sceneChanged$.subscribe(() => {
+      this.refreshUndoRedoAvailability();
+      this.updateSetupLockState();
+    });
   }
 
   ngAfterViewInit(): void {
@@ -417,6 +421,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneService.setCameraPreset(this.cameraPreset);
     this.sceneService.setHorizontalOrbitLock(this.horizontalOrbitLock);
     void this.sceneService.applyDecoratedCakePreset(preset);
+    this.updateSetupLockState();
   }
 
   ngOnDestroy(): void {
@@ -562,10 +567,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.mode = 'workspace';
     this.activeSidebarPanel = 'decorations';
     this.paintingMode = 'decor3d';
-    if (this.sceneInitialized) {
-      this.pendingPreset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
-      this.sceneInitialized = false;
-    }
     this.maybeInitializeScene();
   }
 
@@ -573,6 +574,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneOutline = this.sceneService.getSceneOutline();
     this.sceneSelectedNodeId = this.sceneService.getSelectedDecorationId();
     this.ensureSceneRootExpanded(this.sceneOutline);
+    this.updateSetupLockState();
   }
 
   trackSceneNode(_: number, node: SceneOutlineNode): string {
@@ -652,16 +654,25 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectCakeSize(size: 'small' | 'medium' | 'large'): void {
+    if (this.setupLocked) {
+      return;
+    }
     this.selectedCakeSize = size;
     this.applyLayerSizing(this.selectedLayers, this.getBaseWidth(size));
   }
 
   selectShape(shape: 'cylinder' | 'cuboid'): void {
+    if (this.setupLocked) {
+      return;
+    }
     this.selectedShape = shape;
     this.patchOptions({ shape });
   }
 
   selectLayers(layers: number): void {
+    if (this.setupLocked) {
+      return;
+    }
     this.selectedLayers = layers;
     this.applyLayerSizing(layers, this.getBaseWidth());
   }
@@ -721,11 +732,17 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleGlaze(enabled: boolean): void {
+    if (this.setupLocked) {
+      return;
+    }
     this.glazeEnabled = enabled;
     this.patchOptions({ glaze_enabled: enabled });
   }
 
   setGlazeMode(mode: 'taffla' | 'plain'): void {
+    if (this.setupLocked) {
+      return;
+    }
     this.glazeMode = mode;
     this.patchOptions({ glaze_top_enabled: mode === 'taffla' });
   }
@@ -735,6 +752,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleWafer(enabled: boolean): void {
+    if (this.setupLocked) {
+      return;
+    }
     this.waferEnabled = enabled;
     const fallback = this.options.wafer_texture_url ?? '/assets/textures/Pink%20Candy_BaseColor.jpg';
     this.patchOptions({ wafer_texture_url: enabled ? fallback : null });
@@ -753,16 +773,25 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setWaferScale(scale: number): void {
+    if (this.setupLocked) {
+      return;
+    }
     this.waferScale = scale;
     this.patchOptions({ wafer_scale: scale });
   }
 
   setWaferZoom(zoom: number): void {
+    if (this.setupLocked) {
+      return;
+    }
     this.waferZoom = zoom;
     this.patchOptions({ wafer_texture_zoom: zoom });
   }
 
   setWaferOffset(axis: 'x' | 'y', value: number): void {
+    if (this.setupLocked) {
+      return;
+    }
     if (axis === 'x') {
       this.waferOffsetX = value;
       this.patchOptions({ wafer_texture_offset_x: value });
@@ -785,6 +814,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onWaferFileSelected(event: Event): void {
+    if (this.setupLocked) {
+      return;
+    }
     const input = event.target as HTMLInputElement | null;
     const file = input?.files?.[0];
     if (!file) return;
@@ -1104,6 +1136,19 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneBackground = this.sceneService.toggleBackgroundMode();
   }
 
+  onBack(): void {
+    if (this.mode === 'workspace') {
+      this.mode = 'setup';
+      this.exportPopupOpen = false;
+      this.helperMenuOpen = false;
+      this.cameraDropdownOpen = false;
+      this.sceneService.requestRender();
+      return;
+    }
+
+    this.goToProjects();
+  }
+
   onToolbarUndo(): void {
     if (!this.canUndoAction) {
       return;
@@ -1126,6 +1171,15 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.canUndoAction = this.paintService.canUndo();
     this.canRedoAction = this.paintService.canRedo();
     this.changeDetectorRef.detectChanges();
+  }
+
+  private updateSetupLockState(): void {
+    if (!this.sceneInitialized) {
+      this.setupLocked = false;
+      return;
+    }
+
+    this.setupLocked = this.sceneService.hasDecorationsOrPaint();
   }
 
   private async handleAnchorClick(anchorId: string): Promise<void> {

@@ -67,6 +67,8 @@ export class ThreeSceneService {
   private cakeOutlineHelper: THREE.BoxHelper | null = null;
   private boundingBoxesEnabled = false;
   private highQualityMode = true;
+  private container?: HTMLElement;
+  private ownerDocument?: Document;
   private readonly anchorOccupants = new Map<string, THREE.Object3D>();
   private readonly outlineChanged = new Subject<void>();
   public readonly outlineChanges$ = this.outlineChanged.asObservable();
@@ -90,6 +92,208 @@ export class ThreeSceneService {
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
+    this.anchorPresetsService.setRenderScheduler(() => this.requestRender());
+  }
+
+  private handleMouseDown = (event: MouseEvent) => {
+    if (!this.container) {
+      return;
+    }
+
+    if (event.button !== 0) {
+      return;
+    }
+
+    if (this.surfacePainting.enabled && this.cakeBase) {
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
+      const paintHit = this.pickPaintableHit(intersectsCake);
+      if (!paintHit || this.transformControlsService.isDragging()) {
+        this.onClickDown(event);
+        return;
+      }
+
+      if (!this.isPaintable(paintHit.object)) {
+        this.onClickDown(event);
+        return;
+      }
+
+      this.surfacePainting.startStroke();
+      this.sceneInitService.setOrbitEnabled(false);
+      void this.surfacePainting.handlePointer(paintHit, this.scene);
+      this.requestRender();
+      return;
+    }
+
+    if (this.paintService.paintMode && this.cakeBase) {
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
+      if (!intersectsCake.length || this.transformControlsService.isDragging()) {
+        this.onClickDown(event);
+        return;
+      }
+
+      this.paintService.beginStroke(rect);
+      this.sceneInitService.setOrbitEnabled(false);
+      void this.paintService.handlePaint(
+        event,
+        this.renderer,
+        this.camera,
+        this.scene,
+        this.cakeBase,
+        this.mouse,
+        this.raycaster,
+      );
+      this.requestRender();
+      return;
+    }
+
+    this.onClickDown(event);
+  };
+
+  private handleMouseMove = (event: MouseEvent) => {
+    if (!this.container) {
+      return;
+    }
+
+    if (this.surfacePainting.enabled && this.surfacePainting.isPainting() && this.cakeBase) {
+      if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+        this.stopPaintingStroke();
+        return;
+      }
+
+      if (this.transformControlsService.isDragging()) {
+        this.stopPaintingStroke();
+        return;
+      }
+
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
+      const paintHit = this.pickPaintableHit(intersectsCake);
+      if (!paintHit) {
+        return;
+      }
+      if (!this.isPaintable(paintHit.object)) {
+        return;
+      }
+      void this.surfacePainting.handlePointer(paintHit, this.scene);
+      this.requestRender();
+      return;
+    }
+
+    if (!this.paintService.paintMode || !this.paintService.isPainting || !this.cakeBase) {
+      return;
+    }
+
+    if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+      this.stopPaintingStroke();
+      return;
+    }
+
+    if (this.transformControlsService.isDragging()) {
+      this.stopPaintingStroke();
+      return;
+    }
+
+    void this.paintService.handlePaint(
+      event,
+      this.renderer,
+      this.camera,
+      this.scene,
+      this.cakeBase,
+      this.mouse,
+      this.raycaster,
+    );
+    this.requestRender();
+  };
+
+  private handleMouseUp = () => this.stopPaintingStroke();
+
+  private handleMouseLeave = () => this.stopPaintingStroke();
+
+  private handleContextMenu = (event: MouseEvent) => {
+    const painting =
+      (this.paintService.paintMode && this.paintService.isPainting) ||
+      (this.surfacePainting.enabled && this.surfacePainting.isPainting());
+    const orbitActive = this.sceneInitService.isOrbitBusy(200);
+    if (painting || orbitActive) {
+      event.preventDefault();
+    }
+  };
+
+  private handleKeyDown = (event: KeyboardEvent) => {
+    const ctrlOrMeta = event.ctrlKey || event.metaKey;
+    if (!ctrlOrMeta) {
+      return;
+    }
+
+    if (event.repeat) {
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+    const wantsUndo = key === 'z' && !event.shiftKey;
+    const wantsRedo = key === 'y' || (key === 'z' && event.shiftKey);
+
+    if (wantsUndo) {
+      if (this.paintService.canUndo()) {
+        if (this.lastUndoEventStamp === event.timeStamp) {
+          return;
+        }
+        this.lastUndoEventStamp = event.timeStamp;
+        this.paintService.undo();
+        event.preventDefault();
+      }
+    } else if (wantsRedo) {
+      if (this.paintService.canRedo()) {
+        if (this.lastRedoEventStamp === event.timeStamp) {
+          return;
+        }
+        this.lastRedoEventStamp = event.timeStamp;
+        this.paintService.redo();
+        event.preventDefault();
+      }
+    }
+  };
+
+  private attachInputListeners(container: HTMLElement): void {
+    this.detachInputListeners();
+    this.container = container;
+    this.ownerDocument = container.ownerDocument ?? document;
+
+    container.addEventListener('mousedown', this.handleMouseDown);
+    container.addEventListener('mousemove', this.handleMouseMove);
+    container.addEventListener('mouseup', this.handleMouseUp);
+    container.addEventListener('mouseleave', this.handleMouseLeave);
+    container.addEventListener('contextmenu', this.handleContextMenu);
+
+    this.ownerDocument.addEventListener('keydown', this.handleKeyDown);
+  }
+
+  private detachInputListeners(): void {
+    if (this.container) {
+      this.container.removeEventListener('mousedown', this.handleMouseDown);
+      this.container.removeEventListener('mousemove', this.handleMouseMove);
+      this.container.removeEventListener('mouseup', this.handleMouseUp);
+      this.container.removeEventListener('mouseleave', this.handleMouseLeave);
+      this.container.removeEventListener('contextmenu', this.handleContextMenu);
+    }
+
+    if (this.ownerDocument) {
+      this.ownerDocument.removeEventListener('keydown', this.handleKeyDown);
+    }
+
+    this.container = undefined;
+    this.ownerDocument = undefined;
   }
 
   public get scene(): THREE.Scene {
@@ -98,6 +302,7 @@ export class ThreeSceneService {
 
   private emitOutlineChanged(): void {
     this.outlineChanged.next();
+    this.sceneInitService.requestRender();
   }
 
   public get camera(): THREE.Camera {
@@ -106,6 +311,10 @@ export class ThreeSceneService {
 
   public get renderer(): THREE.WebGLRenderer {
     return this.sceneInitService.renderer;
+  }
+
+  public requestRender(): void {
+    this.sceneInitService.requestRender();
   }
 
   public getBackgroundMode(): 'light' | 'dark' {
@@ -152,169 +361,23 @@ export class ThreeSceneService {
       void this.loadAndAddText(this.options.cake_text_value, textSize, textHeight, textDepth, textConfig);
     }
 
-    container.addEventListener('mousedown', (event) => {
-      if (event.button !== 0) {
-        return;
-      }
+    this.attachInputListeners(container);
+  }
 
-      if (this.surfacePainting.enabled && this.cakeBase) {
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-        const paintHit = this.pickPaintableHit(intersectsCake);
-        if (!paintHit || this.transformControlsService.isDragging()) {
-          this.onClickDown(event);
-          return;
-        }
-
-        if (!this.isPaintable(paintHit.object)) {
-          this.onClickDown(event);
-          return;
-        }
-
-        this.surfacePainting.startStroke();
-        this.sceneInitService.setOrbitEnabled(false);
-        void this.surfacePainting.handlePointer(paintHit, this.scene);
-        return;
-      }
-
-      if (this.paintService.paintMode && this.cakeBase) {
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-        if (!intersectsCake.length || this.transformControlsService.isDragging()) {
-          this.onClickDown(event);
-          return;
-        }
-
-        this.paintService.beginStroke(rect);
-        this.sceneInitService.setOrbitEnabled(false);
-        void this.paintService.handlePaint(
-          event,
-          this.renderer,
-          this.camera,
-          this.scene,
-          this.cakeBase,
-          this.mouse,
-          this.raycaster,
-        );
-      } else {
-        this.onClickDown(event);
-      }
-    });
-
-    container.addEventListener('mousemove', (event) => {
-      if (this.surfacePainting.enabled && this.surfacePainting.isPainting() && this.cakeBase) {
-        if (event.buttons !== undefined && (event.buttons & 1) === 0) {
-          this.stopPaintingStroke();
-          return;
-        }
-
-        if (this.transformControlsService.isDragging()) {
-          this.stopPaintingStroke();
-          return;
-        }
-
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-        const paintHit = this.pickPaintableHit(intersectsCake);
-        if (!paintHit) {
-          return;
-        }
-        if (!this.isPaintable(paintHit.object)) {
-          // Opcja A: Przerywamy ten konkretny "krok" malowania (pędzel nie stawia kropki, ale jak zjedziesz z polewy to maluje dalej)
-          return;
-        }
-          void this.surfacePainting.handlePointer(paintHit, this.scene);
-        return;
-      }
-
-      if (!this.paintService.paintMode || !this.paintService.isPainting || !this.cakeBase) {
-        return;
-      }
-
-      if (event.buttons !== undefined && (event.buttons & 1) === 0) {
-        this.stopPaintingStroke();
-        return;
-      }
-
-      if (this.transformControlsService.isDragging()) {
-        this.stopPaintingStroke();
-        return;
-      }
-
-      void this.paintService.handlePaint(
-        event,
-        this.renderer,
-        this.camera,
-        this.scene,
-        this.cakeBase,
-        this.mouse,
-        this.raycaster,
-      );
-    });
-
-    const stopPainting = () => this.stopPaintingStroke();
-    container.addEventListener('mouseup', stopPainting);
-    container.addEventListener('mouseleave', stopPainting);
-    container.addEventListener('contextmenu', (event) => {
-      const painting =
-        (this.paintService.paintMode && this.paintService.isPainting) ||
-        (this.surfacePainting.enabled && this.surfacePainting.isPainting());
-      const orbitActive = this.sceneInitService.isOrbitBusy(200);
-      if (painting || orbitActive) {
-        event.preventDefault();
-      }
-    });
-
-    const ownerDocument = container.ownerDocument ?? document;
-    ownerDocument.addEventListener('keydown', (event) => {
-      const ctrlOrMeta = event.ctrlKey || event.metaKey;
-      if (!ctrlOrMeta) {
-        return;
-      }
-
-      if (event.repeat) {
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      const wantsUndo = key === 'z' && !event.shiftKey;
-      const wantsRedo = key === 'y' || (key === 'z' && event.shiftKey);
-
-      if (wantsUndo) {
-        if (this.paintService.canUndo()) {
-          if (this.lastUndoEventStamp === event.timeStamp) {
-            return;
-          }
-          this.lastUndoEventStamp = event.timeStamp;
-          this.paintService.undo();
-          event.preventDefault();
-        }
-      } else if (wantsRedo) {
-        if (this.paintService.canRedo()) {
-          if (this.lastRedoEventStamp === event.timeStamp) {
-            return;
-          }
-          this.lastRedoEventStamp = event.timeStamp;
-          this.paintService.redo();
-          event.preventDefault();
-        }
-      }
-    });
+  public reattachRenderer(container: HTMLElement): void {
+    const changed = this.container !== container;
+    this.sceneInitService.reattachRenderer(container);
+    if (changed) {
+      this.attachInputListeners(container);
+    }
+    this.requestRender();
   }
 
   private stopPaintingStroke(): void {
     this.surfacePainting.endStroke();
     this.paintService.endStroke();
     this.sceneInitService.setOrbitEnabled(true);
+    this.requestRender();
   }
 
   public updateCakeOptions(options: CakeOptions): void {
@@ -335,6 +398,7 @@ export class ThreeSceneService {
     this.transformControlsService.updateCakeSize(effectiveSize);
     this.sceneInitService.updateOrbitForCake(effectiveSize);
     this.updateCakeOutlineHelper();
+    this.requestRender();
   }
 
   public setGridVisible(visible: boolean): void {
@@ -343,6 +407,7 @@ export class ThreeSceneService {
       this.scene.add(this.gridHelper);
     }
     this.gridHelper.visible = visible;
+    this.requestRender();
   }
 
   public setAxesVisible(visible: boolean): void {
@@ -352,6 +417,7 @@ export class ThreeSceneService {
       this.scene.add(this.axesHelper);
     }
     this.axesHelper.visible = visible;
+    this.requestRender();
   }
 
   public setCakeOutlineVisible(visible: boolean): void {
@@ -371,6 +437,7 @@ export class ThreeSceneService {
 
     this.cakeOutlineHelper.visible = true;
     this.cakeOutlineHelper.update();
+    this.requestRender();
   }
 
   public setBoundingBoxesVisible(visible: boolean): void {
@@ -384,10 +451,12 @@ export class ThreeSceneService {
         this.showBoxHelperFor(fallback);
       }
     }
+    this.requestRender();
   }
 
   public setAnchorMarkersVisible(visible: boolean): void {
     this.anchorPresetsService.setMarkersVisible(visible);
+    this.requestRender();
   }
 
   public areAnchorMarkersVisible(): boolean {
@@ -399,9 +468,15 @@ export class ThreeSceneService {
     this.sceneInitService.renderer.shadowMap.enabled = enabled;
     this.scene.traverse((child) => {
       if ((child as THREE.Light).isLight) {
-        (child as THREE.Light).castShadow = enabled;
+        const light = child as THREE.Light;
+        if (light instanceof THREE.DirectionalLight || light instanceof THREE.SpotLight || light instanceof THREE.PointLight) {
+          light.castShadow = enabled;
+        } else {
+          light.castShadow = false;
+        }
       }
     });
+    this.requestRender();
   }
 
   public isHighQualityMode(): boolean {
@@ -424,6 +499,10 @@ export class ThreeSceneService {
     if (this.cakeMetadata) {
       this.sceneInitService.resetOrbitPivot();
     }
+  }
+
+  public hasDecorationsOrPaint(): boolean {
+    return this.collectDecorationRoots().length > 0;
   }
 
   private rebuildCake(): void {
@@ -463,6 +542,7 @@ export class ThreeSceneService {
     }
 
     this.emitOutlineChanged();
+    this.requestRender();
   }
 
   private disposeCake(): void {
