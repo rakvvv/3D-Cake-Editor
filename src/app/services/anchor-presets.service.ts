@@ -246,8 +246,8 @@ export class AnchorPresetsService {
     return this.recordOptionsSubject.value;
   }
 
-  public appendAllowedDecoration(anchorId: string, decorationId?: string): void {
-    if (!decorationId) {
+  public appendAllowedDecoration(anchorId: string | null, decorationId?: string): void {
+    if (!anchorId || !decorationId) {
       return;
     }
 
