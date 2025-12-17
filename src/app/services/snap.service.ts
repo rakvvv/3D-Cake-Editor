@@ -164,7 +164,10 @@ export class SnapService {
     const hasOverride = !!override;
     const initialRotation = object.userData['initialRotation'] as THREE.Euler | undefined;
     const initialScale = object.userData['initialScale'] as THREE.Vector3 | undefined;
-    const preserveTransform = object.userData['preserveAnchorTransform'] === true;
+    const existingAnchorId = object.userData['anchorId'] as string | undefined;
+    const preserveTransform =
+      object.userData['preserveAnchorTransform'] === true ||
+      (existingAnchorId === anchor.id && object.userData['isSnapped'] === true);
     const skipOrientation = preserveTransform && !override;
 
     object.position.set(0, 0, 0);
