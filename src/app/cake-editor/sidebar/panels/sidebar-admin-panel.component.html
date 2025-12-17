@@ -61,10 +61,11 @@
     <div class="anchor-tree" *ngIf="getAnchors().length; else noAnchors">
       <div
         class="anchor-tree__item"
-        *ngFor="let anchor of getAnchors()"
+        *ngFor="let anchor of getAnchors(); index as i"
         [class.anchor-tree__item--active]="anchor.id === activeAnchorId"
       >
         <div class="anchor-tree__row">
+          <span class="anchor-tree__index">{{ i + 1 }}</span>
           <button class="anchor-tree__anchor" type="button" (click)="focusAnchor(anchor.id)">
             {{ anchor.label || anchor.id }}
           </button>
@@ -79,7 +80,16 @@
               *ngFor="let option of listAllowedOptions(anchor)"
               (click)="focusAnchorOption(anchor.id, option)"
             >
-              <span class="anchor-option__id">{{ option }}</span>
+              <img
+                class="anchor-option__thumbnail"
+                [src]="resolveDecorationThumbnail(option)"
+                [alt]="resolveDecorationName(option)"
+                (error)="onAnchorOptionThumbnailError($event, option)"
+              />
+              <div class="anchor-option__meta">
+                <span class="anchor-option__label">{{ resolveDecorationName(option) }}</span>
+                <span class="anchor-option__id">{{ option }}</span>
+              </div>
               <span class="anchor-option__action">Podgląd / edytuj</span>
             </button>
           </div>
@@ -116,7 +126,7 @@
         class="admin-decorations__item"
         type="button"
         *ngFor="let decoration of filteredDecorations()"
-        (click)="addDecorationToAnchor(decoration.modelFileName)"
+        (click)="addDecorationToAnchor(decoration)"
       >
         <img
           class="admin-decorations__thumbnail"

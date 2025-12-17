@@ -89,6 +89,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
   }
 
@@ -179,6 +180,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.sceneService.showAllAnchorDecorations();
     this.activeAnchorId = anchorId;
     this.lastEditedAnchor = anchorId;
+    this.anchorPresetsService.setFocusedAnchor(anchorId);
     this.statusMessage.set(`Edytujesz kotwicę ${anchorId}.`);
   }
 
@@ -186,6 +188,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.statusMessage.set('');
     this.errorMessage.set('');
 
+    this.focusAnchor(anchorId);
     void this.sceneService.ensureAnchorDecorationForEdit(anchorId, decorationId).then((result) => {
       if (!result.success) {
         this.errorMessage.set(result.message);
@@ -203,6 +206,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.selectedPresetId = presetId;
     this.anchorPresetsService.setActivePreset(presetId);
     this.activeAnchorId = null;
+    this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
   }
 
@@ -210,11 +214,13 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     return anchor.allowedDecorationIds ?? [];
   }
 
-  async addDecorationToAnchor(decorationId: string): Promise<void> {
+  async addDecorationToAnchor(decoration: DecorationInfo): Promise<void> {
     if (!this.activeAnchorId) {
       this.errorMessage.set('Najpierw wybierz kotwicę z listy.');
       return;
     }
+
+    const identifiers = new Set([decoration.modelFileName, decoration.id].filter(Boolean) as string[]);
 
     if (!this.recordAnchorOptions) {
       this.recordAnchorOptions = true;
@@ -222,16 +228,17 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     }
 
     this.statusMessage.set('Umieszczanie dekoracji na kotwicy…');
+    const identifier = decoration.id || decoration.modelFileName;
     const result = await this.sceneService.ensureAnchorDecorationForEdit(
       this.activeAnchorId,
-      decorationId,
+      identifier!,
     );
     if (!result.success) {
       this.errorMessage.set(result.message);
       return;
     }
 
-    this.anchorPresetsService.appendAllowedDecoration(this.activeAnchorId, decorationId);
+    identifiers.forEach((id) => this.anchorPresetsService.appendAllowedDecoration(this.activeAnchorId, id));
     this.statusMessage.set('Dodano dekorację jako opcję dla kotwicy.');
   }
 
@@ -248,12 +255,28 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
   }
 
   getDecorationThumbnail(decoration: DecorationInfo): string {
-    return decoration.thumbnail ?? '/assets/decorations/thumbnails/placeholder.svg';
+    return decoration.thumbnailUrl ?? '/assets/decorations/thumbnails/placeholder.svg';
   }
 
   onDecorationThumbnailError(event: Event, decoration: DecorationInfo): void {
     const target = event.target as HTMLImageElement;
     target.src = '/assets/decorations/thumbnails/placeholder.svg';
     target.alt = `${decoration.name} (miniatura niedostępna)`;
+  }
+
+  resolveDecorationName(identifier: string): string {
+    const decoration = this.decorationsService.getDecorationInfo(identifier);
+    return decoration?.name ?? identifier;
+  }
+
+  resolveDecorationThumbnail(identifier: string): string {
+    const decoration = this.decorationsService.getDecorationInfo(identifier);
+    return decoration?.thumbnailUrl ?? '/assets/decorations/thumbnails/placeholder.svg';
+  }
+
+  onAnchorOptionThumbnailError(event: Event, identifier: string): void {
+    const target = event.target as HTMLImageElement;
+    target.src = '/assets/decorations/thumbnails/placeholder.svg';
+    target.alt = `${identifier} (miniatura niedostępna)`;
   }
 }

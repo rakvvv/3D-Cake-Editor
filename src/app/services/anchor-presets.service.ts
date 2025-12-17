@@ -15,6 +15,7 @@ export class AnchorPresetsService {
   private readonly presetsSubject = new BehaviorSubject<AnchorPreset[]>([]);
   private readonly activePresetIdSubject = new BehaviorSubject<string | null>(null);
   private readonly markersVisibleSubject = new BehaviorSubject<boolean>(false);
+  private readonly focusedAnchorIdSubject = new BehaviorSubject<string | null>(null);
   private readonly anchorClicks = new Subject<string>();
   private readonly actionModeSubject = new BehaviorSubject<'spawn' | 'move'>('spawn');
   private readonly pendingDecorationSubject = new BehaviorSubject<DecorationInfo | null>(null);
@@ -31,6 +32,7 @@ export class AnchorPresetsService {
   public readonly presets$ = this.presetsSubject.asObservable();
   public readonly activePresetId$ = this.activePresetIdSubject.asObservable();
   public readonly markersVisible$ = this.markersVisibleSubject.asObservable();
+  public readonly focusedAnchorId$ = this.focusedAnchorIdSubject.asObservable();
   public readonly anchorClicks$ = this.anchorClicks.asObservable();
   public readonly actionMode$ = this.actionModeSubject.asObservable();
   public readonly pendingDecoration$ = this.pendingDecorationSubject.asObservable();
@@ -191,7 +193,22 @@ export class AnchorPresetsService {
   }
 
   public emitAnchorClick(anchorId: string): void {
+    this.setFocusedAnchor(anchorId);
     this.anchorClicks.next(anchorId);
+  }
+
+  public setFocusedAnchor(anchorId: string | null): void {
+    if (anchorId && !this.getAnchor(anchorId)) {
+      this.focusedAnchorIdSubject.next(null);
+    } else {
+      this.focusedAnchorIdSubject.next(anchorId);
+    }
+    this.refreshMarkerColors();
+    this.requestRender();
+  }
+
+  public getFocusedAnchor(): string | null {
+    return this.focusedAnchorIdSubject.value;
   }
 
   public setHighlightedDecoration(decorationId: string | null): void {
@@ -331,6 +348,9 @@ export class AnchorPresetsService {
   }
 
   private resolveMarkerColor(anchor: AnchorPoint): number {
+    if (this.focusedAnchorIdSubject.value === anchor.id) {
+      return 0xf59e0b;
+    }
     if (!this.isAnchorCompatibleWithPending(anchor)) {
       return 0x9ca3af;
     }
