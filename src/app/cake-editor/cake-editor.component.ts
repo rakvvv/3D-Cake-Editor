@@ -1222,11 +1222,15 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       pendingDecoration.modelFileName,
       anchorId,
     );
-    if (result.success && this.anchorPresetsService.isRecordingOptions()) {
-      this.anchorPresetsService.appendAllowedDecoration(
-        anchorId,
-        pendingDecoration.modelFileName ?? pendingDecoration.id,
-      );
+    if (result.success) {
+      if (this.anchorPresetsService.isRecordingOptions()) {
+        this.anchorPresetsService.appendAllowedDecoration(
+          anchorId,
+          pendingDecoration.modelFileName ?? pendingDecoration.id,
+        );
+      }
+      this.anchorPresetsService.setPendingDecoration(null);
+      this.anchorPresetsService.setFocusedAnchor(null);
     }
     this.showStatus(result.message);
   }
