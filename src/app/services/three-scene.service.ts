@@ -1352,6 +1352,9 @@ export class ThreeSceneService {
         selected.name;
 
       if (decorationId) {
+        // Zachowaj bieżącą rotację w snapInfo, aby TransformControls
+        // nie nadpisał jej starymi danymi przy zmianie trybu czy hoverze.
+        this.snapService.captureSnappedOrientation(selected);
         this.snapshotAnchorDecorations(anchorId, decorationId);
       }
     }
