@@ -2134,6 +2134,9 @@ export class ThreeSceneService {
         ? baseWorldQuaternion.clone().invert().multiply(worldQuaternion)
         : worldQuaternion;
 
+      if (decoration.userData['isSnapped']) {
+        this.snapService.captureSnappedOrientation(decoration);
+      }
       const snapInfo = this.snapService.getSnapInfoSnapshot(decoration);
       const entry: DecorationPresetEntry = {
         modelFileName,
