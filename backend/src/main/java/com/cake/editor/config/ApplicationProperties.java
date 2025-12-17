@@ -14,6 +14,7 @@ public class ApplicationProperties {
     private final Storage storage = new Storage();
     private final Cors cors = new Cors();
     private final Jwt jwt = new Jwt();
+    private final Admin admin = new Admin();
 
     public Storage getStorage() {
         return storage;
@@ -25,6 +26,10 @@ public class ApplicationProperties {
 
     public Jwt getJwt() {
         return jwt;
+    }
+
+    public Admin getAdmin() {
+        return admin;
     }
 
     public static class Storage {
@@ -101,6 +106,30 @@ public class ApplicationProperties {
 
         public void setExpirationMs(long expirationMs) {
             this.expirationMs = expirationMs;
+        }
+    }
+
+    public static class Admin {
+        @NotBlank
+        private String email = System.getenv().getOrDefault("APP_ADMIN_EMAIL", "admin@cake-editor.local");
+
+        @NotBlank
+        private String password = System.getenv().getOrDefault("APP_ADMIN_PASSWORD", "ChangeMe123!");
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
         }
     }
 }

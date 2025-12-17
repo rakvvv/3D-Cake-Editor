@@ -122,6 +122,11 @@ export class ProjectListComponent implements OnInit {
     void this.router.navigate(['/login']);
   }
 
+  goToAdmin(): void {
+    void this.router.navigate(['/admin']);
+    this.userMenuOpen = false;
+  }
+
   onProjectThumbnailError(event: Event): void {
     const img = event.target as HTMLImageElement;
     if (img.src === new URL(this.defaultThumbnail, img.baseURI).toString()) {

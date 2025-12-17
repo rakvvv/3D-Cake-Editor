@@ -1,6 +1,6 @@
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://api.cake-editor.local/api',
+  apiBaseUrl: '/api',
   authorMode: false,
   endpoints: {
     saveScene: 'saveScene',

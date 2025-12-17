@@ -12,6 +12,16 @@ ng serve
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
+## Backend database
+
+The backend now targets PostgreSQL. A disposable instance is available via Docker:
+
+```bash
+docker compose up -d db
+```
+
+The default credentials are `cake_editor` / `devpass` on `localhost:5432`. Override them with standard Spring `SPRING_DATASOURCE_*` environment variables when starting the backend.
+
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:

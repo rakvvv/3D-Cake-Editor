@@ -2,10 +2,10 @@ spring:
   application:
     name: cake-editor-backend
   datasource:
-    url: jdbc:h2:file:./data/h2db
-    driverClassName: org.h2.Driver
-    username: sa
-    password: 
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/cake_editor}
+    driverClassName: org.postgresql.Driver
+    username: ${SPRING_DATASOURCE_USERNAME:cake_editor}
+    password: ${SPRING_DATASOURCE_PASSWORD:devpass}
   jpa:
     hibernate:
       ddl-auto: update

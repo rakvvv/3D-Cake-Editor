@@ -6,6 +6,7 @@ import { AnchorPoint, AnchorPreset } from '../models/anchors';
 import { CakeMetadata } from '../factories/three-objects.factory';
 import { SnapService } from './snap.service';
 import { DecorationInfo } from '../models/decorationInfo';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
@@ -41,10 +42,23 @@ export class AnchorPresetsService {
     this.renderScheduler = requestRender;
   }
 
-  public async loadPresets(url = '/assets/anchor-presets.json'): Promise<void> {
+  public async loadPresets(url = `${environment.apiBaseUrl}/presets/anchors`): Promise<void> {
     try {
-      const presets = await firstValueFrom(this.http.get<AnchorPreset[]>(url));
-      this.setPresets(presets ?? []);
+      const presets = await firstValueFrom(
+        this.http.get<(AnchorPreset | { dataJson: string; id?: string; name?: string })[]>(url),
+      );
+      const normalized = (presets ?? []).map((preset) => {
+        if ('dataJson' in preset) {
+          const parsed = JSON.parse((preset as any).dataJson) as AnchorPreset;
+          return {
+            ...parsed,
+            id: (preset as any).id ?? parsed.id,
+            name: (preset as any).name ?? parsed.name,
+          } as AnchorPreset;
+        }
+        return preset as AnchorPreset;
+      });
+      this.setPresets(normalized ?? []);
     } catch (error) {
       console.warn('Nie udało się wczytać presetów kotwic:', error);
       this.setPresets([]);

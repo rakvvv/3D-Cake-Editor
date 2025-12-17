@@ -41,6 +41,7 @@ public class SecurityConfig {
                                 "/api/decorations/**",
                                 "/api/extruder-variants/**",
                                 "/api/textures/**",
+                                "/api/presets/**",
                                 "/api/saveScene",
                                 "/api/scene/**",
                                 "/h2-console/**"

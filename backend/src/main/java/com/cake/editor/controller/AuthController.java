@@ -4,6 +4,7 @@ import com.cake.editor.dto.AuthRequest;
 import com.cake.editor.dto.AuthResponse;
 import com.cake.editor.dto.UserDto;
 import com.cake.editor.model.User;
+import com.cake.editor.model.UserRole;
 import com.cake.editor.repository.UserRepository;
 import com.cake.editor.security.JwtService;
 import com.cake.editor.security.CustomUserDetailsService;
@@ -52,6 +53,7 @@ public class AuthController {
         User user = new User();
         user.setEmail(normalizedEmail);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRole(UserRole.USER);
         userRepository.save(user);
 
         var userDetails = userDetailsService.loadUserByUsername(user.getEmail());
@@ -91,7 +93,7 @@ public class AuthController {
     }
 
     private UserDto toDto(User user) {
-        return new UserDto(user.getId(), user.getEmail());
+        return new UserDto(user.getId(), user.getEmail(), user.getRole());
     }
 
     private void validatePasswordStrength(String rawPassword) {

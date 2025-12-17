@@ -6,6 +6,7 @@ export interface AuthRequest {
 export interface UserDto {
   id: number;
   email: string;
+  role: 'USER' | 'ADMIN';
 }
 
 export interface AuthResponse {
