@@ -32,6 +32,7 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
   readonly Math = Math;
   private readonly decorationPlaceholder = '/assets/decorations/thumbnails/placeholder.svg';
   private readonly subscriptions = new Subscription();
+  private allowedDecorationIds: Set<string> | null = null;
 
   constructor(
     private readonly decorationsService: DecorationsService,
@@ -59,6 +60,11 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
         this.selectedDecorationId = decoration?.modelFileName ?? decoration?.id ?? null;
       }),
     );
+    this.subscriptions.add(
+      this.anchorPresetsService.focusedAnchorId$.subscribe((anchorId) => {
+        this.syncAllowedDecorations(anchorId);
+      }),
+    );
   }
 
   ngOnDestroy(): void {
@@ -67,10 +73,15 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
 
   get filteredDecorations(): DecorationInfo[] {
     const term = this.searchTerm.trim().toLowerCase();
-    if (!term) {
-      return this.decorations;
+    let available = this.allowedDecorationIds?.size
+      ? this.decorations.filter((item) => this.matchesAllowedDecoration(item))
+      : this.decorations;
+
+    if (term) {
+      available = available.filter((item) => item.name.toLowerCase().includes(term));
     }
-    return this.decorations.filter((item) => item.name.toLowerCase().includes(term));
+
+    return available;
   }
 
   get layerIndices(): number[] {
@@ -138,5 +149,36 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
 
   onLayerChange(index: number): void {
     this.targetLayerIndex = Math.min(Math.max(Math.round(index), 0), Math.max(this.layerCount - 1, 0));
+  }
+
+  private syncAllowedDecorations(anchorId: string | null): void {
+    const anchor = anchorId ? this.anchorPresetsService.getAnchor(anchorId) : null;
+    const allowed = anchor?.allowedDecorationIds?.filter((id): id is string => !!id) ?? [];
+    this.allowedDecorationIds = allowed.length ? new Set(allowed) : null;
+    this.dropDisallowedSelection();
+  }
+
+  private matchesAllowedDecoration(decoration: DecorationInfo): boolean {
+    if (!this.allowedDecorationIds?.size) {
+      return true;
+    }
+    const candidates = [decoration.modelFileName, decoration.id].filter((id): id is string => !!id);
+    return candidates.some((candidate) => this.allowedDecorationIds!.has(candidate));
+  }
+
+  private dropDisallowedSelection(): void {
+    if (!this.allowedDecorationIds?.size || !this.selectedDecorationId) {
+      return;
+    }
+
+    const selectedInfo = this.decorationsService.getDecorationInfo(this.selectedDecorationId);
+    const stillAllowed = selectedInfo
+      ? this.matchesAllowedDecoration(selectedInfo)
+      : this.allowedDecorationIds.has(this.selectedDecorationId);
+
+    if (!stillAllowed) {
+      this.selectedDecorationId = null;
+      this.anchorPresetsService.setPendingDecoration(null);
+    }
   }
 }
