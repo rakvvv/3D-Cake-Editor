@@ -95,7 +95,18 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
   }
 
   onAddDecoration(decoration: DecorationInfo): void {
-    this.selectedDecorationId = decoration.id ?? decoration.modelFileName;
+    const decorationKey = decoration.id ?? decoration.modelFileName;
+    const isAlreadySelected =
+      !!this.selectedDecorationId &&
+      (this.selectedDecorationId === decoration.id || this.selectedDecorationId === decoration.modelFileName);
+
+    if (isAlreadySelected) {
+      this.selectedDecorationId = null;
+      this.anchorPresetsService.setPendingDecoration(null);
+      return;
+    }
+
+    this.selectedDecorationId = decorationKey;
     this.anchorPresetsService.setPendingDecoration(decoration);
     this.paintService.setCurrentBrush(decoration.modelFileName);
 

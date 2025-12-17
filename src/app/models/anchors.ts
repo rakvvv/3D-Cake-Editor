@@ -17,10 +17,21 @@ export interface AnchorPoint {
   defaultRotationDeg?: number;
   defaultScale?: number;
   allowedDecorationIds?: string[];
+  decorationOverrides?: Record<
+    string,
+    {
+      rotationDeg?: number;
+      scale?: number;
+      offset?: [number, number, number];
+    }
+  >;
 }
 
 export interface AnchorPreset {
   id: string;
   name: string;
+  cakeShape?: string;
+  cakeSize?: string;
+  tiers?: number;
   anchors: AnchorPoint[];
 }

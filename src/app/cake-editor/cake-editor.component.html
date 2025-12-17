@@ -468,6 +468,15 @@
               <button class="workspace-toolbar__btn" type="button" [class.workspace-toolbar__btn--active]="activeSidebarPanel === 'presets'" (click)="openPresetPanel()">
                 <span aria-hidden="true">🍰</span>
               </button>
+              <button
+                *ngIf="isAdmin"
+                class="workspace-toolbar__btn"
+                type="button"
+                [class.workspace-toolbar__btn--active]="activeSidebarPanel === 'admin'"
+                (click)="openAdminPanel()"
+              >
+                <span aria-hidden="true">🛠️</span>
+              </button>
               <div class="workspace-toolbar__divider"></div>
               <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('translate')">
                 <span aria-hidden="true">↕</span>
@@ -554,6 +563,10 @@
         <app-editor-sidebar
           [options]="options"
           [authorModeEnabled]="authorModeEnabled"
+          [isAdmin]="isAdmin"
+          [cakeShape]="options.shape"
+          [cakeSize]="selectedCakeSize"
+          [cakeTiers]="options.layers"
           [paintingMode]="paintingMode"
           [paintColor]="paintColor"
           [penSize]="penSize"

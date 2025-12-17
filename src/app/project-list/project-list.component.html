@@ -15,6 +15,9 @@
         </button>
         <div class="user-menu" *ngIf="userMenuOpen">
           <div class="user-menu__email">{{ (user$ | async)?.email }}</div>
+          <button class="user-menu__item" type="button" *ngIf="(user$ | async)?.role === 'ADMIN'" (click)="goToAdmin()">
+            Panel administratora
+          </button>
           <button class="user-menu__item" type="button" (click)="logout()">Wyloguj</button>
         </div>
       </div>

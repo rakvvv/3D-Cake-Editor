@@ -6,6 +6,7 @@ import { AnchorPoint, AnchorPreset } from '../models/anchors';
 import { CakeMetadata } from '../factories/three-objects.factory';
 import { SnapService } from './snap.service';
 import { DecorationInfo } from '../models/decorationInfo';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
@@ -14,23 +15,28 @@ export class AnchorPresetsService {
   private readonly presetsSubject = new BehaviorSubject<AnchorPreset[]>([]);
   private readonly activePresetIdSubject = new BehaviorSubject<string | null>(null);
   private readonly markersVisibleSubject = new BehaviorSubject<boolean>(false);
+  private readonly focusedAnchorIdSubject = new BehaviorSubject<string | null>(null);
   private readonly anchorClicks = new Subject<string>();
   private readonly actionModeSubject = new BehaviorSubject<'spawn' | 'move'>('spawn');
   private readonly pendingDecorationSubject = new BehaviorSubject<DecorationInfo | null>(null);
+  private readonly recordOptionsSubject = new BehaviorSubject<boolean>(false);
   private renderScheduler?: () => void;
 
   private scene: THREE.Scene | null = null;
   private cakeBase: THREE.Object3D | null = null;
   private metadata: CakeMetadata | null = null;
+  private cakeContext: { shape?: string; cakeSize?: string; tiers?: number } | null = null;
   private markers: THREE.Mesh[] = [];
   private highlightDecorationId: string | null = null;
 
   public readonly presets$ = this.presetsSubject.asObservable();
   public readonly activePresetId$ = this.activePresetIdSubject.asObservable();
   public readonly markersVisible$ = this.markersVisibleSubject.asObservable();
+  public readonly focusedAnchorId$ = this.focusedAnchorIdSubject.asObservable();
   public readonly anchorClicks$ = this.anchorClicks.asObservable();
   public readonly actionMode$ = this.actionModeSubject.asObservable();
   public readonly pendingDecoration$ = this.pendingDecorationSubject.asObservable();
+  public readonly recordOptions$ = this.recordOptionsSubject.asObservable();
 
   constructor(
     private readonly http: HttpClient,
@@ -41,30 +47,66 @@ export class AnchorPresetsService {
     this.renderScheduler = requestRender;
   }
 
-  public async loadPresets(url = '/assets/anchor-presets.json'): Promise<void> {
+  public async loadPresets(url = `${environment.apiBaseUrl}/presets/anchors`): Promise<void> {
     try {
-      const presets = await firstValueFrom(this.http.get<AnchorPreset[]>(url));
-      this.setPresets(presets ?? []);
+      const presets = await firstValueFrom(
+        this.http.get<(AnchorPreset | { dataJson: string; id?: string; name?: string; cakeShape?: string; cakeSize?: string; tiers?: number })[]>(url),
+      );
+      const normalized = (presets ?? []).map((preset) => {
+        if ('dataJson' in preset) {
+          const parsed = JSON.parse((preset as any).dataJson) as AnchorPreset;
+          return {
+            ...parsed,
+            id: (preset as any).id ?? parsed.id,
+            name: (preset as any).name ?? parsed.name,
+            cakeShape: (preset as any).cakeShape ?? parsed.cakeShape,
+            cakeSize: (preset as any).cakeSize ?? parsed.cakeSize,
+            tiers: (preset as any).tiers ?? parsed.tiers,
+          } as AnchorPreset;
+        }
+        return preset as AnchorPreset;
+      });
+      if (normalized?.length) {
+        this.setPresets(normalized);
+        return;
+      }
+
+      await this.loadLocalExamples();
     } catch (error) {
-      console.warn('Nie udało się wczytać presetów kotwic:', error);
+      console.warn('Nie udało się wczytać presetów kotwic z API, używam wersji przykładowych:', error);
+      await this.loadLocalExamples();
+    }
+  }
+
+  private async loadLocalExamples(): Promise<void> {
+    try {
+      const examples = await firstValueFrom(this.http.get<AnchorPreset[]>('/assets/anchor-presets.json'));
+      this.setPresets(examples ?? []);
+    } catch (fallbackError) {
+      console.warn('Nie udało się wczytać lokalnych presetów kotwic:', fallbackError);
       this.setPresets([]);
     }
   }
 
   public setPresets(presets: AnchorPreset[]): void {
     this.presetsSubject.next(presets);
-    const activeId = this.activePresetIdSubject.value;
-    const activeExists = activeId && presets.some((preset) => preset.id === activeId);
-    if ((!activeId || !activeExists) && presets.length) {
-      this.activePresetIdSubject.next(presets[0].id);
-    }
+    this.ensureActivePresetForContext();
     this.rebuildMarkers();
   }
 
-  public setContext(scene: THREE.Scene, cakeBase: THREE.Object3D | null, metadata: CakeMetadata | null): void {
+  public setContext(
+    scene: THREE.Scene,
+    cakeBase: THREE.Object3D | null,
+    metadata: CakeMetadata | null,
+    context?: { cakeSize?: string },
+  ): void {
     this.scene = scene;
     this.cakeBase = cakeBase;
     this.metadata = metadata;
+    this.cakeContext = metadata
+      ? { shape: metadata.shape, tiers: metadata.layers, cakeSize: context?.cakeSize }
+      : null;
+    this.ensureActivePresetForContext();
     this.rebuildMarkers();
   }
 
@@ -84,9 +126,47 @@ export class AnchorPresetsService {
     const activeId = this.activePresetIdSubject.value;
     const presets = this.presetsSubject.value;
     if (activeId) {
-      return presets.find((preset) => preset.id === activeId) ?? null;
+      const active = presets.find((preset) => preset.id === activeId);
+      if (active) {
+        return active;
+      }
     }
     return presets[0] ?? null;
+  }
+
+  private ensureActivePresetForContext(): void {
+    const presets = this.presetsSubject.value;
+    if (!presets.length) {
+      this.activePresetIdSubject.next(null);
+      return;
+    }
+
+    const activeId = this.activePresetIdSubject.value;
+    const active = activeId ? presets.find((preset) => preset.id === activeId) : null;
+    if (active && this.matchesContext(active)) {
+      return;
+    }
+
+    const match = presets.find((preset) => this.matchesContext(preset));
+    this.activePresetIdSubject.next(match?.id ?? presets[0].id);
+  }
+
+  private matchesContext(preset: AnchorPreset): boolean {
+    if (!this.cakeContext) {
+      return true;
+    }
+
+    if (preset.cakeShape && preset.cakeShape !== this.cakeContext.shape) {
+      return false;
+    }
+    if (preset.cakeSize && preset.cakeSize !== this.cakeContext.cakeSize) {
+      return false;
+    }
+    if (preset.tiers && this.cakeContext.tiers && preset.tiers !== this.cakeContext.tiers) {
+      return false;
+    }
+
+    return true;
   }
 
   public getAnchor(anchorId: string): AnchorPoint | null {
@@ -113,7 +193,22 @@ export class AnchorPresetsService {
   }
 
   public emitAnchorClick(anchorId: string): void {
+    this.setFocusedAnchor(anchorId);
     this.anchorClicks.next(anchorId);
+  }
+
+  public setFocusedAnchor(anchorId: string | null): void {
+    if (anchorId && !this.getAnchor(anchorId)) {
+      this.focusedAnchorIdSubject.next(null);
+    } else {
+      this.focusedAnchorIdSubject.next(anchorId);
+    }
+    this.refreshMarkerColors();
+    this.requestRender();
+  }
+
+  public getFocusedAnchor(): string | null {
+    return this.focusedAnchorIdSubject.value;
   }
 
   public setHighlightedDecoration(decorationId: string | null): void {
@@ -140,6 +235,55 @@ export class AnchorPresetsService {
 
   public getPendingDecoration(): DecorationInfo | null {
     return this.pendingDecorationSubject.value;
+  }
+
+  public setRecordingOptions(enabled: boolean): void {
+    this.recordOptionsSubject.next(enabled);
+    this.refreshMarkerColors();
+  }
+
+  public isRecordingOptions(): boolean {
+    return this.recordOptionsSubject.value;
+  }
+
+  public appendAllowedDecoration(anchorId: string | null, decorationId?: string): void {
+    if (!anchorId || !decorationId) {
+      return;
+    }
+
+    const presets = this.presetsSubject.value;
+    const activeId = this.activePresetIdSubject.value;
+    if (!activeId) {
+      return;
+    }
+
+    const presetIndex = presets.findIndex((preset) => preset.id === activeId);
+    if (presetIndex === -1) {
+      return;
+    }
+
+    const preset = presets[presetIndex];
+    const anchorIndex = preset.anchors.findIndex((anchor) => anchor.id === anchorId);
+    if (anchorIndex === -1) {
+      return;
+    }
+
+    const anchor = preset.anchors[anchorIndex];
+    const merged = new Set(anchor.allowedDecorationIds ?? []);
+    if (merged.has(decorationId)) {
+      return;
+    }
+
+    merged.add(decorationId);
+
+    const updatedAnchors = [...preset.anchors];
+    updatedAnchors[anchorIndex] = { ...anchor, allowedDecorationIds: Array.from(merged) };
+
+    const updatedPresets = [...presets];
+    updatedPresets[presetIndex] = { ...preset, anchors: updatedAnchors };
+
+    this.presetsSubject.next(updatedPresets);
+    this.refreshMarkerColors();
   }
 
   public areMarkersVisible(): boolean {
@@ -204,6 +348,9 @@ export class AnchorPresetsService {
   }
 
   private resolveMarkerColor(anchor: AnchorPoint): number {
+    if (this.focusedAnchorIdSubject.value === anchor.id) {
+      return 0xf59e0b;
+    }
     if (!this.isAnchorCompatibleWithPending(anchor)) {
       return 0x9ca3af;
     }
@@ -221,6 +368,10 @@ export class AnchorPresetsService {
   private isAnchorCompatibleWithPending(anchor: AnchorPoint): boolean {
     const decoration = this.pendingDecorationSubject.value;
     if (!decoration) {
+      return true;
+    }
+
+    if (this.recordOptionsSubject.value) {
       return true;
     }
 

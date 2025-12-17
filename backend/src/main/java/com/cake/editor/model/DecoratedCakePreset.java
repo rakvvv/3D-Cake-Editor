@@ -5,16 +5,15 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "cake_projects")
-public class CakeProject {
+@Table(name = "decorated_cake_presets", uniqueConstraints = @UniqueConstraint(columnNames = "preset_id"))
+public class DecoratedCakePreset {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id", nullable = false)
-    private User owner;
+    @Column(name = "preset_id", nullable = false, unique = true)
+    private String presetId;
 
     @Column(nullable = false)
     private String name;
@@ -22,7 +21,16 @@ public class CakeProject {
     @Column(nullable = false, columnDefinition = "text")
     private String dataJson;
 
+    @Column(length = 512)
     private String thumbnailUrl;
+
+    private String description;
+
+    private String cakeShape;
+
+    private String cakeSize;
+
+    private Integer tiers;
 
     @Column(nullable = false)
     private Instant createdAt;
@@ -50,12 +58,12 @@ public class CakeProject {
         this.id = id;
     }
 
-    public User getOwner() {
-        return owner;
+    public String getPresetId() {
+        return presetId;
     }
 
-    public void setOwner(User owner) {
-        this.owner = owner;
+    public void setPresetId(String presetId) {
+        this.presetId = presetId;
     }
 
     public String getName() {
@@ -80,6 +88,38 @@ public class CakeProject {
 
     public void setThumbnailUrl(String thumbnailUrl) {
         this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getCakeShape() {
+        return cakeShape;
+    }
+
+    public void setCakeShape(String cakeShape) {
+        this.cakeShape = cakeShape;
+    }
+
+    public String getCakeSize() {
+        return cakeSize;
+    }
+
+    public void setCakeSize(String cakeSize) {
+        this.cakeSize = cakeSize;
+    }
+
+    public Integer getTiers() {
+        return tiers;
+    }
+
+    public void setTiers(Integer tiers) {
+        this.tiers = tiers;
     }
 
     public Instant getCreatedAt() {

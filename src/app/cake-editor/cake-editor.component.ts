@@ -72,6 +72,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   setupLocked = false;
   canUndoAction = false;
   canRedoAction = false;
+  isAdmin = false;
 
   private textureBeforeGradient: TextureMaps | null = null;
 
@@ -222,6 +223,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private anchorClickSubscription?: Subscription;
   private outlineSubscription?: Subscription;
   private paintSceneSubscription?: Subscription;
+  private userSubscription?: Subscription;
   private canvasListenerTarget?: HTMLElement;
   private rightClickDrag?: { x: number; y: number; moved: boolean };
 
@@ -332,6 +334,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     void this.anchorPresetsService.loadPresets();
 
+    this.isAdmin = this.authService.getCurrentUser()?.role === 'ADMIN';
+    this.userSubscription = this.authService.currentUser$.subscribe((user) => {
+      this.isAdmin = user?.role === 'ADMIN';
+    });
+
     this.paintBrushId = this.paintService.currentBrush;
     this.paintColor = this.paintService.penColor;
     this.penSize = this.paintService.penSize;
@@ -433,6 +440,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.anchorClickSubscription?.unsubscribe();
     this.outlineSubscription?.unsubscribe();
     this.paintSceneSubscription?.unsubscribe();
+    this.userSubscription?.unsubscribe();
 
     if (isPlatformBrowser(this.platformId)) {
       this.teardownCanvasListeners();
@@ -849,6 +857,15 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.closeExportPopup();
   }
 
+  openAdminPanel(): void {
+    if (!this.isAdmin) {
+      return;
+    }
+    this.activeSidebarPanel = 'admin';
+    this.sidebar?.focusPanel('admin');
+    this.closeExportPopup();
+  }
+
   onSidebarPanelChange(panel: SidebarPanelKey): void {
     this.activeSidebarPanel = panel;
   }
@@ -1187,6 +1204,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (mode === 'move') {
       const result = this.sceneService.moveSelectionToAnchor(anchorId);
       this.showStatus(result.message);
+      if (result.success && this.anchorPresetsService.isRecordingOptions()) {
+        const selected = this.sceneService.getSelectedDecoration();
+        const decorationId = (selected?.userData['modelFileName'] as string | undefined) ?? selected?.name;
+        this.anchorPresetsService.appendAllowedDecoration(anchorId, decorationId);
+      }
       return;
     }
 
@@ -1200,6 +1222,12 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       pendingDecoration.modelFileName,
       anchorId,
     );
+    if (result.success && this.anchorPresetsService.isRecordingOptions()) {
+      this.anchorPresetsService.appendAllowedDecoration(
+        anchorId,
+        pendingDecoration.modelFileName ?? pendingDecoration.id,
+      );
+    }
     this.showStatus(result.message);
   }
 

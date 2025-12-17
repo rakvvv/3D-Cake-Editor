@@ -1,0 +1,79 @@
+<section class="admin">
+  <h1>Panel administratora</h1>
+  <p>Dodawaj gotowe torty z miniaturami oraz zapisuj presety kotwic dla różnych kształtów.</p>
+
+  <div class="admin__grid">
+    <form class="admin-card" (ngSubmit)="saveCakePreset()">
+      <h2>Nowy gotowy tort</h2>
+      <label>
+        Id presetu
+        <input type="text" [(ngModel)]="cakePreset.presetId" name="cakePresetId" placeholder="np. classic-vanilla" />
+      </label>
+      <label>
+        Nazwa
+        <input type="text" [(ngModel)]="cakePreset.name" name="cakePresetName" required />
+      </label>
+      <label>
+        Opis
+        <input type="text" [(ngModel)]="cakePreset.description" name="cakePresetDescription" />
+      </label>
+      <label>
+        Miniaturka (URL)
+        <input type="url" [(ngModel)]="cakePreset.thumbnailUrl" name="cakePresetThumb" placeholder="https://..." />
+      </label>
+      <div class="admin-card__grid admin-card__grid--3">
+        <label>
+          Kształt
+          <input type="text" [(ngModel)]="cakePreset.cakeShape" name="cakePresetShape" placeholder="okrągły" />
+        </label>
+        <label>
+          Rozmiar
+          <input type="text" [(ngModel)]="cakePreset.cakeSize" name="cakePresetSize" placeholder="20 cm" />
+        </label>
+        <label>
+          Piętra
+          <input type="number" min="1" [(ngModel)]="cakePreset.tiers" name="cakePresetTiers" />
+        </label>
+      </div>
+      <label>
+        JSON presetu tortu
+        <textarea [(ngModel)]="cakePreset.dataJson" name="cakePresetJson" rows="8" required></textarea>
+      </label>
+      <button type="submit">Zapisz gotowy tort</button>
+    </form>
+
+    <form class="admin-card" (ngSubmit)="saveAnchorPreset()">
+      <h2>Presety kotwic</h2>
+      <label>
+        Id presetu
+        <input type="text" [(ngModel)]="anchorPreset.presetId" name="anchorPresetId" placeholder="np. round-2tier" />
+      </label>
+      <label>
+        Nazwa
+        <input type="text" [(ngModel)]="anchorPreset.name" name="anchorPresetName" required />
+      </label>
+      <div class="admin-card__grid admin-card__grid--3">
+        <label>
+          Kształt
+          <input type="text" [(ngModel)]="anchorPreset.cakeShape" name="anchorPresetShape" placeholder="okrągły" />
+        </label>
+        <label>
+          Rozmiar
+          <input type="text" [(ngModel)]="anchorPreset.cakeSize" name="anchorPresetSize" placeholder="20 cm" />
+        </label>
+        <label>
+          Piętra
+          <input type="number" min="1" [(ngModel)]="anchorPreset.tiers" name="anchorPresetTiers" />
+        </label>
+      </div>
+      <label>
+        JSON presetów kotwic
+        <textarea [(ngModel)]="anchorPreset.dataJson" name="anchorPresetJson" rows="8" required></textarea>
+      </label>
+      <button type="submit">Zapisz presety kotwic</button>
+    </form>
+  </div>
+
+  <p class="admin__status" *ngIf="statusMessage()">{{ statusMessage() }}</p>
+  <p class="admin__status admin__status--error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+</section>

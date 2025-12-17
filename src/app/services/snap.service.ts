@@ -140,7 +140,8 @@ export class SnapService {
 
   public attachDecorationToAnchor(
     object: THREE.Object3D,
-    anchor: AnchorPoint
+    anchor: AnchorPoint,
+    decorationId?: string,
   ): void {
     if (!this.cakeBase) {
       console.warn('Brak tortu - nie można przypiąć do anchora.');
@@ -162,7 +163,11 @@ export class SnapService {
     // 3. Pozycja - dokładnie tam gdzie anchor
     object.position.copy(projection.position);
 
-    if (anchor.defaultScale) {
+    const override = decorationId ? anchor.decorationOverrides?.[decorationId] : undefined;
+
+    if (override?.scale) {
+      object.scale.setScalar(override.scale);
+    } else if (anchor.defaultScale) {
       object.scale.setScalar(anchor.defaultScale);
     }
 
@@ -170,9 +175,15 @@ export class SnapService {
     const worldNormal = this.getWorldNormal(projection.normal);
     this.applyOrientationForSurface(object, worldNormal, anchor.surface);
 
-    if (anchor.defaultRotationDeg) {
+    const rotationDeg = override?.rotationDeg ?? anchor.defaultRotationDeg;
+    if (rotationDeg) {
       const axis = anchor.surface === 'SIDE' ? projection.normal : new THREE.Vector3(0, 1, 0);
-      object.rotateOnWorldAxis(axis, THREE.MathUtils.degToRad(anchor.defaultRotationDeg));
+      object.rotateOnWorldAxis(axis, THREE.MathUtils.degToRad(rotationDeg));
+    }
+
+    if (override?.offset) {
+      const offset = new THREE.Vector3(...override.offset);
+      object.position.add(offset);
     }
 
     object.updateMatrixWorld(true);
