@@ -92,6 +92,7 @@ export class ThreeSceneService {
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
+    this.anchorPresetsService.setRenderScheduler(() => this.requestRender());
   }
 
   private handleMouseDown = (event: MouseEvent) => {

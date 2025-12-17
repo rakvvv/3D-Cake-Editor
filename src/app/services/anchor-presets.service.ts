@@ -17,6 +17,7 @@ export class AnchorPresetsService {
   private readonly anchorClicks = new Subject<string>();
   private readonly actionModeSubject = new BehaviorSubject<'spawn' | 'move'>('spawn');
   private readonly pendingDecorationSubject = new BehaviorSubject<DecorationInfo | null>(null);
+  private renderScheduler?: () => void;
 
   private scene: THREE.Scene | null = null;
   private cakeBase: THREE.Object3D | null = null;
@@ -35,6 +36,10 @@ export class AnchorPresetsService {
     private readonly http: HttpClient,
     private readonly snapService: SnapService,
   ) {}
+
+  public setRenderScheduler(requestRender: () => void): void {
+    this.renderScheduler = requestRender;
+  }
 
   public async loadPresets(url = '/assets/anchor-presets.json'): Promise<void> {
     try {
@@ -66,11 +71,13 @@ export class AnchorPresetsService {
   public setMarkersVisible(visible: boolean): void {
     this.markersVisibleSubject.next(visible);
     this.rebuildMarkers();
+    this.requestRender();
   }
 
   public setActivePreset(id: string | null): void {
     this.activePresetIdSubject.next(id);
     this.rebuildMarkers();
+    this.requestRender();
   }
 
   public getActivePreset(): AnchorPreset | null {
@@ -112,10 +119,12 @@ export class AnchorPresetsService {
   public setHighlightedDecoration(decorationId: string | null): void {
     this.highlightDecorationId = decorationId;
     this.refreshMarkerColors();
+    this.requestRender();
   }
 
   public setActionMode(mode: 'spawn' | 'move'): void {
     this.actionModeSubject.next(mode);
+    this.requestRender();
   }
 
   public getActionMode(): 'spawn' | 'move' {
@@ -164,6 +173,8 @@ export class AnchorPresetsService {
       this.cakeBase!.add(marker);
       this.markers.push(marker);
     });
+
+    this.requestRender();
   }
 
   private clearMarkers(): void {
@@ -249,5 +260,11 @@ export class AnchorPresetsService {
       const material = marker.material as THREE.MeshBasicMaterial;
       material.color.setHex(this.resolveMarkerColor(anchor));
     });
+
+    this.requestRender();
+  }
+
+  private requestRender(): void {
+    this.renderScheduler?.();
   }
 }
