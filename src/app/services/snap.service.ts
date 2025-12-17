@@ -160,56 +160,58 @@ export class SnapService {
       this.cakeBase.attach(object);
     }
 
-    // Reset transform before applying anchor-specific overrides so previous edits
-    // from other anchors or options do not bleed into this placement, but start
-    // from the decoration's own defaults when available.
+    const override = decorationId ? anchor.decorationOverrides?.[decorationId] : undefined;
+    const hasOverride = !!override;
     const initialRotation = object.userData['initialRotation'] as THREE.Euler | undefined;
     const initialScale = object.userData['initialScale'] as THREE.Vector3 | undefined;
+    const preserveTransform = object.userData['preserveAnchorTransform'] === true;
+    const skipOrientation = preserveTransform && !override;
 
     object.position.set(0, 0, 0);
-    if (initialRotation) {
-      object.rotation.copy(initialRotation);
-    } else {
-      object.rotation.set(0, 0, 0);
-    }
-    if (initialScale) {
-      object.scale.copy(initialScale);
-    } else {
-      object.scale.set(1, 1, 1);
+    if (!override && !preserveTransform) {
+      if (initialRotation) {
+        object.rotation.copy(initialRotation);
+      } else {
+        object.rotation.set(0, 0, 0);
+      }
+      if (initialScale) {
+        object.scale.copy(initialScale);
+      } else {
+        object.scale.set(1, 1, 1);
+      }
     }
 
     // 3. Pozycja - dokładnie tam gdzie anchor
     object.position.copy(projection.position);
 
-    const override = decorationId ? anchor.decorationOverrides?.[decorationId] : undefined;
-
-    const hasOverride = !!override;
     if (override?.scale) {
       object.scale.setScalar(override.scale);
-    } else if (!decorationId && anchor.defaultScale) {
+    } else if (!decorationId && anchor.defaultScale && !preserveTransform) {
       object.scale.setScalar(anchor.defaultScale);
     }
 
     // 4. Orientacja
-    const worldNormal = this.getWorldNormal(projection.normal);
-    const relativeRotation = override?.rotationQuat
-      ? new THREE.Quaternion(...override.rotationQuat)
-      : undefined;
-
-    if (relativeRotation) {
-      const roll = THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0);
-      this.applyOrientationForSurface(object, worldNormal, anchor.surface, roll, relativeRotation);
-    } else {
-      this.applyOrientationForSurface(object, worldNormal, anchor.surface);
-
-      const rotationDeg = hasOverride
-        ? override?.rotationDeg
-        : !decorationId
-        ? anchor.defaultRotationDeg
+    if (!skipOrientation) {
+      const worldNormal = this.getWorldNormal(projection.normal);
+      const relativeRotation = override?.rotationQuat
+        ? new THREE.Quaternion(...override.rotationQuat)
         : undefined;
-      if (rotationDeg) {
-        const axis = anchor.surface === 'SIDE' ? projection.normal : new THREE.Vector3(0, 1, 0);
-        object.rotateOnWorldAxis(axis, THREE.MathUtils.degToRad(rotationDeg));
+
+      if (relativeRotation) {
+        const roll = THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0);
+        this.applyOrientationForSurface(object, worldNormal, anchor.surface, roll, relativeRotation);
+      } else {
+        this.applyOrientationForSurface(object, worldNormal, anchor.surface);
+
+        const rotationDeg = hasOverride
+          ? override?.rotationDeg
+          : !decorationId
+          ? anchor.defaultRotationDeg
+          : undefined;
+        if (rotationDeg) {
+          const axis = anchor.surface === 'SIDE' ? projection.normal : new THREE.Vector3(0, 1, 0);
+          object.rotateOnWorldAxis(axis, THREE.MathUtils.degToRad(rotationDeg));
+        }
       }
     }
 

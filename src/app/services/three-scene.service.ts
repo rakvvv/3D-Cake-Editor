@@ -3051,6 +3051,7 @@ export class ThreeSceneService {
 
       if (entry.anchorId) {
         decoration.userData['anchorId'] = entry.anchorId;
+        decoration.userData['preserveAnchorTransform'] = true;
       }
 
       return { object: decoration, snapInfo, anchorId: entry.anchorId };
