@@ -3,6 +3,8 @@
   flex-direction: column;
   gap: 1rem;
   padding: 0.5rem 0.5rem 1rem;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
 }
 
 .admin-panel__header {
