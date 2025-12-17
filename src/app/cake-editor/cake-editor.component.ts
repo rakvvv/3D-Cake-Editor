@@ -1207,7 +1207,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       if (result.success && this.anchorPresetsService.isRecordingOptions()) {
         const selected = this.sceneService.getSelectedDecoration();
         const decorationId = (selected?.userData['modelFileName'] as string | undefined) ?? selected?.name;
-        if (this.anchorPresetsService.appendAllowedDecoration(anchorId, decorationId)) {
+        if (decorationId && this.anchorPresetsService.appendAllowedDecoration(anchorId, decorationId)) {
           this.sceneService.markAnchorOptionAddition(anchorId, decorationId);
         }
       }
