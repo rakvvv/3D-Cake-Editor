@@ -6,6 +6,7 @@ import { AdminPresetService } from '../../../services/admin-preset.service';
 import { CakePresetsService } from '../../../services/cake-presets.service';
 import { ThreeSceneService } from '../../../services/three-scene.service';
 import { DecorationsService } from '../../../services/decorations.service';
+import { AuthService } from '../../../services/auth.service';
 import { AnchorPoint, AnchorPreset } from '../../../models/anchors';
 import { Subscription } from 'rxjs';
 import { DecorationInfo } from '../../../models/decorationInfo';
@@ -51,6 +52,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     private readonly cakePresetsService: CakePresetsService,
     private readonly anchorPresetsService: AnchorPresetsService,
     private readonly decorationsService: DecorationsService,
+    private readonly authService: AuthService,
   ) {}
 
   ngOnInit(): void {
@@ -65,6 +67,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
         if (!this.selectedPresetId && presets.length) {
           this.selectedPresetId = presets[0].id;
         }
+        this.syncAnchorPresetName();
       }),
     );
 
@@ -78,6 +81,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
             this.activeAnchorId = null;
           }
         }
+        this.syncAnchorPresetName();
       }),
     );
 
@@ -100,18 +104,11 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
     this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
+    this.sceneService.clearAnchorPreviews();
+    this.anchorPresetsService.setRecordingOptions(false);
     this.anchorPresetsService.setMarkersVisible(this.markersPreviouslyVisible);
     this.anchorPresetsService.setPendingDecoration(null);
-  }
-
-  toggleAnchorOptionRecording(): void {
-    this.recordAnchorOptions = !this.recordAnchorOptions;
-    this.anchorPresetsService.setRecordingOptions(this.recordAnchorOptions);
-    this.statusMessage.set(
-      this.recordAnchorOptions
-        ? 'Tryb nagrywania opcji kotwic: kliknij marker i dodaj różne dekoracje.'
-        : 'Tryb nagrywania opcji wyłączony.',
-    );
+    this.recordAnchorOptions = false;
   }
 
   async saveDecoratedCakePreset(): Promise<void> {
@@ -120,6 +117,11 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.savingCake = true;
 
     try {
+      if (!this.isAdminAuthenticated()) {
+        this.errorMessage.set('Zaloguj się jako administrator, aby zapisać preset tortu.');
+        return;
+      }
+
       const preset = this.sceneService.buildDecoratedCakePreset(this.cakePresetName || 'Gotowy tort');
       preset.description = this.cakePresetDescription?.trim() || undefined;
 
@@ -146,18 +148,24 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
       this.statusMessage.set('Zapisano gotowy tort.');
     } catch (error) {
       console.error(error);
-      this.errorMessage.set('Nie udało się zapisać gotowego tortu.');
+      const forbidden = (error as { status?: number }).status === 403;
+      this.errorMessage.set(forbidden ? 'Brak uprawnień administratora do zapisu.' : 'Nie udało się zapisać gotowego tortu.');
     } finally {
       this.savingCake = false;
     }
   }
 
-  async saveAnchorPreset(): Promise<void> {
+  async saveAnchorPreset(saveAsNew = false): Promise<void> {
     this.statusMessage.set('');
     this.errorMessage.set('');
     this.savingAnchors = true;
 
     try {
+      if (!this.isAdminAuthenticated()) {
+        this.errorMessage.set('Zaloguj się jako administrator, aby zapisać presety kotwic.');
+        return;
+      }
+
       const anchorPreset = this.sceneService.exportAllAnchors();
       if (!anchorPreset) {
         this.errorMessage.set('Brak kotwic do zapisania.');
@@ -165,26 +173,53 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
       }
 
       const name = this.anchorPresetName?.trim() || anchorPreset.name || 'Sloty dekoracji';
+      const presetId = saveAsNew ? `preset-${Date.now()}` : this.selectedPresetId ?? anchorPreset.id;
       const payload = {
-        presetId: anchorPreset.id,
+        presetId,
         name,
         cakeShape: this.cakeShape,
         cakeSize: this.cakeSize,
         tiers: this.tiers,
-        dataJson: JSON.stringify({ ...anchorPreset, name }),
+        dataJson: JSON.stringify({ ...anchorPreset, id: presetId, name }),
       };
 
-      await this.adminPresetService.saveAnchorPreset(payload);
+      if (saveAsNew || !this.selectedPresetId) {
+        await this.adminPresetService.saveAnchorPreset(payload);
+      } else {
+        await this.adminPresetService.updateAnchorPreset(payload);
+      }
       await this.anchorPresetsService.loadPresets();
-      this.statusMessage.set('Zapisano preset kotwic dla tego tortu.');
+      this.statusMessage.set(
+        saveAsNew ? 'Zapisano nowy preset kotwic dla tego tortu.' : 'Zapisano zmodyfikowany preset kotwic.',
+      );
       this.selectedPresetId = payload.presetId;
       this.anchorPresetsService.setActivePreset(payload.presetId);
+      this.anchorPresetName = name;
     } catch (error) {
       console.error(error);
-      this.errorMessage.set('Nie udało się zapisać presetów kotwic.');
+      const forbidden = (error as { status?: number }).status === 403;
+      this.errorMessage.set(forbidden ? 'Brak uprawnień administratora do zapisu.' : 'Nie udało się zapisać presetów kotwic.');
     } finally {
       this.savingAnchors = false;
     }
+  }
+
+  clearAnchorPreview(): void {
+    this.sceneService.clearAnchorPreviews();
+    this.anchorPresetsService.setFocusedAnchor(null);
+    this.activeAnchorId = null;
+    this.lastEditedAnchor = undefined;
+    this.hiddenOptions.clear();
+    this.statusMessage.set('Wyczyszczono podgląd dekoracji na kotwicach.');
+  }
+
+  private isAdminAuthenticated(): boolean {
+    const currentUser = this.authService.getCurrentUser();
+    if (this.authService.isAuthenticated() && currentUser?.role === 'ADMIN') {
+      return true;
+    }
+    this.authService.logout();
+    return false;
   }
 
   focusAnchor(anchorId: string): void {
@@ -222,6 +257,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
     this.hiddenOptions.clear();
+    this.syncAnchorPresetName();
   }
 
   listAllowedOptions(anchor: AnchorPoint): string[] {
@@ -235,7 +271,12 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     }
 
     this.anchorPresetsService.setPendingDecoration(decoration);
-    const identifiers = new Set([decoration.modelFileName, decoration.id].filter(Boolean) as string[]);
+    const anchorDecorationId = decoration.modelFileName || decoration.id;
+
+    if (!anchorDecorationId) {
+      this.errorMessage.set('Nie można ustalić identyfikatora dekoracji.');
+      return;
+    }
 
     if (!this.recordAnchorOptions) {
       this.recordAnchorOptions = true;
@@ -243,19 +284,35 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     }
 
     this.statusMessage.set('Umieszczanie dekoracji na kotwicy…');
-    const identifier = decoration.id || decoration.modelFileName;
     const result = await this.sceneService.ensureAnchorDecorationForEdit(
       this.activeAnchorId,
-      identifier!,
+      anchorDecorationId,
     );
     if (!result.success) {
       this.errorMessage.set(result.message);
       return;
     }
 
-    identifiers.forEach((id) => this.anchorPresetsService.appendAllowedDecoration(this.activeAnchorId, id));
+    const added = this.anchorPresetsService.appendAllowedDecoration(this.activeAnchorId, anchorDecorationId);
+    if (added) {
+      this.sceneService.markAnchorOptionAddition(this.activeAnchorId, anchorDecorationId);
+    }
     this.statusMessage.set('Dodano dekorację jako opcję dla kotwicy.');
     this.sceneService.showAllAnchorDecorations(this.activeAnchorId);
+  }
+
+  async removeDecorationFromAnchor(anchorId: string, decorationId: string): Promise<void> {
+    this.errorMessage.set('');
+
+    const removed = this.anchorPresetsService.removeAllowedDecoration(anchorId, decorationId);
+    if (!removed) {
+      this.errorMessage.set('Nie udało się usunąć dekoracji z kotwicy.');
+      return;
+    }
+
+    this.sceneService.removeAnchorDecoration(anchorId, decorationId);
+    this.hiddenOptions.delete(`${anchorId}:${decorationId}`);
+    this.statusMessage.set('Usunięto dekorację z opcji kotwicy.');
   }
 
   async toggleDecorationVisibility(anchorId: string, decorationId: string): Promise<void> {
@@ -321,5 +378,16 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     const target = event.target as HTMLImageElement;
     target.src = '/assets/decorations/thumbnails/placeholder.svg';
     target.alt = `${identifier} (miniatura niedostępna)`;
+  }
+
+  private syncAnchorPresetName(): void {
+    if (!this.selectedPresetId) {
+      return;
+    }
+
+    const preset = this.anchorPresets.find((candidate) => candidate.id === this.selectedPresetId);
+    if (preset?.name) {
+      this.anchorPresetName = preset.name;
+    }
   }
 }

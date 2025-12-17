@@ -22,6 +22,7 @@ export class TransformControlsService {
     removeDecorationCallback?: (object: THREE.Object3D) => void,
     copyDecorationCallback?: () => void,
     pasteDecorationCallback?: () => void,
+    anchorSnapshotCallback?: (object: THREE.Object3D | null) => void,
   ): void {
     this.transformManager.init(
       scene,
@@ -32,6 +33,7 @@ export class TransformControlsService {
       removeDecorationCallback,
       copyDecorationCallback,
       pasteDecorationCallback,
+      anchorSnapshotCallback,
     );
   }
 

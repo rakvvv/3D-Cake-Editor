@@ -163,7 +163,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .anchor-tree__index {
@@ -186,6 +186,7 @@
   color: #e5e7eb;
   border: none;
   font-weight: 600;
+  font-size: 0.95rem;
   text-align: left;
   padding: 0;
   cursor: pointer;
@@ -196,8 +197,8 @@
   background: #1f2937;
   color: #cbd5e1;
   border-radius: 999px;
-  padding: 0.15rem 0.65rem;
-  font-size: 0.8rem;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.75rem;
 }
 
 .anchor-options {
@@ -217,11 +218,11 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   justify-content: space-between;
   border: 1px solid #1f2937;
   border-radius: 6px;
-  padding: 0.45rem 0.6rem;
+  padding: 0.35rem 0.5rem;
   background: #0f172a;
   color: #e5e7eb;
   cursor: pointer;
@@ -254,11 +255,12 @@
 .anchor-option__actions {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .anchor-option__label {
   font-weight: 600;
+  font-size: 0.95rem;
   color: #e5e7eb;
   white-space: nowrap;
   overflow: hidden;
@@ -267,12 +269,18 @@
 
 .anchor-option__id {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .anchor-option__action {
   color: #93c5fd;
   font-size: 0.85rem;
+}
+
+.anchor-option__actions .btn {
+  padding: 0.3rem 0.45rem;
+  font-size: 0.85rem;
+  line-height: 1.2;
 }
 
 .admin-panel__search {

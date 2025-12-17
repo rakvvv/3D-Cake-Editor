@@ -100,6 +100,9 @@ export class DecorationsService {
 
       this.applyMaterialOverrides(decoration, decoInfo.material);
 
+      decoration.userData['initialRotation'] = decoration.rotation.clone();
+      decoration.userData['initialScale'] = decoration.scale.clone();
+
       decoration.userData['decorationType'] = decoInfo.type;
       decoration.userData['isDecoration'] = true;
       decoration.userData['modelFileName'] = decoInfo.modelFileName;

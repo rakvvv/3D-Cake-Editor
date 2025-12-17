@@ -382,7 +382,7 @@ export class PaintService {
     this.sceneRef = scene;
   }
 
-  public undo(): void {
+  public undo(): THREE.Object3D | undefined {
     if (!this.sceneRef || !this.undoStack.length) {
       return;
     }
@@ -392,9 +392,10 @@ export class PaintService {
     lastObject.userData['removedByUndo'] = true;
     this.redoStack.push(lastObject);
     this.notifySceneChanged();
+    return lastObject;
   }
 
-  public redo(): void {
+  public redo(): THREE.Object3D | undefined {
     if (!this.sceneRef || !this.redoStack.length) {
       return;
     }
@@ -405,6 +406,7 @@ export class PaintService {
     delete object.userData['removedByUndo'];
     this.undoStack.push(object);
     this.notifySceneChanged();
+    return object;
   }
 
   public canUndo(): boolean {

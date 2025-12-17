@@ -17,7 +17,6 @@ export class AnchorPresetsService {
   private readonly markersVisibleSubject = new BehaviorSubject<boolean>(false);
   private readonly focusedAnchorIdSubject = new BehaviorSubject<string | null>(null);
   private readonly anchorClicks = new Subject<string>();
-  private readonly actionModeSubject = new BehaviorSubject<'spawn' | 'move'>('spawn');
   private readonly pendingDecorationSubject = new BehaviorSubject<DecorationInfo | null>(null);
   private readonly recordOptionsSubject = new BehaviorSubject<boolean>(false);
   private renderScheduler?: () => void;
@@ -34,7 +33,6 @@ export class AnchorPresetsService {
   public readonly markersVisible$ = this.markersVisibleSubject.asObservable();
   public readonly focusedAnchorId$ = this.focusedAnchorIdSubject.asObservable();
   public readonly anchorClicks$ = this.anchorClicks.asObservable();
-  public readonly actionMode$ = this.actionModeSubject.asObservable();
   public readonly pendingDecoration$ = this.pendingDecorationSubject.asObservable();
   public readonly recordOptions$ = this.recordOptionsSubject.asObservable();
 
@@ -217,19 +215,9 @@ export class AnchorPresetsService {
     this.requestRender();
   }
 
-  public setActionMode(mode: 'spawn' | 'move'): void {
-    this.actionModeSubject.next(mode);
-    this.requestRender();
-  }
-
-  public getActionMode(): 'spawn' | 'move' {
-    return this.actionModeSubject.value;
-  }
-
   public setPendingDecoration(decoration: DecorationInfo | null): void {
     this.pendingDecorationSubject.next(decoration);
-    const highlightId = decoration?.modelFileName ?? decoration?.id ?? null;
-    this.setHighlightedDecoration(highlightId);
+    this.setHighlightedDecoration(null);
     this.refreshMarkerColors();
   }
 
@@ -246,11 +234,108 @@ export class AnchorPresetsService {
     return this.recordOptionsSubject.value;
   }
 
-  public appendAllowedDecoration(anchorId: string | null, decorationId?: string): void {
+  public appendAllowedDecoration(anchorId: string | null, decorationId?: string): boolean {
     if (!anchorId || !decorationId) {
-      return;
+      return false;
     }
 
+    const presets = this.presetsSubject.value;
+    const activeId = this.activePresetIdSubject.value;
+    if (!activeId) {
+      return false;
+    }
+
+    const presetIndex = presets.findIndex((preset) => preset.id === activeId);
+    if (presetIndex === -1) {
+      return false;
+    }
+
+    const preset = presets[presetIndex];
+    const anchorIndex = preset.anchors.findIndex((anchor) => anchor.id === anchorId);
+    if (anchorIndex === -1) {
+      return false;
+    }
+
+    const anchor = preset.anchors[anchorIndex];
+    const merged = new Set(anchor.allowedDecorationIds ?? []);
+    if (merged.has(decorationId)) {
+      return false;
+    }
+
+    merged.add(decorationId);
+
+    const updatedAnchors = [...preset.anchors];
+    updatedAnchors[anchorIndex] = { ...anchor, allowedDecorationIds: Array.from(merged) };
+
+    const updatedPresets = [...presets];
+    updatedPresets[presetIndex] = { ...preset, anchors: updatedAnchors };
+
+    this.presetsSubject.next(updatedPresets);
+    this.refreshMarkerColors();
+    return true;
+  }
+
+  public removeAllowedDecoration(anchorId: string | null, decorationId?: string): boolean {
+    if (!anchorId || !decorationId) {
+      return false;
+    }
+
+    const presets = this.presetsSubject.value;
+    const activeId = this.activePresetIdSubject.value;
+    if (!activeId) {
+      return false;
+    }
+
+    const presetIndex = presets.findIndex((preset) => preset.id === activeId);
+    if (presetIndex === -1) {
+      return false;
+    }
+
+    const preset = presets[presetIndex];
+    const anchorIndex = preset.anchors.findIndex((anchor) => anchor.id === anchorId);
+    if (anchorIndex === -1) {
+      return false;
+    }
+
+    const anchor = preset.anchors[anchorIndex];
+    const allowed = new Set(anchor.allowedDecorationIds ?? []);
+    const deleted = allowed.delete(decorationId);
+    if (!deleted) {
+      return false;
+    }
+
+    const overrides = { ...(anchor.decorationOverrides ?? {}) };
+    delete overrides[decorationId];
+
+    const updatedAnchors = [...preset.anchors];
+    updatedAnchors[anchorIndex] = {
+      ...anchor,
+      decorationOverrides: Object.keys(overrides).length ? overrides : undefined,
+      allowedDecorationIds: Array.from(allowed),
+    };
+
+    const updatedPresets = [...presets];
+    updatedPresets[presetIndex] = { ...preset, anchors: updatedAnchors };
+
+    this.presetsSubject.next(updatedPresets);
+    this.refreshMarkerColors();
+    return true;
+  }
+
+  public areMarkersVisible(): boolean {
+    return this.markersVisibleSubject.value;
+  }
+
+  public upsertDecorationOverride(
+    anchorId: string,
+    decorationId: string,
+    override: {
+      rotationDeg?: number;
+      rotationQuat?: [number, number, number, number];
+      scale?: number;
+      offset?: [number, number, number];
+    },
+  ): void {
     const presets = this.presetsSubject.value;
     const activeId = this.activePresetIdSubject.value;
     if (!activeId) {
@@ -269,25 +354,16 @@ export class AnchorPresetsService {
     }
 
     const anchor = preset.anchors[anchorIndex];
-    const merged = new Set(anchor.allowedDecorationIds ?? []);
-    if (merged.has(decorationId)) {
-      return;
-    }
-
-    merged.add(decorationId);
+    const decorationOverrides = { ...(anchor.decorationOverrides ?? {}) };
+    decorationOverrides[decorationId] = override;
 
     const updatedAnchors = [...preset.anchors];
-    updatedAnchors[anchorIndex] = { ...anchor, allowedDecorationIds: Array.from(merged) };
+    updatedAnchors[anchorIndex] = { ...anchor, decorationOverrides };
 
     const updatedPresets = [...presets];
     updatedPresets[presetIndex] = { ...preset, anchors: updatedAnchors };
 
     this.presetsSubject.next(updatedPresets);
-    this.refreshMarkerColors();
-  }
-
-  public areMarkersVisible(): boolean {
-    return this.markersVisibleSubject.value;
   }
 
   private rebuildMarkers(): void {
@@ -350,17 +426,6 @@ export class AnchorPresetsService {
   private resolveMarkerColor(anchor: AnchorPoint): number {
     if (this.focusedAnchorIdSubject.value === anchor.id) {
       return 0xf59e0b;
-    }
-    if (!this.isAnchorCompatibleWithPending(anchor)) {
-      return 0x9ca3af;
-    }
-    if (this.highlightDecorationId) {
-      if (anchor.allowedDecorationIds?.length) {
-        return anchor.allowedDecorationIds.includes(this.highlightDecorationId)
-          ? 0x3b82f6
-          : 0x94a3b8;
-      }
-      return 0x60a5fa;
     }
     return 0x4b5563;
   }

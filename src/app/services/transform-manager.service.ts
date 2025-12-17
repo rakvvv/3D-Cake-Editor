@@ -19,6 +19,8 @@ export class TransformManagerService {
   private removeDecorationCallback: ((object: THREE.Object3D) => void) | null = null;
   private copyDecorationCallback: (() => void) | null = null;
   private pasteDecorationCallback: (() => void) | null = null;
+  private anchorSnapshotCallback: ((object: THREE.Object3D | null) => void) | null = null;
+  private wasDragging = false;
   private cakeSize = 1;
   private lockedSelection: {
     object: THREE.Object3D | null;
@@ -50,6 +52,7 @@ export class TransformManagerService {
     removeDecorationCallback?: (object: THREE.Object3D) => void,
     copyDecorationCallback?: () => void,
     pasteDecorationCallback?: () => void,
+    anchorSnapshotCallback?: (object: THREE.Object3D | null) => void,
   ): void {
     if (!this.isBrowser) {
       return;
@@ -63,6 +66,7 @@ export class TransformManagerService {
     this.removeDecorationCallback = removeDecorationCallback || null;
     this.copyDecorationCallback = copyDecorationCallback || null;
     this.pasteDecorationCallback = pasteDecorationCallback || null;
+    this.anchorSnapshotCallback = anchorSnapshotCallback || null;
 
     this.orbit.addEventListener('change', this.renderScene);
 
@@ -244,6 +248,12 @@ export class TransformManagerService {
 
     const selectedObject = this.selectionService.getSelectedObject();
     if (selectedObject && this.transformControls) {
+      if (!this.transformControls.dragging) {
+        return;
+      }
+
+      const anchorId = selectedObject.userData['anchorId'] as string | undefined;
+
       if (this.lockedSelection.object === selectedObject) {
         this.lockedSelection.position.copy(selectedObject.position);
         this.lockedSelection.quaternion.copy(selectedObject.quaternion);
@@ -254,7 +264,7 @@ export class TransformManagerService {
       }
 
       const mode = this.transformControls.mode;
-      if (mode === 'translate' || mode === 'scale') {
+      if (!anchorId && (mode === 'translate' || mode === 'scale')) {
         this.snapService.updateSnapFromObjectPosition(selectedObject);
         this.snapService.enforceSnappedPosition(selectedObject);
       }
@@ -276,6 +286,17 @@ export class TransformManagerService {
 
     this.orbit.enabled = !draggingValue;
 
+    if (draggingValue) {
+      this.wasDragging = true;
+      return;
+    }
+
+    if (!this.wasDragging) {
+      return;
+    }
+
+    this.wasDragging = false;
+
     if (!draggingValue && this.transformControls) {
       const selectedObject = this.selectionService.getSelectedObject();
       if (!selectedObject) {
@@ -283,10 +304,16 @@ export class TransformManagerService {
       }
 
       const mode = this.transformControls.mode;
+      const anchorId = selectedObject.userData['anchorId'] as string | undefined;
+
       if (mode === 'rotate') {
         this.snapService.captureSnappedOrientation(selectedObject);
-      } else if (mode === 'translate' || mode === 'scale') {
+      } else if (!anchorId && (mode === 'translate' || mode === 'scale')) {
         this.snapService.enforceSnappedPosition(selectedObject);
+      }
+
+      if (this.anchorSnapshotCallback) {
+        this.anchorSnapshotCallback(selectedObject);
       }
     }
   };

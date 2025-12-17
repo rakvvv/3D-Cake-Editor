@@ -251,7 +251,8 @@ export class ThreeSceneService {
           return;
         }
         this.lastUndoEventStamp = event.timeStamp;
-        this.paintService.undo();
+        const undone = this.paintService.undo();
+        this.handleAnchorOptionHistory(undone, false);
         event.preventDefault();
       }
     } else if (wantsRedo) {
@@ -260,7 +261,8 @@ export class ThreeSceneService {
           return;
         }
         this.lastRedoEventStamp = event.timeStamp;
-        this.paintService.redo();
+        const redone = this.paintService.redo();
+        this.handleAnchorOptionHistory(redone, true);
         event.preventDefault();
       }
     }
@@ -347,6 +349,7 @@ export class ThreeSceneService {
       (object) => this.removeDecoration(object),
       () => this.copySelectedDecoration(),
       () => this.pasteDecoration(),
+      (object) => this.persistAnchorOverrideForSelection(object),
     );
 
     this.gridHelper = new THREE.GridHelper(50, 50);
@@ -1237,7 +1240,7 @@ export class ThreeSceneService {
     this.raycaster.setFromCamera(this.mouse, this.camera);
     const canClickAnchors =
       this.anchorPresetsService.areMarkersVisible() &&
-      (this.anchorPresetsService.getActionMode() === 'move' || !this.transformControlsService.getSelectedObject());
+      !this.transformControlsService.getSelectedObject();
 
     if (canClickAnchors) {
       const anchorHit = this.anchorPresetsService.pickAnchor(this.raycaster);
@@ -1341,6 +1344,14 @@ export class ThreeSceneService {
     }
 
     this.boxHelper?.update();
+
+    if (selected) {
+      // Zachowaj bieżącą rotację każdej przypiętej dekoracji, nie tylko na anchorach,
+      // żeby TransformControls nie przywrócił starego snapInfo przy zmianie trybu.
+      if (selected.userData['isSnapped']) {
+        this.snapService.captureSnappedOrientation(selected);
+      }
+    }
   }
   // --- Koniec funkcji BoxHelper ---
 
@@ -1885,6 +1896,7 @@ export class ThreeSceneService {
       }
     }
 
+    this.snapshotAnchorDecorations(anchorId, decorationId);
     this.isolateAnchorDecoration(anchorId, decorationId);
     const focused = this.findAnchorOccupant(anchorId, decorationId);
     if (focused) {
@@ -1921,20 +1933,36 @@ export class ThreeSceneService {
     }
 
     const decorations = this.collectDecorationRoots();
+    const sourcePreset = this.anchorPresetsService.getActivePreset();
     const anchorsById = new Map<string, AnchorPoint>();
 
     decorations.forEach((decoration) => {
       const displayName = (decoration.userData['displayName'] as string | undefined) ?? decoration.name;
       const anchorId = (decoration.userData['anchorId'] as string | undefined) ?? decoration.uuid;
-      const anchor = this.snapService.buildAnchorFromDecoration(
+
+      // 1. Budujemy kotwicę na podstawie dekoracji (to nam daje pozycję/powierzchnię)
+      const generatedAnchor = this.snapService.buildAnchorFromDecoration(
         decoration,
         this.cakeMetadata!,
         anchorId,
         displayName,
       );
 
-      if (!anchor) {
+      if (!generatedAnchor) {
         return;
+      }
+
+      // 2. Szukamy "sztywnego" oryginału w presecie
+      const sourceAnchor = sourcePreset?.anchors.find((candidate) => candidate.id === generatedAnchor.id);
+
+      // Jeśli mamy oryginał, bierzemy jego domyślne wartości, żeby nie nadpisywać ich przypadkowymi danymi z obecnej sceny
+      if (sourceAnchor) {
+        if (sourceAnchor.defaultRotationDeg !== undefined) {
+          generatedAnchor.defaultRotationDeg = sourceAnchor.defaultRotationDeg;
+        }
+        if (sourceAnchor.defaultScale !== undefined) {
+          generatedAnchor.defaultScale = sourceAnchor.defaultScale;
+        }
       }
 
       const decorationId =
@@ -1942,45 +1970,114 @@ export class ThreeSceneService {
         (decoration.userData['displayName'] as string | undefined) ??
         decoration.name;
 
-      const existing = anchorsById.get(anchor.id);
-      if (!existing) {
-        anchorsById.set(anchor.id, {
-          ...anchor,
-          decorationOverrides: decorationId
-            ? {
-                [decorationId]: {
-                  rotationDeg: anchor.defaultRotationDeg,
-                  scale: anchor.defaultScale,
-                  offset: [0, 0, 0],
-                },
-              }
-            : undefined,
-        });
-        return;
-      }
+      // 3. Ustalamy stabilną bazę do obliczeń.
+      const calculationBasisAnchor = sourceAnchor ?? generatedAnchor;
 
-      if (anchor.allowedDecorationIds?.length) {
-        const merged = new Set(existing.allowedDecorationIds ?? []);
-        anchor.allowedDecorationIds.forEach((id) => merged.add(id));
-        existing.allowedDecorationIds = Array.from(merged);
-      }
+      const existing = anchorsById.get(generatedAnchor.id);
+      const baseAllowed = sourceAnchor?.allowedDecorationIds ?? [];
+      const baseOverrides = { ...(sourceAnchor?.decorationOverrides ?? {}) };
 
-      if (decorationId) {
-        const overrides = { ...(existing.decorationOverrides ?? {}) };
-        const projection = this.snapService.projectAnchor(existing, this.cakeMetadata!);
+      const computeOverride = (
+        anchorBase: AnchorPoint,
+        candidate: THREE.Object3D,
+      ): {
+        rotationDeg: number;
+        rotationQuat: [number, number, number, number];
+        scale: number;
+        offset: [number, number, number];
+      } => {
+        const projection = this.snapService.projectAnchor(anchorBase, this.cakeMetadata!);
         const basePosition = projection?.position ?? new THREE.Vector3();
         const currentPosition = this.cakeBase
-          ? this.cakeBase.worldToLocal(decoration.getWorldPosition(new THREE.Vector3()))
-          : decoration.getWorldPosition(new THREE.Vector3());
+          ? this.cakeBase.worldToLocal(candidate.getWorldPosition(new THREE.Vector3()))
+          : candidate.getWorldPosition(new THREE.Vector3());
         const offset = currentPosition.clone().sub(basePosition).toArray() as [number, number, number];
 
-        overrides[decorationId] = {
-          rotationDeg: anchor.defaultRotationDeg,
-          scale: anchor.defaultScale,
+        const axis = projection?.normal
+          ? projection.normal.clone().normalize()
+          : anchorBase.surface === 'SIDE'
+            ? new THREE.Vector3(0, 0, 1)
+            : new THREE.Vector3(0, 1, 0);
+
+        const baseOrientation = this.snapService.getAnchorBaseOrientation(anchorBase, axis.clone());
+        const worldQuaternion = candidate
+          .getWorldQuaternion(new THREE.Quaternion())
+          .normalize();
+        const relativeRotation = baseOrientation
+          .clone()
+          .invert()
+          .multiply(worldQuaternion)
+          .normalize();
+
+        const forward = candidate.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
+        const up = new THREE.Vector3(0, 1, 0)
+          .applyQuaternion(candidate.getWorldQuaternion(new THREE.Quaternion()))
+          .projectOnPlane(axis);
+
+        let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
+        if (reference.lengthSq() < 1e-6) {
+          reference = new THREE.Vector3(1, 0, 0).projectOnPlane(axis);
+        }
+
+        let basis = forward.lengthSq() > 1e-6 ? forward : up;
+        if (basis.lengthSq() < 1e-6) {
+          basis = reference.clone();
+        }
+
+        const rotationDeg = reference.lengthSq() > 1e-6 && basis.lengthSq() > 1e-6
+          ? THREE.MathUtils.radToDeg(
+              Math.atan2(
+                axis.dot(reference.clone().cross(basis)),
+                reference.clone().normalize().dot(basis.clone().normalize()),
+              ),
+            )
+          : 0;
+
+        const averageScale = (candidate.scale.x + candidate.scale.y + candidate.scale.z) / 3;
+
+        return {
+          rotationDeg: Math.round(rotationDeg * 1000) / 1000,
+          rotationQuat: [
+            Math.round(relativeRotation.x * 1000) / 1000,
+            Math.round(relativeRotation.y * 1000) / 1000,
+            Math.round(relativeRotation.z * 1000) / 1000,
+            Math.round(relativeRotation.w * 1000) / 1000,
+          ],
+          scale: Math.round(averageScale * 1000) / 1000,
           offset,
         };
+      };
 
-        existing.decorationOverrides = overrides;
+      if (!existing) {
+        // Pierwsze napotkanie kotwicy w pętli
+        const allowedDecorationIds = new Set([...(generatedAnchor.allowedDecorationIds ?? []), ...baseAllowed]);
+        if (decorationId) {
+          allowedDecorationIds.add(decorationId);
+        }
+
+        const overrides = { ...baseOverrides };
+        if (decorationId) {
+          overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
+        }
+
+        const baseAnchorDef = sourceAnchor ? { ...sourceAnchor, ...generatedAnchor } : generatedAnchor;
+
+        anchorsById.set(generatedAnchor.id, {
+          ...baseAnchorDef,
+          allowedDecorationIds: allowedDecorationIds.size ? Array.from(allowedDecorationIds) : undefined,
+          decorationOverrides: Object.keys(overrides).length ? overrides : undefined,
+        });
+      } else {
+        // Kolejne napotkanie tej samej kotwicy (np. inna dekoracja na tym samym slocie)
+        const merged = new Set([...(existing.allowedDecorationIds ?? []), ...(generatedAnchor.allowedDecorationIds ?? [])]);
+        baseAllowed.forEach((id) => merged.add(id));
+        existing.allowedDecorationIds = merged.size ? Array.from(merged) : undefined;
+
+        if (decorationId) {
+          const overrides = { ...baseOverrides, ...(existing.decorationOverrides ?? {}) };
+          overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
+          existing.decorationOverrides = overrides;
+        }
       }
     });
 
@@ -1991,8 +2088,11 @@ export class ThreeSceneService {
     }
 
     return {
-      id: `preset-${Date.now()}`,
-      name: 'Wszystkie sloty dekoracji',
+      id: sourcePreset?.id ?? `preset-${Date.now()}`,
+      name: sourcePreset?.name ?? 'Wszystkie sloty dekoracji',
+      cakeShape: sourcePreset?.cakeShape,
+      cakeSize: sourcePreset?.cakeSize,
+      tiers: sourcePreset?.tiers,
       anchors,
     };
   }
@@ -2161,6 +2261,12 @@ export class ThreeSceneService {
       this.clearAnchorOccupant(previousAnchorId, object);
     }
 
+    if (!this.anchorPresetsService.isRecordingOptions()) {
+      this.getAnchorOccupants(anchor.id)
+        .filter((existing) => existing !== object)
+        .forEach((existing) => this.removeDecoration(existing));
+    }
+
     this.registerAnchorOccupant(anchor.id, object);
     this.snapService.attachDecorationToAnchor(object, anchor, decorationId);
   }
@@ -2190,6 +2296,117 @@ export class ThreeSceneService {
         (candidate.userData['displayName'] as string | undefined) ??
         candidate.name;
       return id === decorationId;
+    });
+  }
+
+  public markAnchorOptionAddition(anchorId: string, decorationId: string): void {
+    const occupant = this.findAnchorOccupant(anchorId, decorationId);
+    if (!occupant) {
+      return;
+    }
+
+    occupant.userData['anchorOptionMeta'] = { anchorId, decorationId };
+  }
+
+  private persistAnchorOverrideForSelection(object: THREE.Object3D | null): void {
+    const target = object ?? this.transformControlsService.getSelectedObject();
+    if (!target) {
+      return;
+    }
+
+    const anchorId = target.userData['anchorId'] as string | undefined;
+    if (!anchorId) {
+      return;
+    }
+
+    const decorationId =
+      (target.userData['modelFileName'] as string | undefined) ??
+      (target.userData['displayName'] as string | undefined) ??
+      target.name;
+
+    if (!decorationId) {
+      return;
+    }
+
+    this.snapshotAnchorDecorations(anchorId, decorationId);
+  }
+
+  private snapshotAnchorDecorations(anchorId: string, onlyDecorationId?: string): void {
+    const anchor = this.anchorPresetsService.getAnchor(anchorId);
+    if (!anchor || !this.cakeMetadata) {
+      return;
+    }
+
+    const projection = this.snapService.projectAnchor(anchor, this.cakeMetadata);
+    if (!projection) {
+      return;
+    }
+
+    const basePosition = projection.position;
+    const axis = projection.normal.clone().normalize();
+
+    // Przeliczamy normalną kotwicy do współrzędnych świata, aby rotacja była
+    // liczona względem tej samej osi, co world quaternion dekoracji.
+    if (this.cakeBase) {
+      this.cakeBase.updateMatrixWorld(true);
+      const normalMatrix = new THREE.Matrix3().getNormalMatrix(this.cakeBase.matrixWorld);
+      axis.applyMatrix3(normalMatrix).normalize();
+    }
+    const baseOrientation = this.snapService.getAnchorBaseOrientation(anchor, axis.clone());
+    let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
+    if (reference.lengthSq() < 1e-6) {
+      reference = new THREE.Vector3(1, 0, 0).projectOnPlane(axis);
+    }
+
+    this.getAnchorOccupants(anchorId).forEach((decoration) => {
+      const decorationId =
+        (decoration.userData['modelFileName'] as string | undefined) ??
+        (decoration.userData['displayName'] as string | undefined) ??
+        decoration.name;
+      if (!decorationId) {
+        return;
+      }
+
+      if (onlyDecorationId && decorationId !== onlyDecorationId) {
+        return;
+      }
+
+      decoration.updateMatrixWorld(true);
+
+      const currentPosition = this.cakeBase
+        ? this.cakeBase.worldToLocal(decoration.getWorldPosition(new THREE.Vector3()))
+        : decoration.getWorldPosition(new THREE.Vector3());
+      const offset = currentPosition.clone().sub(basePosition).toArray() as [number, number, number];
+
+      const forward = decoration.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
+      const worldQuaternion = decoration.getWorldQuaternion(new THREE.Quaternion()).normalize();
+      const relativeRotation = baseOrientation.clone().invert().multiply(worldQuaternion).normalize();
+      const rotationDeg =
+        reference.lengthSq() > 1e-6 && forward.lengthSq() > 1e-6
+          ? THREE.MathUtils.radToDeg(
+              THREE.MathUtils.clamp(
+                Math.acos(
+                  THREE.MathUtils.clamp(reference.clone().normalize().dot(forward.clone().normalize()), -1, 1),
+                ),
+                0,
+                Math.PI,
+              ),
+            ) * Math.sign(axis.dot(reference.clone().cross(forward)))
+          : anchor.defaultRotationDeg;
+
+      const averageScale = (decoration.scale.x + decoration.scale.y + decoration.scale.z) / 3;
+
+      this.anchorPresetsService.upsertDecorationOverride(anchorId, decorationId, {
+        rotationDeg: Math.round((rotationDeg ?? anchor.defaultRotationDeg ?? 0) * 1000) / 1000,
+        rotationQuat: [
+          Math.round(relativeRotation.x * 1000) / 1000,
+          Math.round(relativeRotation.y * 1000) / 1000,
+          Math.round(relativeRotation.z * 1000) / 1000,
+          Math.round(relativeRotation.w * 1000) / 1000,
+        ],
+        scale: Math.round(averageScale * 1000) / 1000,
+        offset,
+      });
     });
   }
 
@@ -2250,6 +2467,23 @@ export class ThreeSceneService {
     }
   }
 
+  private handleAnchorOptionHistory(object: THREE.Object3D | undefined, redo: boolean): void {
+    const meta = object?.userData['anchorOptionMeta'] as
+      | { anchorId: string; decorationId: string }
+      | undefined;
+    if (!meta?.anchorId || !meta.decorationId) {
+      return;
+    }
+
+    if (redo) {
+      this.anchorPresetsService.appendAllowedDecoration(meta.anchorId, meta.decorationId);
+      this.registerAnchorOccupant(meta.anchorId, object!);
+    } else {
+      this.anchorPresetsService.removeAllowedDecoration(meta.anchorId, meta.decorationId);
+      this.clearAnchorOccupant(meta.anchorId, object);
+    }
+  }
+
   public isolateAnchorDecoration(anchorId: string, decorationId: string): void {
     const occupants = this.anchorOccupants.get(anchorId);
     if (!occupants) {
@@ -2288,6 +2522,26 @@ export class ThreeSceneService {
     this.requestRender();
   }
 
+  public clearAnchorPreviews(): void {
+    this.anchorOccupants.forEach((occupants, anchorId) => {
+      occupants.forEach((candidate) => {
+        if (candidate.parent) {
+          candidate.parent.remove(candidate);
+        }
+        if (candidate.userData['anchorId'] === anchorId) {
+          delete candidate.userData['anchorId'];
+        }
+        delete candidate.userData['anchorOptionMeta'];
+      });
+    });
+
+    this.anchorOccupants.clear();
+    this.lastIsolatedAnchorId = null;
+    this.transformControlsService.deselectObject();
+    this.requestRender();
+    this.emitOutlineChanged();
+  }
+
   public setAnchorOptionVisibility(anchorId: string, decorationId: string, visible: boolean): void {
     const occupants = this.anchorOccupants.get(anchorId);
     if (!occupants) {
@@ -2305,6 +2559,16 @@ export class ThreeSceneService {
     });
 
     this.requestRender();
+  }
+
+  public removeAnchorDecoration(anchorId: string, decorationId: string): boolean {
+    const occupant = this.findAnchorOccupant(anchorId, decorationId);
+    if (!occupant) {
+      return false;
+    }
+
+    this.removeDecoration(occupant);
+    return true;
   }
 
   private validateAnchorCompatibility(
@@ -2787,6 +3051,7 @@ export class ThreeSceneService {
 
       if (entry.anchorId) {
         decoration.userData['anchorId'] = entry.anchorId;
+        decoration.userData['preserveAnchorTransform'] = true;
       }
 
       return { object: decoration, snapInfo, anchorId: entry.anchorId };
