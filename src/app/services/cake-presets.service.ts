@@ -30,9 +30,24 @@ export class CakePresetsService {
         }
         return entry as DecoratedCakePreset;
       });
-      this.presetsSubject.next(normalized ?? []);
+      if (normalized?.length) {
+        this.presetsSubject.next(normalized);
+        return;
+      }
+
+      await this.loadLocalExamples();
     } catch (error) {
-      console.warn('Nie udało się wczytać gotowych tortów:', error);
+      console.warn('Nie udało się wczytać gotowych tortów z API, używam wersji przykładowych:', error);
+      await this.loadLocalExamples();
+    }
+  }
+
+  private async loadLocalExamples(): Promise<void> {
+    try {
+      const examples = await firstValueFrom(this.http.get<DecoratedCakePreset[]>('/assets/cake-presets.json'));
+      this.presetsSubject.next(examples ?? []);
+    } catch (fallbackError) {
+      console.warn('Nie udało się wczytać lokalnych gotowych tortów:', fallbackError);
       this.presetsSubject.next([]);
     }
   }

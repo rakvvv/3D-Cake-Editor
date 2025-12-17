@@ -62,9 +62,24 @@ export class AnchorPresetsService {
         }
         return preset as AnchorPreset;
       });
-      this.setPresets(normalized ?? []);
+      if (normalized?.length) {
+        this.setPresets(normalized);
+        return;
+      }
+
+      await this.loadLocalExamples();
     } catch (error) {
-      console.warn('Nie udało się wczytać presetów kotwic:', error);
+      console.warn('Nie udało się wczytać presetów kotwic z API, używam wersji przykładowych:', error);
+      await this.loadLocalExamples();
+    }
+  }
+
+  private async loadLocalExamples(): Promise<void> {
+    try {
+      const examples = await firstValueFrom(this.http.get<AnchorPreset[]>('/assets/anchor-presets.json'));
+      this.setPresets(examples ?? []);
+    } catch (fallbackError) {
+      console.warn('Nie udało się wczytać lokalnych presetów kotwic:', fallbackError);
       this.setPresets([]);
     }
   }

@@ -35,6 +35,10 @@
     <button type="button" class="btn btn--ghost btn--block" (click)="saveAnchorPreset()" [disabled]="savingAnchors">
       {{ savingAnchors ? 'Zapisywanie…' : 'Zapisz anchory z obecnej sceny' }}
     </button>
+    <p class="panel-hint">
+      Aby jeden anchor dawał kilka możliwości, przypnij różne dekoracje do tego samego markera – zapisane zostaną wszystkie
+      <code>allowedDecorationIds</code> znalezione przy tej kotwicy.
+    </p>
   </div>
 
   <p class="admin-panel__status" *ngIf="statusMessage()">{{ statusMessage() }}</p>
