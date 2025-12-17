@@ -977,15 +977,6 @@ export class SnapService {
     };
 
     this.writeSnapInfo(object, updatedInfo);
-    this.applyOrientationForSurface(
-      object,
-      worldNormal,
-      updatedInfo.surfaceType,
-      roll,
-      relativeWithoutRoll,
-    );
-    object.updateMatrixWorld(true);
-    this.enforceSnappedPosition(object);
   }
 
   public captureSnappedDecorations(objects: THREE.Object3D[]): SnappedDecorationState[] {
