@@ -201,7 +201,9 @@ export class SnapService {
         : undefined;
 
       if (relativeRotation) {
-        const roll = THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0);
+        const roll = THREE.MathUtils.degToRad(
+          override?.rotationDeg ?? anchor.defaultRotationDeg ?? 0,
+        );
         this.applyOrientationForSurface(object, worldNormal, anchor.surface, roll, relativeRotation);
       } else {
         this.applyOrientationForSurface(object, worldNormal, anchor.surface);
