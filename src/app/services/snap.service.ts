@@ -160,6 +160,12 @@ export class SnapService {
       this.cakeBase.attach(object);
     }
 
+    // Reset transform before applying anchor-specific overrides so previous edits
+    // from other anchors or options do not bleed into this placement.
+    object.position.set(0, 0, 0);
+    object.rotation.set(0, 0, 0);
+    object.scale.set(1, 1, 1);
+
     // 3. Pozycja - dokładnie tam gdzie anchor
     object.position.copy(projection.position);
 
