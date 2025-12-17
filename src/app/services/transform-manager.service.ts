@@ -20,6 +20,7 @@ export class TransformManagerService {
   private copyDecorationCallback: (() => void) | null = null;
   private pasteDecorationCallback: (() => void) | null = null;
   private anchorSnapshotCallback: ((object: THREE.Object3D | null) => void) | null = null;
+  private wasDragging = false;
   private cakeSize = 1;
   private lockedSelection: {
     object: THREE.Object3D | null;
@@ -282,6 +283,17 @@ export class TransformManagerService {
     const draggingValue = (event as THREE.Event & { value: boolean }).value;
 
     this.orbit.enabled = !draggingValue;
+
+    if (draggingValue) {
+      this.wasDragging = true;
+      return;
+    }
+
+    if (!this.wasDragging) {
+      return;
+    }
+
+    this.wasDragging = false;
 
     if (!draggingValue && this.transformControls) {
       const selectedObject = this.selectionService.getSelectedObject();
