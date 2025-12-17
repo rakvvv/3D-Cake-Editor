@@ -2240,9 +2240,11 @@ export class ThreeSceneService {
       this.clearAnchorOccupant(previousAnchorId, object);
     }
 
-    this.getAnchorOccupants(anchor.id)
-      .filter((existing) => existing !== object)
-      .forEach((existing) => this.removeDecoration(existing));
+    if (!this.anchorPresetsService.isRecordingOptions()) {
+      this.getAnchorOccupants(anchor.id)
+        .filter((existing) => existing !== object)
+        .forEach((existing) => this.removeDecoration(existing));
+    }
 
     this.registerAnchorOccupant(anchor.id, object);
     this.snapService.attachDecorationToAnchor(object, anchor, decorationId);
