@@ -208,11 +208,7 @@ export class SnapService {
       } else {
         this.applyOrientationForSurface(object, worldNormal, anchor.surface);
 
-        const rotationDeg = hasOverride
-          ? override?.rotationDeg
-          : !decorationId
-          ? anchor.defaultRotationDeg
-          : undefined;
+        const rotationDeg = hasOverride ? override?.rotationDeg : anchor.defaultRotationDeg;
         if (rotationDeg) {
           const axis = anchor.surface === 'SIDE' ? projection.normal : new THREE.Vector3(0, 1, 0);
           object.rotateOnWorldAxis(axis, THREE.MathUtils.degToRad(rotationDeg));

@@ -1896,7 +1896,6 @@ export class ThreeSceneService {
       }
     }
 
-    this.snapshotAnchorDecorations(anchorId, decorationId);
     this.isolateAnchorDecoration(anchorId, decorationId);
     const focused = this.findAnchorOccupant(anchorId, decorationId);
     if (focused) {
