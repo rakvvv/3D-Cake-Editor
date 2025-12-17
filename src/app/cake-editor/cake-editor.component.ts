@@ -976,6 +976,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (panel === 'decorations') {
+      this.paintingPowerEnabled = false;
+      this.surfacePaintingService.enabled = false;
+      this.paintService.paintMode = false;
       this.onSidebarPaintModeChange('decor3d');
     }
   }

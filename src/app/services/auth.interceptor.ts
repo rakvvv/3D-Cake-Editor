@@ -13,7 +13,16 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const apiBase = environment.apiBaseUrl;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const absoluteBase = apiBase.startsWith('http') ? apiBase : `${origin}${apiBase}`;
-  const isApiRequest = req.url.startsWith(apiBase) || (!!absoluteBase && req.url.startsWith(absoluteBase));
+  let isApiRequest = req.url.startsWith(apiBase) || (!!absoluteBase && req.url.startsWith(absoluteBase));
+
+  if (!isApiRequest && req.url.startsWith('http')) {
+    try {
+      const parsed = new URL(req.url);
+      isApiRequest = parsed.pathname.startsWith(apiBase);
+    } catch {
+      isApiRequest = false;
+    }
+  }
 
   const authReq = token && isApiRequest ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
 
