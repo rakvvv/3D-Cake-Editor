@@ -228,8 +228,12 @@ export class AnchorPresetsService {
 
   public setPendingDecoration(decoration: DecorationInfo | null): void {
     this.pendingDecorationSubject.next(decoration);
-    const highlightId = decoration?.modelFileName ?? decoration?.id ?? null;
-    this.setHighlightedDecoration(highlightId);
+    if (this.focusedAnchorIdSubject.value) {
+      this.setHighlightedDecoration(null);
+    } else {
+      const highlightId = decoration?.modelFileName ?? decoration?.id ?? null;
+      this.setHighlightedDecoration(highlightId);
+    }
     this.refreshMarkerColors();
   }
 
