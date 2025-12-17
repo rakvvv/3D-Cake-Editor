@@ -265,7 +265,10 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.anchorPresetsService.appendAllowedDecoration(this.activeAnchorId, anchorDecorationId);
+    const added = this.anchorPresetsService.appendAllowedDecoration(this.activeAnchorId, anchorDecorationId);
+    if (added) {
+      this.sceneService.markAnchorOptionAddition(this.activeAnchorId, anchorDecorationId);
+    }
     this.statusMessage.set('Dodano dekorację jako opcję dla kotwicy.');
     this.sceneService.showAllAnchorDecorations(this.activeAnchorId);
   }

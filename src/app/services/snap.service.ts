@@ -183,9 +183,10 @@ export class SnapService {
 
     const override = decorationId ? anchor.decorationOverrides?.[decorationId] : undefined;
 
+    const hasOverride = !!override;
     if (override?.scale) {
       object.scale.setScalar(override.scale);
-    } else if (anchor.defaultScale) {
+    } else if (!decorationId && anchor.defaultScale) {
       object.scale.setScalar(anchor.defaultScale);
     }
 
@@ -193,7 +194,11 @@ export class SnapService {
     const worldNormal = this.getWorldNormal(projection.normal);
     this.applyOrientationForSurface(object, worldNormal, anchor.surface);
 
-    const rotationDeg = override?.rotationDeg ?? anchor.defaultRotationDeg;
+    const rotationDeg = hasOverride
+      ? override?.rotationDeg
+      : !decorationId
+      ? anchor.defaultRotationDeg
+      : undefined;
     if (rotationDeg) {
       const axis = anchor.surface === 'SIDE' ? projection.normal : new THREE.Vector3(0, 1, 0);
       object.rotateOnWorldAxis(axis, THREE.MathUtils.degToRad(rotationDeg));

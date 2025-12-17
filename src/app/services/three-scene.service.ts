@@ -251,7 +251,8 @@ export class ThreeSceneService {
           return;
         }
         this.lastUndoEventStamp = event.timeStamp;
-        this.paintService.undo();
+        const undone = this.paintService.undo();
+        this.handleAnchorOptionHistory(undone, false);
         event.preventDefault();
       }
     } else if (wantsRedo) {
@@ -260,7 +261,8 @@ export class ThreeSceneService {
           return;
         }
         this.lastRedoEventStamp = event.timeStamp;
-        this.paintService.redo();
+        const redone = this.paintService.redo();
+        this.handleAnchorOptionHistory(redone, true);
         event.preventDefault();
       }
     }
@@ -2231,6 +2233,15 @@ export class ThreeSceneService {
     });
   }
 
+  public markAnchorOptionAddition(anchorId: string, decorationId: string): void {
+    const occupant = this.findAnchorOccupant(anchorId, decorationId);
+    if (!occupant) {
+      return;
+    }
+
+    occupant.userData['anchorOptionMeta'] = { anchorId, decorationId };
+  }
+
   private snapshotAnchorDecorations(anchorId: string): void {
     const anchor = this.anchorPresetsService.getAnchor(anchorId);
     if (!anchor || !this.cakeMetadata) {
@@ -2341,6 +2352,23 @@ export class ThreeSceneService {
 
     if (!occupants.size) {
       this.anchorOccupants.delete(anchorId);
+    }
+  }
+
+  private handleAnchorOptionHistory(object: THREE.Object3D | undefined, redo: boolean): void {
+    const meta = object?.userData['anchorOptionMeta'] as
+      | { anchorId: string; decorationId: string }
+      | undefined;
+    if (!meta?.anchorId || !meta.decorationId) {
+      return;
+    }
+
+    if (redo) {
+      this.anchorPresetsService.appendAllowedDecoration(meta.anchorId, meta.decorationId);
+      this.registerAnchorOccupant(meta.anchorId, object!);
+    } else {
+      this.anchorPresetsService.removeAllowedDecoration(meta.anchorId, meta.decorationId);
+      this.clearAnchorOccupant(meta.anchorId, object);
     }
   }
 

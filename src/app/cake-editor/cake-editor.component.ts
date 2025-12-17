@@ -1207,7 +1207,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       if (result.success && this.anchorPresetsService.isRecordingOptions()) {
         const selected = this.sceneService.getSelectedDecoration();
         const decorationId = (selected?.userData['modelFileName'] as string | undefined) ?? selected?.name;
-        this.anchorPresetsService.appendAllowedDecoration(anchorId, decorationId);
+        if (this.anchorPresetsService.appendAllowedDecoration(anchorId, decorationId)) {
+          this.sceneService.markAnchorOptionAddition(anchorId, decorationId);
+        }
       }
       return;
     }
@@ -1224,10 +1226,16 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     );
     if (result.success) {
       if (this.anchorPresetsService.isRecordingOptions()) {
-        this.anchorPresetsService.appendAllowedDecoration(
+        const added = this.anchorPresetsService.appendAllowedDecoration(
           anchorId,
           pendingDecoration.modelFileName ?? pendingDecoration.id,
         );
+        if (added) {
+          this.sceneService.markAnchorOptionAddition(
+            anchorId,
+            pendingDecoration.modelFileName ?? pendingDecoration.id,
+          );
+        }
       }
       this.anchorPresetsService.setPendingDecoration(null);
       this.anchorPresetsService.setFocusedAnchor(null);

@@ -250,32 +250,32 @@ export class AnchorPresetsService {
     return this.recordOptionsSubject.value;
   }
 
-  public appendAllowedDecoration(anchorId: string | null, decorationId?: string): void {
+  public appendAllowedDecoration(anchorId: string | null, decorationId?: string): boolean {
     if (!anchorId || !decorationId) {
-      return;
+      return false;
     }
 
     const presets = this.presetsSubject.value;
     const activeId = this.activePresetIdSubject.value;
     if (!activeId) {
-      return;
+      return false;
     }
 
     const presetIndex = presets.findIndex((preset) => preset.id === activeId);
     if (presetIndex === -1) {
-      return;
+      return false;
     }
 
     const preset = presets[presetIndex];
     const anchorIndex = preset.anchors.findIndex((anchor) => anchor.id === anchorId);
     if (anchorIndex === -1) {
-      return;
+      return false;
     }
 
     const anchor = preset.anchors[anchorIndex];
     const merged = new Set(anchor.allowedDecorationIds ?? []);
     if (merged.has(decorationId)) {
-      return;
+      return false;
     }
 
     merged.add(decorationId);
@@ -288,6 +288,7 @@ export class AnchorPresetsService {
 
     this.presetsSubject.next(updatedPresets);
     this.refreshMarkerColors();
+    return true;
   }
 
   public removeAllowedDecoration(anchorId: string | null, decorationId?: string): boolean {
