@@ -4,7 +4,7 @@
     "name": "Cyfra 1",
     "modelFileName": "Numer_1.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/numer-1.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/numer-1.png",
     "paintable": false,
     "initialScale": 0.1,
     "material": {
@@ -22,7 +22,7 @@
     "name": "Trawa",
     "modelFileName": "trawa.glb",
     "type": "SIDE",
-    "thumbnailUrl": "/assets/decorations/thumbnails/grass.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/trawa.png",
     "paintable": true,
     "initialScale": 0.002,
     "material": {
@@ -40,7 +40,7 @@
     "name": "Borówka",
     "modelFileName": "borowka.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/borowka.png",
     "paintable": false,
     "initialScale": 0.004,
     "material": {
@@ -58,7 +58,7 @@
     "name": "Kiwi",
     "modelFileName": "kiwi.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/kiwi.png",
     "paintable": false,
     "initialScale": 0.004,
     "material": {
@@ -76,7 +76,7 @@
     "name": "Kwiat 1",
     "modelFileName": "kwiatek1_1.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/kwiat1.png",
     "paintable": false,
     "initialScale": 3,
     "material": {
@@ -94,7 +94,7 @@
     "name": "Kwiat 2",
     "modelFileName": "kwiatek2_.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/kwiat2.png",
     "paintable": false,
     "initialScale": 0.1,
     "material": {
@@ -112,7 +112,7 @@
     "name": "Kwiat 4",
     "modelFileName": "kwiatek5.2.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/kwiat4.png",
     "paintable": false,
     "initialScale": 8,
     "material": {
@@ -130,7 +130,7 @@
     "name": "Kwiat 5",
     "modelFileName": "kwiatek6.2.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/kwiat5.png",
     "paintable": false,
     "initialScale": 0.03,
     "material": {
@@ -148,7 +148,7 @@
     "name": "Kwiat 6",
     "modelFileName": "kwiatek7.2.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/kwiat6.png",
     "paintable": false,
     "initialScale": 7,
     "material": {
@@ -166,7 +166,7 @@
     "name": "Kwiat 7",
     "modelFileName": "kwiatek8_.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/kwiat7.png",
     "paintable": false,
     "initialScale": 0.18,
     "material": {
@@ -184,7 +184,7 @@
     "name": "Liść 1",
     "modelFileName": "lisc_.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/lisc1.png",
     "paintable": false,
     "initialScale": 2,
     "material": {
@@ -202,7 +202,7 @@
     "name": "Mandarynka",
     "modelFileName": "mandarynka.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/mandarynka.png",
     "paintable": false,
     "initialScale": 0.004,
     "material": {
@@ -220,7 +220,7 @@
     "name": "Truskawka",
     "modelFileName": "truskawka_pol.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/truskawka.png",
     "paintable": false,
     "initialScale": 0.004,
     "material": {
@@ -238,7 +238,7 @@
     "name": "Figurka kot",
     "modelFileName": "figurka_kot.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/figurine-cat.png",
     "paintable": false,
     "initialScale": 30,
     "material": {
@@ -256,7 +256,7 @@
     "name": "Figurka miś 1",
     "modelFileName": "figurka_mis1.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/figurine-bear-1.png",
     "paintable": false,
     "initialScale": 30,
     "material": {
@@ -274,7 +274,7 @@
     "name": "Figurka miś 2",
     "modelFileName": "figurka_mis2.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/figurine-bear-2.png",
     "paintable": false,
     "initialScale": 30,
     "material": {
@@ -292,7 +292,7 @@
     "name": "Figurka pingwin",
     "modelFileName": "figurka_pingwin.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/figurine-penguin.png",
     "paintable": false,
     "initialScale": 30,
     "material": {
@@ -310,7 +310,7 @@
     "name": "Figurka żaba",
     "modelFileName": "figurka_zaba.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/figurine-frog.png",
     "paintable": false,
     "initialScale": 30,
     "material": {
@@ -328,7 +328,7 @@
     "name": "Gwiazdka boczna 1",
     "modelFileName": "gwiazdka_bok.glb",
     "type": "SIDE",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/star-side-1.png",
     "paintable": true,
     "initialScale": 10,
     "material": {
@@ -346,7 +346,7 @@
     "name": "Gwiazdka boczna 2",
     "modelFileName": "gwiazdka2_bok.glb",
     "type": "SIDE",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/star-side-2.png",
     "paintable": true,
     "initialScale": 10,
     "material": {
@@ -364,7 +364,7 @@
     "name": "Gwiazdka boczna 3",
     "modelFileName": "gwiazdka3_bok.glb",
     "type": "SIDE",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/star-side-3.png",
     "paintable": true,
     "initialScale": 10,
     "material": {
@@ -382,7 +382,7 @@
     "name": "Kokardka 1",
     "modelFileName": "kokardka.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/bow-1.png",
     "paintable": false,
     "initialScale": 30,
     "material": {
@@ -400,7 +400,7 @@
     "name": "Kokardka 2",
     "modelFileName": "kokardka2.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/bow-2.png",
     "paintable": false,
     "initialScale": 30,
     "material": {
@@ -418,7 +418,7 @@
     "name": "Kula kremu w lewo",
     "modelFileName": "krem_kula_w_lewo.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/cream-ball-left.png",
     "paintable": true,
     "initialScale": 20,
     "material": {
@@ -436,7 +436,7 @@
     "name": "Kula kremu w prawo",
     "modelFileName": "krem_kula_w_prawo.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/cream-ball-right.png",
     "paintable": true,
     "initialScale": 20,
     "material": {
@@ -454,7 +454,7 @@
     "name": "Krem z gwiazdą",
     "modelFileName": "krem_z_gwiazda.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/cream-star-top.png",
     "paintable": true,
     "initialScale": 20,
     "material": {
@@ -472,7 +472,7 @@
     "name": "Krem 2",
     "modelFileName": "krem2.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/cream-2.png",
     "paintable": true,
     "initialScale": 20,
     "material": {
@@ -490,7 +490,7 @@
     "name": "Krem 3",
     "modelFileName": "krem3.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/cream-3.png",
     "paintable": true,
     "initialScale": 20,
     "material": {
@@ -508,7 +508,7 @@
     "name": "Krem 4",
     "modelFileName": "krem4.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/cream-4.png",
     "paintable": true,
     "initialScale": 20,
     "material": {
@@ -526,7 +526,7 @@
     "name": "Krem 5",
     "modelFileName": "krem5.glb",
     "type": "BOTH",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/cream-5.png",
     "paintable": true,
     "initialScale": 20,
     "material": {
@@ -544,7 +544,7 @@
     "name": "Liść z kremem (bok)",
     "modelFileName": "lisczkremem_bok.glb",
     "type": "SIDE",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/leaf-with-cream-side.png",
     "paintable": true,
     "initialScale": 20,
     "material": {
@@ -562,7 +562,7 @@
     "name": "Miś boczny",
     "modelFileName": "mis_bok.glb",
     "type": "SIDE",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/bear-side.png",
     "paintable": false,
     "initialScale": 20,
     "material": {
@@ -580,7 +580,7 @@
     "name": "Obręcz 1",
     "modelFileName": "obrecz1.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/ring-1.png",
     "paintable": false,
     "initialScale": 20,
     "material": {
@@ -598,7 +598,7 @@
     "name": "Obręcz 2",
     "modelFileName": "obrecz2.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/ring-2.png",
     "paintable": false,
     "initialScale": 20,
     "material": {
@@ -616,7 +616,7 @@
     "name": "Obręcz 3",
     "modelFileName": "obrecz3.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/ring-3.png",
     "paintable": false,
     "initialScale": 20,
     "material": {
@@ -634,7 +634,7 @@
     "name": "Obręcz 4",
     "modelFileName": "obrecz4.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/ring-4.png",
     "paintable": false,
     "initialScale": 20,
     "material": {
@@ -652,7 +652,7 @@
     "name": "Obręcz 5",
     "modelFileName": "obrecz5.glb",
     "type": "TOP",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/ring-5.png",
     "paintable": false,
     "initialScale": 20,
     "material": {
@@ -670,7 +670,7 @@
     "name": "Wiśnia boczna",
     "modelFileName": "wisnia_bok.glb",
     "type": "SIDE",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/cherry-side.png",
     "paintable": false,
     "initialScale": 20,
     "material": {
@@ -688,7 +688,7 @@
     "name": "Wstążki boczne",
     "modelFileName": "wstazki_bok.glb",
     "type": "SIDE",
-    "thumbnailUrl": "/assets/decorations/thumbnails/chocolate.svg",
+    "thumbnailUrl": "/assets/decorations/thumbnails/ribbons-side.png",
     "paintable": false,
     "initialScale": 20,
     "material": {
