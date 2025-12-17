@@ -22,5 +22,8 @@ export interface AnchorPoint {
 export interface AnchorPreset {
   id: string;
   name: string;
+  cakeShape?: string;
+  cakeSize?: string;
+  tiers?: number;
   anchors: AnchorPoint[];
 }

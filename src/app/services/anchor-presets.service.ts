@@ -23,6 +23,7 @@ export class AnchorPresetsService {
   private scene: THREE.Scene | null = null;
   private cakeBase: THREE.Object3D | null = null;
   private metadata: CakeMetadata | null = null;
+  private cakeContext: { shape?: string; cakeSize?: string; tiers?: number } | null = null;
   private markers: THREE.Mesh[] = [];
   private highlightDecorationId: string | null = null;
 
@@ -45,7 +46,7 @@ export class AnchorPresetsService {
   public async loadPresets(url = `${environment.apiBaseUrl}/presets/anchors`): Promise<void> {
     try {
       const presets = await firstValueFrom(
-        this.http.get<(AnchorPreset | { dataJson: string; id?: string; name?: string })[]>(url),
+        this.http.get<(AnchorPreset | { dataJson: string; id?: string; name?: string; cakeShape?: string; cakeSize?: string; tiers?: number })[]>(url),
       );
       const normalized = (presets ?? []).map((preset) => {
         if ('dataJson' in preset) {
@@ -54,6 +55,9 @@ export class AnchorPresetsService {
             ...parsed,
             id: (preset as any).id ?? parsed.id,
             name: (preset as any).name ?? parsed.name,
+            cakeShape: (preset as any).cakeShape ?? parsed.cakeShape,
+            cakeSize: (preset as any).cakeSize ?? parsed.cakeSize,
+            tiers: (preset as any).tiers ?? parsed.tiers,
           } as AnchorPreset;
         }
         return preset as AnchorPreset;
@@ -67,18 +71,23 @@ export class AnchorPresetsService {
 
   public setPresets(presets: AnchorPreset[]): void {
     this.presetsSubject.next(presets);
-    const activeId = this.activePresetIdSubject.value;
-    const activeExists = activeId && presets.some((preset) => preset.id === activeId);
-    if ((!activeId || !activeExists) && presets.length) {
-      this.activePresetIdSubject.next(presets[0].id);
-    }
+    this.ensureActivePresetForContext();
     this.rebuildMarkers();
   }
 
-  public setContext(scene: THREE.Scene, cakeBase: THREE.Object3D | null, metadata: CakeMetadata | null): void {
+  public setContext(
+    scene: THREE.Scene,
+    cakeBase: THREE.Object3D | null,
+    metadata: CakeMetadata | null,
+    context?: { cakeSize?: string },
+  ): void {
     this.scene = scene;
     this.cakeBase = cakeBase;
     this.metadata = metadata;
+    this.cakeContext = metadata
+      ? { shape: metadata.shape, tiers: metadata.layers, cakeSize: context?.cakeSize }
+      : null;
+    this.ensureActivePresetForContext();
     this.rebuildMarkers();
   }
 
@@ -98,9 +107,47 @@ export class AnchorPresetsService {
     const activeId = this.activePresetIdSubject.value;
     const presets = this.presetsSubject.value;
     if (activeId) {
-      return presets.find((preset) => preset.id === activeId) ?? null;
+      const active = presets.find((preset) => preset.id === activeId);
+      if (active) {
+        return active;
+      }
     }
     return presets[0] ?? null;
+  }
+
+  private ensureActivePresetForContext(): void {
+    const presets = this.presetsSubject.value;
+    if (!presets.length) {
+      this.activePresetIdSubject.next(null);
+      return;
+    }
+
+    const activeId = this.activePresetIdSubject.value;
+    const active = activeId ? presets.find((preset) => preset.id === activeId) : null;
+    if (active && this.matchesContext(active)) {
+      return;
+    }
+
+    const match = presets.find((preset) => this.matchesContext(preset));
+    this.activePresetIdSubject.next(match?.id ?? presets[0].id);
+  }
+
+  private matchesContext(preset: AnchorPreset): boolean {
+    if (!this.cakeContext) {
+      return true;
+    }
+
+    if (preset.cakeShape && preset.cakeShape !== this.cakeContext.shape) {
+      return false;
+    }
+    if (preset.cakeSize && preset.cakeSize !== this.cakeContext.cakeSize) {
+      return false;
+    }
+    if (preset.tiers && this.cakeContext.tiers && preset.tiers !== this.cakeContext.tiers) {
+      return false;
+    }
+
+    return true;
   }
 
   public getAnchor(anchorId: string): AnchorPoint | null {

@@ -1,0 +1,42 @@
+<section class="admin-panel">
+  <header class="admin-panel__header">
+    <div>
+      <div class="admin-panel__eyebrow">Tryb administratora</div>
+      <h3 class="admin-panel__title">Zapisywanie presetów</h3>
+    </div>
+    <div class="admin-panel__context">
+      <span *ngIf="cakeShape">{{ cakeShape }}</span>
+      <span *ngIf="cakeSize"> · {{ cakeSize }}</span>
+      <span *ngIf="tiers"> · {{ tiers }} pięter</span>
+    </div>
+  </header>
+
+  <div class="admin-panel__section">
+    <div class="admin-panel__section-title">Gotowe torty</div>
+    <label class="admin-panel__field">
+      <span>Nazwa presetu</span>
+      <input type="text" [(ngModel)]="cakePresetName" placeholder="Gotowy tort" />
+    </label>
+    <label class="admin-panel__field">
+      <span>Opis</span>
+      <textarea rows="2" [(ngModel)]="cakePresetDescription" placeholder="Opcjonalny opis"></textarea>
+    </label>
+    <button type="button" class="btn btn--primary btn--block" (click)="saveDecoratedCakePreset()" [disabled]="savingCake">
+      {{ savingCake ? 'Zapisywanie…' : 'Zapisz jako gotowy tort' }}
+    </button>
+  </div>
+
+  <div class="admin-panel__section">
+    <div class="admin-panel__section-title">Presety kotwic</div>
+    <label class="admin-panel__field">
+      <span>Nazwa presetu</span>
+      <input type="text" [(ngModel)]="anchorPresetName" placeholder="Sloty dekoracji" />
+    </label>
+    <button type="button" class="btn btn--ghost btn--block" (click)="saveAnchorPreset()" [disabled]="savingAnchors">
+      {{ savingAnchors ? 'Zapisywanie…' : 'Zapisz anchory z obecnej sceny' }}
+    </button>
+  </div>
+
+  <p class="admin-panel__status" *ngIf="statusMessage()">{{ statusMessage() }}</p>
+  <p class="admin-panel__status admin-panel__status--error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+</section>

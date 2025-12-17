@@ -7,14 +7,18 @@ import com.cake.editor.model.AnchorPresetEntity;
 import com.cake.editor.model.DecoratedCakePreset;
 import com.cake.editor.repository.AnchorPresetRepository;
 import com.cake.editor.repository.DecoratedCakePresetRepository;
+import com.cake.editor.service.ThumbnailService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.UUID;
+import java.util.Map;
 
 @RestController
 @RequestMapping(path = "/api/admin/presets", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -22,11 +26,14 @@ public class AdminPresetController {
 
     private final DecoratedCakePresetRepository decoratedCakePresetRepository;
     private final AnchorPresetRepository anchorPresetRepository;
+    private final ThumbnailService thumbnailService;
 
     public AdminPresetController(DecoratedCakePresetRepository decoratedCakePresetRepository,
-                                 AnchorPresetRepository anchorPresetRepository) {
+                                 AnchorPresetRepository anchorPresetRepository,
+                                 ThumbnailService thumbnailService) {
         this.decoratedCakePresetRepository = decoratedCakePresetRepository;
         this.anchorPresetRepository = anchorPresetRepository;
+        this.thumbnailService = thumbnailService;
     }
 
     @PostMapping(path = "/cakes", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -67,6 +74,24 @@ public class AdminPresetController {
 
         anchorPresetRepository.save(preset);
         return toDto(preset);
+    }
+
+    @PostMapping(path = "/cakes/{presetId}/thumbnail", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMIN')")
+    public Map<String, String> uploadDecoratedPresetThumbnail(@PathVariable String presetId,
+                                                              @RequestParam("file") MultipartFile file) {
+        DecoratedCakePreset preset = decoratedCakePresetRepository.findByPresetId(presetId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Preset not found"));
+        try {
+            thumbnailService.savePresetThumbnail(presetId, file);
+            String url = String.format("/api/presets/cakes/%s/thumbnail", presetId);
+            preset.setThumbnailUrl(url);
+            decoratedCakePresetRepository.save(preset);
+            return Map.of("thumbnailUrl", url);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store thumbnail", e);
+        }
     }
 
     private String resolvePresetId(String requestedId) {

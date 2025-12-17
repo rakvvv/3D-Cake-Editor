@@ -42,7 +42,31 @@ public class ThumbnailService {
         return new UrlResource(target.toUri());
     }
 
+    public void savePresetThumbnail(String presetId, MultipartFile file) throws IOException {
+        if (file.isEmpty()) {
+            throw new IOException("Empty thumbnail file");
+        }
+
+        Path target = getPresetThumbnailPath(presetId);
+        Files.createDirectories(target.getParent());
+        try (InputStream inputStream = file.getInputStream()) {
+            Files.copy(inputStream, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    public Resource loadPresetThumbnail(String presetId) throws MalformedURLException {
+        Path target = getPresetThumbnailPath(presetId);
+        if (!Files.exists(target)) {
+            return null;
+        }
+        return new UrlResource(target.toUri());
+    }
+
     private Path getCakeThumbnailPath(Long projectId) {
         return properties.getStorage().resolve("thumbnails").resolve("cakes").resolve(projectId + ".png");
+    }
+
+    private Path getPresetThumbnailPath(String presetId) {
+        return properties.getStorage().resolve("thumbnails").resolve("presets").resolve(presetId + ".png");
     }
 }

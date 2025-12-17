@@ -27,6 +27,18 @@
       (paintingPowerChange)="paintingPowerChange.emit($event)"
     ></app-sidebar-paint-panel>
 
+    <ng-container *ngSwitchCase="'admin'">
+      <app-sidebar-admin-panel
+        *ngIf="isAdmin; else adminGuard"
+        [cakeShape]="cakeShape"
+        [cakeSize]="cakeSize"
+        [tiers]="cakeTiers"
+      ></app-sidebar-admin-panel>
+      <ng-template #adminGuard>
+        <div class="workspace-panel__placeholder">Dostęp tylko dla administratora.</div>
+      </ng-template>
+    </ng-container>
+
     <div *ngSwitchDefault class="workspace-panel__placeholder">
       Wybierz sekcję z paska narzędzi obok sceny.
     </div>

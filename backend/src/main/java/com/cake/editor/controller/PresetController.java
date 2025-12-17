@@ -5,10 +5,13 @@ import com.cake.editor.model.AnchorPresetEntity;
 import com.cake.editor.model.DecoratedCakePreset;
 import com.cake.editor.repository.AnchorPresetRepository;
 import com.cake.editor.repository.DecoratedCakePresetRepository;
+import com.cake.editor.service.ThumbnailService;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,11 +22,14 @@ public class PresetController {
 
     private final DecoratedCakePresetRepository decoratedCakePresetRepository;
     private final AnchorPresetRepository anchorPresetRepository;
+    private final ThumbnailService thumbnailService;
 
     public PresetController(DecoratedCakePresetRepository decoratedCakePresetRepository,
-                            AnchorPresetRepository anchorPresetRepository) {
+                            AnchorPresetRepository anchorPresetRepository,
+                            ThumbnailService thumbnailService) {
         this.decoratedCakePresetRepository = decoratedCakePresetRepository;
         this.anchorPresetRepository = anchorPresetRepository;
+        this.thumbnailService = thumbnailService;
     }
 
     @GetMapping("/cakes")
@@ -34,6 +40,19 @@ public class PresetController {
     @GetMapping("/anchors")
     public List<StoredPresetDto> listAnchorPresets() {
         return anchorPresetRepository.findAll().stream().map(this::toDto).collect(Collectors.toList());
+    }
+
+    @GetMapping(path = "/cakes/{presetId}/thumbnail", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<?> getDecoratedPresetThumbnail(@PathVariable String presetId) {
+        try {
+            var resource = thumbnailService.loadPresetThumbnail(presetId);
+            if (resource == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(resource);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     private StoredPresetDto toDto(DecoratedCakePreset preset) {

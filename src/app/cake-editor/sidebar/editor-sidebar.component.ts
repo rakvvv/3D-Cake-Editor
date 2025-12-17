@@ -10,6 +10,7 @@ import { ThreeSceneService } from '../../services/three-scene.service';
 import { SidebarDecorationsPanelComponent } from './panels/sidebar-decorations-panel.component';
 import { SidebarPaintPanelComponent } from './panels/sidebar-paint-panel.component';
 import { SidebarPresetsPanelComponent } from './panels/sidebar-presets-panel.component';
+import { SidebarAdminPanelComponent } from './panels/sidebar-admin-panel.component';
 import { BrushSettings, SidebarPanelKey, SidebarPaintMode } from './sidebar.types';
 
 @Component({
@@ -21,6 +22,7 @@ import { BrushSettings, SidebarPanelKey, SidebarPaintMode } from './sidebar.type
     SidebarDecorationsPanelComponent,
     SidebarPresetsPanelComponent,
     SidebarPaintPanelComponent,
+    SidebarAdminPanelComponent,
   ],
   templateUrl: './editor-sidebar.component.html',
   styleUrls: ['./editor-sidebar.component.css'],
@@ -35,6 +37,10 @@ export class EditorSidebarComponent implements OnInit, OnDestroy {
   @Input() penOpacity = 1;
   @Input() paintBrushId = 'trawa.glb';
   @Input() paintingPowerEnabled = true;
+  @Input() isAdmin = false;
+  @Input() cakeShape?: string;
+  @Input() cakeSize?: string;
+  @Input() cakeTiers?: number;
 
   @Output() optionsChange = new EventEmitter<CakeOptions>();
   @Output() addDecoration = new EventEmitter<AddDecorationRequest>();
@@ -66,6 +72,9 @@ export class EditorSidebarComponent implements OnInit, OnDestroy {
   }
 
   focusPanel(panel: SidebarPanelKey): void {
+    if (panel === 'admin' && !this.isAdmin) {
+      return;
+    }
     this.activePanel = panel;
     this.panelChange.emit(panel);
   }
