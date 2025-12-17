@@ -345,7 +345,12 @@ export class AnchorPresetsService {
   public upsertDecorationOverride(
     anchorId: string,
     decorationId: string,
-    override: { rotationDeg?: number; scale?: number; offset?: [number, number, number] },
+    override: {
+      rotationDeg?: number;
+      rotationQuat?: [number, number, number, number];
+      scale?: number;
+      offset?: [number, number, number];
+    },
   ): void {
     const presets = this.presetsSubject.value;
     const activeId = this.activePresetIdSubject.value;

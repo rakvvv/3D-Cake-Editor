@@ -21,6 +21,7 @@ export interface AnchorPoint {
     string,
     {
       rotationDeg?: number;
+      rotationQuat?: [number, number, number, number];
       scale?: number;
       offset?: [number, number, number];
     }
