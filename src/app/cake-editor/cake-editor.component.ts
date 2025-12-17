@@ -973,6 +973,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.anchorPresetsService.setFocusedAnchor(null);
       this.anchorPresetsService.setPendingDecoration(null);
       this.anchorPresetsService.setRecordingOptions(false);
+      this.sceneService.clearAnchorPreviews();
     }
   }
 

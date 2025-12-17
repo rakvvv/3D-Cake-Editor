@@ -104,6 +104,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
     this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
+    this.sceneService.clearAnchorPreviews();
     this.anchorPresetsService.setRecordingOptions(false);
     this.anchorPresetsService.setMarkersVisible(this.markersPreviouslyVisible);
     this.anchorPresetsService.setPendingDecoration(null);
@@ -201,6 +202,15 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     } finally {
       this.savingAnchors = false;
     }
+  }
+
+  clearAnchorPreview(): void {
+    this.sceneService.clearAnchorPreviews();
+    this.anchorPresetsService.setFocusedAnchor(null);
+    this.activeAnchorId = null;
+    this.lastEditedAnchor = undefined;
+    this.hiddenOptions.clear();
+    this.statusMessage.set('Wyczyszczono podgląd dekoracji na kotwicach.');
   }
 
   private isAdminAuthenticated(): boolean {

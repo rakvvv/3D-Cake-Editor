@@ -1343,6 +1343,16 @@ export class ThreeSceneService {
     }
 
     this.boxHelper?.update();
+
+    if (selected && selected.userData['anchorId']) {
+      const anchorId = selected.userData['anchorId'];
+      const decorationId =
+        (selected.userData['modelFileName'] as string | undefined) ??
+        (selected.userData['displayName'] as string | undefined) ??
+        selected.name;
+
+      this.snapshotAnchorDecorations(anchorId, decorationId);
+    }
   }
   // --- Koniec funkcji BoxHelper ---
 
@@ -2480,6 +2490,26 @@ export class ThreeSceneService {
     occupants.forEach((candidate) => (candidate.visible = true));
     this.lastIsolatedAnchorId = null;
     this.requestRender();
+  }
+
+  public clearAnchorPreviews(): void {
+    this.anchorOccupants.forEach((occupants, anchorId) => {
+      occupants.forEach((candidate) => {
+        if (candidate.parent) {
+          candidate.parent.remove(candidate);
+        }
+        if (candidate.userData['anchorId'] === anchorId) {
+          delete candidate.userData['anchorId'];
+        }
+        delete candidate.userData['anchorOptionMeta'];
+      });
+    });
+
+    this.anchorOccupants.clear();
+    this.lastIsolatedAnchorId = null;
+    this.transformControlsService.deselectObject();
+    this.requestRender();
+    this.emitOutlineChanged();
   }
 
   public setAnchorOptionVisibility(anchorId: string, decorationId: string, visible: boolean): void {

@@ -73,6 +73,10 @@
           </select>
         </label>
 
+        <button type="button" class="btn btn--ghost btn--block" (click)="clearAnchorPreview()">
+          Wyczyść podgląd kotwic
+        </button>
+
         <div class="anchor-tree" *ngIf="getAnchors().length; else noAnchors">
           <div
             class="anchor-tree__item"
