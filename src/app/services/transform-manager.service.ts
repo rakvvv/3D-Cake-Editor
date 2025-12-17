@@ -247,6 +247,10 @@ export class TransformManagerService {
 
     const selectedObject = this.selectionService.getSelectedObject();
     if (selectedObject && this.transformControls) {
+      if (!this.transformControls.dragging) {
+        return;
+      }
+
       if (this.lockedSelection.object === selectedObject) {
         this.lockedSelection.position.copy(selectedObject.position);
         this.lockedSelection.quaternion.copy(selectedObject.quaternion);
