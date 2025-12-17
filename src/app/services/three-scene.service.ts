@@ -1974,9 +1974,34 @@ export class ThreeSceneService {
           : decoration.getWorldPosition(new THREE.Vector3());
         const offset = currentPosition.clone().sub(basePosition).toArray() as [number, number, number];
 
+        const axis = projection?.normal
+          ? projection.normal.clone().normalize()
+          : existing.surface === 'SIDE'
+            ? new THREE.Vector3(0, 0, 1)
+            : new THREE.Vector3(0, 1, 0);
+        let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
+        if (reference.lengthSq() < 1e-6) {
+          reference = new THREE.Vector3(1, 0, 0).projectOnPlane(axis);
+        }
+        const forward = decoration.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
+
+        const rotationDeg = reference.lengthSq() > 1e-6 && forward.lengthSq() > 1e-6
+          ? THREE.MathUtils.radToDeg(
+              THREE.MathUtils.clamp(
+                Math.acos(
+                  THREE.MathUtils.clamp(reference.clone().normalize().dot(forward.clone().normalize()), -1, 1),
+                ),
+                0,
+                Math.PI,
+              ),
+            ) * Math.sign(axis.dot(reference.clone().cross(forward)))
+          : existing.defaultRotationDeg;
+
+        const averageScale = (decoration.scale.x + decoration.scale.y + decoration.scale.z) / 3;
+
         overrides[decorationId] = {
-          rotationDeg: anchor.defaultRotationDeg,
-          scale: anchor.defaultScale,
+          rotationDeg: Math.round((rotationDeg ?? existing.defaultRotationDeg ?? 0) * 1000) / 1000,
+          scale: Math.round(averageScale * 1000) / 1000,
           offset,
         };
 
