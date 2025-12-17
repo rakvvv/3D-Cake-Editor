@@ -161,10 +161,22 @@ export class SnapService {
     }
 
     // Reset transform before applying anchor-specific overrides so previous edits
-    // from other anchors or options do not bleed into this placement.
+    // from other anchors or options do not bleed into this placement, but start
+    // from the decoration's own defaults when available.
+    const initialRotation = object.userData['initialRotation'] as THREE.Euler | undefined;
+    const initialScale = object.userData['initialScale'] as THREE.Vector3 | undefined;
+
     object.position.set(0, 0, 0);
-    object.rotation.set(0, 0, 0);
-    object.scale.set(1, 1, 1);
+    if (initialRotation) {
+      object.rotation.copy(initialRotation);
+    } else {
+      object.rotation.set(0, 0, 0);
+    }
+    if (initialScale) {
+      object.scale.copy(initialScale);
+    } else {
+      object.scale.set(1, 1, 1);
+    }
 
     // 3. Pozycja - dokładnie tam gdzie anchor
     object.position.copy(projection.position);

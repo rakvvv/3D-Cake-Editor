@@ -100,6 +100,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
     this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
+    this.anchorPresetsService.setRecordingOptions(false);
     this.anchorPresetsService.setMarkersVisible(this.markersPreviouslyVisible);
     this.anchorPresetsService.setPendingDecoration(null);
   }
