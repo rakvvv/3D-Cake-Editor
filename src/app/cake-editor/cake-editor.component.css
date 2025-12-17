@@ -413,10 +413,9 @@
   flex: 1;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 360px;
-  grid-template-rows: 1fr;
+  grid-template-rows: minmax(0, 1fr);
   position: relative;
   min-height: 0;
-  height: 100%;
 }
 
 .workspace-sidebar {
