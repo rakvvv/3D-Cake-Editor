@@ -123,6 +123,10 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
 
     const shouldPlaceViaAnchor = this.markersVisible && this.actionMode === 'spawn';
     if (shouldPlaceViaAnchor) {
+      const focusedAnchorId = this.anchorPresetsService.getFocusedAnchor();
+      if (focusedAnchorId) {
+        this.anchorPresetsService.emitAnchorClick(focusedAnchorId);
+      }
       return;
     }
 
