@@ -1344,17 +1344,20 @@ export class ThreeSceneService {
 
     this.boxHelper?.update();
 
-    if (selected && selected.userData['anchorId']) {
+    if (selected) {
+      // Zachowaj bieżącą rotację każdej przypiętej dekoracji, nie tylko na anchorach,
+      // żeby TransformControls nie przywrócił starego snapInfo przy zmianie trybu.
+      if (selected.userData['isSnapped']) {
+        this.snapService.captureSnappedOrientation(selected);
+      }
+
       const anchorId = selected.userData['anchorId'];
       const decorationId =
         (selected.userData['modelFileName'] as string | undefined) ??
         (selected.userData['displayName'] as string | undefined) ??
         selected.name;
 
-      if (decorationId) {
-        // Zachowaj bieżącą rotację w snapInfo, aby TransformControls
-        // nie nadpisał jej starymi danymi przy zmianie trybu czy hoverze.
-        this.snapService.captureSnappedOrientation(selected);
+      if (anchorId && decorationId) {
         this.snapshotAnchorDecorations(anchorId, decorationId);
       }
     }
