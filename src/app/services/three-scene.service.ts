@@ -2324,6 +2324,14 @@ export class ThreeSceneService {
 
     const basePosition = projection.position;
     const axis = projection.normal.clone().normalize();
+
+    // Przeliczamy normalną kotwicy do współrzędnych świata, aby rotacja była
+    // liczona względem tej samej osi, co world quaternion dekoracji.
+    if (this.cakeBase) {
+      this.cakeBase.updateMatrixWorld(true);
+      const normalMatrix = new THREE.Matrix3().getNormalMatrix(this.cakeBase.matrixWorld);
+      axis.applyMatrix3(normalMatrix).normalize();
+    }
     const baseOrientation = this.snapService.getAnchorBaseOrientation(anchor, axis.clone());
     let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
     if (reference.lengthSq() < 1e-6) {
