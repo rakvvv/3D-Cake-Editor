@@ -1930,24 +1930,29 @@ export class ThreeSceneService {
     decorations.forEach((decoration) => {
       const displayName = (decoration.userData['displayName'] as string | undefined) ?? decoration.name;
       const anchorId = (decoration.userData['anchorId'] as string | undefined) ?? decoration.uuid;
-      const anchor = this.snapService.buildAnchorFromDecoration(
+
+      // 1. Budujemy kotwicę na podstawie dekoracji (to nam daje pozycję/powierzchnię)
+      const generatedAnchor = this.snapService.buildAnchorFromDecoration(
         decoration,
         this.cakeMetadata!,
         anchorId,
         displayName,
       );
 
-      if (!anchor) {
+      if (!generatedAnchor) {
         return;
       }
 
-      const sourceAnchor = sourcePreset?.anchors.find((candidate) => candidate.id === anchor.id);
+      // 2. Szukamy "sztywnego" oryginału w presecie
+      const sourceAnchor = sourcePreset?.anchors.find((candidate) => candidate.id === generatedAnchor.id);
+
+      // Jeśli mamy oryginał, bierzemy jego domyślne wartości, żeby nie nadpisywać ich przypadkowymi danymi z obecnej sceny
       if (sourceAnchor) {
         if (sourceAnchor.defaultRotationDeg !== undefined) {
-          anchor.defaultRotationDeg = sourceAnchor.defaultRotationDeg;
+          generatedAnchor.defaultRotationDeg = sourceAnchor.defaultRotationDeg;
         }
         if (sourceAnchor.defaultScale !== undefined) {
-          anchor.defaultScale = sourceAnchor.defaultScale;
+          generatedAnchor.defaultScale = sourceAnchor.defaultScale;
         }
       }
 
@@ -1956,107 +1961,114 @@ export class ThreeSceneService {
         (decoration.userData['displayName'] as string | undefined) ??
         decoration.name;
 
-      const existing = anchorsById.get(anchor.id);
+      // 3. Ustalamy stabilną bazę do obliczeń.
+      const calculationBasisAnchor = sourceAnchor ?? generatedAnchor;
+
+      const existing = anchorsById.get(generatedAnchor.id);
       const baseAllowed = sourceAnchor?.allowedDecorationIds ?? [];
       const baseOverrides = { ...(sourceAnchor?.decorationOverrides ?? {}) };
 
-        const computeOverride = (
-          anchorBase: AnchorPoint,
-          candidate: THREE.Object3D,
-        ): {
-          rotationDeg: number;
-          rotationQuat: [number, number, number, number];
-          scale: number;
-          offset: [number, number, number];
-        } => {
-          const projection = this.snapService.projectAnchor(anchorBase, this.cakeMetadata!);
-          const basePosition = projection?.position ?? new THREE.Vector3();
-          const currentPosition = this.cakeBase
-            ? this.cakeBase.worldToLocal(candidate.getWorldPosition(new THREE.Vector3()))
-            : candidate.getWorldPosition(new THREE.Vector3());
-          const offset = currentPosition.clone().sub(basePosition).toArray() as [number, number, number];
+      const computeOverride = (
+        anchorBase: AnchorPoint,
+        candidate: THREE.Object3D,
+      ): {
+        rotationDeg: number;
+        rotationQuat: [number, number, number, number];
+        scale: number;
+        offset: [number, number, number];
+      } => {
+        const projection = this.snapService.projectAnchor(anchorBase, this.cakeMetadata!);
+        const basePosition = projection?.position ?? new THREE.Vector3();
+        const currentPosition = this.cakeBase
+          ? this.cakeBase.worldToLocal(candidate.getWorldPosition(new THREE.Vector3()))
+          : candidate.getWorldPosition(new THREE.Vector3());
+        const offset = currentPosition.clone().sub(basePosition).toArray() as [number, number, number];
 
-          const axis = projection?.normal
-            ? projection.normal.clone().normalize()
-            : anchorBase.surface === 'SIDE'
-              ? new THREE.Vector3(0, 0, 1)
-              : new THREE.Vector3(0, 1, 0);
-          const baseOrientation = this.snapService.getAnchorBaseOrientation(anchorBase, axis.clone());
-          const worldQuaternion = candidate
-            .getWorldQuaternion(new THREE.Quaternion())
-            .normalize();
-          const relativeRotation = baseOrientation
-            .clone()
-            .invert()
-            .multiply(worldQuaternion)
-            .normalize();
+        const axis = projection?.normal
+          ? projection.normal.clone().normalize()
+          : anchorBase.surface === 'SIDE'
+            ? new THREE.Vector3(0, 0, 1)
+            : new THREE.Vector3(0, 1, 0);
 
-          const forward = candidate.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
-          const up = new THREE.Vector3(0, 1, 0)
-            .applyQuaternion(candidate.getWorldQuaternion(new THREE.Quaternion()))
-            .projectOnPlane(axis);
+        const baseOrientation = this.snapService.getAnchorBaseOrientation(anchorBase, axis.clone());
+        const worldQuaternion = candidate
+          .getWorldQuaternion(new THREE.Quaternion())
+          .normalize();
+        const relativeRotation = baseOrientation
+          .clone()
+          .invert()
+          .multiply(worldQuaternion)
+          .normalize();
 
-          let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
-          if (reference.lengthSq() < 1e-6) {
-            reference = new THREE.Vector3(1, 0, 0).projectOnPlane(axis);
-          }
+        const forward = candidate.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
+        const up = new THREE.Vector3(0, 1, 0)
+          .applyQuaternion(candidate.getWorldQuaternion(new THREE.Quaternion()))
+          .projectOnPlane(axis);
 
-          let basis = forward.lengthSq() > 1e-6 ? forward : up;
-          if (basis.lengthSq() < 1e-6) {
-            basis = reference.clone();
-          }
+        let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
+        if (reference.lengthSq() < 1e-6) {
+          reference = new THREE.Vector3(1, 0, 0).projectOnPlane(axis);
+        }
 
-          const rotationDeg = reference.lengthSq() > 1e-6 && basis.lengthSq() > 1e-6
-            ? THREE.MathUtils.radToDeg(
-                Math.atan2(
-                  axis.dot(reference.clone().cross(basis)),
-                  reference.clone().normalize().dot(basis.clone().normalize()),
-                ),
-              )
-            : 0;
+        let basis = forward.lengthSq() > 1e-6 ? forward : up;
+        if (basis.lengthSq() < 1e-6) {
+          basis = reference.clone();
+        }
 
-          const averageScale = (candidate.scale.x + candidate.scale.y + candidate.scale.z) / 3;
+        const rotationDeg = reference.lengthSq() > 1e-6 && basis.lengthSq() > 1e-6
+          ? THREE.MathUtils.radToDeg(
+              Math.atan2(
+                axis.dot(reference.clone().cross(basis)),
+                reference.clone().normalize().dot(basis.clone().normalize()),
+              ),
+            )
+          : 0;
 
-          return {
-            rotationDeg: Math.round(rotationDeg * 1000) / 1000,
-            rotationQuat: [
-              Math.round(relativeRotation.x * 1000) / 1000,
-              Math.round(relativeRotation.y * 1000) / 1000,
-              Math.round(relativeRotation.z * 1000) / 1000,
-              Math.round(relativeRotation.w * 1000) / 1000,
-            ],
-            scale: Math.round(averageScale * 1000) / 1000,
-            offset,
-          };
+        const averageScale = (candidate.scale.x + candidate.scale.y + candidate.scale.z) / 3;
+
+        return {
+          rotationDeg: Math.round(rotationDeg * 1000) / 1000,
+          rotationQuat: [
+            Math.round(relativeRotation.x * 1000) / 1000,
+            Math.round(relativeRotation.y * 1000) / 1000,
+            Math.round(relativeRotation.z * 1000) / 1000,
+            Math.round(relativeRotation.w * 1000) / 1000,
+          ],
+          scale: Math.round(averageScale * 1000) / 1000,
+          offset,
         };
+      };
 
       if (!existing) {
-        const allowedDecorationIds = new Set([...(anchor.allowedDecorationIds ?? []), ...baseAllowed]);
+        // Pierwsze napotkanie kotwicy w pętli
+        const allowedDecorationIds = new Set([...(generatedAnchor.allowedDecorationIds ?? []), ...baseAllowed]);
         if (decorationId) {
           allowedDecorationIds.add(decorationId);
         }
 
         const overrides = { ...baseOverrides };
         if (decorationId) {
-          overrides[decorationId] = computeOverride(anchor, decoration);
+          overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
         }
 
-        anchorsById.set(anchor.id, {
-          ...anchor,
+        const baseAnchorDef = sourceAnchor ? { ...sourceAnchor, ...generatedAnchor } : generatedAnchor;
+
+        anchorsById.set(generatedAnchor.id, {
+          ...baseAnchorDef,
           allowedDecorationIds: allowedDecorationIds.size ? Array.from(allowedDecorationIds) : undefined,
           decorationOverrides: Object.keys(overrides).length ? overrides : undefined,
         });
-        return;
-      }
+      } else {
+        // Kolejne napotkanie tej samej kotwicy (np. inna dekoracja na tym samym slocie)
+        const merged = new Set([...(existing.allowedDecorationIds ?? []), ...(generatedAnchor.allowedDecorationIds ?? [])]);
+        baseAllowed.forEach((id) => merged.add(id));
+        existing.allowedDecorationIds = merged.size ? Array.from(merged) : undefined;
 
-      const merged = new Set([...(existing.allowedDecorationIds ?? []), ...(anchor.allowedDecorationIds ?? [])]);
-      baseAllowed.forEach((id) => merged.add(id));
-      existing.allowedDecorationIds = merged.size ? Array.from(merged) : undefined;
-
-      if (decorationId) {
-        const overrides = { ...baseOverrides, ...(existing.decorationOverrides ?? {}) };
-        overrides[decorationId] = computeOverride(existing, decoration);
-        existing.decorationOverrides = overrides;
+        if (decorationId) {
+          const overrides = { ...baseOverrides, ...(existing.decorationOverrides ?? {}) };
+          overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
+          existing.decorationOverrides = overrides;
+        }
       }
     });
 
