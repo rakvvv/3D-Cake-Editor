@@ -55,7 +55,15 @@
           (click)="saveAnchorPreset()"
           [disabled]="savingAnchors"
         >
-          {{ savingAnchors ? 'Zapisywanie…' : 'Zapisz anchory z obecnej sceny' }}
+          {{ savingAnchors ? 'Zapisywanie…' : 'Nadpisz wybrany preset kotwic' }}
+        </button>
+        <button
+          type="button"
+          class="btn btn--primary btn--block"
+          (click)="saveAnchorPreset(true)"
+          [disabled]="savingAnchors"
+        >
+          {{ savingAnchors ? 'Zapisywanie…' : 'Zapisz jako nowy preset kotwic' }}
         </button>
         <p class="panel-hint">
           Aby jeden anchor dawał kilka możliwości, przypnij różne dekoracje do tego samego markera – zapisane zostaną wszystkie

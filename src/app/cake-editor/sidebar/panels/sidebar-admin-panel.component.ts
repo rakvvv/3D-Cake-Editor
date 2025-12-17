@@ -65,6 +65,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
         if (!this.selectedPresetId && presets.length) {
           this.selectedPresetId = presets[0].id;
         }
+        this.syncAnchorPresetName();
       }),
     );
 
@@ -78,6 +79,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
             this.activeAnchorId = null;
           }
         }
+        this.syncAnchorPresetName();
       }),
     );
 
@@ -153,7 +155,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     }
   }
 
-  async saveAnchorPreset(): Promise<void> {
+  async saveAnchorPreset(saveAsNew = false): Promise<void> {
     this.statusMessage.set('');
     this.errorMessage.set('');
     this.savingAnchors = true;
@@ -166,20 +168,24 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
       }
 
       const name = this.anchorPresetName?.trim() || anchorPreset.name || 'Sloty dekoracji';
+      const presetId = saveAsNew ? `preset-${Date.now()}` : this.selectedPresetId ?? anchorPreset.id;
       const payload = {
-        presetId: anchorPreset.id,
+        presetId,
         name,
         cakeShape: this.cakeShape,
         cakeSize: this.cakeSize,
         tiers: this.tiers,
-        dataJson: JSON.stringify({ ...anchorPreset, name }),
+        dataJson: JSON.stringify({ ...anchorPreset, id: presetId, name }),
       };
 
       await this.adminPresetService.saveAnchorPreset(payload);
       await this.anchorPresetsService.loadPresets();
-      this.statusMessage.set('Zapisano preset kotwic dla tego tortu.');
+      this.statusMessage.set(
+        saveAsNew ? 'Zapisano nowy preset kotwic dla tego tortu.' : 'Zapisano zmodyfikowany preset kotwic.',
+      );
       this.selectedPresetId = payload.presetId;
       this.anchorPresetsService.setActivePreset(payload.presetId);
+      this.anchorPresetName = name;
     } catch (error) {
       console.error(error);
       this.errorMessage.set('Nie udało się zapisać presetów kotwic.');
@@ -223,6 +229,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
     this.hiddenOptions.clear();
+    this.syncAnchorPresetName();
   }
 
   listAllowedOptions(anchor: AnchorPoint): string[] {
@@ -340,5 +347,16 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     const target = event.target as HTMLImageElement;
     target.src = '/assets/decorations/thumbnails/placeholder.svg';
     target.alt = `${identifier} (miniatura niedostępna)`;
+  }
+
+  private syncAnchorPresetName(): void {
+    if (!this.selectedPresetId) {
+      return;
+    }
+
+    const preset = this.anchorPresets.find((candidate) => candidate.id === this.selectedPresetId);
+    if (preset?.name) {
+      this.anchorPresetName = preset.name;
+    }
   }
 }

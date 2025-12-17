@@ -1922,6 +1922,7 @@ export class ThreeSceneService {
     }
 
     const decorations = this.collectDecorationRoots();
+    const sourcePreset = this.anchorPresetsService.getActivePreset();
     const anchorsById = new Map<string, AnchorPoint>();
 
     decorations.forEach((decoration) => {
@@ -1938,36 +1939,44 @@ export class ThreeSceneService {
         return;
       }
 
+      const sourceAnchor = sourcePreset?.anchors.find((candidate) => candidate.id === anchor.id);
+
       const decorationId =
         (decoration.userData['modelFileName'] as string | undefined) ??
         (decoration.userData['displayName'] as string | undefined) ??
         decoration.name;
 
       const existing = anchorsById.get(anchor.id);
+      const baseAllowed = sourceAnchor?.allowedDecorationIds ?? [];
+      const baseOverrides = { ...(sourceAnchor?.decorationOverrides ?? {}) };
+
       if (!existing) {
+        const allowedDecorationIds = Array.from(new Set([...(anchor.allowedDecorationIds ?? []), ...baseAllowed]));
         anchorsById.set(anchor.id, {
           ...anchor,
+          allowedDecorationIds: allowedDecorationIds.length ? allowedDecorationIds : undefined,
           decorationOverrides: decorationId
             ? {
+                ...baseOverrides,
                 [decorationId]: {
                   rotationDeg: anchor.defaultRotationDeg,
                   scale: anchor.defaultScale,
                   offset: [0, 0, 0],
                 },
               }
-            : undefined,
+            : Object.keys(baseOverrides).length
+              ? baseOverrides
+              : undefined,
         });
         return;
       }
 
-      if (anchor.allowedDecorationIds?.length) {
-        const merged = new Set(existing.allowedDecorationIds ?? []);
-        anchor.allowedDecorationIds.forEach((id) => merged.add(id));
-        existing.allowedDecorationIds = Array.from(merged);
-      }
+      const merged = new Set([...(existing.allowedDecorationIds ?? []), ...(anchor.allowedDecorationIds ?? [])]);
+      baseAllowed.forEach((id) => merged.add(id));
+      existing.allowedDecorationIds = merged.size ? Array.from(merged) : undefined;
 
       if (decorationId) {
-        const overrides = { ...(existing.decorationOverrides ?? {}) };
+        const overrides = { ...baseOverrides, ...(existing.decorationOverrides ?? {}) };
         const projection = this.snapService.projectAnchor(existing, this.cakeMetadata!);
         const basePosition = projection?.position ?? new THREE.Vector3();
         const currentPosition = this.cakeBase
@@ -2017,8 +2026,11 @@ export class ThreeSceneService {
     }
 
     return {
-      id: `preset-${Date.now()}`,
-      name: 'Wszystkie sloty dekoracji',
+      id: sourcePreset?.id ?? `preset-${Date.now()}`,
+      name: sourcePreset?.name ?? 'Wszystkie sloty dekoracji',
+      cakeShape: sourcePreset?.cakeShape,
+      cakeSize: sourcePreset?.cakeSize,
+      tiers: sourcePreset?.tiers,
       anchors,
     };
   }
