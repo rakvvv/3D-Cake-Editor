@@ -1885,6 +1885,7 @@ export class ThreeSceneService {
       }
     }
 
+    this.snapshotAnchorDecorations(anchorId);
     this.isolateAnchorDecoration(anchorId, decorationId);
     const focused = this.findAnchorOccupant(anchorId, decorationId);
     if (focused) {
@@ -2215,6 +2216,62 @@ export class ThreeSceneService {
         (candidate.userData['displayName'] as string | undefined) ??
         candidate.name;
       return id === decorationId;
+    });
+  }
+
+  private snapshotAnchorDecorations(anchorId: string): void {
+    const anchor = this.anchorPresetsService.getAnchor(anchorId);
+    if (!anchor || !this.cakeMetadata) {
+      return;
+    }
+
+    const projection = this.snapService.projectAnchor(anchor, this.cakeMetadata);
+    if (!projection) {
+      return;
+    }
+
+    const basePosition = projection.position;
+    const axis = projection.normal.clone().normalize();
+    let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
+    if (reference.lengthSq() < 1e-6) {
+      reference = new THREE.Vector3(1, 0, 0).projectOnPlane(axis);
+    }
+
+    this.getAnchorOccupants(anchorId).forEach((decoration) => {
+      const decorationId =
+        (decoration.userData['modelFileName'] as string | undefined) ??
+        (decoration.userData['displayName'] as string | undefined) ??
+        decoration.name;
+      if (!decorationId) {
+        return;
+      }
+
+      const currentPosition = this.cakeBase
+        ? this.cakeBase.worldToLocal(decoration.getWorldPosition(new THREE.Vector3()))
+        : decoration.getWorldPosition(new THREE.Vector3());
+      const offset = currentPosition.clone().sub(basePosition).toArray() as [number, number, number];
+
+      const forward = decoration.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
+      const rotationDeg =
+        reference.lengthSq() > 1e-6 && forward.lengthSq() > 1e-6
+          ? THREE.MathUtils.radToDeg(
+              THREE.MathUtils.clamp(
+                Math.acos(
+                  THREE.MathUtils.clamp(reference.clone().normalize().dot(forward.clone().normalize()), -1, 1),
+                ),
+                0,
+                Math.PI,
+              ),
+            ) * Math.sign(axis.dot(reference.clone().cross(forward)))
+          : anchor.defaultRotationDeg;
+
+      const averageScale = (decoration.scale.x + decoration.scale.y + decoration.scale.z) / 3;
+
+      this.anchorPresetsService.upsertDecorationOverride(anchorId, decorationId, {
+        rotationDeg: Math.round((rotationDeg ?? anchor.defaultRotationDeg ?? 0) * 1000) / 1000,
+        scale: Math.round(averageScale * 1000) / 1000,
+        offset,
+      });
     });
   }
 

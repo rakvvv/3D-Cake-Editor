@@ -315,8 +315,15 @@ export class AnchorPresetsService {
       return false;
     }
 
+    const overrides = { ...(anchor.decorationOverrides ?? {}) };
+    delete overrides[decorationId];
+
     const updatedAnchors = [...preset.anchors];
-    updatedAnchors[anchorIndex] = { ...anchor, allowedDecorationIds: Array.from(allowed) };
+    updatedAnchors[anchorIndex] = {
+      ...anchor,
+      decorationOverrides: Object.keys(overrides).length ? overrides : undefined,
+      allowedDecorationIds: Array.from(allowed),
+    };
 
     const updatedPresets = [...presets];
     updatedPresets[presetIndex] = { ...preset, anchors: updatedAnchors };
@@ -328,6 +335,41 @@ export class AnchorPresetsService {
 
   public areMarkersVisible(): boolean {
     return this.markersVisibleSubject.value;
+  }
+
+  public upsertDecorationOverride(
+    anchorId: string,
+    decorationId: string,
+    override: { rotationDeg?: number; scale?: number; offset?: [number, number, number] },
+  ): void {
+    const presets = this.presetsSubject.value;
+    const activeId = this.activePresetIdSubject.value;
+    if (!activeId) {
+      return;
+    }
+
+    const presetIndex = presets.findIndex((preset) => preset.id === activeId);
+    if (presetIndex === -1) {
+      return;
+    }
+
+    const preset = presets[presetIndex];
+    const anchorIndex = preset.anchors.findIndex((anchor) => anchor.id === anchorId);
+    if (anchorIndex === -1) {
+      return;
+    }
+
+    const anchor = preset.anchors[anchorIndex];
+    const decorationOverrides = { ...(anchor.decorationOverrides ?? {}) };
+    decorationOverrides[decorationId] = override;
+
+    const updatedAnchors = [...preset.anchors];
+    updatedAnchors[anchorIndex] = { ...anchor, decorationOverrides };
+
+    const updatedPresets = [...presets];
+    updatedPresets[presetIndex] = { ...preset, anchors: updatedAnchors };
+
+    this.presetsSubject.next(updatedPresets);
   }
 
   private rebuildMarkers(): void {
