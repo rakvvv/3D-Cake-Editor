@@ -6,6 +6,7 @@ import { AdminPresetService } from '../../../services/admin-preset.service';
 import { CakePresetsService } from '../../../services/cake-presets.service';
 import { ThreeSceneService } from '../../../services/three-scene.service';
 import { DecorationsService } from '../../../services/decorations.service';
+import { AuthService } from '../../../services/auth.service';
 import { AnchorPoint, AnchorPreset } from '../../../models/anchors';
 import { Subscription } from 'rxjs';
 import { DecorationInfo } from '../../../models/decorationInfo';
@@ -51,6 +52,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     private readonly cakePresetsService: CakePresetsService,
     private readonly anchorPresetsService: AnchorPresetsService,
     private readonly decorationsService: DecorationsService,
+    private readonly authService: AuthService,
   ) {}
 
   ngOnInit(): void {
@@ -114,6 +116,11 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.savingCake = true;
 
     try {
+      if (!this.isAdminAuthenticated()) {
+        this.errorMessage.set('Zaloguj się jako administrator, aby zapisać preset tortu.');
+        return;
+      }
+
       const preset = this.sceneService.buildDecoratedCakePreset(this.cakePresetName || 'Gotowy tort');
       preset.description = this.cakePresetDescription?.trim() || undefined;
 
@@ -140,7 +147,8 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
       this.statusMessage.set('Zapisano gotowy tort.');
     } catch (error) {
       console.error(error);
-      this.errorMessage.set('Nie udało się zapisać gotowego tortu.');
+      const forbidden = (error as { status?: number }).status === 403;
+      this.errorMessage.set(forbidden ? 'Brak uprawnień administratora do zapisu.' : 'Nie udało się zapisać gotowego tortu.');
     } finally {
       this.savingCake = false;
     }
@@ -152,6 +160,11 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.savingAnchors = true;
 
     try {
+      if (!this.isAdminAuthenticated()) {
+        this.errorMessage.set('Zaloguj się jako administrator, aby zapisać presety kotwic.');
+        return;
+      }
+
       const anchorPreset = this.sceneService.exportAllAnchors();
       if (!anchorPreset) {
         this.errorMessage.set('Brak kotwic do zapisania.');
@@ -179,10 +192,20 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
       this.anchorPresetName = name;
     } catch (error) {
       console.error(error);
-      this.errorMessage.set('Nie udało się zapisać presetów kotwic.');
+      const forbidden = (error as { status?: number }).status === 403;
+      this.errorMessage.set(forbidden ? 'Brak uprawnień administratora do zapisu.' : 'Nie udało się zapisać presetów kotwic.');
     } finally {
       this.savingAnchors = false;
     }
+  }
+
+  private isAdminAuthenticated(): boolean {
+    const currentUser = this.authService.getCurrentUser();
+    if (this.authService.isAuthenticated() && currentUser?.role === 'ADMIN') {
+      return true;
+    }
+    this.authService.logout();
+    return false;
   }
 
   focusAnchor(anchorId: string): void {
