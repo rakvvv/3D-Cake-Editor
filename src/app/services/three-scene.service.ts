@@ -1351,7 +1351,9 @@ export class ThreeSceneService {
         (selected.userData['displayName'] as string | undefined) ??
         selected.name;
 
-      this.snapshotAnchorDecorations(anchorId, decorationId);
+      if (decorationId) {
+        this.snapshotAnchorDecorations(anchorId, decorationId);
+      }
     }
   }
   // --- Koniec funkcji BoxHelper ---
