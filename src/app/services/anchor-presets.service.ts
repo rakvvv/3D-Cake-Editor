@@ -286,6 +286,46 @@ export class AnchorPresetsService {
     this.refreshMarkerColors();
   }
 
+  public removeAllowedDecoration(anchorId: string | null, decorationId?: string): boolean {
+    if (!anchorId || !decorationId) {
+      return false;
+    }
+
+    const presets = this.presetsSubject.value;
+    const activeId = this.activePresetIdSubject.value;
+    if (!activeId) {
+      return false;
+    }
+
+    const presetIndex = presets.findIndex((preset) => preset.id === activeId);
+    if (presetIndex === -1) {
+      return false;
+    }
+
+    const preset = presets[presetIndex];
+    const anchorIndex = preset.anchors.findIndex((anchor) => anchor.id === anchorId);
+    if (anchorIndex === -1) {
+      return false;
+    }
+
+    const anchor = preset.anchors[anchorIndex];
+    const allowed = new Set(anchor.allowedDecorationIds ?? []);
+    const deleted = allowed.delete(decorationId);
+    if (!deleted) {
+      return false;
+    }
+
+    const updatedAnchors = [...preset.anchors];
+    updatedAnchors[anchorIndex] = { ...anchor, allowedDecorationIds: Array.from(allowed) };
+
+    const updatedPresets = [...presets];
+    updatedPresets[presetIndex] = { ...preset, anchors: updatedAnchors };
+
+    this.presetsSubject.next(updatedPresets);
+    this.refreshMarkerColors();
+    return true;
+  }
+
   public areMarkersVisible(): boolean {
     return this.markersVisibleSubject.value;
   }

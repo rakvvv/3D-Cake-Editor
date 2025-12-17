@@ -119,6 +119,13 @@
                     >
                       {{ hiddenOptions.has(anchor.id + ':' + option) ? 'Pokaż' : 'Ukryj' }}
                     </button>
+                    <button
+                      class="btn btn--danger"
+                      type="button"
+                      (click)="removeDecorationFromAnchor(anchor.id, option)"
+                    >
+                      Usuń
+                    </button>
                   </div>
                 </div>
               </div>

@@ -2307,6 +2307,16 @@ export class ThreeSceneService {
     this.requestRender();
   }
 
+  public removeAnchorDecoration(anchorId: string, decorationId: string): boolean {
+    const occupant = this.findAnchorOccupant(anchorId, decorationId);
+    if (!occupant) {
+      return false;
+    }
+
+    this.removeDecoration(occupant);
+    return true;
+  }
+
   private validateAnchorCompatibility(
     anchor: AnchorPoint,
     decorationType?: DecorationPlacementType,

@@ -235,7 +235,12 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     }
 
     this.anchorPresetsService.setPendingDecoration(decoration);
-    const identifiers = new Set([decoration.modelFileName, decoration.id].filter(Boolean) as string[]);
+    const anchorDecorationId = decoration.modelFileName || decoration.id;
+
+    if (!anchorDecorationId) {
+      this.errorMessage.set('Nie można ustalić identyfikatora dekoracji.');
+      return;
+    }
 
     if (!this.recordAnchorOptions) {
       this.recordAnchorOptions = true;
@@ -243,19 +248,32 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     }
 
     this.statusMessage.set('Umieszczanie dekoracji na kotwicy…');
-    const identifier = decoration.id || decoration.modelFileName;
     const result = await this.sceneService.ensureAnchorDecorationForEdit(
       this.activeAnchorId,
-      identifier!,
+      anchorDecorationId,
     );
     if (!result.success) {
       this.errorMessage.set(result.message);
       return;
     }
 
-    identifiers.forEach((id) => this.anchorPresetsService.appendAllowedDecoration(this.activeAnchorId, id));
+    this.anchorPresetsService.appendAllowedDecoration(this.activeAnchorId, anchorDecorationId);
     this.statusMessage.set('Dodano dekorację jako opcję dla kotwicy.');
     this.sceneService.showAllAnchorDecorations(this.activeAnchorId);
+  }
+
+  async removeDecorationFromAnchor(anchorId: string, decorationId: string): Promise<void> {
+    this.errorMessage.set('');
+
+    const removed = this.anchorPresetsService.removeAllowedDecoration(anchorId, decorationId);
+    if (!removed) {
+      this.errorMessage.set('Nie udało się usunąć dekoracji z kotwicy.');
+      return;
+    }
+
+    this.sceneService.removeAnchorDecoration(anchorId, decorationId);
+    this.hiddenOptions.delete(`${anchorId}:${decorationId}`);
+    this.statusMessage.set('Usunięto dekorację z opcji kotwicy.');
   }
 
   async toggleDecorationVisibility(anchorId: string, decorationId: string): Promise<void> {
