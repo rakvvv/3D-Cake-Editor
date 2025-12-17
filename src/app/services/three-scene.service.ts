@@ -1942,6 +1942,14 @@ export class ThreeSceneService {
       }
 
       const sourceAnchor = sourcePreset?.anchors.find((candidate) => candidate.id === anchor.id);
+      if (sourceAnchor) {
+        if (sourceAnchor.defaultRotationDeg !== undefined) {
+          anchor.defaultRotationDeg = sourceAnchor.defaultRotationDeg;
+        }
+        if (sourceAnchor.defaultScale !== undefined) {
+          anchor.defaultScale = sourceAnchor.defaultScale;
+        }
+      }
 
       const decorationId =
         (decoration.userData['modelFileName'] as string | undefined) ??
