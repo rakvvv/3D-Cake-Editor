@@ -1887,7 +1887,7 @@ export class ThreeSceneService {
       }
     }
 
-    this.snapshotAnchorDecorations(anchorId);
+    this.snapshotAnchorDecorations(anchorId, decorationId);
     this.isolateAnchorDecoration(anchorId, decorationId);
     const focused = this.findAnchorOccupant(anchorId, decorationId);
     if (focused) {
@@ -2299,7 +2299,7 @@ export class ThreeSceneService {
     occupant.userData['anchorOptionMeta'] = { anchorId, decorationId };
   }
 
-  private snapshotAnchorDecorations(anchorId: string): void {
+  private snapshotAnchorDecorations(anchorId: string, onlyDecorationId?: string): void {
     const anchor = this.anchorPresetsService.getAnchor(anchorId);
     if (!anchor || !this.cakeMetadata) {
       return;
@@ -2326,6 +2326,12 @@ export class ThreeSceneService {
       if (!decorationId) {
         return;
       }
+
+      if (onlyDecorationId && decorationId !== onlyDecorationId) {
+        return;
+      }
+
+      decoration.updateMatrixWorld(true);
 
       const currentPosition = this.cakeBase
         ? this.cakeBase.worldToLocal(decoration.getWorldPosition(new THREE.Vector3()))
