@@ -57,6 +57,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.markersPreviouslyVisible = this.anchorPresetsService.areMarkersVisible();
     this.anchorPresetsService.setMarkersVisible(true);
     this.sceneService.showAllAnchorDecorations();
+    this.anchorPresetsService.setPendingDecoration(null);
 
     this.subscriptions.add(
       this.anchorPresetsService.presets$.subscribe((presets) => {
@@ -100,6 +101,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
     this.anchorPresetsService.setMarkersVisible(this.markersPreviouslyVisible);
+    this.anchorPresetsService.setPendingDecoration(null);
   }
 
   toggleAnchorOptionRecording(): void {
