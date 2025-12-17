@@ -1968,28 +1968,34 @@ export class ThreeSceneService {
           : anchorBase.surface === 'SIDE'
             ? new THREE.Vector3(0, 0, 1)
             : new THREE.Vector3(0, 1, 0);
+        const forward = candidate.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
+        const up = new THREE.Vector3(0, 1, 0)
+          .applyQuaternion(candidate.getWorldQuaternion(new THREE.Quaternion()))
+          .projectOnPlane(axis);
+
         let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
         if (reference.lengthSq() < 1e-6) {
           reference = new THREE.Vector3(1, 0, 0).projectOnPlane(axis);
         }
-        const forward = candidate.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
 
-        const rotationDeg = reference.lengthSq() > 1e-6 && forward.lengthSq() > 1e-6
+        let basis = forward.lengthSq() > 1e-6 ? forward : up;
+        if (basis.lengthSq() < 1e-6) {
+          basis = reference.clone();
+        }
+
+        const rotationDeg = reference.lengthSq() > 1e-6 && basis.lengthSq() > 1e-6
           ? THREE.MathUtils.radToDeg(
-              THREE.MathUtils.clamp(
-                Math.acos(
-                  THREE.MathUtils.clamp(reference.clone().normalize().dot(forward.clone().normalize()), -1, 1),
-                ),
-                0,
-                Math.PI,
+              Math.atan2(
+                axis.dot(reference.clone().cross(basis)),
+                reference.clone().normalize().dot(basis.clone().normalize()),
               ),
-            ) * Math.sign(axis.dot(reference.clone().cross(forward)))
-          : anchorBase.defaultRotationDeg;
+            )
+          : 0;
 
         const averageScale = (candidate.scale.x + candidate.scale.y + candidate.scale.z) / 3;
 
         return {
-          rotationDeg: Math.round((rotationDeg ?? anchorBase.defaultRotationDeg ?? 0) * 1000) / 1000,
+          rotationDeg: Math.round(rotationDeg * 1000) / 1000,
           scale: Math.round(averageScale * 1000) / 1000,
           offset,
         };
