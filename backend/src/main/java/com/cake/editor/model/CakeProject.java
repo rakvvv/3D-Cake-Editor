@@ -19,8 +19,7 @@ public class CakeProject {
     @Column(nullable = false)
     private String name;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "text")
     private String dataJson;
 
     private String thumbnailUrl;

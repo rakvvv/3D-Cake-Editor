@@ -18,8 +18,7 @@ public class DecoratedCakePreset {
     @Column(nullable = false)
     private String name;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "text")
     private String dataJson;
 
     @Column(length = 512)
