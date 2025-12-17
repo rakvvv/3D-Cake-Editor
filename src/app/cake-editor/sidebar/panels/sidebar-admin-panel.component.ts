@@ -182,7 +182,11 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
         dataJson: JSON.stringify({ ...anchorPreset, id: presetId, name }),
       };
 
-      await this.adminPresetService.saveAnchorPreset(payload);
+      if (saveAsNew || !this.selectedPresetId) {
+        await this.adminPresetService.saveAnchorPreset(payload);
+      } else {
+        await this.adminPresetService.updateAnchorPreset(payload);
+      }
       await this.anchorPresetsService.loadPresets();
       this.statusMessage.set(
         saveAsNew ? 'Zapisano nowy preset kotwic dla tego tortu.' : 'Zapisano zmodyfikowany preset kotwic.',

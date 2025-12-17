@@ -37,6 +37,11 @@ export class AdminPresetService {
     return firstValueFrom(this.http.post<void>(`${this.baseUrl}/anchors`, payload));
   }
 
+  updateAnchorPreset(payload: AnchorPresetPayload): Promise<void> {
+    const url = `${this.baseUrl}/anchors/${encodeURIComponent(payload.presetId)}`;
+    return firstValueFrom(this.http.put<void>(url, payload));
+  }
+
   uploadCakePresetThumbnail(presetId: string, file: Blob): Promise<string | null> {
     const formData = new FormData();
     formData.append('file', file, 'thumbnail.png');

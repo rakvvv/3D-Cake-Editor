@@ -76,6 +76,25 @@ public class AdminPresetController {
         return toDto(preset);
     }
 
+    @PutMapping(path = "/anchors/{presetId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasRole('ADMIN')")
+    public StoredPresetDto updateAnchorPreset(@PathVariable String presetId,
+                                              @Valid @RequestBody CreateAnchorPresetRequest request) {
+        AnchorPresetEntity preset = anchorPresetRepository.findByPresetId(presetId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Anchor preset not found"));
+
+        preset.setPresetId(presetId.trim());
+        preset.setName(request.getName());
+        preset.setCakeShape(request.getCakeShape());
+        preset.setCakeSize(request.getCakeSize());
+        preset.setTiers(request.getTiers());
+        preset.setDataJson(request.getDataJson());
+
+        anchorPresetRepository.save(preset);
+        return toDto(preset);
+    }
+
     @PostMapping(path = "/cakes/{presetId}/thumbnail", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
