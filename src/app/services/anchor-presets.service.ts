@@ -18,6 +18,7 @@ export class AnchorPresetsService {
   private readonly anchorClicks = new Subject<string>();
   private readonly actionModeSubject = new BehaviorSubject<'spawn' | 'move'>('spawn');
   private readonly pendingDecorationSubject = new BehaviorSubject<DecorationInfo | null>(null);
+  private readonly recordOptionsSubject = new BehaviorSubject<boolean>(false);
   private renderScheduler?: () => void;
 
   private scene: THREE.Scene | null = null;
@@ -33,6 +34,7 @@ export class AnchorPresetsService {
   public readonly anchorClicks$ = this.anchorClicks.asObservable();
   public readonly actionMode$ = this.actionModeSubject.asObservable();
   public readonly pendingDecoration$ = this.pendingDecorationSubject.asObservable();
+  public readonly recordOptions$ = this.recordOptionsSubject.asObservable();
 
   constructor(
     private readonly http: HttpClient,
@@ -218,6 +220,55 @@ export class AnchorPresetsService {
     return this.pendingDecorationSubject.value;
   }
 
+  public setRecordingOptions(enabled: boolean): void {
+    this.recordOptionsSubject.next(enabled);
+    this.refreshMarkerColors();
+  }
+
+  public isRecordingOptions(): boolean {
+    return this.recordOptionsSubject.value;
+  }
+
+  public appendAllowedDecoration(anchorId: string, decorationId?: string): void {
+    if (!decorationId) {
+      return;
+    }
+
+    const presets = this.presetsSubject.value;
+    const activeId = this.activePresetIdSubject.value;
+    if (!activeId) {
+      return;
+    }
+
+    const presetIndex = presets.findIndex((preset) => preset.id === activeId);
+    if (presetIndex === -1) {
+      return;
+    }
+
+    const preset = presets[presetIndex];
+    const anchorIndex = preset.anchors.findIndex((anchor) => anchor.id === anchorId);
+    if (anchorIndex === -1) {
+      return;
+    }
+
+    const anchor = preset.anchors[anchorIndex];
+    const merged = new Set(anchor.allowedDecorationIds ?? []);
+    if (merged.has(decorationId)) {
+      return;
+    }
+
+    merged.add(decorationId);
+
+    const updatedAnchors = [...preset.anchors];
+    updatedAnchors[anchorIndex] = { ...anchor, allowedDecorationIds: Array.from(merged) };
+
+    const updatedPresets = [...presets];
+    updatedPresets[presetIndex] = { ...preset, anchors: updatedAnchors };
+
+    this.presetsSubject.next(updatedPresets);
+    this.refreshMarkerColors();
+  }
+
   public areMarkersVisible(): boolean {
     return this.markersVisibleSubject.value;
   }
@@ -297,6 +348,10 @@ export class AnchorPresetsService {
   private isAnchorCompatibleWithPending(anchor: AnchorPoint): boolean {
     const decoration = this.pendingDecorationSubject.value;
     if (!decoration) {
+      return true;
+    }
+
+    if (this.recordOptionsSubject.value) {
       return true;
     }
 

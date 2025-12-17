@@ -74,3 +74,16 @@
 .admin-panel__status--error {
   color: #f87171;
 }
+
+.admin-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-panel__field-label {
+  font-weight: 600;
+  color: #e5e7eb;
+  margin-bottom: 0.1rem;
+}

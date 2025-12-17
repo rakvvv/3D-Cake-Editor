@@ -21,6 +21,7 @@ export class SidebarAdminPanelComponent {
   cakePresetName = 'Gotowy tort';
   cakePresetDescription = '';
   anchorPresetName = 'Sloty dekoracji';
+  recordAnchorOptions = false;
 
   savingCake = false;
   savingAnchors = false;
@@ -34,6 +35,16 @@ export class SidebarAdminPanelComponent {
     private readonly cakePresetsService: CakePresetsService,
     private readonly anchorPresetsService: AnchorPresetsService,
   ) {}
+
+  toggleAnchorOptionRecording(): void {
+    this.recordAnchorOptions = !this.recordAnchorOptions;
+    this.anchorPresetsService.setRecordingOptions(this.recordAnchorOptions);
+    this.statusMessage.set(
+      this.recordAnchorOptions
+        ? 'Tryb nagrywania opcji kotwic: kliknij marker i dodaj różne dekoracje.'
+        : 'Tryb nagrywania opcji wyłączony.',
+    );
+  }
 
   async saveDecoratedCakePreset(): Promise<void> {
     this.statusMessage.set('');

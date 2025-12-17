@@ -1204,6 +1204,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (mode === 'move') {
       const result = this.sceneService.moveSelectionToAnchor(anchorId);
       this.showStatus(result.message);
+      if (result.success && this.anchorPresetsService.isRecordingOptions()) {
+        const selected = this.sceneService.getSelectedDecoration();
+        const decorationId = (selected?.userData['modelFileName'] as string | undefined) ?? selected?.name;
+        this.anchorPresetsService.appendAllowedDecoration(anchorId, decorationId);
+      }
       return;
     }
 
@@ -1217,6 +1222,12 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       pendingDecoration.modelFileName,
       anchorId,
     );
+    if (result.success && this.anchorPresetsService.isRecordingOptions()) {
+      this.anchorPresetsService.appendAllowedDecoration(
+        anchorId,
+        pendingDecoration.modelFileName ?? pendingDecoration.id,
+      );
+    }
     this.showStatus(result.message);
   }
 
