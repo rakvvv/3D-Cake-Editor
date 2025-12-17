@@ -22,6 +22,8 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
   @Input() cakeSize?: string;
   @Input() tiers?: number;
 
+  cakePanelOpen = true;
+  anchorsPanelOpen = true;
   cakePresetName = 'Gotowy tort';
   cakePresetDescription = '';
   anchorPresetName = 'Sloty dekoracji';
@@ -31,9 +33,11 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
   decorationSearch = '';
   availableDecorations: DecorationInfo[] = [];
   selectedPresetId: string | null = null;
+  hiddenOptions = new Set<string>();
 
   private subscriptions = new Subscription();
   private lastEditedAnchor?: string;
+  private markersPreviouslyVisible = false;
 
   savingCake = false;
   savingAnchors = false;
@@ -50,6 +54,10 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.markersPreviouslyVisible = this.anchorPresetsService.areMarkersVisible();
+    this.anchorPresetsService.setMarkersVisible(true);
+    this.sceneService.showAllAnchorDecorations();
+
     this.subscriptions.add(
       this.anchorPresetsService.presets$.subscribe((presets) => {
         this.anchorPresets = presets ?? [];
@@ -91,6 +99,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
     this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
+    this.anchorPresetsService.setMarkersVisible(this.markersPreviouslyVisible);
   }
 
   toggleAnchorOptionRecording(): void {
@@ -182,6 +191,8 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.lastEditedAnchor = anchorId;
     this.anchorPresetsService.setFocusedAnchor(anchorId);
     this.statusMessage.set(`Edytujesz kotwicę ${anchorId}.`);
+    this.hiddenOptions.clear();
+    this.sceneService.showAllAnchorDecorations(anchorId);
   }
 
   focusAnchorOption(anchorId: string, decorationId: string): void {
@@ -208,6 +219,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.activeAnchorId = null;
     this.anchorPresetsService.setFocusedAnchor(null);
     this.sceneService.showAllAnchorDecorations();
+    this.hiddenOptions.clear();
   }
 
   listAllowedOptions(anchor: AnchorPoint): string[] {
@@ -220,6 +232,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.anchorPresetsService.setPendingDecoration(decoration);
     const identifiers = new Set([decoration.modelFileName, decoration.id].filter(Boolean) as string[]);
 
     if (!this.recordAnchorOptions) {
@@ -240,6 +253,27 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
 
     identifiers.forEach((id) => this.anchorPresetsService.appendAllowedDecoration(this.activeAnchorId, id));
     this.statusMessage.set('Dodano dekorację jako opcję dla kotwicy.');
+    this.sceneService.showAllAnchorDecorations(this.activeAnchorId);
+  }
+
+  async toggleDecorationVisibility(anchorId: string, decorationId: string): Promise<void> {
+    const key = `${anchorId}:${decorationId}`;
+    const shouldHide = !this.hiddenOptions.has(key);
+
+    const ensureResult = await this.sceneService.ensureAnchorDecorationForEdit(anchorId, decorationId);
+    if (!ensureResult.success) {
+      this.errorMessage.set(ensureResult.message);
+      return;
+    }
+
+    if (shouldHide) {
+      this.hiddenOptions.add(key);
+    } else {
+      this.hiddenOptions.delete(key);
+    }
+
+    this.sceneService.setAnchorOptionVisibility(anchorId, decorationId, !shouldHide);
+    this.statusMessage.set(shouldHide ? 'Ukryto dekorację na podglądzie.' : 'Dekoracja znów jest widoczna.');
   }
 
   filteredDecorations(): DecorationInfo[] {
@@ -255,7 +289,14 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
   }
 
   getDecorationThumbnail(decoration: DecorationInfo): string {
-    return decoration.thumbnailUrl ?? '/assets/decorations/thumbnails/placeholder.svg';
+    if (decoration.thumbnailUrl) {
+      return decoration.thumbnailUrl;
+    }
+    if (decoration.modelFileName?.endsWith('.glb')) {
+      const guess = `/assets/decorations/thumbnails/${decoration.modelFileName.replace('.glb', '.png')}`;
+      return guess;
+    }
+    return '/assets/decorations/thumbnails/placeholder.svg';
   }
 
   onDecorationThumbnailError(event: Event, decoration: DecorationInfo): void {

@@ -2288,6 +2288,25 @@ export class ThreeSceneService {
     this.requestRender();
   }
 
+  public setAnchorOptionVisibility(anchorId: string, decorationId: string, visible: boolean): void {
+    const occupants = this.anchorOccupants.get(anchorId);
+    if (!occupants) {
+      return;
+    }
+
+    occupants.forEach((candidate) => {
+      const id =
+        (candidate.userData['modelFileName'] as string | undefined) ??
+        (candidate.userData['displayName'] as string | undefined) ??
+        candidate.name;
+      if (id === decorationId) {
+        candidate.visible = visible;
+      }
+    });
+
+    this.requestRender();
+  }
+
   private validateAnchorCompatibility(
     anchor: AnchorPoint,
     decorationType?: DecorationPlacementType,
