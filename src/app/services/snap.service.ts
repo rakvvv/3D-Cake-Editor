@@ -963,7 +963,12 @@ export class SnapService {
     const relative = baseQuaternion.clone().invert().multiply(currentQuaternion).normalize();
 
     const roll = this.computeRollFromQuaternion(relative, normalizedInfo.surfaceType, localNormal.clone());
-    const rotationArray = this.serializeQuaternion(relative);
+    const rollAxis = normalizedInfo.surfaceType === 'SIDE'
+      ? localNormal.clone().normalize()
+      : new THREE.Vector3(0, 1, 0);
+    const rollQuat = new THREE.Quaternion().setFromAxisAngle(rollAxis, roll);
+    const relativeWithoutRoll = rollQuat.clone().invert().multiply(relative).normalize();
+    const rotationArray = this.serializeQuaternion(relativeWithoutRoll);
 
     const updatedInfo: SnapUserData = {
       ...normalizedInfo,
@@ -972,7 +977,13 @@ export class SnapService {
     };
 
     this.writeSnapInfo(object, updatedInfo);
-    this.applyOrientationForSurface(object, worldNormal, updatedInfo.surfaceType, roll, relative);
+    this.applyOrientationForSurface(
+      object,
+      worldNormal,
+      updatedInfo.surfaceType,
+      roll,
+      relativeWithoutRoll,
+    );
     object.updateMatrixWorld(true);
     this.enforceSnappedPosition(object);
   }
