@@ -65,22 +65,6 @@
         >
           {{ savingAnchors ? 'Zapisywanie…' : 'Zapisz jako nowy preset kotwic' }}
         </button>
-        <p class="panel-hint">
-          Aby jeden anchor dawał kilka możliwości, przypnij różne dekoracje do tego samego markera – zapisane zostaną wszystkie
-          <code>allowedDecorationIds</code> znalezione przy tej kotwicy. Miniatury dopinają się przy zapisie.
-        </p>
-
-        <div class="admin-panel__row">
-          <div>
-            <div class="admin-panel__field-label">Nagrywanie opcji kotwic</div>
-            <div class="panel-hint">
-              Włącz, aby klikać markery i dodawać kolejne dekoracje do tej samej kotwicy (każda zostanie dopisana jako opcja).
-            </div>
-          </div>
-          <button class="btn btn--ghost" type="button" (click)="toggleAnchorOptionRecording()">
-            {{ recordAnchorOptions ? 'Wyłącz' : 'Włącz' }}
-          </button>
-        </div>
 
         <label class="admin-panel__field">
           <span>Wczytaj do edycji</span>

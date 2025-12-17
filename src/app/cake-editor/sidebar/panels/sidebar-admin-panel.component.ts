@@ -105,16 +105,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.anchorPresetsService.setRecordingOptions(false);
     this.anchorPresetsService.setMarkersVisible(this.markersPreviouslyVisible);
     this.anchorPresetsService.setPendingDecoration(null);
-  }
-
-  toggleAnchorOptionRecording(): void {
-    this.recordAnchorOptions = !this.recordAnchorOptions;
-    this.anchorPresetsService.setRecordingOptions(this.recordAnchorOptions);
-    this.statusMessage.set(
-      this.recordAnchorOptions
-        ? 'Tryb nagrywania opcji kotwic: kliknij marker i dodaj różne dekoracje.'
-        : 'Tryb nagrywania opcji wyłączony.',
-    );
+    this.recordAnchorOptions = false;
   }
 
   async saveDecoratedCakePreset(): Promise<void> {

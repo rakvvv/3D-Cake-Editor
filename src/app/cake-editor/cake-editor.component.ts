@@ -838,21 +838,20 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openDecorPanel(): void {
-    this.activeSidebarPanel = 'decorations';
+    this.updateActiveSidebarPanel('decorations');
     this.sidebar?.focusPanel('decorations');
-    this.onSidebarPaintModeChange('decor3d');
     this.closeExportPopup();
   }
 
   openPaintPanel(mode: SidebarPaintMode = this.paintingMode): void {
-    this.activeSidebarPanel = 'paint';
+    this.paintingMode = mode;
+    this.updateActiveSidebarPanel('paint');
     this.sidebar?.focusPanel('paint');
-    this.onSidebarPaintModeChange(mode);
     this.closeExportPopup();
   }
 
   openPresetPanel(): void {
-    this.activeSidebarPanel = 'presets';
+    this.updateActiveSidebarPanel('presets');
     this.sidebar?.focusPanel('presets');
     this.closeExportPopup();
   }
@@ -861,13 +860,13 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.isAdmin) {
       return;
     }
-    this.activeSidebarPanel = 'admin';
+    this.updateActiveSidebarPanel('admin');
     this.sidebar?.focusPanel('admin');
     this.closeExportPopup();
   }
 
   onSidebarPanelChange(panel: SidebarPanelKey): void {
-    this.activeSidebarPanel = panel;
+    this.updateActiveSidebarPanel(panel);
   }
 
   toggleExportPopup(): void {
@@ -943,6 +942,42 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onTogglePaintMode(enabled: boolean): void {
     this.paintService.paintMode = enabled;
+  }
+
+  private updateActiveSidebarPanel(panel: SidebarPanelKey): void {
+    const previousPanel = this.activeSidebarPanel;
+
+    if (previousPanel !== panel) {
+      this.handlePanelExit(previousPanel, panel);
+      this.activeSidebarPanel = panel;
+    }
+
+    this.handlePanelEntry(panel);
+  }
+
+  private handlePanelExit(previousPanel: SidebarPanelKey, nextPanel: SidebarPanelKey): void {
+    if (previousPanel === 'paint' && nextPanel !== 'paint') {
+      this.onPaintingPowerChange(false);
+      this.paintingPowerEnabled = false;
+    }
+
+    if (previousPanel === 'decorations' && nextPanel !== 'decorations') {
+      this.anchorPresetsService.setPendingDecoration(null);
+    }
+  }
+
+  private handlePanelEntry(panel: SidebarPanelKey): void {
+    if (panel === 'paint') {
+      const desiredPower = true;
+      this.paintingPowerEnabled = desiredPower;
+      this.onSidebarPaintModeChange(this.paintingMode);
+      this.onPaintingPowerChange(desiredPower);
+      return;
+    }
+
+    if (panel === 'decorations') {
+      this.onSidebarPaintModeChange('decor3d');
+    }
   }
 
   onBrushChanged(brushId: string): void {
