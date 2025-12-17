@@ -1952,50 +1952,27 @@ export class ThreeSceneService {
       const baseAllowed = sourceAnchor?.allowedDecorationIds ?? [];
       const baseOverrides = { ...(sourceAnchor?.decorationOverrides ?? {}) };
 
-      if (!existing) {
-        const allowedDecorationIds = Array.from(new Set([...(anchor.allowedDecorationIds ?? []), ...baseAllowed]));
-        anchorsById.set(anchor.id, {
-          ...anchor,
-          allowedDecorationIds: allowedDecorationIds.length ? allowedDecorationIds : undefined,
-          decorationOverrides: decorationId
-            ? {
-                ...baseOverrides,
-                [decorationId]: {
-                  rotationDeg: anchor.defaultRotationDeg,
-                  scale: anchor.defaultScale,
-                  offset: [0, 0, 0],
-                },
-              }
-            : Object.keys(baseOverrides).length
-              ? baseOverrides
-              : undefined,
-        });
-        return;
-      }
-
-      const merged = new Set([...(existing.allowedDecorationIds ?? []), ...(anchor.allowedDecorationIds ?? [])]);
-      baseAllowed.forEach((id) => merged.add(id));
-      existing.allowedDecorationIds = merged.size ? Array.from(merged) : undefined;
-
-      if (decorationId) {
-        const overrides = { ...baseOverrides, ...(existing.decorationOverrides ?? {}) };
-        const projection = this.snapService.projectAnchor(existing, this.cakeMetadata!);
+      const computeOverride = (
+        anchorBase: AnchorPoint,
+        candidate: THREE.Object3D,
+      ): { rotationDeg: number; scale: number; offset: [number, number, number] } => {
+        const projection = this.snapService.projectAnchor(anchorBase, this.cakeMetadata!);
         const basePosition = projection?.position ?? new THREE.Vector3();
         const currentPosition = this.cakeBase
-          ? this.cakeBase.worldToLocal(decoration.getWorldPosition(new THREE.Vector3()))
-          : decoration.getWorldPosition(new THREE.Vector3());
+          ? this.cakeBase.worldToLocal(candidate.getWorldPosition(new THREE.Vector3()))
+          : candidate.getWorldPosition(new THREE.Vector3());
         const offset = currentPosition.clone().sub(basePosition).toArray() as [number, number, number];
 
         const axis = projection?.normal
           ? projection.normal.clone().normalize()
-          : existing.surface === 'SIDE'
+          : anchorBase.surface === 'SIDE'
             ? new THREE.Vector3(0, 0, 1)
             : new THREE.Vector3(0, 1, 0);
         let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
         if (reference.lengthSq() < 1e-6) {
           reference = new THREE.Vector3(1, 0, 0).projectOnPlane(axis);
         }
-        const forward = decoration.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
+        const forward = candidate.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
 
         const rotationDeg = reference.lengthSq() > 1e-6 && forward.lengthSq() > 1e-6
           ? THREE.MathUtils.radToDeg(
@@ -2007,16 +1984,43 @@ export class ThreeSceneService {
                 Math.PI,
               ),
             ) * Math.sign(axis.dot(reference.clone().cross(forward)))
-          : existing.defaultRotationDeg;
+          : anchorBase.defaultRotationDeg;
 
-        const averageScale = (decoration.scale.x + decoration.scale.y + decoration.scale.z) / 3;
+        const averageScale = (candidate.scale.x + candidate.scale.y + candidate.scale.z) / 3;
 
-        overrides[decorationId] = {
-          rotationDeg: Math.round((rotationDeg ?? existing.defaultRotationDeg ?? 0) * 1000) / 1000,
+        return {
+          rotationDeg: Math.round((rotationDeg ?? anchorBase.defaultRotationDeg ?? 0) * 1000) / 1000,
           scale: Math.round(averageScale * 1000) / 1000,
           offset,
         };
+      };
 
+      if (!existing) {
+        const allowedDecorationIds = new Set([...(anchor.allowedDecorationIds ?? []), ...baseAllowed]);
+        if (decorationId) {
+          allowedDecorationIds.add(decorationId);
+        }
+
+        const overrides = { ...baseOverrides };
+        if (decorationId) {
+          overrides[decorationId] = computeOverride(anchor, decoration);
+        }
+
+        anchorsById.set(anchor.id, {
+          ...anchor,
+          allowedDecorationIds: allowedDecorationIds.size ? Array.from(allowedDecorationIds) : undefined,
+          decorationOverrides: Object.keys(overrides).length ? overrides : undefined,
+        });
+        return;
+      }
+
+      const merged = new Set([...(existing.allowedDecorationIds ?? []), ...(anchor.allowedDecorationIds ?? [])]);
+      baseAllowed.forEach((id) => merged.add(id));
+      existing.allowedDecorationIds = merged.size ? Array.from(merged) : undefined;
+
+      if (decorationId) {
+        const overrides = { ...baseOverrides, ...(existing.decorationOverrides ?? {}) };
+        overrides[decorationId] = computeOverride(existing, decoration);
         existing.decorationOverrides = overrides;
       }
     });
