@@ -88,23 +88,5 @@
       </div>
     </div>
 
-    <div class="toggle-tab toggle-tab--vertical">
-      <button
-        class="toggle-tab__item"
-        [class.toggle-tab__item--active]="actionMode === 'spawn'"
-        type="button"
-        (click)="onActionModeChange('spawn')"
-      >
-        Wybór z listy
-      </button>
-      <button
-        class="toggle-tab__item"
-        [class.toggle-tab__item--active]="actionMode === 'move'"
-        type="button"
-        (click)="onActionModeChange('move')"
-      >
-        Przenoszenie zaznaczonej
-      </button>
-    </div>
   </div>
 </section>

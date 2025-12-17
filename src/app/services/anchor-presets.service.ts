@@ -17,7 +17,6 @@ export class AnchorPresetsService {
   private readonly markersVisibleSubject = new BehaviorSubject<boolean>(false);
   private readonly focusedAnchorIdSubject = new BehaviorSubject<string | null>(null);
   private readonly anchorClicks = new Subject<string>();
-  private readonly actionModeSubject = new BehaviorSubject<'spawn' | 'move'>('spawn');
   private readonly pendingDecorationSubject = new BehaviorSubject<DecorationInfo | null>(null);
   private readonly recordOptionsSubject = new BehaviorSubject<boolean>(false);
   private renderScheduler?: () => void;
@@ -34,7 +33,6 @@ export class AnchorPresetsService {
   public readonly markersVisible$ = this.markersVisibleSubject.asObservable();
   public readonly focusedAnchorId$ = this.focusedAnchorIdSubject.asObservable();
   public readonly anchorClicks$ = this.anchorClicks.asObservable();
-  public readonly actionMode$ = this.actionModeSubject.asObservable();
   public readonly pendingDecoration$ = this.pendingDecorationSubject.asObservable();
   public readonly recordOptions$ = this.recordOptionsSubject.asObservable();
 
@@ -217,23 +215,9 @@ export class AnchorPresetsService {
     this.requestRender();
   }
 
-  public setActionMode(mode: 'spawn' | 'move'): void {
-    this.actionModeSubject.next(mode);
-    this.requestRender();
-  }
-
-  public getActionMode(): 'spawn' | 'move' {
-    return this.actionModeSubject.value;
-  }
-
   public setPendingDecoration(decoration: DecorationInfo | null): void {
     this.pendingDecorationSubject.next(decoration);
-    if (this.focusedAnchorIdSubject.value) {
-      this.setHighlightedDecoration(null);
-    } else {
-      const highlightId = decoration?.modelFileName ?? decoration?.id ?? null;
-      this.setHighlightedDecoration(highlightId);
-    }
+    this.setHighlightedDecoration(null);
     this.refreshMarkerColors();
   }
 
@@ -442,17 +426,6 @@ export class AnchorPresetsService {
   private resolveMarkerColor(anchor: AnchorPoint): number {
     if (this.focusedAnchorIdSubject.value === anchor.id) {
       return 0xf59e0b;
-    }
-    if (!this.isAnchorCompatibleWithPending(anchor)) {
-      return 0x9ca3af;
-    }
-    if (this.highlightDecorationId) {
-      if (anchor.allowedDecorationIds?.length) {
-        return anchor.allowedDecorationIds.includes(this.highlightDecorationId)
-          ? 0x3b82f6
-          : 0x94a3b8;
-      }
-      return 0x60a5fa;
     }
     return 0x4b5563;
   }

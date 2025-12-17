@@ -1239,7 +1239,7 @@ export class ThreeSceneService {
     this.raycaster.setFromCamera(this.mouse, this.camera);
     const canClickAnchors =
       this.anchorPresetsService.areMarkersVisible() &&
-      (this.anchorPresetsService.getActionMode() === 'move' || !this.transformControlsService.getSelectedObject());
+      !this.transformControlsService.getSelectedObject();
 
     if (canClickAnchors) {
       const anchorHit = this.anchorPresetsService.pickAnchor(this.raycaster);
@@ -2231,6 +2231,10 @@ export class ThreeSceneService {
     if (previousAnchorId && previousAnchorId !== anchor.id) {
       this.clearAnchorOccupant(previousAnchorId, object);
     }
+
+    this.getAnchorOccupants(anchor.id)
+      .filter((existing) => existing !== object)
+      .forEach((existing) => this.removeDecoration(existing));
 
     this.registerAnchorOccupant(anchor.id, object);
     this.snapService.attachDecorationToAnchor(object, anchor, decorationId);

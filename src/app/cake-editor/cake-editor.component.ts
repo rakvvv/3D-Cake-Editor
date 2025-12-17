@@ -963,6 +963,16 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (previousPanel === 'decorations' && nextPanel !== 'decorations') {
       this.anchorPresetsService.setPendingDecoration(null);
+      this.anchorPresetsService.setMarkersVisible(false);
+      this.anchorPresetsService.setFocusedAnchor(null);
+      this.anchorPresetsService.setRecordingOptions(false);
+    }
+
+    if (previousPanel === 'admin' && nextPanel !== 'admin') {
+      this.anchorPresetsService.setMarkersVisible(false);
+      this.anchorPresetsService.setFocusedAnchor(null);
+      this.anchorPresetsService.setPendingDecoration(null);
+      this.anchorPresetsService.setRecordingOptions(false);
     }
   }
 
@@ -980,6 +990,17 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.surfacePaintingService.enabled = false;
       this.paintService.paintMode = false;
       this.onSidebarPaintModeChange('decor3d');
+      this.anchorPresetsService.setFocusedAnchor(null);
+      this.anchorPresetsService.setRecordingOptions(false);
+      return;
+    }
+
+    if (panel === 'admin') {
+      this.anchorPresetsService.setMarkersVisible(true);
+      this.anchorPresetsService.setFocusedAnchor(null);
+      this.anchorPresetsService.setPendingDecoration(null);
+      this.anchorPresetsService.setRecordingOptions(false);
+      return;
     }
   }
 
@@ -1238,20 +1259,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async handleAnchorClick(anchorId: string): Promise<void> {
-    const mode = this.anchorPresetsService.getActionMode();
-    if (mode === 'move') {
-      const result = this.sceneService.moveSelectionToAnchor(anchorId);
-      this.showStatus(result.message);
-      if (result.success && this.anchorPresetsService.isRecordingOptions()) {
-        const selected = this.sceneService.getSelectedDecoration();
-        const decorationId = (selected?.userData['modelFileName'] as string | undefined) ?? selected?.name;
-        if (decorationId && this.anchorPresetsService.appendAllowedDecoration(anchorId, decorationId)) {
-          this.sceneService.markAnchorOptionAddition(anchorId, decorationId);
-        }
-      }
-      return;
-    }
-
     const pendingDecoration = this.anchorPresetsService.getPendingDecoration();
     if (!pendingDecoration) {
       this.showStatus('Wybierz dekorację, aby dodać ją na kotwicy.');

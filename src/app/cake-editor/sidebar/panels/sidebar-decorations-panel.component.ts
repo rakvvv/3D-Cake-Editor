@@ -23,7 +23,6 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
   decorations: DecorationInfo[] = [];
   presets: AnchorPreset[] = [];
   activePresetId: string | null = null;
-  actionMode: 'spawn' | 'move' = 'spawn';
   markersVisible = false;
   selectedDecorationId: string | null = null;
   searchTerm = '';
@@ -48,9 +47,6 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.anchorPresetsService.presets$.subscribe((presets) => (this.presets = presets)));
     this.subscriptions.add(
       this.anchorPresetsService.activePresetId$.subscribe((id) => (this.activePresetId = id)),
-    );
-    this.subscriptions.add(
-      this.anchorPresetsService.actionMode$.subscribe((mode) => (this.actionMode = mode)),
     );
     this.subscriptions.add(
       this.anchorPresetsService.markersVisible$.subscribe((visible) => (this.markersVisible = visible)),
@@ -121,8 +117,7 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
     this.anchorPresetsService.setPendingDecoration(decoration);
     this.paintService.setCurrentBrush(decoration.modelFileName);
 
-    const shouldPlaceViaAnchor = this.markersVisible && this.actionMode === 'spawn';
-    if (shouldPlaceViaAnchor) {
+    if (this.markersVisible) {
       const focusedAnchorId = this.anchorPresetsService.getFocusedAnchor();
       if (focusedAnchorId) {
         this.anchorPresetsService.emitAnchorClick(focusedAnchorId);
@@ -141,10 +136,6 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
   onPresetChange(presetId: string): void {
     this.activePresetId = presetId;
     this.anchorPresetsService.setActivePreset(presetId);
-  }
-
-  onActionModeChange(mode: 'spawn' | 'move'): void {
-    this.anchorPresetsService.setActionMode(mode);
   }
 
   toggleMarkers(): void {
