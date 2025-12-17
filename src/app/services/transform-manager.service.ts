@@ -252,6 +252,8 @@ export class TransformManagerService {
         return;
       }
 
+      const anchorId = selectedObject.userData['anchorId'] as string | undefined;
+
       if (this.lockedSelection.object === selectedObject) {
         this.lockedSelection.position.copy(selectedObject.position);
         this.lockedSelection.quaternion.copy(selectedObject.quaternion);
@@ -262,7 +264,7 @@ export class TransformManagerService {
       }
 
       const mode = this.transformControls.mode;
-      if (mode === 'translate' || mode === 'scale') {
+      if (!anchorId && (mode === 'translate' || mode === 'scale')) {
         this.snapService.updateSnapFromObjectPosition(selectedObject);
         this.snapService.enforceSnappedPosition(selectedObject);
       }
@@ -302,9 +304,11 @@ export class TransformManagerService {
       }
 
       const mode = this.transformControls.mode;
+      const anchorId = selectedObject.userData['anchorId'] as string | undefined;
+
       if (mode === 'rotate') {
         this.snapService.captureSnappedOrientation(selectedObject);
-      } else if (mode === 'translate' || mode === 'scale') {
+      } else if (!anchorId && (mode === 'translate' || mode === 'scale')) {
         this.snapService.enforceSnappedPosition(selectedObject);
       }
 
