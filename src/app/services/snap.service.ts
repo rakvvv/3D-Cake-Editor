@@ -164,7 +164,10 @@ export class SnapService {
     const hasOverride = !!override;
     const initialRotation = object.userData['initialRotation'] as THREE.Euler | undefined;
     const initialScale = object.userData['initialScale'] as THREE.Vector3 | undefined;
-    const preserveTransform = object.userData['preserveAnchorTransform'] === true;
+    const existingAnchorId = object.userData['anchorId'] as string | undefined;
+    const preserveTransform =
+      object.userData['preserveAnchorTransform'] === true ||
+      (existingAnchorId === anchor.id && object.userData['isSnapped'] === true);
     const skipOrientation = preserveTransform && !override;
 
     object.position.set(0, 0, 0);
@@ -198,16 +201,17 @@ export class SnapService {
         : undefined;
 
       if (relativeRotation) {
+        // Jeśli używamy Kwaternionu (który zawiera pełną rotację względem bazy),
+        // musimy użyć TYLKO domyślnego rolla anchora jako bazy.
+        // Nie możemy użyć override.rotationDeg, bo to przesunie układ współrzędnych
+        // i kwaternion obróci obiekt w złe miejsce.
         const roll = THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0);
+
         this.applyOrientationForSurface(object, worldNormal, anchor.surface, roll, relativeRotation);
       } else {
         this.applyOrientationForSurface(object, worldNormal, anchor.surface);
 
-        const rotationDeg = hasOverride
-          ? override?.rotationDeg
-          : !decorationId
-          ? anchor.defaultRotationDeg
-          : undefined;
+        const rotationDeg = hasOverride ? override?.rotationDeg : anchor.defaultRotationDeg;
         if (rotationDeg) {
           const axis = anchor.surface === 'SIDE' ? projection.normal : new THREE.Vector3(0, 1, 0);
           object.rotateOnWorldAxis(axis, THREE.MathUtils.degToRad(rotationDeg));

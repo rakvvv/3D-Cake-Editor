@@ -1896,7 +1896,6 @@ export class ThreeSceneService {
       }
     }
 
-    this.snapshotAnchorDecorations(anchorId, decorationId);
     this.isolateAnchorDecoration(anchorId, decorationId);
     const focused = this.findAnchorOccupant(anchorId, decorationId);
     if (focused) {
@@ -2134,6 +2133,9 @@ export class ThreeSceneService {
         ? baseWorldQuaternion.clone().invert().multiply(worldQuaternion)
         : worldQuaternion;
 
+      if (decoration.userData['isSnapped']) {
+        this.snapService.captureSnappedOrientation(decoration);
+      }
       const snapInfo = this.snapService.getSnapInfoSnapshot(decoration);
       const entry: DecorationPresetEntry = {
         modelFileName,
@@ -2199,25 +2201,37 @@ export class ThreeSceneService {
       preset.decorations.map((entry) => this.spawnDecorationFromPreset(entry)),
     );
 
-    const snapStates: SnappedDecorationState[] = [];
+    // ZMIANA: Zamiast zbierać snapStates i wołać restoreSnappedDecorations (co psuje rotację),
+    // przetwarzamy obiekty tutaj, ufając ich wczytanej pozycji/rotacji.
     results.forEach((result) => {
       if (!result) {
         return;
       }
 
       const { object, snapInfo, anchorId } = result;
-      if (snapInfo) {
-        snapStates.push({ object, info: this.cloneSnapInfo(snapInfo) });
+
+      // Jeśli obiekt ma być przypięty (ma snapInfo w JSON), robimy to "delikatnie"
+      if (snapInfo && this.cakeBase) {
+        // 1. Oznaczamy jako snapped
+        object.userData['isSnapped'] = true;
+
+        // 2. Jeśli jeszcze nie jest dzieckiem tortu, podpinamy go (zachowując transformację)
+        if (object.parent !== this.cakeBase) {
+          this.cakeBase.attach(object);
+        }
+
+        // 3. Zamiast wymuszać pozycję ze starego SnapInfo (enforceSnappedPosition),
+        //    generujemy NOWE, poprawne SnapInfo na podstawie aktualnej (dobrej) pozycji wizualnej.
+        this.snapService.updateSnapFromObjectPosition(object);
+
+        // Opcjonalnie: Jeśli chcemy zachować metadane warstwy/powierzchni z JSON, możemy je scalić,
+        // ale recalculate (linia wyżej) jest bezpieczniejsze dla naprawy błędów rotacji.
       }
 
       if (anchorId) {
         this.registerAnchorOccupant(anchorId, object);
       }
     });
-
-    if (snapStates.length) {
-      this.snapService.restoreSnappedDecorations(snapStates);
-    }
 
     if (preset.paintStrokes?.length) {
       await this.paintService.restorePaintStrokes(preset.paintStrokes, this.scene);
@@ -2230,7 +2244,6 @@ export class ThreeSceneService {
     this.updateBoxHelper();
     this.emitOutlineChanged();
   }
-
   private prepareAnchorPlacement(
     anchorId: string,
   ): { anchor: AnchorPoint; projection: { position: THREE.Vector3; normal: THREE.Vector3 } } | { error: string } {
@@ -2345,18 +2358,19 @@ export class ThreeSceneService {
     const basePosition = projection.position;
     const axis = projection.normal.clone().normalize();
 
-    // Przeliczamy normalną kotwicy do współrzędnych świata, aby rotacja była
-    // liczona względem tej samej osi, co world quaternion dekoracji.
+    // Przeliczamy normalną kotwicy do współrzędnych świata
     if (this.cakeBase) {
       this.cakeBase.updateMatrixWorld(true);
       const normalMatrix = new THREE.Matrix3().getNormalMatrix(this.cakeBase.matrixWorld);
       axis.applyMatrix3(normalMatrix).normalize();
     }
     const baseOrientation = this.snapService.getAnchorBaseOrientation(anchor, axis.clone());
+
     let reference = new THREE.Vector3(0, 0, 1).projectOnPlane(axis);
     if (reference.lengthSq() < 1e-6) {
       reference = new THREE.Vector3(1, 0, 0).projectOnPlane(axis);
     }
+    reference.normalize(); // Ważne: normalizacja referencji
 
     this.getAnchorOccupants(anchorId).forEach((decoration) => {
       const decorationId =
@@ -2380,35 +2394,39 @@ export class ThreeSceneService {
 
       const forward = decoration.getWorldDirection(new THREE.Vector3()).projectOnPlane(axis);
       const worldQuaternion = decoration.getWorldQuaternion(new THREE.Quaternion()).normalize();
+
+      // Obliczanie relatywnej rotacji (kwaternion)
       const relativeRotation = baseOrientation.clone().invert().multiply(worldQuaternion).normalize();
+
+      // ZMIANA 1: Stabilne obliczanie kąta w stopniach używając atan2 zamiast acos
       const rotationDeg =
         reference.lengthSq() > 1e-6 && forward.lengthSq() > 1e-6
           ? THREE.MathUtils.radToDeg(
-              THREE.MathUtils.clamp(
-                Math.acos(
-                  THREE.MathUtils.clamp(reference.clone().normalize().dot(forward.clone().normalize()), -1, 1),
-                ),
-                0,
-                Math.PI,
-              ),
-            ) * Math.sign(axis.dot(reference.clone().cross(forward)))
+            Math.atan2(
+              axis.dot(reference.clone().cross(forward)),
+              reference.clone().dot(forward.clone().normalize()),
+            ),
+          )
           : anchor.defaultRotationDeg;
 
       const averageScale = (decoration.scale.x + decoration.scale.y + decoration.scale.z) / 3;
 
+      // ZMIANA 2: Usunięcie Math.round z rotationQuat.
+      // Kwaterniony muszą być precyzyjne, inaczej rotacja się psuje przy zapisie/odczycie.
       this.anchorPresetsService.upsertDecorationOverride(anchorId, decorationId, {
         rotationDeg: Math.round((rotationDeg ?? anchor.defaultRotationDeg ?? 0) * 1000) / 1000,
         rotationQuat: [
-          Math.round(relativeRotation.x * 1000) / 1000,
-          Math.round(relativeRotation.y * 1000) / 1000,
-          Math.round(relativeRotation.z * 1000) / 1000,
-          Math.round(relativeRotation.w * 1000) / 1000,
+          relativeRotation.x,
+          relativeRotation.y,
+          relativeRotation.z,
+          relativeRotation.w
         ],
         scale: Math.round(averageScale * 1000) / 1000,
         offset,
       });
     });
   }
+
 
   private registerAnchorOccupant(anchorId: string, object: THREE.Object3D): void {
     const existing = object.userData['anchorId'] as string | undefined;
