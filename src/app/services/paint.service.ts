@@ -2276,6 +2276,7 @@ export class PaintService {
   }
 
   private serializePaintStroke(root: THREE.Object3D): PaintStrokePreset | null {
+    root.updateMatrixWorld(true);
     const paintType = (root.userData['paintStrokeType'] as PaintStrokePreset['type'] | undefined) ?? 'extruder';
     const base: PaintStrokePreset = {
       type: paintType,
@@ -2285,6 +2286,7 @@ export class PaintService {
       penThickness: root.userData['penThickness'] as number | undefined,
       penOpacity: root.userData['penOpacity'] as number | undefined,
       penCapsEnabled: true,
+      groupMatrix: root.matrixWorld.toArray(),
       instances: [],
       snapPoints: root.userData['snapPoints'] as number[][] | undefined,
       name: root.userData['displayName'] as string | undefined,
@@ -2339,8 +2341,29 @@ export class PaintService {
     return base;
   }
 
+  private applySavedStrokeTransform(entry: PaintStrokePreset, target: THREE.Group): void {
+    if (!entry.groupMatrix || entry.groupMatrix.length !== 16) {
+      return;
+    }
+
+    const matrix = new THREE.Matrix4();
+    matrix.fromArray(entry.groupMatrix);
+
+    const position = new THREE.Vector3();
+    const quaternion = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    matrix.decompose(position, quaternion, scale);
+
+    target.position.copy(position);
+    target.quaternion.copy(quaternion);
+    target.scale.copy(scale);
+    target.updateMatrixWorld(true);
+  }
+
   private finalizePaintRoot(object: THREE.Object3D): void {
-    this.recenterPivot(object);
+    if (!object.userData['skipRecenterPivot']) {
+      this.recenterPivot(object);
+    }
     const strokeType = object.userData['paintStrokeType'];
     const skipSnap = strokeType === 'decoration' || strokeType === 'extruder' || strokeType === 'pen';
 
@@ -2378,6 +2401,8 @@ export class PaintService {
     strokeGroup.userData['paintStrokeType'] = 'extruder';
     strokeGroup.userData['snapPoints'] = entry.snapPoints ?? [];
     strokeGroup.userData['displayName'] = entry.name ?? 'Ekstruder';
+    strokeGroup.userData['skipRecenterPivot'] = true;
+    this.applySavedStrokeTransform(entry, strokeGroup);
     scene.add(strokeGroup);
 
     const previousGroup = this.activeExtruderStrokeGroup;
@@ -2421,6 +2446,8 @@ export class PaintService {
     group.userData['paintStrokeType'] = 'decoration';
     group.userData['brushId'] = brushId;
     group.userData['displayName'] = entry.name ?? 'Dekoracja malowana';
+    group.userData['skipRecenterPivot'] = true;
+    this.applySavedStrokeTransform(entry, group);
     scene.add(group);
 
     const targetVariant = variants[0];
@@ -2465,6 +2492,8 @@ export class PaintService {
     group.userData['penSize'] = this.penSize;
     group.userData['penThickness'] = this.penThickness;
     group.userData['penOpacity'] = this.penOpacity;
+    group.userData['skipRecenterPivot'] = true;
+    this.applySavedStrokeTransform(entry, group);
     scene.add(group);
 
     const segmentState = this.ensurePenSegmentInstanceMesh(group);
