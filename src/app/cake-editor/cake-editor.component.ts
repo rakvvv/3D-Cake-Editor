@@ -31,12 +31,22 @@ import { SceneOutlineNode } from '../models/scene-outline';
 import { EditorSidebarComponent } from './sidebar/editor-sidebar.component';
 import { SidebarExportPanelComponent } from './sidebar/panels/sidebar-export-panel.component';
 import { BrushSettings, SidebarPanelKey, SidebarPaintMode } from './sidebar/sidebar.types';
+import { TexturesService } from '../services/textures.service';
+import { TextureMapsMetadata, TextureSet } from '../models/texture-set';
 
 type HelperSettings = {
   grid: boolean;
   axes: boolean;
   bounding: boolean;
   highQuality: boolean;
+};
+
+type TexturePickerOption = {
+  id: string;
+  label: string;
+  preview: string | null;
+  target: 'cake' | 'glaze';
+  maps: TextureMaps;
 };
 
 type CameraOption = 'perspective' | 'orthographic' | 'isometric' | 'top' | 'front' | 'right';
@@ -56,7 +66,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
   selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
   selectedLayers = 1;
-  selectedTextureId = 'vanilla';
   gradientEnabled = false;
   gradientDirection: 'top-bottom' | 'bottom-top' = 'top-bottom';
   primaryColor = '#ffffff';
@@ -75,79 +84,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   isAdmin = false;
 
   private textureBeforeGradient: TextureMaps | null = null;
-
-  readonly setupTextures = [
-    {
-      id: 'vanilla',
-      name: 'Wanilia',
-      preview: '/assets/textures/Candy001_1K-JPG_Color.jpg',
-      maps: {
-        baseColor: '/assets/textures/Candy001_1K-JPG_Color.jpg',
-        normal: '/assets/textures/Candy001_1K-JPG_NormalGL.jpg',
-        roughness: '/assets/textures/cake_roughness.jpg',
-        displacement: '/assets/textures/cake_bump.jpg',
-      } as TextureMaps,
-    },
-    {
-      id: 'choco-02',
-      name: 'Czekolada 02',
-      preview: '/assets/textures/Chocolate%2002_Albedo.jpg',
-      maps: {
-        baseColor: '/assets/textures/Chocolate%2002_Albedo.jpg',
-        normal: '/assets/textures/Chocolate%2002_Normal.jpg',
-        roughness: '/assets/textures/Chocolate%2002_Roughness.jpg',
-        displacement: '/assets/textures/Chocolate%2002_Displacement.jpg',
-      } as TextureMaps,
-    },
-    {
-      id: 'choco-03',
-      name: 'Czekolada 03',
-      preview: '/assets/textures/Chocolate%2003_Albedo.jpg',
-      maps: {
-        baseColor: '/assets/textures/Chocolate%2003_Albedo.jpg',
-        normal: '/assets/textures/Chocolate%2003_Normal.jpg',
-        roughness: '/assets/textures/Chocolate%2003_Roughness.jpg',
-        displacement: '/assets/textures/Chocolate%2003_Displacement.jpg',
-      } as TextureMaps,
-    },
-    {
-      id: 'food-choco',
-      name: 'Tabliczka czekolady',
-      preview: '/assets/textures/Food_Chocolate_basecolor.jpg',
-      maps: {
-        baseColor: '/assets/textures/Food_Chocolate_basecolor.jpg',
-        normal: '/assets/textures/Food_Chocolate_normal.jpg',
-        roughness: '/assets/textures/Food_Chocolate_roughness.jpg',
-        displacement: '/assets/textures/Food_Chocolate_height.jpg',
-        ambientOcclusion: '/assets/textures/Food_Chocolate_ambientocclusion.jpg',
-      } as TextureMaps,
-    },
-    {
-      id: 'pink-candy',
-      name: 'Pink Candy',
-      preview: '/assets/textures/Pink%20Candy_BaseColor.jpg',
-      maps: {
-        baseColor: '/assets/textures/Pink%20Candy_BaseColor.jpg',
-        normal: '/assets/textures/Pink%20Candy_Normal.jpg',
-        roughness: '/assets/textures/Pink%20Candy_Roughness.jpg',
-        displacement: '/assets/textures/Pink%20Candy_Displacement.jpg',
-        metallic: '/assets/textures/Pink%20Candy_Metallic.jpg',
-        emissive: '/assets/textures/Pink%20Candy_Emissive.jpg',
-        alpha: '/assets/textures/Pink%20Candy_Alpha.jpg',
-      } as TextureMaps,
-    },
-    {
-      id: 'pink-frosting',
-      name: 'Pink Frosting',
-      preview: '/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg',
-      maps: {
-        baseColor: '/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg',
-        normal: '/assets/textures/Pink_Cake_Frosting_01-normal.jpg',
-        roughness: '/assets/textures/Pink_Cake_Frosting_01-bump.jpg',
-        displacement: '/assets/textures/Pink_Cake_Frosting_01-bump.jpg',
-      } as TextureMaps,
-    },
-  ];
+  selectedCakeTextureId: string | null = null;
+  selectedGlazeTextureId: string | null = null;
+  cakeTextureOptions: TexturePickerOption[] = [];
+  glazeTextureOptions: TexturePickerOption[] = [];
+  textureLoadError: string | null = null;
   private container?: ElementRef;
   @ViewChild('canvasContainer') set canvasContainer(element: ElementRef | undefined) {
     const hasChanged = !!element && this.container?.nativeElement !== element.nativeElement;
@@ -224,6 +165,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private outlineSubscription?: Subscription;
   private paintSceneSubscription?: Subscription;
   private userSubscription?: Subscription;
+  private texturesSubscription?: Subscription;
   private canvasListenerTarget?: HTMLElement;
   private rightClickDrag?: { x: number; y: number; moved: boolean };
 
@@ -301,6 +243,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private surfacePaintingService: SurfacePaintingService,
     private anchorPresetsService: AnchorPresetsService,
     private projectsService: ProjectsService,
+    private texturesService: TexturesService,
     private authService: AuthService,
     private router: Router,
     private route: ActivatedRoute,
@@ -326,6 +269,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.maybeInitializeScene();
     }
 
+    this.loadTextureSets();
     this.syncSetupStateWithOptions();
     this.outlineSubscription = this.sceneService.outlineChanges$.subscribe(() =>
       this.refreshSceneOutline(),
@@ -406,6 +350,113 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private loadTextureSets(): void {
+    this.texturesSubscription?.unsubscribe();
+    this.texturesSubscription = this.texturesService.loadTextureSets().subscribe({
+      next: (sets: TextureSet[]) => {
+        this.textureLoadError = null;
+        this.applyTextureSets(sets);
+      },
+      error: () => {
+        this.textureLoadError = 'Nie udało się wczytać listy tekstur.';
+      },
+    });
+  }
+
+  private applyTextureSets(sets: TextureSet[]): void {
+    const cakeOptions: TexturePickerOption[] = [];
+    const glazeOptions: TexturePickerOption[] = [];
+
+    sets.forEach((set) => {
+      if (set.cake) {
+        const maps = this.normalizeTextureMaps(set.cake);
+        cakeOptions.push({
+          id: set.id,
+          label: set.label,
+          preview: set.thumbnailUrl ?? set.cake.baseColor ?? null,
+          target: 'cake',
+          maps,
+        });
+      }
+
+      if (set.glaze) {
+        const maps = this.normalizeTextureMaps(set.glaze);
+        glazeOptions.push({
+          id: set.id,
+          label: set.label,
+          preview: set.thumbnailUrl ?? set.glaze.baseColor ?? null,
+          target: 'glaze',
+          maps,
+        });
+      }
+    });
+
+    this.cakeTextureOptions = cakeOptions;
+    this.glazeTextureOptions = glazeOptions;
+    this.syncSelectedTextures();
+  }
+
+  private syncSelectedTextures(): void {
+    this.selectedCakeTextureId = this.findMatchingTextureId(
+      this.options.cake_textures,
+      this.cakeTextureOptions,
+    );
+    this.selectedGlazeTextureId = this.findMatchingTextureId(
+      this.options.glaze_textures,
+      this.glazeTextureOptions,
+    );
+  }
+
+  private findMatchingTextureId(
+    target: TextureMaps | null | undefined,
+    options: TexturePickerOption[],
+  ): string | null {
+    if (!target) {
+      return null;
+    }
+
+    const match = options.find((option) => this.areTextureMapsEqual(option.maps, target));
+    return match?.id ?? null;
+  }
+
+  private areTextureMapsEqual(
+    first: TextureMaps | undefined,
+    second: TextureMaps | null | undefined,
+  ): boolean {
+    if (!first || !second) {
+      return false;
+    }
+
+    return (
+      first.baseColor === second.baseColor &&
+      first.normal === second.normal &&
+      first.roughness === second.roughness &&
+      first.displacement === second.displacement &&
+      first.metallic === second.metallic &&
+      first.emissive === second.emissive &&
+      first.ambientOcclusion === second.ambientOcclusion &&
+      first.alpha === second.alpha &&
+      first.affectDrips === second.affectDrips &&
+      first.repeat === second.repeat
+    );
+  }
+
+  private normalizeTextureMaps(
+    maps: TextureMaps | TextureMapsMetadata | null | undefined,
+  ): TextureMaps {
+    if (!maps) {
+      return {};
+    }
+
+    const normalized: TextureMaps = {
+      ...maps,
+      affectDrips: maps.affectDrips ?? undefined,
+      repeat: maps.repeat ?? undefined,
+    };
+
+    return normalized;
+  }
+
   private maybeInitializeScene(): void {
     if (this.sceneInitialized || !this.viewReady || !this.pendingPreset) {
       return;
@@ -441,6 +492,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.outlineSubscription?.unsubscribe();
     this.paintSceneSubscription?.unsubscribe();
     this.userSubscription?.unsubscribe();
+    this.texturesSubscription?.unsubscribe();
 
     if (isPlatformBrowser(this.platformId)) {
       this.teardownCanvasListeners();
@@ -685,17 +737,30 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.applyLayerSizing(layers, this.getBaseWidth());
   }
 
-  selectTexture(textureId: string): void {
-    const match = this.setupTextures.find((t) => t.id === textureId);
-    this.selectedTextureId = textureId;
+  selectTexture(target: 'cake' | 'glaze', textureId: string): void {
+    const options = target === 'cake' ? this.cakeTextureOptions : this.glazeTextureOptions;
+    const match = options.find((t) => t.id === textureId);
+
     if (!match) {
       return;
     }
-    this.gradientEnabled = false;
-    this.textureBeforeGradient = null;
+
+    if (target === 'cake') {
+      this.selectedCakeTextureId = textureId;
+      this.gradientEnabled = false;
+      this.textureBeforeGradient = null;
+      this.patchOptions({
+        cake_textures: { ...match.maps },
+        cake_color: '#ffffff',
+      });
+      return;
+    }
+
+    this.selectedGlazeTextureId = textureId;
+    this.glazeEnabled = true;
     this.patchOptions({
-      cake_textures: match.maps,
-      cake_color: '#ffffff',
+      glaze_enabled: true,
+      glaze_textures: { ...match.maps },
     });
   }
 
@@ -707,6 +772,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   setCakeColor(color: string): void {
     this.primaryColor = color;
     this.gradientEnabled = false;
+    this.selectedCakeTextureId = null;
+    this.textureBeforeGradient = null;
     this.patchOptions({ cake_color: color, cake_textures: null });
   }
 
@@ -756,7 +823,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setGlazeColor(color: string): void {
-    this.patchOptions({ glaze_color: color });
+    this.selectedGlazeTextureId = null;
+    this.patchOptions({ glaze_color: color, glaze_textures: null });
   }
 
   toggleWafer(enabled: boolean): void {
@@ -1467,6 +1535,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.waferZoom = this.options.wafer_texture_zoom ?? 1;
     this.waferOffsetX = this.options.wafer_texture_offset_x ?? 0;
     this.waferOffsetY = this.options.wafer_texture_offset_y ?? 0;
+    this.syncSelectedTextures();
   }
 
   private shouldHandleResetShortcut(event: KeyboardEvent): boolean {

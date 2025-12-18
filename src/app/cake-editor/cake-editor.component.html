@@ -194,16 +194,29 @@
 
             <div *ngSwitchCase="'texture'" class="setup-panel__content">
               <div class="panel-block__title">Textury tortu</div>
+              <div *ngIf="textureLoadError" class="panel-block__error">{{ textureLoadError }}</div>
               <div class="texture-grid">
                 <button
-                  *ngFor="let texture of setupTextures"
+                  *ngFor="let texture of cakeTextureOptions"
                   type="button"
                   class="texture-card"
-                  [class.texture-card--active]="selectedTextureId === texture.id"
-                  (click)="selectTexture(texture.id)"
+                  [class.texture-card--active]="selectedCakeTextureId === texture.id"
+                  [disabled]="setupLocked"
+                  (click)="selectTexture('cake', texture.id)"
                 >
-                  <div class="texture-card__preview" [style.background-image]="'url(' + texture.preview + ')'" aria-hidden="true"></div>
-                  <div class="texture-card__name">{{ texture.name }}</div>
+                  <div
+                    class="texture-card__preview"
+                    [style.background-image]="texture.preview ? 'url(' + texture.preview + ')' : ''"
+                    [style.background-color]="!texture.preview ? texture.maps.baseColor : ''"
+                    aria-hidden="true"
+                  ></div>
+                  <div class="texture-card__name">{{ texture.label }}</div>
+                  <div class="texture-card__meta">
+                    <span *ngIf="texture.maps.repeat">Powtórzenie: {{ texture.maps.repeat }}</span>
+                    <span *ngIf="texture.maps.affectDrips !== undefined && texture.maps.affectDrips !== null">
+                      Spływanie: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
+                    </span>
+                  </div>
                 </button>
               </div>
             </div>
@@ -336,6 +349,35 @@
                     (click)="setGlazeMode('plain')"
                   >
                     Bez tafli
+                  </button>
+                </div>
+              </div>
+
+              <div class="panel-block">
+                <div class="panel-block__title">Tekstury polewy</div>
+                <div *ngIf="textureLoadError" class="panel-block__error">{{ textureLoadError }}</div>
+                <div class="texture-grid">
+                  <button
+                    *ngFor="let texture of glazeTextureOptions"
+                    type="button"
+                    class="texture-card"
+                    [class.texture-card--active]="selectedGlazeTextureId === texture.id"
+                    [disabled]="setupLocked"
+                    (click)="selectTexture('glaze', texture.id)"
+                  >
+                    <div
+                      class="texture-card__preview"
+                      [style.background-image]="texture.preview ? 'url(' + texture.preview + ')' : ''"
+                      [style.background-color]="!texture.preview ? texture.maps.baseColor : ''"
+                      aria-hidden="true"
+                    ></div>
+                    <div class="texture-card__name">{{ texture.label }}</div>
+                    <div class="texture-card__meta">
+                      <span *ngIf="texture.maps.repeat">Powtórzenie: {{ texture.maps.repeat }}</span>
+                      <span *ngIf="texture.maps.affectDrips !== undefined && texture.maps.affectDrips !== null">
+                        Spływanie: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
+                      </span>
+                    </div>
                   </button>
                 </div>
               </div>

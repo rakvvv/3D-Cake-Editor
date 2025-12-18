@@ -233,6 +233,15 @@
   color: #f0f0f0;
 }
 
+.panel-block__error {
+  color: #f0b45b;
+  background: #2a1c0a;
+  border: 1px solid #3c2a0e;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
 .panel-block__header {
   display: flex;
   align-items: center;
@@ -383,6 +392,21 @@
   font-size: 14px;
   font-weight: 600;
   color: #f0f0f0;
+}
+
+.texture-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 8px 10px;
+  color: #c0c0c0;
+  font-size: 12px;
+}
+
+.texture-card__meta span {
+  background: #161616;
+  border-radius: 6px;
+  padding: 3px 6px;
 }
 
 .setup-viewport {
