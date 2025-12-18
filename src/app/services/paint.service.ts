@@ -2279,6 +2279,8 @@ export class PaintService {
   }
 
   private serializePaintStroke(root: THREE.Object3D): PaintStrokePreset | null {
+    root.updateMatrixWorld(true);
+
     const paintType = (root.userData['paintStrokeType'] as PaintStrokePreset['type'] | undefined) ?? 'extruder';
     const base: PaintStrokePreset = {
       type: paintType,
@@ -2288,6 +2290,7 @@ export class PaintService {
       penThickness: root.userData['penThickness'] as number | undefined,
       penOpacity: root.userData['penOpacity'] as number | undefined,
       penCapsEnabled: true,
+      groupMatrix: root.matrixWorld.toArray(),
       instances: [],
       snapPoints: root.userData['snapPoints'] as number[][] | undefined,
       name: root.userData['displayName'] as string | undefined,
@@ -2342,8 +2345,11 @@ export class PaintService {
     return base;
   }
 
-  private finalizePaintRoot(object: THREE.Object3D): void {
-    this.recenterPivot(object);
+  private finalizePaintRoot(object: THREE.Object3D, options?: { recenterPivot?: boolean }): void {
+    const shouldRecenter = options?.recenterPivot ?? true;
+    if (shouldRecenter) {
+      this.recenterPivot(object);
+    }
     const strokeType = object.userData['paintStrokeType'];
     const skipSnap = strokeType === 'decoration' || strokeType === 'extruder' || strokeType === 'pen';
 
@@ -2359,6 +2365,16 @@ export class PaintService {
 
     object.userData['paintParent'] = object.parent ?? null;
     object.updateMatrixWorld(true);
+  }
+
+  private applyPresetGroupTransform(entry: PaintStrokePreset, target: THREE.Group): void {
+    if (!entry.groupMatrix || entry.groupMatrix.length !== 16) {
+      return;
+    }
+
+    const matrix = new THREE.Matrix4().fromArray(entry.groupMatrix);
+    matrix.decompose(target.position, target.quaternion, target.scale);
+    target.updateMatrixWorld(true);
   }
 
   private async restoreExtruderStroke(
@@ -2381,6 +2397,7 @@ export class PaintService {
     strokeGroup.userData['paintStrokeType'] = 'extruder';
     strokeGroup.userData['snapPoints'] = entry.snapPoints ?? [];
     strokeGroup.userData['displayName'] = entry.name ?? 'Ekstruder';
+    this.applyPresetGroupTransform(entry, strokeGroup);
     scene.add(strokeGroup);
 
     const previousGroup = this.activeExtruderStrokeGroup;
@@ -2401,7 +2418,7 @@ export class PaintService {
     state.mesh.instanceMatrix.needsUpdate = true;
     state.count = state.mesh.count;
 
-    this.finalizePaintRoot(strokeGroup);
+    this.finalizePaintRoot(strokeGroup, { recenterPivot: false });
     this.trackPaintAddition(strokeGroup);
 
     this.activeExtruderStrokeGroup = previousGroup;
@@ -2481,6 +2498,7 @@ export class PaintService {
     group.userData['paintStrokeType'] = 'decoration';
     group.userData['brushId'] = brushId;
     group.userData['displayName'] = entry.name ?? 'Dekoracja malowana';
+    this.applyPresetGroupTransform(entry, group);
     scene.add(group);
 
     const targetVariant = variants[0];
@@ -2504,7 +2522,7 @@ export class PaintService {
     mesh.count = Math.min(entry.instances.length, this.extruderMaxInstances);
     mesh.instanceMatrix.needsUpdate = true;
 
-    this.finalizePaintRoot(group);
+    this.finalizePaintRoot(group, { recenterPivot: false });
     this.trackPaintAddition(group);
   }
 
@@ -2525,6 +2543,7 @@ export class PaintService {
     group.userData['penSize'] = this.penSize;
     group.userData['penThickness'] = this.penThickness;
     group.userData['penOpacity'] = this.penOpacity;
+    this.applyPresetGroupTransform(entry, group);
     scene.add(group);
 
     const segmentState = this.ensurePenSegmentInstanceMesh(group);
@@ -2549,7 +2568,7 @@ export class PaintService {
       state.mesh.instanceMatrix.needsUpdate = true;
     });
 
-    this.finalizePaintRoot(group);
+    this.finalizePaintRoot(group, { recenterPivot: false });
     this.trackPaintAddition(group);
 
     this.penColor = previousColor;
