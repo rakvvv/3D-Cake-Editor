@@ -209,6 +209,41 @@ export class AnchorPresetsService {
     return this.focusedAnchorIdSubject.value;
   }
 
+  public removeAnchor(anchorId: string): boolean {
+    if (!anchorId) {
+      return false;
+    }
+
+    const presets = this.presetsSubject.value;
+    const activeId = this.activePresetIdSubject.value;
+    if (!activeId) {
+      return false;
+    }
+
+    const presetIndex = presets.findIndex((preset) => preset.id === activeId);
+    if (presetIndex === -1) {
+      return false;
+    }
+
+    const preset = presets[presetIndex];
+    const updatedAnchors = preset.anchors.filter((anchor) => anchor.id !== anchorId);
+    if (updatedAnchors.length === preset.anchors.length) {
+      return false;
+    }
+
+    const updatedPresets = [...presets];
+    updatedPresets[presetIndex] = { ...preset, anchors: updatedAnchors };
+
+    if (this.focusedAnchorIdSubject.value === anchorId) {
+      this.focusedAnchorIdSubject.next(null);
+    }
+
+    this.presetsSubject.next(updatedPresets);
+    this.rebuildMarkers();
+    this.requestRender();
+    return true;
+  }
+
   public setHighlightedDecoration(decorationId: string | null): void {
     this.highlightDecorationId = decorationId;
     this.refreshMarkerColors();

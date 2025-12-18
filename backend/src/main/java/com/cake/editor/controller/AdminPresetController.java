@@ -95,6 +95,16 @@ public class AdminPresetController {
         return toDto(preset);
     }
 
+    @DeleteMapping(path = "/anchors/{presetId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMIN')")
+    public void deleteAnchorPreset(@PathVariable String presetId) {
+        AnchorPresetEntity preset = anchorPresetRepository.findByPresetId(presetId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Anchor preset not found"));
+
+        anchorPresetRepository.delete(preset);
+    }
+
     @PostMapping(path = "/cakes/{presetId}/thumbnail", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")

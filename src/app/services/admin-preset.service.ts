@@ -42,6 +42,11 @@ export class AdminPresetService {
     return firstValueFrom(this.http.put<void>(url, payload));
   }
 
+  deleteAnchorPreset(presetId: string): Promise<void> {
+    const url = `${this.baseUrl}/anchors/${encodeURIComponent(presetId)}`;
+    return firstValueFrom(this.http.delete<void>(url));
+  }
+
   uploadCakePresetThumbnail(presetId: string, file: Blob): Promise<string | null> {
     const formData = new FormData();
     formData.append('file', file, 'thumbnail.png');
