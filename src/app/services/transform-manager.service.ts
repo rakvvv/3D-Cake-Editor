@@ -98,7 +98,14 @@ export class TransformManagerService {
   }
 
   public attachObject(object: THREE.Object3D): void {
-    if (!this.transformControls) {
+    if (!this.transformControls || !this.scene) {
+      return;
+    }
+
+    const inSceneGraph = Boolean(this.scene.getObjectById(object.id));
+    if (!inSceneGraph) {
+      console.warn('TransformControls: Ignoring attachment for object outside the scene graph.', object);
+      this.selectionService.deselectObject(this.transformControls, this.boxHelperCallback);
       return;
     }
 
