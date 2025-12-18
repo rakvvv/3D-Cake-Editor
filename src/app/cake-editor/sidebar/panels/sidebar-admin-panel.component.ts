@@ -31,6 +31,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
   recordAnchorOptions = false;
   anchorPresets: AnchorPreset[] = [];
   activeAnchorId: string | null = null;
+  anchorsEnabled = true;
   decorationSearch = '';
   availableDecorations: DecorationInfo[] = [];
   selectedPresetId: string | null = null;
@@ -58,6 +59,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.markersPreviouslyVisible = this.anchorPresetsService.areMarkersVisible();
     this.anchorPresetsService.setMarkersVisible(true);
+    this.anchorsEnabled = true;
     this.sceneService.showAllAnchorDecorations();
     this.anchorPresetsService.setPendingDecoration(null);
 
@@ -109,6 +111,25 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.anchorPresetsService.setMarkersVisible(this.markersPreviouslyVisible);
     this.anchorPresetsService.setPendingDecoration(null);
     this.recordAnchorOptions = false;
+  }
+
+  setAnchorsEnabled(enabled: boolean): void {
+    this.anchorsEnabled = enabled;
+    this.anchorPresetsService.setMarkersVisible(enabled);
+
+    if (!enabled) {
+      this.anchorPresetsService.setFocusedAnchor(null);
+      this.activeAnchorId = null;
+      this.lastEditedAnchor = undefined;
+      this.hiddenOptions.clear();
+      this.anchorPresetsService.setPendingDecoration(null);
+      this.sceneService.showAllAnchorDecorations();
+      this.statusMessage.set('Kotwice wyłączone — możesz swobodnie dodawać nowe dekoracje.');
+      return;
+    }
+
+    this.sceneService.showAllAnchorDecorations();
+    this.statusMessage.set('Kotwice włączone.');
   }
 
   async saveDecoratedCakePreset(): Promise<void> {
@@ -223,6 +244,10 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
   }
 
   focusAnchor(anchorId: string): void {
+    if (!this.anchorsEnabled) {
+      this.errorMessage.set('Kotwice są wyłączone — włącz je, aby zaznaczyć marker.');
+      return;
+    }
     this.sceneService.showAllAnchorDecorations();
     this.activeAnchorId = anchorId;
     this.lastEditedAnchor = anchorId;
