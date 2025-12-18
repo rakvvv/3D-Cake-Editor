@@ -87,13 +87,9 @@ export class PaintService {
   private brushScaleMultipliers = new Map<string, number>();
   private brushMetadata = new Map<
     string,
-    {
+    Partial<DecorationInfo> & {
       initialScale?: number;
       initialRotation?: [number, number, number];
-      material?: {
-        roughness?: number;
-        metalness?: number;
-      };
     }
   >();
 
@@ -434,14 +430,7 @@ export class PaintService {
     return this.redoStack.length > 0;
   }
 
-  public setBrushMetadata(
-    brushId: string,
-    metadata: {
-      initialScale?: number;
-      initialRotation?: [number, number, number];
-      material?: { roughness?: number; metalness?: number };
-    } | null,
-  ): void {
+  public setBrushMetadata(brushId: string, metadata: Partial<DecorationInfo> & { initialScale?: number } | null): void {
     const previous = this.brushMetadata.get(brushId);
     const previousKey = previous ? JSON.stringify(previous) : null;
     const nextKey = metadata ? JSON.stringify(metadata) : null;
@@ -463,6 +452,30 @@ export class PaintService {
     this.decorationStrokeInstances.delete(brushId);
     this.decorationGroups.delete(brushId);
     this.brushSizes.delete(brushId);
+  }
+
+  private getDecorationInfoForBrush(brushId: string): DecorationInfo {
+    const fallback: DecorationInfo = {
+      id: brushId,
+      name: brushId,
+      modelFileName: brushId,
+      type: 'BOTH',
+    };
+
+    const base = this.decorationsService.getDecorationInfo(brushId) ?? fallback;
+    const overrides = this.brushMetadata.get(brushId);
+    if (!overrides) {
+      return base;
+    }
+
+    return {
+      ...base,
+      ...overrides,
+      id: base.id ?? fallback.id,
+      name: base.name ?? fallback.name,
+      modelFileName: base.modelFileName ?? fallback.modelFileName,
+      type: base.type ?? fallback.type,
+    };
   }
 
   public registerDecorationAddition(object: THREE.Object3D): void {
@@ -633,14 +646,7 @@ export class PaintService {
     }
 
     const scale = this.getDecorationScale(this.currentBrush);
-    const decorationInfo =
-      this.decorationsService.getDecorationInfo(this.currentBrush) ??
-      ({
-        id: this.currentBrush,
-        name: this.currentBrush,
-        modelFileName: this.currentBrush,
-        type: 'BOTH',
-      } as DecorationInfo);
+    const decorationInfo = this.getDecorationInfoForBrush(this.currentBrush);
     const cakeCenterWorld = new THREE.Vector3(0, 0, 0);
     this.cakeBaseRef?.getWorldPosition(cakeCenterWorld);
 
@@ -2189,14 +2195,7 @@ export class PaintService {
     return Math.min(48, Math.max(16, Math.round(radius * 200)));
   }
 
-  private applyBrushMetadataToTemplate(
-    model: THREE.Object3D,
-    metadata: {
-      initialScale?: number;
-      initialRotation?: [number, number, number];
-      material?: { roughness?: number; metalness?: number };
-    },
-  ): void {
+  private applyBrushMetadataToTemplate(model: THREE.Object3D, metadata: Partial<DecorationInfo>): void {
 
     if (metadata.initialRotation) {
       const [x, y, z] = metadata.initialRotation;

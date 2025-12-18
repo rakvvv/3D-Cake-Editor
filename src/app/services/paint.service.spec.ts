@@ -193,6 +193,68 @@ describe('PaintService', () => {
     expect(THREE.MathUtils.radToDeg(euler.y)).toBeCloseTo(90, 6);
   });
 
+  it('uses decoration placement overrides from brush metadata when painting', async () => {
+    const brushId = 'override.glb';
+    service.currentBrush = brushId;
+
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    mesh.geometry.computeBoundingBox();
+    mesh.geometry.computeBoundingSphere();
+    const template = new THREE.Group();
+    template.add(mesh);
+
+    const decorationInfo = {
+      id: 'override',
+      name: 'Override',
+      modelFileName: brushId,
+      type: 'BOTH' as const,
+    };
+
+    const decorationsService = TestBed.inject(DecorationsService) as jasmine.SpyObj<DecorationsService>;
+    decorationsService.getDecorationInfo.and.returnValue(decorationInfo);
+
+    service.setBrushMetadata(brushId, {
+      paintInitialRotation: [0, 45, 0],
+      surfaceOffset: 0.01,
+      modelUpAxis: 'Y',
+      modelForwardAxis: 'Z',
+      faceOutwardOnSides: false,
+    });
+
+    spyOn(DecorationFactory, 'loadDecorationModel').and.returnValue(Promise.resolve(template));
+
+    const scene = new THREE.Scene();
+    const meshForHit = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    meshForHit.updateMatrixWorld(true);
+    const hit = {
+      point: new THREE.Vector3(0, 0, 0),
+      face: { normal: new THREE.Vector3(0, 1, 0) },
+      object: meshForHit,
+    } as unknown as THREE.Intersection;
+
+    await (service as any).placeDecorationBrush(hit, scene);
+
+    const decorationGroup = findDecorationGroup(scene);
+    expect(decorationGroup).toBeDefined();
+
+    const instanced = decorationGroup!.children.find(
+      (child) => child instanceof THREE.InstancedMesh,
+    ) as THREE.InstancedMesh | undefined;
+    expect(instanced).toBeDefined();
+
+    const matrix = new THREE.Matrix4();
+    const position = new THREE.Vector3();
+    const rotation = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    instanced!.getMatrixAt(0, matrix);
+    matrix.decompose(position, rotation, scale);
+
+    const euler = new THREE.Euler().setFromQuaternion(rotation, 'XYZ');
+
+    expect(position.y).toBeCloseTo(0.01, 6);
+    expect(THREE.MathUtils.radToDeg(euler.y)).toBeCloseTo(45, 6);
+  });
+
   it('skips dense pen updates while tracking continuous strokes', async () => {
     service.paintMode = true;
     service.setPaintTool('pen');

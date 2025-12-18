@@ -86,6 +86,11 @@ describe('SidebarPaintPanelComponent', () => {
       initialScale: undefined,
       initialRotation: [10, 20, 30],
       material: undefined,
+      paintInitialRotation: [10, 20, 30],
+      surfaceOffset: undefined,
+      modelUpAxis: undefined,
+      modelForwardAxis: undefined,
+      faceOutwardOnSides: undefined,
     });
   });
 
@@ -107,6 +112,11 @@ describe('SidebarPaintPanelComponent', () => {
       initialScale: undefined,
       initialRotation: [0, 90, 45],
       material: undefined,
+      paintInitialRotation: [0, 90, 45],
+      surfaceOffset: undefined,
+      modelUpAxis: undefined,
+      modelForwardAxis: undefined,
+      faceOutwardOnSides: undefined,
     });
   });
 });
