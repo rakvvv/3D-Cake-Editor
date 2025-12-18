@@ -1934,18 +1934,21 @@ export class ThreeSceneService {
     return anchor ? [anchor] : [];
   }
 
-  public exportAllAnchors(): AnchorPreset | null {
+  public exportAllAnchors(options?: { preserveUnusedFromActive?: boolean }): AnchorPreset | null {
     if (!this.cakeMetadata) {
       return null;
     }
 
     const decorations = this.collectDecorationRoots();
-    const sourcePreset = this.anchorPresetsService.getActivePreset();
+    const preserveUnusedFromActive = options?.preserveUnusedFromActive ?? true;
+    const sourcePreset = preserveUnusedFromActive ? this.anchorPresetsService.getActivePreset() : null;
     const anchorsById = new Map<string, AnchorPoint>();
 
-    sourcePreset?.anchors.forEach((anchor) => {
-      anchorsById.set(anchor.id, { ...anchor });
-    });
+    if (preserveUnusedFromActive) {
+      sourcePreset?.anchors.forEach((anchor) => {
+        anchorsById.set(anchor.id, { ...anchor });
+      });
+    }
 
     decorations.forEach((decoration) => {
       const displayName = (decoration.userData['displayName'] as string | undefined) ?? decoration.name;
@@ -2081,11 +2084,13 @@ export class ThreeSceneService {
     });
 
     // Zachowaj nieużywane kotwice, które nie pojawiły się w trakcie pętli
-    sourcePreset?.anchors.forEach((anchor) => {
-      if (!anchorsById.has(anchor.id)) {
-        anchorsById.set(anchor.id, { ...anchor });
-      }
-    });
+    if (preserveUnusedFromActive) {
+      sourcePreset?.anchors.forEach((anchor) => {
+        if (!anchorsById.has(anchor.id)) {
+          anchorsById.set(anchor.id, { ...anchor });
+        }
+      });
+    }
 
     const anchors = Array.from(anchorsById.values());
 
@@ -2096,9 +2101,9 @@ export class ThreeSceneService {
     return {
       id: sourcePreset?.id ?? `preset-${Date.now()}`,
       name: sourcePreset?.name ?? 'Wszystkie sloty dekoracji',
-      cakeShape: sourcePreset?.cakeShape,
-      cakeSize: sourcePreset?.cakeSize,
-      tiers: sourcePreset?.tiers,
+      cakeShape: sourcePreset?.cakeShape ?? this.cakeMetadata.shape,
+      cakeSize: sourcePreset?.cakeSize ?? this.resolveCakeSizeLabel(),
+      tiers: sourcePreset?.tiers ?? this.cakeMetadata.layers,
       anchors,
     };
   }

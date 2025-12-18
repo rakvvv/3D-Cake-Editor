@@ -403,6 +403,59 @@ describe('ThreeSceneService', () => {
     expect(keptAnchor?.allowedDecorationIds).toContain('keep-me');
   });
 
+  it('builds a fresh preset from the scene when not preserving unused anchors', () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    assignScene(sceneInit);
+    const anchorPresets = TestBed.inject(AnchorPresetsService);
+    const snapService = TestBed.inject(SnapService);
+
+    const metadata: CakeMetadata = {
+      shape: 'cylinder',
+      layers: 2,
+      layerHeight: 1.5,
+      totalHeight: 3,
+      layerSizes: [1, 0.8],
+      layerDimensions: [
+        { index: 0, size: 1, height: 1.5, topY: 0.75, bottomY: -0.75, radius: 1 },
+        { index: 1, size: 0.8, height: 1.5, topY: 2.25, bottomY: 0.75, radius: 0.8 },
+      ],
+      radius: 1,
+    };
+
+    const cakeBase = new THREE.Group();
+    cakeBase.userData['metadata'] = metadata;
+    snapService.setCakeBase(cakeBase);
+    (service as any).cakeBase = cakeBase;
+    (service as any).cakeMetadata = metadata;
+    sceneInit.scene.add(cakeBase);
+
+    anchorPresets.setPresets([
+      {
+        id: 'active',
+        name: 'Active preset',
+        anchors: [{ id: 'old', surface: 'TOP', layerIndex: 0, coordinates: { angleRad: 0 } }],
+      },
+    ]);
+
+    const decoration = new THREE.Object3D();
+    decoration.name = 'candle';
+    (service as any).applyAnchorPlacement(decoration, {
+      id: 'fresh',
+      surface: 'SIDE',
+      layerIndex: 1,
+      coordinates: { angleRad: Math.PI / 3 },
+    });
+
+    const exported = service.exportAllAnchors({ preserveUnusedFromActive: false });
+
+    expect(exported).not.toBeNull();
+    expect(exported?.anchors.length).toBe(1);
+    expect(exported?.anchors[0].id).toBe('fresh');
+    expect(exported?.cakeShape).toBe('cylinder');
+    expect(exported?.tiers).toBe(2);
+    expect(exported?.cakeSize).toBe('medium');
+  });
+
   it('positions text along the cake side with offset', fakeAsync(() => {
     const sceneInit = TestBed.inject(SceneInitService);
     (sceneInit as any).scene = new THREE.Scene();

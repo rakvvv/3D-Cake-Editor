@@ -187,7 +187,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const anchorPreset = this.sceneService.exportAllAnchors();
+      const anchorPreset = this.sceneService.exportAllAnchors({ preserveUnusedFromActive: !saveAsNew });
       if (!anchorPreset) {
         this.errorMessage.set('Brak kotwic do zapisania.');
         return;
