@@ -43,6 +43,8 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
 
   savingCake = false;
   savingAnchors = false;
+  deletingAnchorPreset = false;
+  removingAnchorId: string | null = null;
 
   statusMessage = signal('');
   errorMessage = signal('');
@@ -225,6 +227,49 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     }
   }
 
+  async deleteAnchorPreset(): Promise<void> {
+    this.statusMessage.set('');
+    this.errorMessage.set('');
+
+    if (!this.selectedPresetId) {
+      this.errorMessage.set('Wybierz preset kotwic do usunięcia.');
+      return;
+    }
+
+    if (!this.isAdminAuthenticated()) {
+      this.errorMessage.set('Zaloguj się jako administrator, aby usuwać presety kotwic.');
+      return;
+    }
+
+    const confirmed = window.confirm('Czy na pewno chcesz usunąć wybrany preset kotwic?');
+    if (!confirmed) {
+      return;
+    }
+
+    this.deletingAnchorPreset = true;
+
+    try {
+      await this.adminPresetService.deleteAnchorPreset(this.selectedPresetId);
+
+      this.selectedPresetId = null;
+      this.anchorPresetName = 'Sloty dekoracji';
+      this.anchorPresetsService.setActivePreset(null);
+      this.anchorPresetsService.setFocusedAnchor(null);
+      this.activeAnchorId = null;
+      this.hiddenOptions.clear();
+      this.sceneService.showAllAnchorDecorations();
+
+      await this.anchorPresetsService.loadPresets();
+      this.statusMessage.set('Usunięto preset kotwic.');
+    } catch (error) {
+      console.error(error);
+      const forbidden = (error as { status?: number }).status === 403;
+      this.errorMessage.set(forbidden ? 'Brak uprawnień administratora do usuwania.' : 'Nie udało się usunąć presetu kotwic.');
+    } finally {
+      this.deletingAnchorPreset = false;
+    }
+  }
+
   clearAnchorPreview(): void {
     this.sceneService.clearAnchorPreviews();
     this.anchorPresetsService.setFocusedAnchor(null);
@@ -287,6 +332,73 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
 
   listAllowedOptions(anchor: AnchorPoint): string[] {
     return anchor.allowedDecorationIds ?? [];
+  }
+
+  async deleteAnchor(anchorId: string): Promise<void> {
+    this.statusMessage.set('');
+    this.errorMessage.set('');
+
+    if (!this.isAdminAuthenticated()) {
+      this.errorMessage.set('Zaloguj się jako administrator, aby usuwać kotwice.');
+      return;
+    }
+
+    const preset = this.anchorPresetsService.getActivePreset();
+    if (!preset) {
+      this.errorMessage.set('Brak aktywnego presetu do edycji.');
+      return;
+    }
+
+    const confirmed = window.confirm('Czy na pewno chcesz usunąć tę kotwicę z presetu?');
+    if (!confirmed) {
+      return;
+    }
+
+    const removed = this.anchorPresetsService.removeAnchor(anchorId);
+    if (!removed) {
+      this.errorMessage.set('Nie udało się usunąć kotwicy z presetu.');
+      return;
+    }
+
+    this.removingAnchorId = anchorId;
+    this.activeAnchorId = null;
+    this.anchorPresetsService.setFocusedAnchor(null);
+    this.hiddenOptions.clear();
+    this.sceneService.showAllAnchorDecorations();
+
+    try {
+      const updatedPreset = this.anchorPresetsService.getActivePreset();
+      if (!updatedPreset) {
+        throw new Error('Brak zaktualizowanego presetu.');
+      }
+
+      const payload = {
+        presetId: updatedPreset.id,
+        name: updatedPreset.name,
+        cakeShape: updatedPreset.cakeShape ?? this.cakeShape,
+        cakeSize: updatedPreset.cakeSize ?? this.cakeSize,
+        tiers: updatedPreset.tiers ?? this.tiers,
+        dataJson: JSON.stringify(updatedPreset),
+      };
+
+      await this.adminPresetService.updateAnchorPreset(payload);
+      await this.anchorPresetsService.loadPresets();
+
+      this.selectedPresetId = payload.presetId;
+      this.anchorPresetsService.setActivePreset(payload.presetId);
+      this.syncAnchorPresetName();
+      this.statusMessage.set('Usunięto kotwicę z presetu.');
+    } catch (error) {
+      console.error(error);
+      const forbidden = (error as { status?: number }).status === 403;
+      this.errorMessage.set(forbidden ? 'Brak uprawnień administratora do zapisu.' : 'Nie udało się zaktualizować presetu kotwic.');
+      await this.anchorPresetsService.loadPresets();
+      this.selectedPresetId = preset.id;
+      this.anchorPresetsService.setActivePreset(preset.id);
+      this.syncAnchorPresetName();
+    } finally {
+      this.removingAnchorId = null;
+    }
   }
 
   async addDecorationToAnchor(decoration: DecorationInfo): Promise<void> {

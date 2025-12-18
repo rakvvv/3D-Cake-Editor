@@ -73,6 +73,15 @@
           </select>
         </label>
 
+        <button
+          type="button"
+          class="btn btn--danger btn--block"
+          (click)="deleteAnchorPreset()"
+          [disabled]="!selectedPresetId || deletingAnchorPreset || savingAnchors"
+        >
+          {{ deletingAnchorPreset ? 'Usuwanie…' : 'Usuń wybrany preset kotwic' }}
+        </button>
+
         <button type="button" class="btn btn--ghost btn--block" (click)="clearAnchorPreview()">
           Wyczyść podgląd kotwic
         </button>
@@ -107,6 +116,14 @@
                 {{ anchor.label || anchor.id }}
               </button>
               <span class="anchor-tree__badge">{{ listAllowedOptions(anchor).length || 0 }} opcji</span>
+              <button
+                class="btn btn--danger"
+                type="button"
+                (click)="deleteAnchor(anchor.id)"
+                [disabled]="removingAnchorId === anchor.id || savingAnchors || deletingAnchorPreset"
+              >
+                {{ removingAnchorId === anchor.id ? 'Usuwanie…' : 'Usuń kotwicę' }}
+              </button>
             </div>
 
             <div class="anchor-options" *ngIf="anchor.id === activeAnchorId">
