@@ -31,6 +31,7 @@ export interface PaintStrokePreset {
   penCapsEnabled?: boolean;
   variantSourceId?: string;
   variantIndex?: number;
+  groupMatrix?: number[];
   instances: PaintStrokeInstance[];
   snapPoints?: number[][];
   name?: string;
