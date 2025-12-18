@@ -77,6 +77,24 @@
           Wyczyść podgląd kotwic
         </button>
 
+        <div class="admin-panel__switch">
+          <div class="admin-panel__switch-copy">
+            <div class="admin-panel__switch-title">Kotwice na scenie</div>
+            <p class="panel-hint">
+              Wyłącz, aby ukryć istniejące sloty i móc dodawać nowe dekoracje bez aktywnych kotwic.
+            </p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="anchorsEnabled"
+              (change)="setAnchorsEnabled($any($event.target).checked)"
+              aria-label="Przełącz widoczność i działanie kotwic"
+            />
+            <span class="switch__slider" aria-hidden="true"></span>
+          </label>
+        </div>
+
         <div class="anchor-tree" *ngIf="getAnchors().length; else noAnchors">
           <div
             class="anchor-tree__item"
