@@ -167,9 +167,18 @@ export class SnapService {
       object.name || undefined,
     ].filter(Boolean) as string[];
 
-    const override = overrideCandidates.reduce<
-      AnchorPoint['decorationOverrides'] extends Record<string, infer T> ? T | undefined : undefined
-    >((found, key) => found ?? anchor.decorationOverrides?.[key], undefined);
+    type DecorationOverride = AnchorPoint['decorationOverrides'] extends Record<string, infer T>
+      ? T
+      : never;
+
+    let override: DecorationOverride | undefined;
+    for (const key of overrideCandidates) {
+      const candidate = anchor.decorationOverrides?.[key];
+      if (candidate) {
+        override = candidate;
+        break;
+      }
+    }
     const hasOverride = !!override;
     const initialRotation = object.userData['initialRotation'] as THREE.Euler | undefined;
     const initialScale = object.userData['initialScale'] as THREE.Vector3 | undefined;
