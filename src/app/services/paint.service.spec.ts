@@ -30,6 +30,11 @@ const collectStrokeMeshes = (group: THREE.Group): THREE.Mesh[] =>
     (child) => child instanceof THREE.Mesh && child.userData['isPaintStroke'],
   ) as THREE.Mesh[];
 
+const findDecorationGroup = (scene: THREE.Scene): THREE.Group | undefined =>
+  scene.children.find(
+    (child) => child instanceof THREE.Group && child.userData['isPaintDecoration'],
+  ) as THREE.Group | undefined;
+
 const getStrokeCylinderLengths = (group: THREE.Group): number[] =>
   group.children
     .filter(
@@ -81,6 +86,50 @@ describe('PaintService', () => {
 
     expect(loadSpy).toHaveBeenCalledTimes(1);
     expect(firstInstance).not.toBe(secondInstance);
+  });
+
+  it('applies decoration initialScale only once when placing a brush', async () => {
+    const brushId = 'decor.glb';
+    service.currentBrush = brushId;
+    service.setBrushMetadata(brushId, { initialScale: 0.5 });
+
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    mesh.geometry.computeBoundingBox();
+    mesh.geometry.computeBoundingSphere();
+    const template = new THREE.Group();
+    template.add(mesh);
+
+    spyOn(DecorationFactory, 'loadDecorationModel').and.returnValue(Promise.resolve(template));
+
+    const scene = new THREE.Scene();
+    const point = new THREE.Vector3(0, 0, 0);
+    const normal = new THREE.Vector3(0, 1, 0);
+
+    await (service as any).placeDecorationBrush(point, normal, scene);
+
+    const decorationGroup = findDecorationGroup(scene);
+    expect(decorationGroup).toBeDefined();
+
+    const instanced = decorationGroup!.children.find(
+      (child) => child instanceof THREE.InstancedMesh,
+    ) as THREE.InstancedMesh | undefined;
+    expect(instanced).toBeDefined();
+    expect(instanced!.count).toBeGreaterThan(0);
+
+    const matrix = new THREE.Matrix4();
+    const position = new THREE.Vector3();
+    const rotation = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    instanced!.getMatrixAt(0, matrix);
+    matrix.decompose(position, rotation, scale);
+
+    const geometrySize = new THREE.Vector3();
+    (instanced!.geometry.boundingBox as THREE.Box3).getSize(geometrySize);
+    const finalSize = geometrySize.clone().multiply(scale);
+
+    expect(finalSize.x).toBeCloseTo(0.5, 6);
+    expect(finalSize.y).toBeCloseTo(0.5, 6);
+    expect(finalSize.z).toBeCloseTo(0.5, 6);
   });
 
   it('skips dense pen updates while tracking continuous strokes', async () => {

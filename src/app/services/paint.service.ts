@@ -533,12 +533,11 @@ export class PaintService {
   }
 
   private getDecorationScale(brushId: string, variants: DecorationVariantData[]): number {
-    const scaleMultiplier = this.getBrushScaleMultiplier(brushId);
     const templateSize = this.brushSizes.get(brushId);
     if (templateSize) {
       const maxDim = Math.max(templateSize.x, templateSize.y, templateSize.z);
       if (maxDim > 0) {
-        return (0.5 / maxDim) * scaleMultiplier;
+        return 0.5 / maxDim;
       }
     }
 
@@ -555,31 +554,26 @@ export class PaintService {
       geometriesBox.getSize(mergedSize);
       const maxDim = Math.max(mergedSize.x, mergedSize.y, mergedSize.z);
       if (maxDim > 0) {
-        return (0.5 / maxDim) * scaleMultiplier;
+        return 0.5 / maxDim;
       }
     }
 
-    return scaleMultiplier;
+    return 1;
   }
 
   private getDecorationSpacing(brushId: string): number {
     const templateSize = this.brushSizes.get(brushId);
-    const scaleMultiplier = this.getBrushScaleMultiplier(brushId);
     if (templateSize) {
       const maxDim = Math.max(templateSize.x, templateSize.y, templateSize.z);
       if (maxDim > 0) {
-        const scale = (0.5 / maxDim) * scaleMultiplier;
+        const scale = 0.5 / maxDim;
         const scaledMax = maxDim * scale;
         const spacing = scaledMax * 0.35;
         return Math.max(this.baseMinDistance * 1.5, spacing);
       }
     }
 
-    return this.baseMinDistance * 1.5 * scaleMultiplier;
-  }
-
-  private getBrushScaleMultiplier(brushId: string): number {
-    return this.brushMetadata.get(brushId)?.initialScale ?? 1;
+    return this.baseMinDistance * 1.5;
   }
 
   private async getDecorationVariants(brushId: string): Promise<DecorationVariantData[]> {
