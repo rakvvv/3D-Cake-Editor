@@ -160,7 +160,16 @@ export class SnapService {
       this.cakeBase.attach(object);
     }
 
-    const override = decorationId ? anchor.decorationOverrides?.[decorationId] : undefined;
+    const overrideCandidates = [
+      decorationId,
+      object.userData['modelFileName'] as string | undefined,
+      object.userData['displayName'] as string | undefined,
+      object.name || undefined,
+    ].filter(Boolean) as string[];
+
+    const override = overrideCandidates.reduce<
+      AnchorPoint['decorationOverrides'] extends Record<string, infer T> ? T | undefined : undefined
+    >((found, key) => found ?? anchor.decorationOverrides?.[key], undefined);
     const hasOverride = !!override;
     const initialRotation = object.userData['initialRotation'] as THREE.Euler | undefined;
     const initialScale = object.userData['initialScale'] as THREE.Vector3 | undefined;
