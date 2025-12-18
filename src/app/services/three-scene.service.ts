@@ -2282,11 +2282,6 @@ export class ThreeSceneService {
       return;
     }
 
-    const previousAnchorId = object.userData['anchorId'] as string | undefined;
-    if (previousAnchorId && previousAnchorId !== anchor.id) {
-      this.clearAnchorOccupant(previousAnchorId, object);
-    }
-
     if (options?.replaceExisting) {
       this.getAnchorOccupants(anchor.id)
         .filter((existing) => existing !== object)
