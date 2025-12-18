@@ -339,7 +339,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
+    "faceOutwardOnSides": true
   },
   {
     "id": "star-side-2",
@@ -357,7 +365,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
+    "faceOutwardOnSides": true
   },
   {
     "id": "star-side-3",
@@ -375,7 +391,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
+    "faceOutwardOnSides": true
   },
   {
     "id": "bow-1",
@@ -429,7 +453,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-ball-right",
@@ -447,7 +479,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-star-top",
@@ -465,7 +505,16 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true,
+    "surfaceOffset": 0.1
   },
   {
     "id": "cream-2",
@@ -483,7 +532,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-3",
@@ -501,7 +558,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-4",
@@ -519,7 +584,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-5",
@@ -537,7 +610,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "leaf-with-cream-side",
@@ -555,7 +636,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "bear-side",
@@ -563,7 +652,7 @@
     "modelFileName": "mis_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/bear-side.png",
-    "paintable": false,
+    "paintable": true,
     "initialScale": 20,
     "material": {
       "roughness": 0.9,
@@ -573,7 +662,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
+    "faceOutwardOnSides": true
   },
   {
     "id": "ring-1",
@@ -671,7 +768,7 @@
     "modelFileName": "wisnia_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/cherry-side.png",
-    "paintable": false,
+    "paintable": true,
     "initialScale": 20,
     "material": {
       "roughness": 0.9,
@@ -681,7 +778,16 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "surfaceOffset": 0.02,
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
+    "faceOutwardOnSides": true
   },
   {
     "id": "ribbons-side",

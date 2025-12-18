@@ -17,6 +17,8 @@ import {
   normalizePresetAngles
 } from '../models/cream-presets';
 import {PaintStrokeInstance, PaintStrokePreset} from '../models/cake-preset';
+import {DecorationInfo} from '../models/decorationInfo';
+import {DecorationsService} from './decorations.service';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -85,13 +87,9 @@ export class PaintService {
   private brushScaleMultipliers = new Map<string, number>();
   private brushMetadata = new Map<
     string,
-    {
+    Partial<DecorationInfo> & {
       initialScale?: number;
       initialRotation?: [number, number, number];
-      material?: {
-        roughness?: number;
-        metalness?: number;
-      };
     }
   >();
 
@@ -164,6 +162,7 @@ export class PaintService {
     private readonly transformManager: TransformManagerService,
     private readonly snapService: SnapService,
     private readonly http: HttpClient,
+    private readonly decorationsService: DecorationsService,
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -215,7 +214,7 @@ export class PaintService {
       intersects.find((intersection) => !this.isPaintStroke(intersection.object)) ??
       intersects[0];
     const pointOnCakeWorld = hit.point.clone();
-    const normal = this.getWorldNormal(hit) ?? new THREE.Vector3(0, 1, 0);
+    const normal = this.getWorldNormal(hit);
 
     if (this.paintTool === 'extruder' && this.extruderPathModeEnabled) {
       if (event.type === 'mousedown') {
@@ -239,7 +238,7 @@ export class PaintService {
 
     try {
       if (this.paintTool === 'decoration') {
-        await this.placeDecorationBrush(pointOnCakeWorld, normal, scene);
+        await this.placeDecorationBrush(hit, scene);
       } else if (this.paintTool === 'extruder') {
         await this.placeExtruderStroke(pointOnCakeWorld, normal, previousPoint, previousNormal, scene);
       } else {
@@ -431,14 +430,7 @@ export class PaintService {
     return this.redoStack.length > 0;
   }
 
-  public setBrushMetadata(
-    brushId: string,
-    metadata: {
-      initialScale?: number;
-      initialRotation?: [number, number, number];
-      material?: { roughness?: number; metalness?: number };
-    } | null,
-  ): void {
+  public setBrushMetadata(brushId: string, metadata: Partial<DecorationInfo> & { initialScale?: number } | null): void {
     const previous = this.brushMetadata.get(brushId);
     const previousKey = previous ? JSON.stringify(previous) : null;
     const nextKey = metadata ? JSON.stringify(metadata) : null;
@@ -460,6 +452,30 @@ export class PaintService {
     this.decorationStrokeInstances.delete(brushId);
     this.decorationGroups.delete(brushId);
     this.brushSizes.delete(brushId);
+  }
+
+  private getDecorationInfoForBrush(brushId: string): DecorationInfo {
+    const fallback: DecorationInfo = {
+      id: brushId,
+      name: brushId,
+      modelFileName: brushId,
+      type: 'BOTH',
+    };
+
+    const base = this.decorationsService.getDecorationInfo(brushId) ?? fallback;
+    const overrides = this.brushMetadata.get(brushId);
+    if (!overrides) {
+      return base;
+    }
+
+    return {
+      ...base,
+      ...overrides,
+      id: base.id ?? fallback.id,
+      name: base.name ?? fallback.name,
+      modelFileName: base.modelFileName ?? fallback.modelFileName,
+      type: base.type ?? fallback.type,
+    };
   }
 
   public registerDecorationAddition(object: THREE.Object3D): void {
@@ -622,39 +638,26 @@ export class PaintService {
     return variants;
   }
 
-  private async placeDecorationBrush(point: THREE.Vector3, normal: THREE.Vector3, scene: THREE.Scene): Promise<void> {
+  private async placeDecorationBrush(hit: THREE.Intersection, scene: THREE.Scene): Promise<void> {
     const decorationGroup = this.ensureActiveDecorationGroup(scene);
     const variants = await this.getDecorationVariants(this.currentBrush);
     if (!variants.length) {
       return;
     }
 
-
-    const normalDir = normal.clone().normalize();
-    const templateSize = this.brushSizes.get(this.currentBrush);
     const scale = this.getDecorationScale(this.currentBrush);
+    const decorationInfo = this.getDecorationInfoForBrush(this.currentBrush);
+    const cakeCenterWorld = new THREE.Vector3(0, 0, 0);
+    this.cakeBaseRef?.getWorldPosition(cakeCenterWorld);
+    const decoRoot = new THREE.Object3D();
+    decoRoot.scale.setScalar(scale);
+    this.applySurfacePlacement(decoRoot, hit, decorationInfo, cakeCenterWorld);
 
-    // ⬇️ POPRAWIONE: Oblicz offset na podstawie rzeczywistej głębokości w kierunku normalnej
-    let depthInNormalDirection = 0;
-    if (templateSize) {
-      // Użyj najmniejszego wymiaru jako głębokości, nie największego
-      const dims = [templateSize.x, templateSize.y, templateSize.z].sort((a, b) => a - b);
-      depthInNormalDirection = dims[0] * scale; // najmniejszy wymiar
-    }
-
-    // Minimalny offset żeby nie było z-fighting, ale nie za duży
-    const minOffset = 0.001;
-    const maxOffset = 0.005; // maksymalny offset 5cm
-    const calculatedOffset = depthInNormalDirection * 0.5 + minOffset;
-    const offset = normalDir.clone().multiplyScalar(Math.min(calculatedOffset, maxOffset));
-
-    const position = point.clone().add(offset);
-    const forward = new THREE.Vector3(0, 0, 1);
-    const align = new THREE.Quaternion().setFromUnitVectors(forward, normalDir);
-    const spin = new THREE.Quaternion().setFromAxisAngle(normalDir, Math.random() * Math.PI * 2);
-    const rotation = spin.clone().multiply(align).normalize();
-
-    const matrix = new THREE.Matrix4().compose(position, rotation, new THREE.Vector3(scale, scale, scale));
+    const matrix = new THREE.Matrix4().compose(
+      decoRoot.position.clone(),
+      decoRoot.quaternion.clone(),
+      new THREE.Vector3(scale, scale, scale),
+    );
     const selectedVariant = this.getNextDecorationVariantIndex(this.currentBrush, variants.length);
     this.addDecorationInstances(this.currentBrush, variants, decorationGroup, matrix, selectedVariant);
   }
@@ -1888,14 +1891,21 @@ export class PaintService {
     return material;
   }
 
-  private getWorldNormal(intersection: THREE.Intersection): THREE.Vector3 | null {
-    if (!intersection.face) {
-      return null;
-    }
+  private axisVector(axis: 'X' | 'Y' | 'Z'): THREE.Vector3 {
+    if (axis === 'X') return new THREE.Vector3(1, 0, 0);
+    if (axis === 'Y') return new THREE.Vector3(0, 1, 0);
+    return new THREE.Vector3(0, 0, 1);
+  }
 
-    const normal = intersection.face.normal.clone();
-    const normalMatrix = new THREE.Matrix3().getNormalMatrix(intersection.object.matrixWorld);
-    return normal.applyMatrix3(normalMatrix).normalize();
+  private getWorldNormal(hit: THREE.Intersection): THREE.Vector3 {
+    const n = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
+    n.transformDirection(hit.object.matrixWorld).normalize();
+    return n;
+  }
+
+  private projectOnPlane(v: THREE.Vector3, planeNormal: THREE.Vector3): THREE.Vector3 {
+    // v - n*(v·n)
+    return v.sub(planeNormal.clone().multiplyScalar(v.dot(planeNormal)));
   }
 
   private getMinDistanceThreshold(): number {
@@ -2184,14 +2194,7 @@ export class PaintService {
     return Math.min(48, Math.max(16, Math.round(radius * 200)));
   }
 
-  private applyBrushMetadataToTemplate(
-    model: THREE.Object3D,
-    metadata: {
-      initialScale?: number;
-      initialRotation?: [number, number, number];
-      material?: { roughness?: number; metalness?: number };
-    },
-  ): void {
+  private applyBrushMetadataToTemplate(model: THREE.Object3D, metadata: Partial<DecorationInfo>): void {
 
     if (metadata.initialRotation) {
       const [x, y, z] = metadata.initialRotation;
@@ -2407,6 +2410,63 @@ export class PaintService {
       this.cakeBaseRef = cakeBase;
     }
   }
+
+  private applySurfacePlacement(
+    obj: THREE.Object3D,
+    hit: THREE.Intersection,
+    info: DecorationInfo,
+    cakeCenterWorld: THREE.Vector3,
+  ): void {
+    const normalW = this.getWorldNormal(hit);
+
+    const modelUpAxis = info.modelUpAxis ?? 'Y';
+    const modelForwardAxis = info.modelForwardAxis ?? 'Z';
+    const surfaceOffset = info.surfaceOffset ?? 0.002;
+    const faceOutwardOnSides = info.faceOutwardOnSides ?? true;
+
+    // 1) align: modelUp -> normal powierzchni
+    const modelUp = this.axisVector(modelUpAxis).clone().normalize();
+    const qAlign = new THREE.Quaternion().setFromUnitVectors(modelUp, normalW);
+
+    // 2) twist na boku: ustaw "przód" w stronę od środka tortu do punktu
+    const qTwist = new THREE.Quaternion().identity();
+    if (faceOutwardOnSides) {
+      const radial = hit.point.clone().sub(cakeCenterWorld);
+      const desiredForward = this.projectOnPlane(radial, normalW).normalize();
+
+      const modelForward = this.axisVector(modelForwardAxis).clone().normalize();
+      const currentForward = modelForward.applyQuaternion(qAlign);
+      const currentForwardProj = this.projectOnPlane(currentForward.clone(), normalW).normalize();
+
+      if (desiredForward.lengthSq() > 1e-6 && currentForwardProj.lengthSq() > 1e-6) {
+        qTwist.setFromUnitVectors(currentForwardProj, desiredForward);
+      }
+    }
+
+    // 3) offset rotacji z JSON (paintInitialRotation)
+    const addRot = info.paintInitialRotation ?? info.initialRotation ?? [0, 0, 0];
+    const qOffset = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(
+        THREE.MathUtils.degToRad(addRot[0]),
+        THREE.MathUtils.degToRad(addRot[1]),
+        THREE.MathUtils.degToRad(addRot[2]),
+        'XYZ'
+      )
+    );
+
+    // final = twist * align * offset
+    const qFinal = qAlign.clone();
+    qFinal.premultiply(qTwist);
+    qFinal.multiply(qOffset);
+
+    obj.quaternion.copy(qFinal);
+
+    // 4) pozycja + wypchnięcie z tortu
+    obj.position.copy(hit.point).add(normalW.multiplyScalar(surfaceOffset));
+
+    obj.updateMatrixWorld(true);
+  }
+
 
   private async restoreDecorationStroke(entry: PaintStrokePreset, scene: THREE.Scene): Promise<void> {
     const brushId = entry.brushId ?? this.currentBrush;

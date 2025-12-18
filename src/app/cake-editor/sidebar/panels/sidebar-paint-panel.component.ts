@@ -32,6 +32,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   @Output() brushChange = new EventEmitter<BrushSettings>();
   @Output() paintingPowerChange = new EventEmitter<boolean>();
 
+  private allDecorations: DecorationInfo[] = [];
   decorations: DecorationInfo[] = [];
   decorationSearch = '';
   selectedDecorationId: string | null = null;
@@ -83,8 +84,9 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.subscriptions.add(
       this.decorationsService.decorations$.subscribe((decorations) => {
-        this.decorations = decorations;
-        this.registerDecorationMetadata(decorations);
+        this.allDecorations = decorations;
+        this.refreshDecorations();
+        this.registerDecorationMetadata(this.decorations);
       }),
     );
     this.subscriptions.add(
@@ -124,11 +126,12 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   }
 
   get filteredDecorations(): DecorationInfo[] {
+    const availableDecorations = this.filterDecorationsForMode(this.decorations);
     const term = this.decorationSearch.trim().toLowerCase();
     if (!term) {
-      return this.decorations;
+      return availableDecorations;
     }
-    return this.decorations.filter((item) => item.name.toLowerCase().includes(term));
+    return availableDecorations.filter((item) => item.name.toLowerCase().includes(term));
   }
 
   getDecorationThumbnail(decoration: DecorationInfo): string {
@@ -159,6 +162,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   selectMode(mode: SidebarPaintMode): void {
     this.mode = mode;
     this.paintModeChange.emit(mode);
+    this.refreshDecorations();
   }
 
   selectDecoration(decoration: DecorationInfo): void {
@@ -377,10 +381,19 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
   private registerDecorationMetadata(decorations: DecorationInfo[]): void {
     decorations.forEach((decoration) => {
+      if (!decoration.paintable) {
+        return;
+      }
+
       this.paintService.setBrushMetadata(decoration.modelFileName, {
         initialScale: decoration.initialScale,
-        initialRotation: decoration.initialRotation,
+        initialRotation: decoration.paintInitialRotation ?? decoration.initialRotation,
         material: decoration.material,
+        paintInitialRotation: decoration.paintInitialRotation,
+        surfaceOffset: decoration.surfaceOffset,
+        modelUpAxis: decoration.modelUpAxis,
+        modelForwardAxis: decoration.modelForwardAxis,
+        faceOutwardOnSides: decoration.faceOutwardOnSides,
       });
     });
   }
@@ -460,5 +473,21 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       { angleDeg: 0, heightNorm: this.extruderHeightNorm },
       { angleDeg: 180, heightNorm: this.extruderHeightNorm },
     ];
+  }
+
+  private refreshDecorations(): void {
+    this.decorations = this.filterDecorationsForMode(this.allDecorations);
+  }
+
+  private filterDecorationsForMode(decorations: DecorationInfo[]): DecorationInfo[] {
+    if (!this.requiresPaintableDecorations) {
+      return decorations;
+    }
+
+    return decorations.filter((item) => item.paintable);
+  }
+
+  private get requiresPaintableDecorations(): boolean {
+    return this.mode === 'decor3d';
   }
 }
