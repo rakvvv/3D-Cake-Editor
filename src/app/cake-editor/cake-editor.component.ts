@@ -1269,6 +1269,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const result = await this.sceneService.spawnDecorationAtAnchor(
       pendingDecoration.modelFileName,
       anchorId,
+      { replaceExisting: !this.isAdmin },
     );
     if (result.success) {
       if (this.anchorPresetsService.isRecordingOptions()) {

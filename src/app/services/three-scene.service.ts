@@ -1815,6 +1815,7 @@ export class ThreeSceneService {
   public async spawnDecorationAtAnchor(
     decorationId: string,
     anchorId: string,
+    options?: { replaceExisting?: boolean },
   ): Promise<{ success: boolean; message: string }> {
     const decorationInfo = this.decorationsService.getDecorationInfo(decorationId);
     if (!decorationInfo) {
@@ -1848,7 +1849,7 @@ export class ThreeSceneService {
       return { success: false, message: 'Nie udało się wczytać dekoracji dla kotwicy.' };
     }
 
-    this.applyAnchorPlacement(decoration, anchor, decorationId);
+    this.applyAnchorPlacement(decoration, anchor, decorationId, options);
 
     this.paintService.registerDecorationAddition(decoration);
     this.emitOutlineChanged();
@@ -1856,7 +1857,10 @@ export class ThreeSceneService {
     return { success: true, message: 'Dekoracja umieszczona na kotwicy.' };
   }
 
-  public moveSelectionToAnchor(anchorId: string): { success: boolean; message: string } {
+  public moveSelectionToAnchor(
+    anchorId: string,
+    options?: { replaceExisting?: boolean },
+  ): { success: boolean; message: string } {
     const selected = this.transformControlsService.getSelectedObject();
     if (!selected) {
       return { success: false, message: 'Najpierw zaznacz dekorację.' };
@@ -1882,7 +1886,7 @@ export class ThreeSceneService {
       selected.scale.setScalar(anchor.defaultScale);
     }
 
-    this.applyAnchorPlacement(selected, anchor, decorationId);
+    this.applyAnchorPlacement(selected, anchor, decorationId, options);
     this.updateBoxHelper();
 
     return { success: true, message: 'Dekoracja przeniesiona na kotwicę.' };
@@ -1930,14 +1934,21 @@ export class ThreeSceneService {
     return anchor ? [anchor] : [];
   }
 
-  public exportAllAnchors(): AnchorPreset | null {
+  public exportAllAnchors(options?: { preserveUnusedFromActive?: boolean }): AnchorPreset | null {
     if (!this.cakeMetadata) {
       return null;
     }
 
     const decorations = this.collectDecorationRoots();
-    const sourcePreset = this.anchorPresetsService.getActivePreset();
+    const preserveUnusedFromActive = options?.preserveUnusedFromActive ?? true;
+    const sourcePreset = preserveUnusedFromActive ? this.anchorPresetsService.getActivePreset() : null;
     const anchorsById = new Map<string, AnchorPoint>();
+
+    if (preserveUnusedFromActive) {
+      sourcePreset?.anchors.forEach((anchor) => {
+        anchorsById.set(anchor.id, { ...anchor });
+      });
+    }
 
     decorations.forEach((decoration) => {
       const displayName = (decoration.userData['displayName'] as string | undefined) ?? decoration.name;
@@ -2051,38 +2062,35 @@ export class ThreeSceneService {
         };
       };
 
-      if (!existing) {
-        // Pierwsze napotkanie kotwicy w pętli
-        const allowedDecorationIds = new Set([...(generatedAnchor.allowedDecorationIds ?? []), ...baseAllowed]);
-        if (decorationId) {
-          allowedDecorationIds.add(decorationId);
-        }
-
-        const overrides = { ...baseOverrides };
-        if (decorationId) {
-          overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
-        }
-
-        const baseAnchorDef = sourceAnchor ? { ...sourceAnchor, ...generatedAnchor } : generatedAnchor;
-
-        anchorsById.set(generatedAnchor.id, {
-          ...baseAnchorDef,
-          allowedDecorationIds: allowedDecorationIds.size ? Array.from(allowedDecorationIds) : undefined,
-          decorationOverrides: Object.keys(overrides).length ? overrides : undefined,
-        });
-      } else {
-        // Kolejne napotkanie tej samej kotwicy (np. inna dekoracja na tym samym slocie)
-        const merged = new Set([...(existing.allowedDecorationIds ?? []), ...(generatedAnchor.allowedDecorationIds ?? [])]);
-        baseAllowed.forEach((id) => merged.add(id));
-        existing.allowedDecorationIds = merged.size ? Array.from(merged) : undefined;
-
-        if (decorationId) {
-          const overrides = { ...baseOverrides, ...(existing.decorationOverrides ?? {}) };
-          overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
-          existing.decorationOverrides = overrides;
-        }
+      const merged = new Set([...(existing?.allowedDecorationIds ?? []), ...(generatedAnchor.allowedDecorationIds ?? [])]);
+      baseAllowed.forEach((id) => merged.add(id));
+      if (decorationId) {
+        merged.add(decorationId);
       }
+
+      const overrides = { ...baseOverrides, ...(existing?.decorationOverrides ?? {}) };
+      if (decorationId) {
+        overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
+      }
+
+      const baseAnchorDef = sourceAnchor ? { ...sourceAnchor, ...generatedAnchor } : generatedAnchor;
+
+      anchorsById.set(generatedAnchor.id, {
+        ...existing,
+        ...baseAnchorDef,
+        allowedDecorationIds: merged.size ? Array.from(merged) : undefined,
+        decorationOverrides: Object.keys(overrides).length ? overrides : undefined,
+      });
     });
+
+    // Zachowaj nieużywane kotwice, które nie pojawiły się w trakcie pętli
+    if (preserveUnusedFromActive) {
+      sourcePreset?.anchors.forEach((anchor) => {
+        if (!anchorsById.has(anchor.id)) {
+          anchorsById.set(anchor.id, { ...anchor });
+        }
+      });
+    }
 
     const anchors = Array.from(anchorsById.values());
 
@@ -2093,9 +2101,9 @@ export class ThreeSceneService {
     return {
       id: sourcePreset?.id ?? `preset-${Date.now()}`,
       name: sourcePreset?.name ?? 'Wszystkie sloty dekoracji',
-      cakeShape: sourcePreset?.cakeShape,
-      cakeSize: sourcePreset?.cakeSize,
-      tiers: sourcePreset?.tiers,
+      cakeShape: sourcePreset?.cakeShape ?? this.cakeMetadata.shape,
+      cakeSize: sourcePreset?.cakeSize ?? this.resolveCakeSizeLabel(),
+      tiers: sourcePreset?.tiers ?? this.cakeMetadata.layers,
       anchors,
     };
   }
@@ -2268,17 +2276,17 @@ export class ThreeSceneService {
     return { anchor, projection };
   }
 
-  private applyAnchorPlacement(object: THREE.Object3D, anchor: AnchorPoint, decorationId?: string): void {
+  private applyAnchorPlacement(
+    object: THREE.Object3D,
+    anchor: AnchorPoint,
+    decorationId?: string,
+    options?: { replaceExisting?: boolean },
+  ): void {
     if (!this.cakeBase) {
       return;
     }
 
-    const previousAnchorId = object.userData['anchorId'] as string | undefined;
-    if (previousAnchorId && previousAnchorId !== anchor.id) {
-      this.clearAnchorOccupant(previousAnchorId, object);
-    }
-
-    if (!this.anchorPresetsService.isRecordingOptions()) {
+    if (options?.replaceExisting) {
       this.getAnchorOccupants(anchor.id)
         .filter((existing) => existing !== object)
         .forEach((existing) => this.removeDecoration(existing));
