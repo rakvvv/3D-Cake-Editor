@@ -102,10 +102,9 @@ export class TransformManagerService {
       return;
     }
 
-    const inSceneGraph = Boolean(this.scene.getObjectById(object.id));
+    const inSceneGraph = this.isObjectInSceneGraph(object);
     if (!inSceneGraph) {
       console.warn('TransformControls: Ignoring attachment for object outside the scene graph.', object);
-      this.selectionService.deselectObject(this.transformControls, this.boxHelperCallback);
       return;
     }
 
@@ -377,5 +376,16 @@ export class TransformManagerService {
       object.userData['isPaintDecoration'] === true ||
       object.userData['isTransformLocked'] === true
     );
+  }
+
+  private isObjectInSceneGraph(object: THREE.Object3D): boolean {
+    let current: THREE.Object3D | null = object;
+    while (current) {
+      if (current === this.scene) {
+        return true;
+      }
+      current = current.parent;
+    }
+    return false;
   }
 }
