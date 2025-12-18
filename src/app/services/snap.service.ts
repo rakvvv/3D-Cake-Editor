@@ -167,13 +167,13 @@ export class SnapService {
       object.name || undefined,
     ].filter(Boolean) as string[];
 
-    type DecorationOverride = AnchorPoint['decorationOverrides'] extends Record<string, infer T>
-      ? T
-      : never;
+    type DecorationOverride = NonNullable<AnchorPoint['decorationOverrides']>[string];
+    const overrides: Record<string, DecorationOverride> =
+      (anchor.decorationOverrides as Record<string, DecorationOverride> | undefined) ?? {};
 
     let override: DecorationOverride | undefined;
     for (const key of overrideCandidates) {
-      const candidate = anchor.decorationOverrides?.[key];
+      const candidate = overrides[key];
       if (candidate) {
         override = candidate;
         break;
