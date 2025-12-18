@@ -201,9 +201,12 @@ export class SnapService {
         : undefined;
 
       if (relativeRotation) {
-        const roll = THREE.MathUtils.degToRad(
-          override?.rotationDeg ?? anchor.defaultRotationDeg ?? 0,
-        );
+        // Jeśli używamy Kwaternionu (który zawiera pełną rotację względem bazy),
+        // musimy użyć TYLKO domyślnego rolla anchora jako bazy.
+        // Nie możemy użyć override.rotationDeg, bo to przesunie układ współrzędnych
+        // i kwaternion obróci obiekt w złe miejsce.
+        const roll = THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0);
+
         this.applyOrientationForSurface(object, worldNormal, anchor.surface, roll, relativeRotation);
       } else {
         this.applyOrientationForSurface(object, worldNormal, anchor.surface);
