@@ -147,6 +147,7 @@ export class PaintService {
   private activePenStartCapIndex: number | null = null;
   private activePenEndCapIndex: number | null = null;
   private activeDecorationGroup: THREE.Group | null = null;
+  private decorationGroups = new Map<string, THREE.Group>();
 
   private decorationVariants = new Map<string, DecorationVariantData[]>();
   private decorationStrokeInstances = new Map<string, DecorationInstanceState[]>();
@@ -268,7 +269,6 @@ export class PaintService {
     this.activePenEndCapIndex = null;
     this.lastPenDirection = null;
     this.activeDecorationGroup = null;
-    this.decorationStrokeInstances.clear();
     this.activeExtruderStrokeGroup = null;
     this.extruderStrokeInstances.clear();
     this.extruderLastPlacedPoint = null;
@@ -313,9 +313,13 @@ export class PaintService {
     if (this.activeDecorationGroup) {
       if (this.activeDecorationGroup.children.length) {
         this.finalizePaintRoot(this.activeDecorationGroup);
-        this.trackPaintAddition(this.activeDecorationGroup);
+        if (!this.activeDecorationGroup.userData['trackedInUndo']) {
+          this.trackPaintAddition(this.activeDecorationGroup);
+          this.activeDecorationGroup.userData['trackedInUndo'] = true;
+        }
       } else if (this.sceneRef) {
         this.sceneRef.remove(this.activeDecorationGroup);
+        this.decorationGroups.delete(this.activeDecorationGroup.userData['brushId']);
       }
     }
     this.activeDecorationGroup = null;
@@ -442,6 +446,7 @@ export class PaintService {
     this.brushPromises.delete(brushId);
     this.decorationVariants.delete(brushId);
     this.decorationStrokeInstances.delete(brushId);
+    this.decorationGroups.delete(brushId);
     this.brushSizes.delete(brushId);
   }
 
@@ -457,18 +462,28 @@ export class PaintService {
   }
 
   private ensureActiveDecorationGroup(scene: THREE.Scene): THREE.Group {
-    if (!this.activeDecorationGroup) {
-      this.activeDecorationGroup = new THREE.Group();
-      this.activeDecorationGroup.userData['isPaintDecoration'] = true;
-      this.activeDecorationGroup.userData['displayName'] = 'Dekoracja malowana';
-      this.activeDecorationGroup.userData['isPaintStroke'] = true;
-      this.activeDecorationGroup.userData['paintStrokeType'] = 'decoration';
-      this.activeDecorationGroup.userData['brushId'] = this.currentBrush;
-      scene.add(this.activeDecorationGroup);
-      this.redoStack = [];
+    const existingGroup = this.decorationGroups.get(this.currentBrush);
+    if (existingGroup) {
+      if (!existingGroup.parent) {
+        scene.add(existingGroup);
+      }
+      this.activeDecorationGroup = existingGroup;
+      return existingGroup;
     }
 
-    return this.activeDecorationGroup;
+    const group = new THREE.Group();
+    group.userData['isPaintDecoration'] = true;
+    group.userData['displayName'] = 'Dekoracja malowana';
+    group.userData['isPaintStroke'] = true;
+    group.userData['paintStrokeType'] = 'decoration';
+    group.userData['brushId'] = this.currentBrush;
+    group.userData['trackedInUndo'] = false;
+    scene.add(group);
+    this.redoStack = [];
+
+    this.decorationGroups.set(this.currentBrush, group);
+    this.activeDecorationGroup = group;
+    return group;
   }
 
   private addDecorationInstances(
@@ -627,13 +642,16 @@ export class PaintService {
       return;
     }
 
-    const offset = normal.clone().normalize().multiplyScalar(0.0015);
-    const position = point.clone().add(offset);
-    const up = new THREE.Vector3(0, 1, 0);
-    const align = new THREE.Quaternion().setFromUnitVectors(up, normal.clone().normalize());
-    const spin = new THREE.Quaternion().setFromAxisAngle(normal.clone().normalize(), Math.random() * Math.PI * 2);
-    const rotation = align.clone().multiply(spin).normalize();
+    const normalDir = normal.clone().normalize();
+    const templateSize = this.brushSizes.get(this.currentBrush);
     const scale = this.getDecorationScale(this.currentBrush, variants);
+    const halfDepth = templateSize ? (Math.max(templateSize.x, templateSize.y, templateSize.z) * scale) / 2 : 0;
+    const offset = normalDir.clone().multiplyScalar(halfDepth + 0.0015);
+    const position = point.clone().add(offset);
+    const forward = new THREE.Vector3(0, 0, 1);
+    const align = new THREE.Quaternion().setFromUnitVectors(forward, normalDir);
+    const spin = new THREE.Quaternion().setFromAxisAngle(normalDir, Math.random() * Math.PI * 2);
+    const rotation = spin.clone().multiply(align).normalize();
 
     const matrix = new THREE.Matrix4().compose(position, rotation, new THREE.Vector3(scale, scale, scale));
     const selectedVariant = this.getNextDecorationVariantIndex(this.currentBrush, variants.length);
