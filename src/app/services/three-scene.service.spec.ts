@@ -258,6 +258,50 @@ describe('ThreeSceneService', () => {
     expect(cakeBase.children).toContain(existingOccupant);
   });
 
+  it('replaces anchor occupants when requested', () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    assignScene(sceneInit);
+    const anchorPresets = TestBed.inject(AnchorPresetsService);
+    const snapService = TestBed.inject(SnapService);
+
+    const metadata: CakeMetadata = {
+      shape: 'cylinder',
+      layers: 1,
+      layerHeight: 2,
+      totalHeight: 2,
+      layerSizes: [1],
+      layerDimensions: [
+        { index: 0, size: 1, height: 2, topY: 1, bottomY: -1, radius: 1 },
+      ],
+      radius: 1,
+    };
+
+    const cakeBase = new THREE.Group();
+    cakeBase.userData['metadata'] = metadata;
+    snapService.setCakeBase(cakeBase);
+    (service as any).cakeBase = cakeBase;
+    (service as any).cakeMetadata = metadata;
+    sceneInit.scene.add(cakeBase);
+
+    const anchors: AnchorPoint[] = [
+      { id: 'single', surface: 'TOP', layerIndex: 0, coordinates: { angleRad: 0 } },
+    ];
+
+    anchorPresets.setPresets([{ id: 'test', name: 'Test preset', anchors }]);
+
+    const initialOccupant = new THREE.Object3D();
+    (service as any).applyAnchorPlacement(initialOccupant, anchors[0]);
+
+    const replacement = new THREE.Object3D();
+    (service as any).applyAnchorPlacement(replacement, anchors[0], undefined, { replaceExisting: true });
+
+    const anchorOccupants = (service as any).getAnchorOccupants('single');
+    expect(anchorOccupants).toContain(replacement);
+    expect(anchorOccupants).not.toContain(initialOccupant);
+    expect(cakeBase.children).toContain(replacement);
+    expect(cakeBase.children).not.toContain(initialOccupant);
+  });
+
   it('preserves occupants on anchors while recording options', () => {
     const sceneInit = TestBed.inject(SceneInitService);
     assignScene(sceneInit);
