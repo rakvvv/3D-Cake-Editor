@@ -308,6 +308,57 @@ describe('ThreeSceneService', () => {
     expect(anchorOccupants).toContain(incomingDecoration);
   });
 
+  it('keeps unused anchors when overwriting the active preset', () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    assignScene(sceneInit);
+    const anchorPresets = TestBed.inject(AnchorPresetsService);
+    const snapService = TestBed.inject(SnapService);
+
+    const metadata: CakeMetadata = {
+      shape: 'cylinder',
+      layers: 1,
+      layerHeight: 2,
+      totalHeight: 2,
+      layerSizes: [1],
+      layerDimensions: [
+        { index: 0, size: 1, height: 2, topY: 1, bottomY: -1, radius: 1 },
+      ],
+      radius: 1,
+    };
+
+    const cakeBase = new THREE.Group();
+    cakeBase.userData['metadata'] = metadata;
+    snapService.setCakeBase(cakeBase);
+    (service as any).cakeBase = cakeBase;
+    (service as any).cakeMetadata = metadata;
+    sceneInit.scene.add(cakeBase);
+
+    const anchors: AnchorPoint[] = [
+      {
+        id: 'kept',
+        surface: 'TOP',
+        layerIndex: 0,
+        coordinates: { angleRad: 0 },
+        allowedDecorationIds: ['keep-me'],
+      },
+      { id: 'moved', surface: 'SIDE', layerIndex: 0, coordinates: { angleRad: Math.PI / 2 } },
+    ];
+
+    anchorPresets.setPresets([{ id: 'active', name: 'Active preset', anchors }]);
+
+    const decoration = new THREE.Object3D();
+    decoration.name = 'flower';
+    (service as any).applyAnchorPlacement(decoration, anchors[1]);
+
+    const exported = service.exportAllAnchors();
+
+    expect(exported).not.toBeNull();
+    expect(exported?.anchors.length).toBe(2);
+    const keptAnchor = exported?.anchors.find((anchor) => anchor.id === 'kept');
+    expect(keptAnchor).toBeTruthy();
+    expect(keptAnchor?.allowedDecorationIds).toContain('keep-me');
+  });
+
   it('positions text along the cake side with offset', fakeAsync(() => {
     const sceneInit = TestBed.inject(SceneInitService);
     (sceneInit as any).scene = new THREE.Scene();

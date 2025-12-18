@@ -1943,6 +1943,10 @@ export class ThreeSceneService {
     const sourcePreset = this.anchorPresetsService.getActivePreset();
     const anchorsById = new Map<string, AnchorPoint>();
 
+    sourcePreset?.anchors.forEach((anchor) => {
+      anchorsById.set(anchor.id, { ...anchor });
+    });
+
     decorations.forEach((decoration) => {
       const displayName = (decoration.userData['displayName'] as string | undefined) ?? decoration.name;
       const anchorId = (decoration.userData['anchorId'] as string | undefined) ?? decoration.uuid;
@@ -2055,36 +2059,31 @@ export class ThreeSceneService {
         };
       };
 
-      if (!existing) {
-        // Pierwsze napotkanie kotwicy w pętli
-        const allowedDecorationIds = new Set([...(generatedAnchor.allowedDecorationIds ?? []), ...baseAllowed]);
-        if (decorationId) {
-          allowedDecorationIds.add(decorationId);
-        }
+      const merged = new Set([...(existing?.allowedDecorationIds ?? []), ...(generatedAnchor.allowedDecorationIds ?? [])]);
+      baseAllowed.forEach((id) => merged.add(id));
+      if (decorationId) {
+        merged.add(decorationId);
+      }
 
-        const overrides = { ...baseOverrides };
-        if (decorationId) {
-          overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
-        }
+      const overrides = { ...baseOverrides, ...(existing?.decorationOverrides ?? {}) };
+      if (decorationId) {
+        overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
+      }
 
-        const baseAnchorDef = sourceAnchor ? { ...sourceAnchor, ...generatedAnchor } : generatedAnchor;
+      const baseAnchorDef = sourceAnchor ? { ...sourceAnchor, ...generatedAnchor } : generatedAnchor;
 
-        anchorsById.set(generatedAnchor.id, {
-          ...baseAnchorDef,
-          allowedDecorationIds: allowedDecorationIds.size ? Array.from(allowedDecorationIds) : undefined,
-          decorationOverrides: Object.keys(overrides).length ? overrides : undefined,
-        });
-      } else {
-        // Kolejne napotkanie tej samej kotwicy (np. inna dekoracja na tym samym slocie)
-        const merged = new Set([...(existing.allowedDecorationIds ?? []), ...(generatedAnchor.allowedDecorationIds ?? [])]);
-        baseAllowed.forEach((id) => merged.add(id));
-        existing.allowedDecorationIds = merged.size ? Array.from(merged) : undefined;
+      anchorsById.set(generatedAnchor.id, {
+        ...existing,
+        ...baseAnchorDef,
+        allowedDecorationIds: merged.size ? Array.from(merged) : undefined,
+        decorationOverrides: Object.keys(overrides).length ? overrides : undefined,
+      });
+    });
 
-        if (decorationId) {
-          const overrides = { ...baseOverrides, ...(existing.decorationOverrides ?? {}) };
-          overrides[decorationId] = computeOverride(calculationBasisAnchor, decoration);
-          existing.decorationOverrides = overrides;
-        }
+    // Zachowaj nieużywane kotwice, które nie pojawiły się w trakcie pętli
+    sourcePreset?.anchors.forEach((anchor) => {
+      if (!anchorsById.has(anchor.id)) {
+        anchorsById.set(anchor.id, { ...anchor });
       }
     });
 
