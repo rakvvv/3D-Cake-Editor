@@ -5,6 +5,7 @@ import { PaintService } from './paint.service';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
 import { SnapService } from './snap.service';
+import { DecorationsService } from './decorations.service';
 
 if (typeof performance === 'undefined') {
   (globalThis as any).performance = {
@@ -56,12 +57,16 @@ describe('PaintService', () => {
     ]);
     const snapServiceSpy = jasmine.createSpyObj<SnapService>('SnapService', ['snapDecorationToCake']);
     snapServiceSpy.snapDecorationToCake.and.returnValue({ success: true, surfaceType: 'TOP', message: '' });
+    const decorationsServiceSpy = jasmine.createSpyObj<DecorationsService>('DecorationsService', [
+      'getDecorationInfo',
+    ]);
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [
         PaintService,
         { provide: TransformManagerService, useValue: transformManagerSpy },
         { provide: SnapService, useValue: snapServiceSpy },
+        { provide: DecorationsService, useValue: decorationsServiceSpy },
       ],
     });
     service = TestBed.inject(PaintService);
@@ -102,10 +107,15 @@ describe('PaintService', () => {
     spyOn(DecorationFactory, 'loadDecorationModel').and.returnValue(Promise.resolve(template));
 
     const scene = new THREE.Scene();
-    const point = new THREE.Vector3(0, 0, 0);
-    const normal = new THREE.Vector3(0, 1, 0);
+    const meshForHit = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    meshForHit.updateMatrixWorld(true);
+    const hit = {
+      point: new THREE.Vector3(0, 0, 0),
+      face: { normal: new THREE.Vector3(0, 1, 0) },
+      object: meshForHit,
+    } as unknown as THREE.Intersection;
 
-    await (service as any).placeDecorationBrush(point, normal, scene);
+    await (service as any).placeDecorationBrush(hit, scene);
 
     const decorationGroup = findDecorationGroup(scene);
     expect(decorationGroup).toBeDefined();
