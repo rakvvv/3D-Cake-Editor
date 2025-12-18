@@ -151,6 +151,28 @@ export class SnapService {
     const metadata = this.getCakeMetadata();
     if (!metadata) return;
 
+    // Zachowaj użytkową orientację przy przenoszeniu między anchorami
+    let savedUserRotation: THREE.Quaternion | undefined;
+    let savedUserRoll = 0;
+
+    if (object.userData['isSnapped']) {
+      const existingInfo = this.readSnapInfo(object);
+      if (existingInfo) {
+        savedUserRoll = existingInfo.roll ?? 0;
+        if (existingInfo.rotation && existingInfo.rotation.length === 4) {
+          const q = new THREE.Quaternion(
+            existingInfo.rotation[0],
+            existingInfo.rotation[1],
+            existingInfo.rotation[2],
+            existingInfo.rotation[3],
+          );
+          if (q.lengthSq() > 1e-10) {
+            savedUserRotation = q.normalize();
+          }
+        }
+      }
+    }
+
     // 1. Oblicz pozycję (tutaj zostanie uwzględniony heightNorm > 1)
     const projection = this.projectAnchor(anchor, metadata);
     if (!projection) return;
@@ -214,16 +236,15 @@ export class SnapService {
     // 4. Orientacja
     if (!skipOrientation) {
       const worldNormal = this.getWorldNormal(projection.normal);
+
       const relativeRotation = override?.rotationQuat
         ? new THREE.Quaternion(...override.rotationQuat)
-        : undefined;
+        : savedUserRotation;
 
       if (relativeRotation) {
-        // Jeśli używamy Kwaternionu (który zawiera pełną rotację względem bazy),
-        // musimy użyć TYLKO domyślnego rolla anchora jako bazy.
-        // Nie możemy użyć override.rotationDeg, bo to przesunie układ współrzędnych
-        // i kwaternion obróci obiekt w złe miejsce.
-        const roll = THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0);
+        const roll = override?.rotationQuat
+          ? THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0)
+          : savedUserRoll;
 
         this.applyOrientationForSurface(object, worldNormal, anchor.surface, roll, relativeRotation);
       } else {
@@ -244,15 +265,34 @@ export class SnapService {
 
     object.updateMatrixWorld(true);
 
-    // 5. Zapis snap info
+    // 5. Zapis snap info - oblicz faktycznie zastosowany roll i rotation
+    let finalRoll = 0;
+    let finalRotation: [number, number, number, number] = [...this.identityRotation];
+
+    if (!skipOrientation) {
+      const relativeRotation = override?.rotationQuat
+        ? new THREE.Quaternion(...override.rotationQuat)
+        : savedUserRotation;
+
+      if (relativeRotation) {
+        finalRoll = override?.rotationQuat
+          ? THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0)
+          : savedUserRoll;
+        finalRotation = this.serializeQuaternion(relativeRotation);
+      } else {
+        const rotationDeg = hasOverride ? override?.rotationDeg : anchor.defaultRotationDeg;
+        finalRoll = THREE.MathUtils.degToRad(rotationDeg ?? 0);
+      }
+    }
+
     this.writeSnapInfo(object, {
       layerIndex: anchor.layerIndex,
       surfaceType: anchor.surface,
       normal: projection.normal.toArray(),
       offset: 0,
-      roll: 0,
-      rotation: [...this.identityRotation],
-      coords: anchor.coordinates
+      roll: finalRoll,
+      rotation: finalRotation,
+      coords: anchor.coordinates,
     });
 
     object.userData['isSnapped'] = true;
