@@ -649,7 +649,6 @@ export class PaintService {
     const decorationInfo = this.getDecorationInfoForBrush(this.currentBrush);
     const cakeCenterWorld = new THREE.Vector3(0, 0, 0);
     this.cakeBaseRef?.getWorldPosition(cakeCenterWorld);
-
     const decoRoot = new THREE.Object3D();
     decoRoot.scale.setScalar(scale);
     this.applySurfacePlacement(decoRoot, hit, decorationInfo, cakeCenterWorld);
