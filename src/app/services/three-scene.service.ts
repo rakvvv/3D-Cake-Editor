@@ -1274,6 +1274,10 @@ export class ThreeSceneService {
       return null;
     }
 
+    if (selected.userData['anchorId'] && !selected.userData['isDecoration']) {
+      return null;
+    }
+
     if (!this.objects.includes(selected)) {
       if (selected.userData['isDecoration']) {
         this.objects.push(selected);
