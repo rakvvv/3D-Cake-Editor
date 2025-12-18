@@ -68,6 +68,7 @@ describe('SidebarPaintPanelComponent', () => {
       name: 'Paintable',
       type: 'TOP',
       paintable: true,
+      paintInitialRotation: [10, 20, 30],
     };
     const nonPaintableDecoration: DecorationInfo = {
       id: 'non-paintable',
@@ -83,7 +84,28 @@ describe('SidebarPaintPanelComponent', () => {
     expect(paintService.setBrushMetadata).toHaveBeenCalledTimes(1);
     expect(paintService.setBrushMetadata).toHaveBeenCalledWith('paintable.glb', {
       initialScale: undefined,
-      initialRotation: undefined,
+      initialRotation: [10, 20, 30],
+      material: undefined,
+    });
+  });
+
+  it('applies painting-specific rotation when provided', () => {
+    const paintableDecoration: DecorationInfo = {
+      id: 'paintable-rotation',
+      modelFileName: 'paintable-rotation.glb',
+      name: 'Paintable Rotation',
+      type: 'TOP',
+      paintable: true,
+      paintInitialRotation: [0, 90, 45],
+      initialRotation: [1, 2, 3],
+    };
+
+    decorationsService.decorationsSubject.next([paintableDecoration]);
+
+    expect(component.filteredDecorations).toEqual([paintableDecoration]);
+    expect(paintService.setBrushMetadata).toHaveBeenCalledWith('paintable-rotation.glb', {
+      initialScale: undefined,
+      initialRotation: [0, 90, 45],
       material: undefined,
     });
   });

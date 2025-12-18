@@ -13,4 +13,5 @@ export interface DecorationInfo {
     metalness?: number;
   };
   initialRotation?: [number, number, number];
+  paintInitialRotation?: [number, number, number];
 }
