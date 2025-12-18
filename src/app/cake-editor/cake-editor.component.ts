@@ -370,10 +370,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     sets.forEach((set) => {
       if (set.cake) {
         const maps = this.normalizeTextureMaps(set.cake);
+        const preview = this.normalizeTextureUrl(set.thumbnailUrl) ?? maps.baseColor ?? null;
         cakeOptions.push({
           id: set.id,
           label: set.label,
-          preview: set.thumbnailUrl ?? set.cake.baseColor ?? null,
+          preview,
           target: 'cake',
           maps,
         });
@@ -381,10 +382,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (set.glaze) {
         const maps = this.normalizeTextureMaps(set.glaze);
+        const preview = this.normalizeTextureUrl(set.thumbnailUrl) ?? maps.baseColor ?? null;
         glazeOptions.push({
           id: set.id,
           label: set.label,
-          preview: set.thumbnailUrl ?? set.glaze.baseColor ?? null,
+          preview,
           target: 'glaze',
           maps,
         });
@@ -450,11 +452,27 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const normalized: TextureMaps = {
       ...maps,
+      baseColor: this.normalizeTextureUrl(maps.baseColor),
+      normal: this.normalizeTextureUrl(maps.normal),
+      roughness: this.normalizeTextureUrl(maps.roughness),
+      displacement: this.normalizeTextureUrl(maps.displacement),
+      metallic: this.normalizeTextureUrl(maps.metallic),
+      emissive: this.normalizeTextureUrl(maps.emissive),
+      ambientOcclusion: this.normalizeTextureUrl(maps.ambientOcclusion),
+      alpha: this.normalizeTextureUrl(maps.alpha),
       affectDrips: maps.affectDrips ?? undefined,
       repeat: maps.repeat ?? undefined,
     };
 
     return normalized;
+  }
+
+  private normalizeTextureUrl(url: string | null | undefined): string | null {
+    if (!url) {
+      return null;
+    }
+
+    return encodeURI(url);
   }
 
   private maybeInitializeScene(): void {
