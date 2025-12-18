@@ -1815,6 +1815,7 @@ export class ThreeSceneService {
   public async spawnDecorationAtAnchor(
     decorationId: string,
     anchorId: string,
+    options?: { replaceExisting?: boolean },
   ): Promise<{ success: boolean; message: string }> {
     const decorationInfo = this.decorationsService.getDecorationInfo(decorationId);
     if (!decorationInfo) {
@@ -1848,7 +1849,7 @@ export class ThreeSceneService {
       return { success: false, message: 'Nie udało się wczytać dekoracji dla kotwicy.' };
     }
 
-    this.applyAnchorPlacement(decoration, anchor, decorationId);
+    this.applyAnchorPlacement(decoration, anchor, decorationId, options);
 
     this.paintService.registerDecorationAddition(decoration);
     this.emitOutlineChanged();
@@ -1856,7 +1857,10 @@ export class ThreeSceneService {
     return { success: true, message: 'Dekoracja umieszczona na kotwicy.' };
   }
 
-  public moveSelectionToAnchor(anchorId: string): { success: boolean; message: string } {
+  public moveSelectionToAnchor(
+    anchorId: string,
+    options?: { replaceExisting?: boolean },
+  ): { success: boolean; message: string } {
     const selected = this.transformControlsService.getSelectedObject();
     if (!selected) {
       return { success: false, message: 'Najpierw zaznacz dekorację.' };
@@ -1882,7 +1886,7 @@ export class ThreeSceneService {
       selected.scale.setScalar(anchor.defaultScale);
     }
 
-    this.applyAnchorPlacement(selected, anchor, decorationId);
+    this.applyAnchorPlacement(selected, anchor, decorationId, options);
     this.updateBoxHelper();
 
     return { success: true, message: 'Dekoracja przeniesiona na kotwicę.' };
@@ -2268,7 +2272,12 @@ export class ThreeSceneService {
     return { anchor, projection };
   }
 
-  private applyAnchorPlacement(object: THREE.Object3D, anchor: AnchorPoint, decorationId?: string): void {
+  private applyAnchorPlacement(
+    object: THREE.Object3D,
+    anchor: AnchorPoint,
+    decorationId?: string,
+    options?: { replaceExisting?: boolean },
+  ): void {
     if (!this.cakeBase) {
       return;
     }
@@ -2278,7 +2287,7 @@ export class ThreeSceneService {
       this.clearAnchorOccupant(previousAnchorId, object);
     }
 
-    if (!this.anchorPresetsService.isRecordingOptions()) {
+    if (options?.replaceExisting) {
       this.getAnchorOccupants(anchor.id)
         .filter((existing) => existing !== object)
         .forEach((existing) => this.removeDecoration(existing));
