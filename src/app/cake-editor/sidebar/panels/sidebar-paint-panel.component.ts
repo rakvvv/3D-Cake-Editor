@@ -387,7 +387,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
       this.paintService.setBrushMetadata(decoration.modelFileName, {
         initialScale: decoration.initialScale,
-        initialRotation: decoration.paintInitialRotation ?? decoration.initialRotation,
+        initialRotation: decoration.initialRotation,
         material: decoration.material,
       });
     });
