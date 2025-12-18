@@ -151,6 +151,12 @@ export class SnapService {
     const metadata = this.getCakeMetadata();
     if (!metadata) return;
 
+    // 1. Oblicz pozycję (tutaj zostanie uwzględniony heightNorm > 1)
+    const projection = this.projectAnchor(anchor, metadata);
+    if (!projection) return;
+
+    const localNormal = projection.normal.clone();
+
     // Zachowaj użytkową orientację przy przenoszeniu między anchorami
     let savedUserRotation: THREE.Quaternion | undefined;
     let savedUserRoll = 0;
@@ -172,10 +178,6 @@ export class SnapService {
         }
       }
     }
-
-    // 1. Oblicz pozycję (tutaj zostanie uwzględniony heightNorm > 1)
-    const projection = this.projectAnchor(anchor, metadata);
-    if (!projection) return;
 
     // 2. Attach
     if (object.parent !== this.cakeBase) {
@@ -234,8 +236,11 @@ export class SnapService {
     }
 
     // 4. Orientacja
+    let finalRoll = 0;
+    let finalRotation: [number, number, number, number] = [...this.identityRotation];
+
     if (!skipOrientation) {
-      const worldNormal = this.getWorldNormal(projection.normal);
+      const worldNormal = this.getWorldNormal(localNormal.clone());
 
       const relativeRotation = override?.rotationQuat
         ? new THREE.Quaternion(...override.rotationQuat)
@@ -246,14 +251,18 @@ export class SnapService {
           ? THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0)
           : savedUserRoll;
 
+        finalRoll = roll;
+        finalRotation = this.serializeQuaternion(relativeRotation);
+
         this.applyOrientationForSurface(object, worldNormal, anchor.surface, roll, relativeRotation);
       } else {
         this.applyOrientationForSurface(object, worldNormal, anchor.surface);
 
         const rotationDeg = hasOverride ? override?.rotationDeg : anchor.defaultRotationDeg;
         if (rotationDeg) {
-          const axis = anchor.surface === 'SIDE' ? projection.normal : new THREE.Vector3(0, 1, 0);
+          const axis = anchor.surface === 'SIDE' ? localNormal.clone() : new THREE.Vector3(0, 1, 0);
           object.rotateOnWorldAxis(axis, THREE.MathUtils.degToRad(rotationDeg));
+          finalRoll = THREE.MathUtils.degToRad(rotationDeg);
         }
       }
     }
@@ -265,30 +274,10 @@ export class SnapService {
 
     object.updateMatrixWorld(true);
 
-    // 5. Zapis snap info - oblicz faktycznie zastosowany roll i rotation
-    let finalRoll = 0;
-    let finalRotation: [number, number, number, number] = [...this.identityRotation];
-
-    if (!skipOrientation) {
-      const relativeRotation = override?.rotationQuat
-        ? new THREE.Quaternion(...override.rotationQuat)
-        : savedUserRotation;
-
-      if (relativeRotation) {
-        finalRoll = override?.rotationQuat
-          ? THREE.MathUtils.degToRad(anchor.defaultRotationDeg ?? 0)
-          : savedUserRoll;
-        finalRotation = this.serializeQuaternion(relativeRotation);
-      } else {
-        const rotationDeg = hasOverride ? override?.rotationDeg : anchor.defaultRotationDeg;
-        finalRoll = THREE.MathUtils.degToRad(rotationDeg ?? 0);
-      }
-    }
-
     this.writeSnapInfo(object, {
       layerIndex: anchor.layerIndex,
       surfaceType: anchor.surface,
-      normal: projection.normal.toArray(),
+      normal: localNormal.toArray(),
       offset: 0,
       roll: finalRoll,
       rotation: finalRotation,
@@ -1664,10 +1653,10 @@ export class SnapService {
 
   private getWorldNormal(normalLocal: THREE.Vector3): THREE.Vector3 {
     if (!this.cakeBase) {
-      return normalLocal.normalize();
+      return normalLocal.clone().normalize();
     }
 
     const normalMatrix = new THREE.Matrix3().getNormalMatrix(this.cakeBase.matrixWorld);
-    return normalLocal.applyMatrix3(normalMatrix).normalize();
+    return normalLocal.clone().applyMatrix3(normalMatrix).normalize();
   }
 }
