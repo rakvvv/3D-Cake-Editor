@@ -5,6 +5,7 @@ import { PaintService } from './paint.service';
 import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
 import { SnapService } from './snap.service';
+import { DecorationsService } from './decorations.service';
 
 if (typeof performance === 'undefined') {
   (globalThis as any).performance = {
@@ -56,12 +57,16 @@ describe('PaintService', () => {
     ]);
     const snapServiceSpy = jasmine.createSpyObj<SnapService>('SnapService', ['snapDecorationToCake']);
     snapServiceSpy.snapDecorationToCake.and.returnValue({ success: true, surfaceType: 'TOP', message: '' });
+    const decorationsServiceSpy = jasmine.createSpyObj<DecorationsService>('DecorationsService', [
+      'getDecorationInfo',
+    ]);
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [
         PaintService,
         { provide: TransformManagerService, useValue: transformManagerSpy },
         { provide: SnapService, useValue: snapServiceSpy },
+        { provide: DecorationsService, useValue: decorationsServiceSpy },
       ],
     });
     service = TestBed.inject(PaintService);
@@ -102,10 +107,15 @@ describe('PaintService', () => {
     spyOn(DecorationFactory, 'loadDecorationModel').and.returnValue(Promise.resolve(template));
 
     const scene = new THREE.Scene();
-    const point = new THREE.Vector3(0, 0, 0);
-    const normal = new THREE.Vector3(0, 1, 0);
+    const meshForHit = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    meshForHit.updateMatrixWorld(true);
+    const hit = {
+      point: new THREE.Vector3(0, 0, 0),
+      face: { normal: new THREE.Vector3(0, 1, 0) },
+      object: meshForHit,
+    } as unknown as THREE.Intersection;
 
-    await (service as any).placeDecorationBrush(point, normal, scene);
+    await (service as any).placeDecorationBrush(hit, scene);
 
     const decorationGroup = findDecorationGroup(scene);
     expect(decorationGroup).toBeDefined();
@@ -130,6 +140,119 @@ describe('PaintService', () => {
     expect(finalSize.x).toBeCloseTo(0.5, 6);
     expect(finalSize.y).toBeCloseTo(0.5, 6);
     expect(finalSize.z).toBeCloseTo(0.5, 6);
+  });
+
+  it('respects paintInitialRotation from decoration metadata when placing a brush', async () => {
+    const brushId = 'paintable.glb';
+    service.currentBrush = brushId;
+
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    mesh.geometry.computeBoundingBox();
+    mesh.geometry.computeBoundingSphere();
+    const template = new THREE.Group();
+    template.add(mesh);
+
+    const decorationInfo = {
+      id: 'paintable',
+      name: 'Paintable',
+      modelFileName: brushId,
+      type: 'BOTH' as const,
+      paintInitialRotation: [0, 90, 0] as [number, number, number],
+    };
+
+    const decorationsService = TestBed.inject(DecorationsService) as jasmine.SpyObj<DecorationsService>;
+    decorationsService.getDecorationInfo.and.returnValue(decorationInfo);
+
+    spyOn(DecorationFactory, 'loadDecorationModel').and.returnValue(Promise.resolve(template));
+
+    const scene = new THREE.Scene();
+    const meshForHit = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    meshForHit.updateMatrixWorld(true);
+    const hit = {
+      point: new THREE.Vector3(0, 0, 0),
+      face: { normal: new THREE.Vector3(0, 1, 0) },
+      object: meshForHit,
+    } as unknown as THREE.Intersection;
+
+    await (service as any).placeDecorationBrush(hit, scene);
+
+    const decorationGroup = findDecorationGroup(scene);
+    expect(decorationGroup).toBeDefined();
+
+    const instanced = decorationGroup!.children.find(
+      (child) => child instanceof THREE.InstancedMesh,
+    ) as THREE.InstancedMesh | undefined;
+    expect(instanced).toBeDefined();
+
+    const matrix = new THREE.Matrix4();
+    const rotation = new THREE.Quaternion();
+    instanced!.getMatrixAt(0, matrix);
+    matrix.decompose(new THREE.Vector3(), rotation, new THREE.Vector3());
+
+    const euler = new THREE.Euler().setFromQuaternion(rotation, 'XYZ');
+    expect(THREE.MathUtils.radToDeg(euler.y)).toBeCloseTo(90, 6);
+  });
+
+  it('uses decoration placement overrides from brush metadata when painting', async () => {
+    const brushId = 'override.glb';
+    service.currentBrush = brushId;
+
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    mesh.geometry.computeBoundingBox();
+    mesh.geometry.computeBoundingSphere();
+    const template = new THREE.Group();
+    template.add(mesh);
+
+    const decorationInfo = {
+      id: 'override',
+      name: 'Override',
+      modelFileName: brushId,
+      type: 'BOTH' as const,
+    };
+
+    const decorationsService = TestBed.inject(DecorationsService) as jasmine.SpyObj<DecorationsService>;
+    decorationsService.getDecorationInfo.and.returnValue(decorationInfo);
+
+    service.setBrushMetadata(brushId, {
+      paintInitialRotation: [0, 45, 0],
+      surfaceOffset: 0.01,
+      modelUpAxis: 'Y',
+      modelForwardAxis: 'Z',
+      faceOutwardOnSides: false,
+    });
+
+    spyOn(DecorationFactory, 'loadDecorationModel').and.returnValue(Promise.resolve(template));
+
+    const scene = new THREE.Scene();
+    const meshForHit = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    meshForHit.updateMatrixWorld(true);
+    const hit = {
+      point: new THREE.Vector3(0, 0, 0),
+      face: { normal: new THREE.Vector3(0, 1, 0) },
+      object: meshForHit,
+    } as unknown as THREE.Intersection;
+
+    await (service as any).placeDecorationBrush(hit, scene);
+
+    const decorationGroup = findDecorationGroup(scene);
+    expect(decorationGroup).toBeDefined();
+
+    const instanced = decorationGroup!.children.find(
+      (child) => child instanceof THREE.InstancedMesh,
+    ) as THREE.InstancedMesh | undefined;
+    expect(instanced).toBeDefined();
+
+    const matrix = new THREE.Matrix4();
+    const position = new THREE.Vector3();
+    const rotation = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    instanced!.getMatrixAt(0, matrix);
+    matrix.decompose(position, rotation, scale);
+
+    const euler = new THREE.Euler().setFromQuaternion(rotation, 'XYZ');
+
+    expect(position.y).toBeCloseTo(0.01, 6);
+    expect(THREE.MathUtils.radToDeg(euler.y)).toBeCloseTo(45, 6);
   });
 
   it('skips dense pen updates while tracking continuous strokes', async () => {

@@ -389,6 +389,11 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
         initialScale: decoration.initialScale,
         initialRotation: decoration.paintInitialRotation ?? decoration.initialRotation,
         material: decoration.material,
+        paintInitialRotation: decoration.paintInitialRotation,
+        surfaceOffset: decoration.surfaceOffset,
+        modelUpAxis: decoration.modelUpAxis,
+        modelForwardAxis: decoration.modelForwardAxis,
+        faceOutwardOnSides: decoration.faceOutwardOnSides,
       });
     });
   }

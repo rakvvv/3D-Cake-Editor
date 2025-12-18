@@ -339,7 +339,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
+    "faceOutwardOnSides": true
   },
   {
     "id": "star-side-2",
@@ -357,7 +365,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
+    "faceOutwardOnSides": true
   },
   {
     "id": "star-side-3",
@@ -375,7 +391,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
+    "faceOutwardOnSides": true
   },
   {
     "id": "bow-1",
@@ -431,7 +455,7 @@
       0
     ],
     "paintInitialRotation": [
-      -90,
+      0,
       0,
       0
     ],
@@ -457,7 +481,7 @@
       0
     ],
     "paintInitialRotation": [
-      -90,
+      0,
       0,
       0
     ],
@@ -483,13 +507,14 @@
       0
     ],
     "paintInitialRotation": [
-      -90,
+      0,
       0,
       0
     ],
     "modelUpAxis": "Y",
     "modelForwardAxis": "Z",
-    "faceOutwardOnSides": true
+    "faceOutwardOnSides": true,
+    "surfaceOffset": 0.1
   },
   {
     "id": "cream-2",
@@ -509,7 +534,7 @@
       0
     ],
     "paintInitialRotation": [
-      -90,
+      0,
       0,
       0
     ],
@@ -535,7 +560,7 @@
       0
     ],
     "paintInitialRotation": [
-      -90,
+      0,
       0,
       0
     ],
@@ -561,7 +586,7 @@
       0
     ],
     "paintInitialRotation": [
-      -90,
+      0,
       0,
       0
     ],
@@ -587,7 +612,7 @@
       0
     ],
     "paintInitialRotation": [
-      -90,
+      0,
       0,
       0
     ],
@@ -613,7 +638,7 @@
       0
     ],
     "paintInitialRotation": [
-      -90,
+      0,
       0,
       0
     ],
@@ -639,12 +664,12 @@
       0
     ],
     "paintInitialRotation": [
-    -90,
-    0,
-    0
-  ],
-    "modelUpAxis": "Y",
-    "modelForwardAxis": "Z",
+      0,
+      0,
+      0
+    ],
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
     "faceOutwardOnSides": true
   },
   {
@@ -755,13 +780,13 @@
       0
     ],
     "paintInitialRotation": [
-      -90,
+      0,
       0,
       0
     ],
-    "surfaceOffset": 0.01,
-    "modelUpAxis": "Y",
-    "modelForwardAxis": "Z",
+    "surfaceOffset": 0.02,
+    "modelUpAxis": "Z",
+    "modelForwardAxis": "Y",
     "faceOutwardOnSides": true
   },
   {

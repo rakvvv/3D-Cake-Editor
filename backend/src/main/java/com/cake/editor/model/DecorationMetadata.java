@@ -8,6 +8,13 @@ public class DecorationMetadata {
     private String thumbnailUrl;
     private Boolean paintable;
     private Double initialScale;
+    private Double[] initialRotation;
+    private Double[] paintInitialRotation;
+    private Double surfaceOffset;
+    private String modelUpAxis;
+    private String modelForwardAxis;
+    private Boolean faceOutwardOnSides;
+    private MaterialProperties material;
 
     public DecorationMetadata() {
     }
@@ -76,5 +83,90 @@ public class DecorationMetadata {
 
     public void setInitialScale(Double initialScale) {
         this.initialScale = initialScale;
+    }
+
+    public Double[] getInitialRotation() {
+        return initialRotation;
+    }
+
+    public void setInitialRotation(Double[] initialRotation) {
+        this.initialRotation = initialRotation;
+    }
+
+    public Double[] getPaintInitialRotation() {
+        return paintInitialRotation;
+    }
+
+    public void setPaintInitialRotation(Double[] paintInitialRotation) {
+        this.paintInitialRotation = paintInitialRotation;
+    }
+
+    public Double getSurfaceOffset() {
+        return surfaceOffset;
+    }
+
+    public void setSurfaceOffset(Double surfaceOffset) {
+        this.surfaceOffset = surfaceOffset;
+    }
+
+    public String getModelUpAxis() {
+        return modelUpAxis;
+    }
+
+    public void setModelUpAxis(String modelUpAxis) {
+        this.modelUpAxis = modelUpAxis;
+    }
+
+    public String getModelForwardAxis() {
+        return modelForwardAxis;
+    }
+
+    public void setModelForwardAxis(String modelForwardAxis) {
+        this.modelForwardAxis = modelForwardAxis;
+    }
+
+    public Boolean getFaceOutwardOnSides() {
+        return faceOutwardOnSides;
+    }
+
+    public void setFaceOutwardOnSides(Boolean faceOutwardOnSides) {
+        this.faceOutwardOnSides = faceOutwardOnSides;
+    }
+
+    public MaterialProperties getMaterial() {
+        return material;
+    }
+
+    public void setMaterial(MaterialProperties material) {
+        this.material = material;
+    }
+
+    public static class MaterialProperties {
+        private Double roughness;
+        private Double metalness;
+
+        public MaterialProperties() {
+        }
+
+        public MaterialProperties(Double roughness, Double metalness) {
+            this.roughness = roughness;
+            this.metalness = metalness;
+        }
+
+        public Double getRoughness() {
+            return roughness;
+        }
+
+        public void setRoughness(Double roughness) {
+            this.roughness = roughness;
+        }
+
+        public Double getMetalness() {
+            return metalness;
+        }
+
+        public void setMetalness(Double metalness) {
+            this.metalness = metalness;
+        }
     }
 }
