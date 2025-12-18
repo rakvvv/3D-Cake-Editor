@@ -634,7 +634,6 @@ export class PaintService {
     const templateSize = this.brushSizes.get(this.currentBrush);
     const scale = this.getDecorationScale(this.currentBrush);
 
-    // ⬇️ POPRAWIONE: Oblicz offset na podstawie rzeczywistej głębokości w kierunku normalnej
     let depthInNormalDirection = 0;
     if (templateSize) {
       // Użyj najmniejszego wymiaru jako głębokości, nie największego
@@ -649,10 +648,12 @@ export class PaintService {
     const offset = normalDir.clone().multiplyScalar(Math.min(calculatedOffset, maxOffset));
 
     const position = point.clone().add(offset);
-    const forward = new THREE.Vector3(0, 0, 1);
-    const align = new THREE.Quaternion().setFromUnitVectors(forward, normalDir);
+    const qMeta = this.getBrushMetaQuat(this.currentBrush);
+    const outAxis = this.getDefaultOutAxis(normalDir);
+    const outAxisAfterMeta = outAxis.clone().applyQuaternion(qMeta).normalize();
+    const align = new THREE.Quaternion().setFromUnitVectors(outAxisAfterMeta, normalDir);
     const spin = new THREE.Quaternion().setFromAxisAngle(normalDir, Math.random() * Math.PI * 2);
-    const rotation = spin.clone().multiply(align).normalize();
+    const rotation = spin.clone().multiply(align).multiply(qMeta).normalize();
 
     const matrix = new THREE.Matrix4().compose(position, rotation, new THREE.Vector3(scale, scale, scale));
     const selectedVariant = this.getNextDecorationVariantIndex(this.currentBrush, variants.length);
@@ -2407,6 +2408,46 @@ export class PaintService {
       this.cakeBaseRef = cakeBase;
     }
   }
+
+  private getBrushMetaQuat(brushId: string): THREE.Quaternion {
+    const meta = this.brushMetadata.get(brushId);
+    const q = new THREE.Quaternion();
+    if (!meta?.initialRotation) return q;
+
+    const [x, y, z] = meta.initialRotation;
+    const e = new THREE.Euler(
+      THREE.MathUtils.degToRad(x ?? 0),
+      THREE.MathUtils.degToRad(y ?? 0),
+      THREE.MathUtils.degToRad(z ?? 0),
+      'XYZ',
+    );
+    q.setFromEuler(e);
+    return q;
+  }
+
+  private getDefaultOutAxis(normalDir: THREE.Vector3): THREE.Vector3 {
+    if (Math.abs(normalDir.y) > 0.75) {
+      return new THREE.Vector3(0, 1, 0); // UP
+    }
+    return new THREE.Vector3(0, 0, 1);   // FORWARD
+  }
+
+  private axisVector(axis: 'X' | 'Y' | 'Z'): THREE.Vector3 {
+    if (axis === 'X') return new THREE.Vector3(1, 0, 0);
+    if (axis === 'Y') return new THREE.Vector3(0, 1, 0);
+    return new THREE.Vector3(0, 0, 1);
+  }
+
+  private getWorldNormalDeco(hit: THREE.Intersection): THREE.Vector3 {
+    const n = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
+    n.transformDirection(hit.object.matrixWorld).normalize();
+    return n;
+  }
+
+  private projectOnPlane(v: THREE.Vector3, planeNormal: THREE.Vector3): THREE.Vector3 {
+    return v.sub(planeNormal.clone().multiplyScalar(v.dot(planeNormal)));
+  }
+
 
   private async restoreDecorationStroke(entry: PaintStrokePreset, scene: THREE.Scene): Promise<void> {
     const brushId = entry.brushId ?? this.currentBrush;

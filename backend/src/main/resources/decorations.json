@@ -434,7 +434,10 @@
       -90,
       0,
       0
-    ]
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-ball-right",
@@ -457,7 +460,10 @@
       -90,
       0,
       0
-    ]
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-star-top",
@@ -480,7 +486,10 @@
       -90,
       0,
       0
-    ]
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-2",
@@ -503,7 +512,10 @@
       -90,
       0,
       0
-    ]
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-3",
@@ -526,7 +538,10 @@
       -90,
       0,
       0
-    ]
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-4",
@@ -549,7 +564,10 @@
       -90,
       0,
       0
-    ]
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "cream-5",
@@ -572,7 +590,10 @@
       -90,
       0,
       0
-    ]
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "leaf-with-cream-side",
@@ -595,7 +616,10 @@
       -90,
       0,
       0
-    ]
+    ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "bear-side",
@@ -603,7 +627,7 @@
     "modelFileName": "mis_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/bear-side.png",
-    "paintable": false,
+    "paintable": true,
     "initialScale": 20,
     "material": {
       "roughness": 0.9,
@@ -613,7 +637,15 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+    -90,
+    0,
+    0
+  ],
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "ring-1",
@@ -711,7 +743,7 @@
     "modelFileName": "wisnia_bok.glb",
     "type": "SIDE",
     "thumbnailUrl": "/assets/decorations/thumbnails/cherry-side.png",
-    "paintable": false,
+    "paintable": true,
     "initialScale": 20,
     "material": {
       "roughness": 0.9,
@@ -721,7 +753,16 @@
       0,
       0,
       0
-    ]
+    ],
+    "paintInitialRotation": [
+      -90,
+      0,
+      0
+    ],
+    "surfaceOffset": 0.01,
+    "modelUpAxis": "Y",
+    "modelForwardAxis": "Z",
+    "faceOutwardOnSides": true
   },
   {
     "id": "ribbons-side",
