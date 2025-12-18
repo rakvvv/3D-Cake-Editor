@@ -1,16 +1,22 @@
-import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Subject, firstValueFrom } from 'rxjs';
+import {Inject, Injectable, PLATFORM_ID} from '@angular/core';
+import {isPlatformBrowser} from '@angular/common';
+import {HttpClient} from '@angular/common/http';
+import {BehaviorSubject, firstValueFrom, Subject} from 'rxjs';
 import * as THREE from 'three';
-import { DecorationFactory } from '../factories/decoration.factory';
-import { TransformManagerService } from './transform-manager.service';
-import { SnapService } from './snap.service';
-import { CakeMetadata, LayerMetadata } from '../factories/three-objects.factory';
-import { ExtruderVariantInfo } from '../models/extruderVariantInfo';
-import { environment } from '../../environments/environment';
-import { CreamPathNode, CreamRingPreset, CreamPosition, defaultCreamRingPresets, normalizePresetAngles } from '../models/cream-presets';
-import { PaintStrokeInstance, PaintStrokePreset } from '../models/cake-preset';
+import {DecorationFactory} from '../factories/decoration.factory';
+import {TransformManagerService} from './transform-manager.service';
+import {SnapService} from './snap.service';
+import {CakeMetadata, LayerMetadata} from '../factories/three-objects.factory';
+import {ExtruderVariantInfo} from '../models/extruderVariantInfo';
+import {environment} from '../../environments/environment';
+import {
+  CreamPathNode,
+  CreamPosition,
+  CreamRingPreset,
+  defaultCreamRingPresets,
+  normalizePresetAngles
+} from '../models/cream-presets';
+import {PaintStrokeInstance, PaintStrokePreset} from '../models/cake-preset';
 
 type ExtruderVariantData = {
   geometry: THREE.BufferGeometry;
@@ -76,6 +82,7 @@ export class PaintService {
   private brushCache = new Map<string, THREE.Object3D>();
   private brushPromises = new Map<string, Promise<THREE.Object3D>>();
   private brushSizes = new Map<string, THREE.Vector3>();
+  private brushScaleMultipliers = new Map<string, number>();
   private brushMetadata = new Map<
     string,
     {
@@ -274,6 +281,9 @@ export class PaintService {
     this.extruderLastPlacedPoint = null;
     this.extruderLastNormal = null;
     this.extruderFirstInstance = null;
+    this.activeDecorationGroup = null;
+    this.decorationStrokeInstances.clear();
+    this.decorationVariantCursor.clear();
   }
 
   private isPaintStroke(object: THREE.Object3D | null): boolean {
@@ -438,8 +448,10 @@ export class PaintService {
 
     if (metadata) {
       this.brushMetadata.set(brushId, metadata);
+      this.brushScaleMultipliers.set(brushId, metadata.initialScale ?? 1);
     } else {
       this.brushMetadata.delete(brushId);
+      this.brushScaleMultipliers.delete(brushId);
     }
 
     this.brushCache.delete(brushId);
@@ -462,13 +474,9 @@ export class PaintService {
   }
 
   private ensureActiveDecorationGroup(scene: THREE.Scene): THREE.Group {
-    const existingGroup = this.decorationGroups.get(this.currentBrush);
-    if (existingGroup) {
-      if (!existingGroup.parent) {
-        scene.add(existingGroup);
-      }
-      this.activeDecorationGroup = existingGroup;
-      return existingGroup;
+    // Zawsze twórz nową grupę dla nowego pociągnięcia
+    if (this.activeDecorationGroup) {
+      return this.activeDecorationGroup;
     }
 
     const group = new THREE.Group();
@@ -477,11 +485,9 @@ export class PaintService {
     group.userData['isPaintStroke'] = true;
     group.userData['paintStrokeType'] = 'decoration';
     group.userData['brushId'] = this.currentBrush;
-    group.userData['trackedInUndo'] = false;
     scene.add(group);
     this.redoStack = [];
 
-    this.decorationGroups.set(this.currentBrush, group);
     this.activeDecorationGroup = group;
     return group;
   }
@@ -525,7 +531,13 @@ export class PaintService {
   ): DecorationInstanceState[] {
     const existing = this.decorationStrokeInstances.get(brushId);
     if (existing && existing.length === variants.length) {
-      return existing;
+      const allValid = existing.every(state =>
+        state.mesh.parent === decorationGroup &&
+        state.count < this.extruderMaxInstances
+      );
+      if (allValid) {
+        return existing;
+      }
     }
 
     const states: DecorationInstanceState[] = variants.map((variant) => {
@@ -543,52 +555,27 @@ export class PaintService {
       return { mesh, count: 0 };
     });
 
+
     this.decorationStrokeInstances.set(brushId, states);
     return states;
   }
 
-  private getDecorationScale(brushId: string, variants: DecorationVariantData[]): number {
-    const templateSize = this.brushSizes.get(brushId);
-    if (templateSize) {
-      const maxDim = Math.max(templateSize.x, templateSize.y, templateSize.z);
-      if (maxDim > 0) {
-        return 0.5 / maxDim;
-      }
-    }
-
-    if (variants.length) {
-      const geometriesBox = new THREE.Box3();
-      const mergedSize = new THREE.Vector3();
-      variants.forEach((variant) => {
-        variant.geometry.computeBoundingBox();
-        const box = variant.geometry.boundingBox;
-        if (box) {
-          geometriesBox.union(box);
-        }
-      });
-      geometriesBox.getSize(mergedSize);
-      const maxDim = Math.max(mergedSize.x, mergedSize.y, mergedSize.z);
-      if (maxDim > 0) {
-        return 0.5 / maxDim;
-      }
-    }
-
-    return 1;
+  private getDecorationScale(brushId: string): number {
+    return this.brushScaleMultipliers.get(brushId) ?? 1;
   }
 
   private getDecorationSpacing(brushId: string): number {
     const templateSize = this.brushSizes.get(brushId);
+    const scale = this.brushScaleMultipliers.get(brushId) ?? 1;
+
     if (templateSize) {
       const maxDim = Math.max(templateSize.x, templateSize.y, templateSize.z);
-      if (maxDim > 0) {
-        const scale = 0.5 / maxDim;
-        const scaledMax = maxDim * scale;
-        const spacing = scaledMax * 0.35;
-        return Math.max(this.baseMinDistance * 1.5, spacing);
-      }
+      const scaledMax = maxDim * scale;
+      const spacing = scaledMax * 0.4; // 40% rozmiaru dekoracji
+      return Math.max(this.baseMinDistance, spacing);
     }
 
-    return this.baseMinDistance * 1.5;
+    return this.baseMinDistance * 2;
   }
 
   private async getDecorationVariants(brushId: string): Promise<DecorationVariantData[]> {
@@ -642,11 +629,25 @@ export class PaintService {
       return;
     }
 
+
     const normalDir = normal.clone().normalize();
     const templateSize = this.brushSizes.get(this.currentBrush);
-    const scale = this.getDecorationScale(this.currentBrush, variants);
-    const halfDepth = templateSize ? (Math.max(templateSize.x, templateSize.y, templateSize.z) * scale) / 2 : 0;
-    const offset = normalDir.clone().multiplyScalar(halfDepth + 0.0015);
+    const scale = this.getDecorationScale(this.currentBrush);
+
+    // ⬇️ POPRAWIONE: Oblicz offset na podstawie rzeczywistej głębokości w kierunku normalnej
+    let depthInNormalDirection = 0;
+    if (templateSize) {
+      // Użyj najmniejszego wymiaru jako głębokości, nie największego
+      const dims = [templateSize.x, templateSize.y, templateSize.z].sort((a, b) => a - b);
+      depthInNormalDirection = dims[0] * scale; // najmniejszy wymiar
+    }
+
+    // Minimalny offset żeby nie było z-fighting, ale nie za duży
+    const minOffset = 0.001;
+    const maxOffset = 0.005; // maksymalny offset 5cm
+    const calculatedOffset = depthInNormalDirection * 0.5 + minOffset;
+    const offset = normalDir.clone().multiplyScalar(Math.min(calculatedOffset, maxOffset));
+
     const position = point.clone().add(offset);
     const forward = new THREE.Vector3(0, 0, 1);
     const align = new THREE.Quaternion().setFromUnitVectors(forward, normalDir);
@@ -2191,9 +2192,6 @@ export class PaintService {
       material?: { roughness?: number; metalness?: number };
     },
   ): void {
-    if (metadata.initialScale && metadata.initialScale > 0) {
-      model.scale.setScalar(metadata.initialScale);
-    }
 
     if (metadata.initialRotation) {
       const [x, y, z] = metadata.initialRotation;
