@@ -905,6 +905,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.selectedShape = shape;
     this.patchOptions({ shape });
+    this.syncWaferMaskToShape(true);
   }
 
   selectLayers(layers: number): void {
@@ -1045,11 +1046,16 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.waferEnabled = enabled;
+    this.syncWaferMaskToShape(false);
     const fallback = this.options.wafer_texture_url ?? '/assets/textures/Pink%20Candy_BaseColor.jpg';
     this.patchOptions({
       wafer_texture_url: enabled ? fallback : null,
       wafer_mask: this.waferMask,
       wafer_perspective: this.waferPerspective,
+      wafer_scale: this.waferScale,
+      wafer_texture_zoom: this.waferZoom,
+      wafer_texture_offset_x: this.waferOffsetX,
+      wafer_texture_offset_y: this.waferOffsetY,
     });
     if (!enabled) {
       this.waferScale = 1;
@@ -1057,7 +1063,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.waferOffsetX = 0;
       this.waferOffsetY = 0;
       this.waferPerspective = 0;
-      this.waferMask = 'circle';
+      this.syncWaferMaskToShape(false);
       this.waferLoadError = null;
       this.loadWaferImage(null);
     } else {
@@ -1077,7 +1083,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.waferScale = scale;
-    this.patchOptions({ wafer_scale: scale });
     this.scheduleWaferPreviewRender();
   }
 
@@ -1086,7 +1091,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.waferZoom = zoom;
-    this.patchOptions({ wafer_texture_zoom: zoom });
     this.scheduleWaferPreviewRender();
   }
 
@@ -1096,20 +1100,17 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     if (axis === 'x') {
       this.waferOffsetX = value;
-      this.patchOptions({ wafer_texture_offset_x: value });
     } else {
       this.waferOffsetY = value;
-      this.patchOptions({ wafer_texture_offset_y: value });
     }
     this.scheduleWaferPreviewRender();
   }
 
-  setWaferMask(mask: 'circle' | 'square'): void {
+  setWaferMask(_mask: 'circle' | 'square'): void {
     if (this.setupLocked) {
       return;
     }
-    this.waferMask = mask;
-    this.patchOptions({ wafer_mask: mask });
+    this.syncWaferMaskToShape(true);
     this.scheduleWaferPreviewRender();
   }
 
@@ -1118,7 +1119,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.waferPerspective = value;
-    this.patchOptions({ wafer_perspective: value });
     this.scheduleWaferPreviewRender();
   }
 
@@ -1127,6 +1127,41 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.setWaferOffset('x', 0);
     this.setWaferOffset('y', 0);
     this.setWaferPerspective(0);
+    this.syncWaferMaskToShape(true);
+  }
+
+  get waferHasPendingChanges(): boolean {
+    if (!this.waferEnabled) {
+      return false;
+    }
+
+    return (
+      (this.options.wafer_scale ?? 1) !== this.waferScale ||
+      (this.options.wafer_texture_zoom ?? 1) !== this.waferZoom ||
+      (this.options.wafer_texture_offset_x ?? 0) !== this.waferOffsetX ||
+      (this.options.wafer_texture_offset_y ?? 0) !== this.waferOffsetY ||
+      (this.options.wafer_perspective ?? 0) !== this.waferPerspective ||
+      (this.options.wafer_mask ?? this.getMaskForShape(this.selectedShape)) !== this.waferMask
+    );
+  }
+
+  applyWaferSettings(showStatus = true): void {
+    if (!this.waferEnabled) {
+      return;
+    }
+
+    this.patchOptions({
+      wafer_scale: this.waferScale,
+      wafer_texture_zoom: this.waferZoom,
+      wafer_texture_offset_x: this.waferOffsetX,
+      wafer_texture_offset_y: this.waferOffsetY,
+      wafer_mask: this.waferMask,
+      wafer_perspective: this.waferPerspective,
+    });
+
+    if (showStatus) {
+      this.showStatus('Zastosowano ustawienia opłatka.');
+    }
   }
 
   onWaferPointerDown(event: PointerEvent): void {
@@ -1305,6 +1340,22 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (size === 'small') return 0.9;
     if (size === 'large') return 1.2;
     return 1;
+  }
+
+  private getMaskForShape(shape: 'cylinder' | 'cuboid'): 'circle' | 'square' {
+    return shape === 'cylinder' ? 'circle' : 'square';
+  }
+
+  private syncWaferMaskToShape(applyToOptions: boolean): void {
+    const expectedMask = this.getMaskForShape(this.selectedShape);
+    if (this.waferMask !== expectedMask) {
+      this.waferMask = expectedMask;
+      this.scheduleWaferPreviewRender();
+    }
+
+    if (applyToOptions && this.waferEnabled && this.options.wafer_mask !== expectedMask) {
+      this.applyWaferSettings(false);
+    }
   }
 
   private applyLayerSizing(layers: number, baseWidth: number): void {
@@ -1972,8 +2023,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.waferZoom = this.options.wafer_texture_zoom ?? 1;
     this.waferOffsetX = this.options.wafer_texture_offset_x ?? 0;
     this.waferOffsetY = this.options.wafer_texture_offset_y ?? 0;
-    this.waferMask = this.options.wafer_mask ?? 'circle';
+    this.waferMask = this.getMaskForShape(this.selectedShape);
     this.waferPerspective = this.options.wafer_perspective ?? 0;
+    this.syncWaferMaskToShape(this.waferEnabled);
     this.loadWaferImage(this.options.wafer_texture_url);
     this.scheduleWaferPreviewRender();
     this.syncSelectedTextures();

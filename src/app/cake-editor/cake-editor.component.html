@@ -439,7 +439,7 @@
                     class="toggle-tab__item"
                     [class.toggle-tab__item--active]="waferMask === 'circle'"
                     type="button"
-                    [disabled]="!waferEnabled || setupLocked"
+                    [disabled]="!waferEnabled || setupLocked || waferMask !== 'circle'"
                     (click)="setWaferMask('circle')"
                   >
                     Koło
@@ -448,12 +448,13 @@
                     class="toggle-tab__item"
                     [class.toggle-tab__item--active]="waferMask === 'square'"
                     type="button"
-                    [disabled]="!waferEnabled || setupLocked"
+                    [disabled]="!waferEnabled || setupLocked || waferMask !== 'square'"
                     (click)="setWaferMask('square')"
                   >
                     Kwadrat
                   </button>
                 </div>
+                <div class="wafer-note">Maska dobierana jest automatycznie do kształtu tortu.</div>
                 <div class="wafer-preview"
                      [class.wafer-preview--disabled]="!waferEnabled || setupLocked"
                      (pointerdown)="onWaferPointerDown($event)"
@@ -537,6 +538,14 @@
                 <div class="wafer-actions">
                   <button class="btn btn--ghost" type="button" [disabled]="!waferEnabled || setupLocked" (click)="resetWaferTransform()">
                     Resetuj / wyśrodkuj
+                  </button>
+                  <button
+                    class="btn btn--primary"
+                    type="button"
+                    [disabled]="!waferEnabled || setupLocked || !waferHasPendingChanges"
+                    (click)="applyWaferSettings()"
+                  >
+                    Zastosuj na torcie
                   </button>
                 </div>
               </div>
