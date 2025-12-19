@@ -389,7 +389,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         cakeOptions.push(cakeOption);
       }
 
-      if (glazeOption) {
+      if (glazeOption && !this.shouldOmitGlazeOption(set)) {
         glazeOptions.push(glazeOption);
       }
     });
@@ -397,6 +397,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cakeTextureOptions = cakeOptions;
     this.glazeTextureOptions = glazeOptions;
     this.syncSelectedTextures();
+  }
+
+  private shouldOmitGlazeOption(set: TextureSet): boolean {
+    const label = (set.label || '').toLowerCase();
+    return label.includes('różowa cukierkowa');
   }
 
   private syncSelectedTextures(): void {
@@ -436,7 +441,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     return {
       id: set.id,
-      label: this.normalizeTextureLabel(set),
+      label: this.normalizeTextureLabel(set, target),
       target,
       maps: normalizedMaps,
       badges: this.buildTextureBadges(normalizedMaps),
@@ -530,9 +535,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const previewColor = this.isProbablyColor(maps.baseColor) ? maps.baseColor ?? null : null;
     const previewOverlay = this.pickTextureOverlay(maps);
+    const overlayFallback = !previewImage && !previewColor ? previewOverlay : null;
 
     return {
-      previewImage: previewImage || previewOverlay || null,
+      previewImage: previewImage || overlayFallback || null,
       previewOverlay,
       previewColor,
     };
@@ -580,13 +586,17 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return badges;
   }
 
-  private normalizeTextureLabel(set: TextureSet): string {
-    if (this.customCakeTextureIds.has(set.id) || this.customGlazeTextureIds.has(set.id)) {
-      if (set.id === 'polewa') {
-        return 'Niestandardowa polewa';
-      }
+  private normalizeTextureLabel(set: TextureSet, target: 'cake' | 'glaze'): string {
+    if (target === 'glaze') {
+      return set.id === 'polewa' ? 'Niestandardowa polewa' : set.label;
+    }
 
-      return set.id === 'chocolate-cake-03' ? 'Niestandardowy krem 2' : 'Niestandardowy krem';
+    if (set.id === 'frosting') {
+      return 'Niestandardowy krem';
+    }
+
+    if (set.id === 'chocolate-cake-03') {
+      return 'Niestandardowy krem 2';
     }
 
     return set.label;
