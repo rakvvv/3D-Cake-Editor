@@ -41,11 +41,6 @@ type HelperSettings = {
   highQuality: boolean;
 };
 
-type TextureBadge = {
-  label: string;
-  title: string;
-};
-
 type TexturePreviewLayers = {
   previewImage: string | null;
   previewOverlay: string | null;
@@ -57,7 +52,6 @@ type TexturePickerOption = TexturePreviewLayers & {
   label: string;
   target: 'cake' | 'glaze';
   maps: TextureMaps;
-  badges: TextureBadge[];
   isCustomColorizable: boolean;
 };
 
@@ -94,6 +88,12 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   canUndoAction = false;
   canRedoAction = false;
   isAdmin = false;
+
+  private static readonly GLAZE_PREVIEW_COLORS: Record<string, string> = {
+    'chocolate-cake-02': '#5c3b28',
+    'chocolate-cake-03': '#f1e5d2',
+    polewa: '#e7b0c1',
+  };
 
   private textureBeforeGradient: TextureMaps | null = null;
   selectedCakeTextureId: string | null = null;
@@ -437,14 +437,16 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const normalizedMaps = this.normalizeTextureMaps(maps);
-    const previewLayers = this.pickTexturePreviewLayers(set.thumbnailUrl, normalizedMaps);
+    const previewLayers =
+      target === 'glaze'
+        ? this.pickGlazePreviewLayers(set, normalizedMaps)
+        : this.pickTexturePreviewLayers(set.thumbnailUrl, normalizedMaps);
 
     return {
       id: set.id,
       label: this.normalizeTextureLabel(set, target),
       target,
       maps: normalizedMaps,
-      badges: this.buildTextureBadges(normalizedMaps),
       isCustomColorizable: this.isCustomTexture(set.id, target),
       ...previewLayers,
     };
@@ -544,6 +546,23 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
+  private pickGlazePreviewLayers(set: TextureSet, maps: TextureMaps): TexturePreviewLayers {
+    const previewColor =
+      (this.isProbablyColor(maps.baseColor) ? maps.baseColor : null) ||
+      this.lookupGlazePreviewColor(set.id) ||
+      '#ffffff';
+
+    return {
+      previewImage: null,
+      previewOverlay: null,
+      previewColor,
+    };
+  }
+
+  private lookupGlazePreviewColor(textureId: string): string | null {
+    return CakeEditorComponent.GLAZE_PREVIEW_COLORS[textureId] ?? null;
+  }
+
   private pickTextureOverlay(maps: TextureMaps): string | null {
     const candidates = [
       maps.normal,
@@ -562,28 +581,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     return null;
-  }
-
-  private buildTextureBadges(maps: TextureMaps): TextureBadge[] {
-    const badges: TextureBadge[] = [];
-
-    const badgeEntries: Array<[keyof TextureMaps, TextureBadge]> = [
-      ['normal', { label: 'N', title: 'Mapa normalnych' }],
-      ['roughness', { label: 'R', title: 'Mapa szorstkości' }],
-      ['displacement', { label: 'D', title: 'Mapa wysokości' }],
-      ['metallic', { label: 'M', title: 'Mapa metaliczności' }],
-      ['ambientOcclusion', { label: 'AO', title: 'Mapa ambient occlusion' }],
-      ['emissive', { label: 'E', title: 'Mapa emisyjna' }],
-      ['alpha', { label: 'A', title: 'Mapa alfa' }],
-    ];
-
-    badgeEntries.forEach(([key, badge]) => {
-      if (maps[key]) {
-        badges.push(badge);
-      }
-    });
-
-    return badges;
   }
 
   private normalizeTextureLabel(set: TextureSet, target: 'cake' | 'glaze'): string {
