@@ -445,16 +445,7 @@ export class ThreeObjectsFactory {
     url: string,
     transform: { repeat: number; offsetX: number; offsetY: number; rotation: number },
   ): THREE.Texture {
-    const placeholderCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-    if (placeholderCanvas) {
-      placeholderCanvas.width = placeholderCanvas.height = 2;
-      const context = placeholderCanvas.getContext('2d');
-      context?.clearRect(0, 0, 2, 2);
-    }
-
-    const placeholder = placeholderCanvas
-      ? new THREE.CanvasTexture(placeholderCanvas)
-      : new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
+    const placeholder = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
 
     const applyTransform = (texture: THREE.Texture): void => {
       texture.colorSpace = THREE.SRGBColorSpace;
@@ -480,9 +471,8 @@ export class ThreeObjectsFactory {
           placeholder.needsUpdate = true;
           return;
         }
-
-        applyTransform(loaded);
         placeholder.image = loaded.image;
+        applyTransform(placeholder);
         placeholder.needsUpdate = true;
       },
       undefined,
