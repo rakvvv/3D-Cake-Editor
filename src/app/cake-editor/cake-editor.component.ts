@@ -1435,6 +1435,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       }
 
       this.waferLoadError = null;
+      this.waferEnabled = true;
+      this.refreshAutoWaferScale(true);
       this.waferPreviewDirty = true;
       this.patchOptions({ wafer_texture_url: result });
       this.loadWaferImage(result);

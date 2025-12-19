@@ -442,26 +442,34 @@ export class ThreeObjectsFactory {
     url: string,
     transform: { repeat: number; offsetX: number; offsetY: number; rotation: number },
   ): THREE.Texture {
-    const placeholder = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
-    placeholder.colorSpace = THREE.SRGBColorSpace;
-    placeholder.wrapS = placeholder.wrapT = THREE.ClampToEdgeWrapping;
-    placeholder.center.set(0.5, 0.5);
-    placeholder.repeat.set(transform.repeat, transform.repeat);
-    placeholder.offset.set(transform.offsetX, transform.offsetY);
-    placeholder.rotation = transform.rotation;
-    placeholder.anisotropy = 8;
+    const placeholderCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    if (placeholderCanvas) {
+      placeholderCanvas.width = placeholderCanvas.height = 2;
+      const context = placeholderCanvas.getContext('2d');
+      context?.clearRect(0, 0, 2, 2);
+    }
+
+    const placeholder = placeholderCanvas
+      ? new THREE.CanvasTexture(placeholderCanvas)
+      : new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
+
+    const applyTransform = (texture: THREE.Texture): void => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.center.set(0.5, 0.5);
+      texture.repeat.set(transform.repeat, transform.repeat);
+      texture.offset.set(transform.offsetX, transform.offsetY);
+      texture.rotation = transform.rotation;
+      texture.anisotropy = 8;
+    };
+
+    applyTransform(placeholder);
     placeholder.needsUpdate = true;
 
     this.textureLoader.load(
       url,
       (loaded) => {
-        loaded.colorSpace = THREE.SRGBColorSpace;
-        loaded.wrapS = loaded.wrapT = THREE.ClampToEdgeWrapping;
-        loaded.center.set(0.5, 0.5);
-        loaded.repeat.set(transform.repeat, transform.repeat);
-        loaded.offset.set(transform.offsetX, transform.offsetY);
-        loaded.rotation = transform.rotation;
-        loaded.anisotropy = 8;
+        applyTransform(loaded);
         placeholder.image = loaded.image;
         placeholder.needsUpdate = true;
       },
