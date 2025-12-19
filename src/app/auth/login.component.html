@@ -1,16 +1,18 @@
-<div class="auth-card">
-  <h2>Zaloguj się</h2>
-  <form (ngSubmit)="onSubmit()" class="auth-form">
-    <label>
-      Email
-      <input type="email" name="email" [(ngModel)]="email" required />
-    </label>
-    <label>
-      Hasło
-      <input type="password" name="password" [(ngModel)]="password" required />
-    </label>
-    <button type="submit">Zaloguj</button>
-    <p class="auth-link">Nie masz konta? <a routerLink="/register">Zarejestruj się</a></p>
-    <p *ngIf="error" class="auth-error">{{ error }}</p>
-  </form>
+<div class="auth-layout">
+  <div class="auth-card">
+    <h2 class="auth-title">Zaloguj się</h2>
+    <form (ngSubmit)="onSubmit()" class="auth-form">
+      <label>
+        Email
+        <input type="email" name="email" [(ngModel)]="email" required />
+      </label>
+      <label>
+        Hasło
+        <input type="password" name="password" [(ngModel)]="password" required />
+      </label>
+      <button type="submit">Zaloguj</button>
+      <p class="auth-link">Nie masz konta? <a routerLink="/register">Zarejestruj się</a></p>
+      <p *ngIf="error" class="auth-error">{{ error }}</p>
+    </form>
+  </div>
 </div>
