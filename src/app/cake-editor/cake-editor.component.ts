@@ -92,7 +92,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly GLAZE_PREVIEW_COLORS: Record<string, string> = {
     'chocolate-cake-02': '#5c3b28',
     'chocolate-cake-03': '#f1e5d2',
-    polewa: '#e7b0c1',
+    polewa: '#ffffff',
   };
 
   private textureBeforeGradient: TextureMaps | null = null;
