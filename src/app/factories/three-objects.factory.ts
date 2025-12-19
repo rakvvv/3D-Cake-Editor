@@ -433,7 +433,7 @@ export class ThreeObjectsFactory {
     return {
       repeat,
       offsetX: (1 - repeat) / 2 - rawOffsetX * repeat,
-      offsetY: (1 - repeat) / 2 + rawOffsetY * repeat,
+      offsetY: (1 - repeat) / 2 - rawOffsetY * repeat,
       rotation,
     };
   }
