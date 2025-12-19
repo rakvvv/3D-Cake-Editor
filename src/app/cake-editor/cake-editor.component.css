@@ -371,8 +371,7 @@
   background: #0f0f0f;
   border: 1px solid #1f1f1f;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
+  display: block;
   width: 100%;
 }
 
@@ -382,6 +381,7 @@
 }
 
 .texture-card__preview {
+  display: block;
   height: 120px;
   width: 100%;
   background-position: center;
@@ -390,7 +390,8 @@
 }
 
 .texture-card__name {
-  padding: 8px;
+  display: block;
+  padding: 8px 8px 2px;
   font-size: 14px;
   font-weight: 600;
   color: #f0f0f0;
