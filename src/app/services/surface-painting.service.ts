@@ -1342,6 +1342,7 @@ export class SurfacePaintingService {
         this.shaderUniforms;
     }
     this.paintedMaterials.forEach((mat) => (mat.needsUpdate = true));
+    this.paintService.sceneChanged$.next();
   }
 
   private sanitizeHexColor(value: string, fallback: string = DEFAULT_SPRINKLE_COLOR): string {
