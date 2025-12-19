@@ -425,7 +425,6 @@ export class ThreeObjectsFactory {
     const repeat = 1 / zoom;
 
     const offsetLimit = Math.max(0, 0.5 * (zoom - 1));
-
     const rawOffsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -offsetLimit, offsetLimit);
     const rawOffsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -offsetLimit, offsetLimit);
 
@@ -433,11 +432,8 @@ export class ThreeObjectsFactory {
 
     return {
       repeat,
-      // Oś X: (Lewo/Prawo) - działa tak samo jak w HTML
-      offsetX: 0.5 - repeat / 2 + rawOffsetX * repeat,
-
-      // Oś Y: (Góra/Dół) - musi być odwrócona (minus) względem HTML
-      offsetY: 0.5 - repeat / 2 - rawOffsetY * repeat,
+      offsetX: (1 - repeat) / 2 - rawOffsetX * repeat,
+      offsetY: (1 - repeat) / 2 + rawOffsetY * repeat,
       rotation,
     };
   }
