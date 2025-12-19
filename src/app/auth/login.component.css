@@ -67,7 +67,7 @@
 
 .auth-form button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(249, 115, 22, 0.25);
+  box-shadow: 0 8px 18px rgba(5, 172, 238, 0.27);
 }
 
 .auth-form button:active {
