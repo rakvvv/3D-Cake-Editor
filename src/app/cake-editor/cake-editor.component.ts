@@ -869,7 +869,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.openContextMenuAt(event.clientX, event.clientY);
   }
 
-  private isSceneNodeSelectable(node: SceneOutlineNode): boolean {
+  public isSceneNodeSelectable(node: SceneOutlineNode): boolean {
     if (node.id === 'decorations-root') {
       return false;
     }

@@ -810,9 +810,6 @@ export class PaintService {
         case 'pen':
           await this.restorePenStroke(entry, scene);
           break;
-        case 'decoration':
-          await this.restoreDecorationStroke(entry, scene);
-          break;
       }
     }
   }
