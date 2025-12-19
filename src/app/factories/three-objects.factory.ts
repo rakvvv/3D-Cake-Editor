@@ -330,21 +330,10 @@ export class ThreeObjectsFactory {
       return null;
     }
 
-    const texture = this.textureLoader.load(options.wafer_texture_url);
-    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 8;
+    const transform = this.computeWaferTransform(options);
+    const texture = this.createWaferTexture(options.wafer_texture_url, transform);
 
     const detailTexture = this.createWaferDetailTexture();
-
-    const { repeat, offsetX, offsetY, rotation } = this.computeWaferTransform(options);
-
-    // texture.center.set(0.5, 0.5);
-    texture.repeat.set(repeat, repeat);
-    texture.offset.set(offsetX, offsetY);
-    texture.center.set(0.5, 0.5);
-    texture.rotation = rotation;
-    texture.needsUpdate = true;
 
     const material = new THREE.MeshPhysicalMaterial({
       map: texture,
@@ -428,7 +417,7 @@ export class ThreeObjectsFactory {
     offsetY: number;
     rotation: number;
   } {
-    const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
+    const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 3);
     const repeat = 1 / zoom;
 
     const offsetLimit = Math.max(0, 0.5 * (zoom - 1));
@@ -447,6 +436,42 @@ export class ThreeObjectsFactory {
       offsetY: 0.5 - repeat / 2 - rawOffsetY * repeat,
       rotation,
     };
+  }
+
+  private static createWaferTexture(
+    url: string,
+    transform: { repeat: number; offsetX: number; offsetY: number; rotation: number },
+  ): THREE.Texture {
+    const placeholder = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
+    placeholder.colorSpace = THREE.SRGBColorSpace;
+    placeholder.wrapS = placeholder.wrapT = THREE.ClampToEdgeWrapping;
+    placeholder.center.set(0.5, 0.5);
+    placeholder.repeat.set(transform.repeat, transform.repeat);
+    placeholder.offset.set(transform.offsetX, transform.offsetY);
+    placeholder.rotation = transform.rotation;
+    placeholder.anisotropy = 8;
+    placeholder.needsUpdate = true;
+
+    this.textureLoader.load(
+      url,
+      (loaded) => {
+        loaded.colorSpace = THREE.SRGBColorSpace;
+        loaded.wrapS = loaded.wrapT = THREE.ClampToEdgeWrapping;
+        loaded.center.set(0.5, 0.5);
+        loaded.repeat.set(transform.repeat, transform.repeat);
+        loaded.offset.set(transform.offsetX, transform.offsetY);
+        loaded.rotation = transform.rotation;
+        loaded.anisotropy = 8;
+        placeholder.image = loaded.image;
+        placeholder.needsUpdate = true;
+      },
+      undefined,
+      () => {
+        placeholder.needsUpdate = true;
+      },
+    );
+
+    return placeholder;
   }
 
   // ========= GLAZE CREATION =========

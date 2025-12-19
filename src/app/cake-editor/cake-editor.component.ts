@@ -1097,6 +1097,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.waferZoom = THREE.MathUtils.clamp(zoom, 1, 3);
+    const offsetLimit = this.getWaferOffsetLimit(this.waferZoom);
+    this.waferOffsetX = THREE.MathUtils.clamp(this.waferOffsetX, -offsetLimit, offsetLimit);
+    this.waferOffsetY = THREE.MathUtils.clamp(this.waferOffsetY, -offsetLimit, offsetLimit);
     this.waferPreviewDirty = true;
     this.scheduleWaferPreviewRender();
   }
@@ -1105,10 +1108,12 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.setupLocked) {
       return;
     }
+    const offsetLimit = this.getWaferOffsetLimit();
+    const clamped = THREE.MathUtils.clamp(value, -offsetLimit, offsetLimit);
     if (axis === 'x') {
-      this.waferOffsetX = value;
+      this.waferOffsetX = clamped;
     } else {
-      this.waferOffsetY = value;
+      this.waferOffsetY = clamped;
     }
     this.waferPreviewDirty = true;
     this.scheduleWaferPreviewRender();
@@ -1212,9 +1217,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const normalizedFactor = 2 / maskSize;
     const nextX = this.waferDragStart.offsetX + deltaX * normalizedFactor;
     const nextY = this.waferDragStart.offsetY - deltaY * normalizedFactor;
+    const limit = this.getWaferOffsetLimit();
 
-    this.setWaferOffset('x', THREE.MathUtils.clamp(nextX, -1, 1));
-    this.setWaferOffset('y', THREE.MathUtils.clamp(nextY, -1, 1));
+    this.setWaferOffset('x', THREE.MathUtils.clamp(nextX, -limit, limit));
+    this.setWaferOffset('y', THREE.MathUtils.clamp(nextY, -limit, limit));
   }
 
   onWaferPointerUp(): void {
@@ -1315,8 +1321,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       const offsetX = this.waferOffsetX * maskRadius;
       const offsetY = -this.waferOffsetY * maskRadius;
 
-      const drawWidth = this.waferImage.width * this.waferZoom;
-      const drawHeight = this.waferImage.height * this.waferZoom;
+      const baseScale = maskSize > 0 ? maskSize / Math.max(this.waferImage.width, this.waferImage.height) : 1;
+      const drawWidth = this.waferImage.width * baseScale * this.waferZoom;
+      const drawHeight = this.waferImage.height * baseScale * this.waferZoom;
 
       context.drawImage(
         this.waferImage,
@@ -1352,6 +1359,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private getWaferMaskSize(canvas: HTMLCanvasElement): number {
     const size = Math.min(canvas.clientWidth || 0, canvas.clientHeight || 0);
     return size > 0 ? size * 0.9 : 0;
+  }
+
+  private getWaferOffsetLimit(zoom: number = this.waferZoom): number {
+    const clampedZoom = THREE.MathUtils.clamp(zoom, 1, 3);
+    return Math.max(0, 0.5 * (clampedZoom - 1));
   }
 
   private getBaseWidth(size: 'small' | 'medium' | 'large' = this.selectedCakeSize): number {
@@ -2062,12 +2074,13 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.glazeEnabled = this.options.glaze_enabled;
     this.glazeMode = this.options.glaze_top_enabled ? 'taffla' : 'plain';
     this.waferEnabled = !!this.options.wafer_texture_url;
-    this.waferScale = this.computeAutoWaferScale();
-    this.waferZoom = 1;
-    this.waferOffsetX = 0;
-    this.waferOffsetY = 0;
-    this.waferMask = this.getMaskForShape(this.selectedShape);
-    this.waferPerspective = 0;
+    this.waferScale = this.options.wafer_scale ?? this.computeAutoWaferScale();
+    this.waferZoom = THREE.MathUtils.clamp(this.options.wafer_texture_zoom ?? 1, 1, 3);
+    const offsetLimit = this.getWaferOffsetLimit(this.waferZoom);
+    this.waferOffsetX = THREE.MathUtils.clamp(this.options.wafer_texture_offset_x ?? 0, -offsetLimit, offsetLimit);
+    this.waferOffsetY = THREE.MathUtils.clamp(this.options.wafer_texture_offset_y ?? 0, -offsetLimit, offsetLimit);
+    this.waferMask = this.options.wafer_mask ?? this.getMaskForShape(this.selectedShape);
+    this.waferPerspective = THREE.MathUtils.clamp(this.options.wafer_perspective ?? 0, -45, 45);
     this.syncWaferMaskToShape(this.waferEnabled);
     this.loadWaferImage(this.options.wafer_texture_url);
     this.waferPreviewDirty = false;
