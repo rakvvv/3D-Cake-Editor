@@ -71,7 +71,7 @@ export class TransformManagerService {
     this.orbit.addEventListener('change', this.renderScene);
 
     this.transformControls = new TransformControls(this.camera, this.renderer.domElement);
-    this.transformControls.space = 'local';
+    this.transformControls.space = 'world';
     this.transformControls.mode = 'translate';
 
     this.transformControls.addEventListener('change', this.onTransformChange);

@@ -3,12 +3,12 @@
     {
       "id": "chocolate-cake-02",
       "label": "Czekoladowa polewa",
-      "thumbnailUrl": "/assets/textures/Chocolate%2002_Albedo.jpg",
+      "thumbnailUrl": "/assets/textures/Chocolate02_Albedo.jpg",
       "glaze": {
-        "baseColor": "/assets/textures/Chocolate%2002_Albedo.jpg",
-        "roughness": "/assets/textures/Chocolate%2002_Roughness.jpg",
-        "normal": "/assets/textures/Chocolate%2002_Normal.jpg",
-        "displacement": "/assets/textures/Chocolate%2002_Displacement.jpg",
+        "baseColor": "/assets/textures/Chocolate02_Albedo.jpg",
+        "roughness": "/assets/textures/Chocolate02_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate02_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate02_Displacement.jpg",
         "repeat": 2,
         "affectDrips": true
       }
@@ -16,12 +16,12 @@
     {
       "id": "chocolate-cake-03",
       "label": "Biała Czekolada polewa",
-      "thumbnailUrl": "/assets/textures/Chocolate%2003_Albedo.jpg",
+      "thumbnailUrl": "/assets/textures/Chocolate03_Albedo.jpg",
       "glaze": {
-        "baseColor": "/assets/textures/Chocolate%2003_Albedo.jpg",
-        "roughness": "/assets/textures/Chocolate%2003_Roughness.jpg",
-        "normal": "/assets/textures/Chocolate%2003_Normal.jpg",
-        "displacement": "/assets/textures/Chocolate%2003_Displacement.jpg",
+        "baseColor": "/assets/textures/Chocolate03_Albedo.jpg",
+        "roughness": "/assets/textures/Chocolate03_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate03_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate03_Displacement.jpg",
         "repeat": 2,
         "affectDrips": true
       }
@@ -32,9 +32,9 @@
       "thumbnailUrl": null,
       "glaze": {
         "baseColor": "/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg",
-        "roughness": "/assets/textures/Chocolate%2003_Roughness.jpg",
-        "normal": "/assets/textures/Chocolate%2003_Normal.jpg",
-        "displacement": "/assets/textures/Chocolate%2003_Displacement.jpg",
+        "roughness": "/assets/textures/Chocolate03_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate03_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate03_Displacement.jpg",
         "repeat": 2,
         "affectDrips": true
       }
