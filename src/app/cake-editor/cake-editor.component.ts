@@ -1088,6 +1088,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.waferScale = scale;
+    this.waferPreviewDirty = true;
     this.scheduleWaferPreviewRender();
   }
 
@@ -1095,7 +1096,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.setupLocked) {
       return;
     }
-    this.waferZoom = zoom;
+    this.waferZoom = THREE.MathUtils.clamp(zoom, 1, 3);
+    this.waferPreviewDirty = true;
     this.scheduleWaferPreviewRender();
   }
 
@@ -1108,6 +1110,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.waferOffsetY = value;
     }
+    this.waferPreviewDirty = true;
     this.scheduleWaferPreviewRender();
   }
 
@@ -1124,6 +1127,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.waferPerspective = value;
+    this.waferPreviewDirty = true;
     this.scheduleWaferPreviewRender();
   }
 
@@ -1143,7 +1147,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return (
       this.waferPreviewDirty ||
       (this.options.wafer_scale ?? 1) !== this.waferScale ||
-      (this.options.wafer_mask ?? this.getMaskForShape(this.selectedShape)) !== this.waferMask
+      (this.options.wafer_mask ?? this.getMaskForShape(this.selectedShape)) !== this.waferMask ||
+      (this.options.wafer_texture_zoom ?? 1) !== this.waferZoom ||
+      (this.options.wafer_texture_offset_x ?? 0) !== this.waferOffsetX ||
+      (this.options.wafer_texture_offset_y ?? 0) !== this.waferOffsetY ||
+      (this.options.wafer_perspective ?? 0) !== this.waferPerspective
     );
   }
 
@@ -1155,6 +1163,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.patchOptions({
       wafer_scale: this.waferScale,
       wafer_mask: this.waferMask,
+      wafer_texture_zoom: this.waferZoom,
+      wafer_texture_offset_x: this.waferOffsetX,
+      wafer_texture_offset_y: this.waferOffsetY,
+      wafer_perspective: this.waferPerspective,
     });
 
     this.waferPreviewDirty = false;
@@ -1168,6 +1180,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.waferEnabled || this.setupLocked) {
       return;
     }
+    event.preventDefault();
     const canvas = this.waferCanvas?.nativeElement;
     if (!canvas) return;
 
@@ -1184,6 +1197,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.waferDragStart || !this.waferEnabled || this.setupLocked) {
       return;
     }
+
+    event.preventDefault();
 
     const canvas = this.waferCanvas?.nativeElement;
     if (!canvas) return;
@@ -1212,7 +1227,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     event.preventDefault();
     const delta = event.deltaY < 0 ? 0.05 : -0.05;
-    const nextZoom = THREE.MathUtils.clamp(this.waferZoom + delta, 0.5, 3);
+    const nextZoom = THREE.MathUtils.clamp(this.waferZoom + delta, 1, 3);
     this.setWaferZoom(nextZoom);
   }
 
@@ -1245,11 +1260,14 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const image = new Image();
     image.onload = () => {
       this.waferImage = image;
+      this.waferPreviewDirty = true;
       this.scheduleWaferPreviewRender();
     };
     image.onerror = () => {
       this.waferLoadError = 'Nie udało się wczytać obrazu opłatka.';
       this.waferImage = null;
+      this.patchOptions({ wafer_texture_url: null });
+      this.waferEnabled = false;
       this.scheduleWaferPreviewRender();
     };
     image.src = url;
@@ -1344,8 +1362,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private computeAutoWaferScale(): number {
     const topSize = this.options.layerSizes?.[this.selectedLayers - 1] ?? this.getBaseWidth(this.selectedCakeSize);
-    const normalized = Math.max(0.8, Math.min(1.2, topSize));
-    const scaled = THREE.MathUtils.clamp(normalized / 1.2, 0.78, 0.92);
+    const normalized = THREE.MathUtils.clamp(topSize, 0.9, 1.35);
+    const scaled = THREE.MathUtils.clamp(normalized * 0.98, 0.95, 1.15);
     return Number(scaled.toFixed(3));
   }
 
@@ -1399,6 +1417,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const reader = new FileReader();
     reader.onload = () => {
       const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result) {
+        this.waferLoadError = 'Nie udało się wczytać wybranego pliku.';
+        return;
+      }
+
       this.waferLoadError = null;
       this.waferPreviewDirty = true;
       this.patchOptions({ wafer_texture_url: result });

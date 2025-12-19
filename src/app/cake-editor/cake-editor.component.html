@@ -443,7 +443,15 @@
                   </div>
                   <div *ngIf="waferLoadError" class="panel-block__error">{{ waferLoadError }}</div>
                   <div class="wafer-preview" [class.wafer-preview--disabled]="!waferEnabled || setupLocked">
-                    <canvas #waferCanvas aria-hidden="true"></canvas>
+                    <canvas
+                      #waferCanvas
+                      aria-hidden="true"
+                      (pointerdown)="onWaferPointerDown($event)"
+                      (pointermove)="onWaferPointerMove($event)"
+                      (pointerup)="onWaferPointerUp()"
+                      (pointerleave)="onWaferPointerUp()"
+                      (wheel)="onWaferWheel($event)"
+                    ></canvas>
                   </div>
                   <div class="wafer-note">Maska i proporcje są dobierane automatycznie do kształtu i wielkości tortu.</div>
                   <div class="wafer-actions wafer-actions--single">
