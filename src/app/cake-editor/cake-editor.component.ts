@@ -33,6 +33,7 @@ import { SidebarExportPanelComponent } from './sidebar/panels/sidebar-export-pan
 import { BrushSettings, SidebarPanelKey, SidebarPaintMode } from './sidebar/sidebar.types';
 import { TexturesService } from '../services/textures.service';
 import { TextureMapsMetadata, TextureSet } from '../models/texture-set';
+import * as THREE from 'three';
 
 type HelperSettings = {
   grid: boolean;
@@ -66,7 +67,7 @@ type CameraOption = 'perspective' | 'orthographic' | 'isometric' | 'top' | 'fron
 })
 export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   mode: 'setup' | 'workspace' = 'setup';
-  setupTab: 'cake' | 'texture' | 'color' | 'glaze' = 'cake';
+  setupTab: 'cake' | 'texture' | 'color' | 'glaze' | 'wafer' = 'cake';
   paintingMode: SidebarPaintMode = 'decor3d';
   activeSidebarPanel: SidebarPanelKey = 'decorations';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
@@ -84,6 +85,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   waferScale = 1;
   waferOffsetX = 0;
   waferOffsetY = 0;
+  waferMask: 'circle' | 'square' = 'circle';
+  waferPerspective = 0;
+  waferLoadError: string | null = null;
+  waferPreviewDirty = false;
   setupLocked = false;
   canUndoAction = false;
   canRedoAction = false;
@@ -101,6 +106,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   cakeTextureOptions: TexturePickerOption[] = [];
   glazeTextureOptions: TexturePickerOption[] = [];
   textureLoadError: string | null = null;
+  private waferImage: HTMLImageElement | null = null;
+  private waferPreviewFrame: number | null = null;
+  private waferDragStart: { x: number; y: number; offsetX: number; offsetY: number } | null = null;
   private container?: ElementRef;
   @ViewChild('canvasContainer') set canvasContainer(element: ElementRef | undefined) {
     const hasChanged = !!element && this.container?.nativeElement !== element.nativeElement;
@@ -117,6 +125,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.maybeInitializeScene();
   }
   @ViewChild(EditorSidebarComponent) sidebar?: EditorSidebarComponent;
+  @ViewChild('waferCanvas') waferCanvas?: ElementRef<HTMLCanvasElement>;
 
   readonly authorModeEnabled = environment.authorMode;
 
@@ -322,6 +331,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       document.addEventListener('click', this.handleDocumentClick);
       document.addEventListener('keydown', this.handleKeyDown);
     }
+    this.scheduleWaferPreviewRender();
   }
 
   private loadProject(projectId: number): void {
@@ -664,6 +674,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.teardownCanvasListeners();
       document.removeEventListener('click', this.handleDocumentClick);
       document.removeEventListener('keydown', this.handleKeyDown);
+      if (this.waferPreviewFrame !== null) {
+        cancelAnimationFrame(this.waferPreviewFrame);
+      }
     }
   }
 
@@ -875,7 +888,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneTreeScale = Math.min(1.3, Math.max(0.9, this.sceneTreeScale + delta));
   }
 
-  selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze'): void {
+  selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze' | 'wafer'): void {
     this.setupTab = tab;
   }
 
@@ -885,6 +898,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.selectedCakeSize = size;
     this.applyLayerSizing(this.selectedLayers, this.getBaseWidth(size));
+    this.refreshAutoWaferScale(true);
   }
 
   selectShape(shape: 'cylinder' | 'cuboid'): void {
@@ -893,6 +907,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.selectedShape = shape;
     this.patchOptions({ shape });
+    this.syncWaferMaskToShape(true);
   }
 
   selectLayers(layers: number): void {
@@ -901,6 +916,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.selectedLayers = layers;
     this.applyLayerSizing(layers, this.getBaseWidth());
+    this.refreshAutoWaferScale(true);
   }
 
   selectTexture(target: 'cake' | 'glaze', textureId: string): void {
@@ -1033,14 +1049,32 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.waferEnabled = enabled;
+    this.syncWaferMaskToShape(false);
+    this.refreshAutoWaferScale(enabled);
     const fallback = this.options.wafer_texture_url ?? '/assets/textures/Pink%20Candy_BaseColor.jpg';
-    this.patchOptions({ wafer_texture_url: enabled ? fallback : null });
+    this.patchOptions({
+      wafer_texture_url: enabled ? fallback : null,
+      wafer_mask: this.waferMask,
+      wafer_perspective: this.waferPerspective,
+      wafer_scale: this.waferScale,
+      wafer_texture_zoom: this.waferZoom,
+      wafer_texture_offset_x: this.waferOffsetX,
+      wafer_texture_offset_y: this.waferOffsetY,
+    });
     if (!enabled) {
       this.waferScale = 1;
       this.waferZoom = 1;
       this.waferOffsetX = 0;
       this.waferOffsetY = 0;
+      this.waferPerspective = 0;
+      this.waferPreviewDirty = false;
+      this.syncWaferMaskToShape(false);
+      this.waferLoadError = null;
+      this.loadWaferImage(null);
+    } else {
+      this.loadWaferImage(fallback);
     }
+    this.scheduleWaferPreviewRender();
   }
 
   setWaferColor(color: string): void {
@@ -1054,34 +1088,323 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.waferScale = scale;
-    this.patchOptions({ wafer_scale: scale });
+    this.waferPreviewDirty = true;
+    this.scheduleWaferPreviewRender();
   }
 
   setWaferZoom(zoom: number): void {
     if (this.setupLocked) {
       return;
     }
-    this.waferZoom = zoom;
-    this.patchOptions({ wafer_texture_zoom: zoom });
+    this.waferZoom = THREE.MathUtils.clamp(zoom, 1, 3);
+    const offsetLimit = this.getWaferOffsetLimit(this.waferZoom);
+    this.waferOffsetX = THREE.MathUtils.clamp(this.waferOffsetX, -offsetLimit, offsetLimit);
+    this.waferOffsetY = THREE.MathUtils.clamp(this.waferOffsetY, -offsetLimit, offsetLimit);
+    this.waferPreviewDirty = true;
+    this.scheduleWaferPreviewRender();
   }
 
   setWaferOffset(axis: 'x' | 'y', value: number): void {
     if (this.setupLocked) {
       return;
     }
+    const offsetLimit = this.getWaferOffsetLimit();
+    const clamped = THREE.MathUtils.clamp(value, -offsetLimit, offsetLimit);
     if (axis === 'x') {
-      this.waferOffsetX = value;
-      this.patchOptions({ wafer_texture_offset_x: value });
+      this.waferOffsetX = clamped;
     } else {
-      this.waferOffsetY = value;
-      this.patchOptions({ wafer_texture_offset_y: value });
+      this.waferOffsetY = clamped;
     }
+    this.waferPreviewDirty = true;
+    this.scheduleWaferPreviewRender();
+  }
+
+  setWaferMask(_mask: 'circle' | 'square'): void {
+    if (this.setupLocked) {
+      return;
+    }
+    this.syncWaferMaskToShape(true);
+    this.scheduleWaferPreviewRender();
+  }
+
+  setWaferPerspective(value: number): void {
+    if (this.setupLocked) {
+      return;
+    }
+    this.waferPerspective = value;
+    this.waferPreviewDirty = true;
+    this.scheduleWaferPreviewRender();
+  }
+
+  resetWaferTransform(): void {
+    this.setWaferZoom(1);
+    this.setWaferOffset('x', 0);
+    this.setWaferOffset('y', 0);
+    this.setWaferPerspective(0);
+    this.syncWaferMaskToShape(true);
+  }
+
+  get waferHasPendingChanges(): boolean {
+    if (!this.waferEnabled) {
+      return false;
+    }
+
+    return (
+      this.waferPreviewDirty ||
+      (this.options.wafer_scale ?? 1) !== this.waferScale ||
+      (this.options.wafer_mask ?? this.getMaskForShape(this.selectedShape)) !== this.waferMask ||
+      (this.options.wafer_texture_zoom ?? 1) !== this.waferZoom ||
+      (this.options.wafer_texture_offset_x ?? 0) !== this.waferOffsetX ||
+      (this.options.wafer_texture_offset_y ?? 0) !== this.waferOffsetY ||
+      (this.options.wafer_perspective ?? 0) !== this.waferPerspective
+    );
+  }
+
+  applyWaferSettings(showStatus = true): void {
+    if (!this.waferEnabled) {
+      return;
+    }
+
+    this.patchOptions({
+      wafer_scale: this.waferScale,
+      wafer_mask: this.waferMask,
+      wafer_texture_zoom: this.waferZoom,
+      wafer_texture_offset_x: this.waferOffsetX,
+      wafer_texture_offset_y: this.waferOffsetY,
+      wafer_perspective: this.waferPerspective,
+    });
+
+    this.waferPreviewDirty = false;
+
+    if (showStatus) {
+      this.showStatus('Zastosowano ustawienia opłatka.');
+    }
+  }
+
+  onWaferPointerDown(event: PointerEvent): void {
+    if (!this.waferEnabled || this.setupLocked) {
+      return;
+    }
+    event.preventDefault();
+    const canvas = this.waferCanvas?.nativeElement;
+    if (!canvas) return;
+
+    this.waferDragStart = {
+      x: event.clientX,
+      y: event.clientY,
+      offsetX: this.waferOffsetX,
+      offsetY: this.waferOffsetY,
+    };
+    canvas.setPointerCapture?.(event.pointerId);
+  }
+
+  onWaferPointerMove(event: PointerEvent): void {
+    if (!this.waferDragStart || !this.waferEnabled || this.setupLocked) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const canvas = this.waferCanvas?.nativeElement;
+    if (!canvas) return;
+
+    const maskSize = this.getWaferMaskSize(canvas);
+    if (!maskSize) return;
+
+    const deltaX = event.clientX - this.waferDragStart.x;
+    const deltaY = event.clientY - this.waferDragStart.y;
+
+    const normalizedFactor = 2 / maskSize;
+    const nextX = this.waferDragStart.offsetX + deltaX * normalizedFactor;
+    const nextY = this.waferDragStart.offsetY - deltaY * normalizedFactor;
+    const limit = this.getWaferOffsetLimit();
+
+    this.setWaferOffset('x', THREE.MathUtils.clamp(nextX, -limit, limit));
+    this.setWaferOffset('y', THREE.MathUtils.clamp(nextY, -limit, limit));
+  }
+
+  onWaferPointerUp(): void {
+    this.waferDragStart = null;
+  }
+
+  onWaferWheel(event: WheelEvent): void {
+    if (!this.waferEnabled || this.setupLocked) {
+      return;
+    }
+    event.preventDefault();
+    const delta = event.deltaY < 0 ? 0.05 : -0.05;
+    const nextZoom = THREE.MathUtils.clamp(this.waferZoom + delta, 1, 3);
+    this.setWaferZoom(nextZoom);
+  }
+
+  private scheduleWaferPreviewRender(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    if (this.waferPreviewFrame !== null) {
+      cancelAnimationFrame(this.waferPreviewFrame);
+    }
+
+    this.waferPreviewFrame = window.requestAnimationFrame(() => {
+      this.waferPreviewFrame = null;
+      this.renderWaferPreview();
+    });
+  }
+
+  private loadWaferImage(url: string | null): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    if (!url) {
+      this.waferImage = null;
+      this.scheduleWaferPreviewRender();
+      return;
+    }
+
+    const image = new Image();
+    image.onload = () => {
+      this.waferImage = image;
+      this.waferPreviewDirty = true;
+      this.scheduleWaferPreviewRender();
+    };
+    image.onerror = () => {
+      this.waferLoadError = 'Nie udało się wczytać obrazu opłatka.';
+      this.waferImage = null;
+      this.patchOptions({ wafer_texture_url: null });
+      this.waferEnabled = false;
+      this.scheduleWaferPreviewRender();
+    };
+    image.src = url;
+  }
+
+  private renderWaferPreview(): void {
+    const canvas = this.waferCanvas?.nativeElement;
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+
+    const width = canvas.clientWidth || 240;
+    const height = canvas.clientHeight || 240;
+    canvas.width = width;
+    canvas.height = height;
+
+    context.clearRect(0, 0, width, height);
+
+    const maskSize = this.getWaferMaskSize(canvas);
+    const maskRadius = maskSize / 2;
+    const maskPath = new Path2D();
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    if (this.waferMask === 'circle') {
+      maskPath.arc(centerX, centerY, maskRadius, 0, Math.PI * 2);
+    } else {
+      maskPath.rect(centerX - maskRadius, centerY - maskRadius, maskSize, maskSize);
+    }
+
+    context.save();
+    context.clip(maskPath);
+
+    if (this.waferImage) {
+      context.save();
+      context.translate(centerX, centerY);
+      const rotationRad = THREE.MathUtils.degToRad(this.waferPerspective);
+      context.rotate(rotationRad);
+
+      const offsetX = this.waferOffsetX * maskSize;
+      const offsetY = -this.waferOffsetY * maskSize;
+
+      const baseScale = maskSize > 0 ? maskSize / Math.max(this.waferImage.width, this.waferImage.height) : 1;
+      const drawWidth = this.waferImage.width * baseScale * this.waferZoom;
+      const drawHeight = this.waferImage.height * baseScale * this.waferZoom;
+
+      context.drawImage(
+        this.waferImage,
+        -drawWidth / 2 + offsetX,
+        -drawHeight / 2 + offsetY,
+        drawWidth,
+        drawHeight,
+      );
+      context.restore();
+    } else {
+      context.fillStyle = '#f7f7f7';
+      context.fillRect(centerX - maskRadius, centerY - maskRadius, maskSize, maskSize);
+      context.fillStyle = '#c2c2c2';
+      context.textAlign = 'center';
+      context.font = '14px sans-serif';
+      context.fillText('Brak podglądu', centerX, centerY + 5);
+    }
+
+    context.restore();
+
+    context.save();
+    context.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    context.fillRect(0, 0, width, height);
+    context.globalCompositeOperation = 'destination-out';
+    context.fill(maskPath);
+    context.globalCompositeOperation = 'source-over';
+    context.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    context.lineWidth = 2;
+    context.stroke(maskPath);
+    context.restore();
+  }
+
+  private getWaferMaskSize(canvas: HTMLCanvasElement): number {
+    const size = Math.min(canvas.clientWidth || 0, canvas.clientHeight || 0);
+    return size > 0 ? size * 0.9 : 0;
+  }
+
+  private getWaferOffsetLimit(zoom: number = this.waferZoom): number {
+    const clampedZoom = THREE.MathUtils.clamp(zoom, 1, 3);
+    return Math.max(0, 0.5 * (clampedZoom - 1));
   }
 
   private getBaseWidth(size: 'small' | 'medium' | 'large' = this.selectedCakeSize): number {
     if (size === 'small') return 0.9;
     if (size === 'large') return 1.2;
     return 1;
+  }
+
+  private computeAutoWaferScale(): number {
+    const topSize = this.options.layerSizes?.[this.selectedLayers - 1] ?? this.getBaseWidth(this.selectedCakeSize);
+    const normalized = THREE.MathUtils.clamp(topSize, 0.9, 1.35);
+    const scaled = THREE.MathUtils.clamp(normalized * 0.98, 0.95, 1.15);
+    return Number(scaled.toFixed(3));
+  }
+
+  private refreshAutoWaferScale(applyToOptions = false): void {
+    const nextScale = this.computeAutoWaferScale();
+    if (this.waferScale !== nextScale) {
+      this.waferScale = nextScale;
+      this.waferPreviewDirty = true;
+      if (applyToOptions && this.waferEnabled) {
+        this.patchOptions({ wafer_scale: nextScale });
+      }
+      this.scheduleWaferPreviewRender();
+    }
+  }
+
+  private getMaskForShape(shape: 'cylinder' | 'cuboid'): 'circle' | 'square' {
+    return shape === 'cylinder' ? 'circle' : 'square';
+  }
+
+  private syncWaferMaskToShape(applyToOptions: boolean): void {
+    const expectedMask = this.getMaskForShape(this.selectedShape);
+    if (this.waferMask !== expectedMask) {
+      this.waferMask = expectedMask;
+      this.scheduleWaferPreviewRender();
+    }
+
+    if (applyToOptions && this.waferEnabled && this.options.wafer_mask !== expectedMask) {
+      this.applyWaferSettings(false);
+    }
   }
 
   private applyLayerSizing(layers: number, baseWidth: number): void {
@@ -1098,10 +1421,29 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const file = input?.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith('image/')) {
+      this.waferLoadError = 'Obsługiwane są wyłącznie pliki graficzne.';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result) {
+        this.waferLoadError = 'Nie udało się wczytać wybranego pliku.';
+        return;
+      }
+
+      this.waferLoadError = null;
+      this.waferEnabled = true;
+      this.refreshAutoWaferScale(true);
+      this.waferPreviewDirty = true;
       this.patchOptions({ wafer_texture_url: result });
+      this.loadWaferImage(result);
+      this.scheduleWaferPreviewRender();
+    };
+    reader.onerror = () => {
+      this.waferLoadError = 'Nie udało się wczytać wybranego pliku.';
     };
     reader.readAsDataURL(file);
   }
@@ -1734,10 +2076,17 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.glazeEnabled = this.options.glaze_enabled;
     this.glazeMode = this.options.glaze_top_enabled ? 'taffla' : 'plain';
     this.waferEnabled = !!this.options.wafer_texture_url;
-    this.waferScale = this.options.wafer_scale ?? 1;
-    this.waferZoom = this.options.wafer_texture_zoom ?? 1;
-    this.waferOffsetX = this.options.wafer_texture_offset_x ?? 0;
-    this.waferOffsetY = this.options.wafer_texture_offset_y ?? 0;
+    this.waferScale = this.options.wafer_scale ?? this.computeAutoWaferScale();
+    this.waferZoom = THREE.MathUtils.clamp(this.options.wafer_texture_zoom ?? 1, 1, 3);
+    const offsetLimit = this.getWaferOffsetLimit(this.waferZoom);
+    this.waferOffsetX = THREE.MathUtils.clamp(this.options.wafer_texture_offset_x ?? 0, -offsetLimit, offsetLimit);
+    this.waferOffsetY = THREE.MathUtils.clamp(this.options.wafer_texture_offset_y ?? 0, -offsetLimit, offsetLimit);
+    this.waferMask = this.options.wafer_mask ?? this.getMaskForShape(this.selectedShape);
+    this.waferPerspective = THREE.MathUtils.clamp(this.options.wafer_perspective ?? 0, -45, 45);
+    this.syncWaferMaskToShape(this.waferEnabled);
+    this.loadWaferImage(this.options.wafer_texture_url);
+    this.waferPreviewDirty = false;
+    this.scheduleWaferPreviewRender();
     this.syncSelectedTextures();
   }
 

@@ -191,10 +191,12 @@ describe('ThreeSceneService', () => {
       cake_textures: null,
       glaze_textures: null,
       wafer_texture_url: null,
-      wafer_scale: 1,
+      wafer_scale: 0.85,
       wafer_texture_zoom: 1,
       wafer_texture_offset_x: 0,
       wafer_texture_offset_y: 0,
+      wafer_mask: 'circle',
+      wafer_perspective: 0,
     };
 
     (service as any).loadAndAddText('Hi', 1, 1, 0.1, {
@@ -498,10 +500,12 @@ describe('ThreeSceneService', () => {
       cake_textures: null,
       glaze_textures: null,
       wafer_texture_url: null,
-      wafer_scale: 1,
+      wafer_scale: 0.85,
       wafer_texture_zoom: 1,
       wafer_texture_offset_x: 0,
       wafer_texture_offset_y: 0,
+      wafer_mask: 'circle',
+      wafer_perspective: 0,
     };
 
     (service as any).loadAndAddText('OK', 1, 2, 0.1, {
@@ -562,10 +566,12 @@ describe('ThreeSceneService', () => {
       cake_textures: null,
       glaze_textures: null,
       wafer_texture_url: null,
-      wafer_scale: 1,
+      wafer_scale: 0.85,
       wafer_texture_zoom: 1,
       wafer_texture_offset_x: 0,
       wafer_texture_offset_y: 0,
+      wafer_mask: 'circle',
+      wafer_perspective: 0,
     };
 
     (service as any).loadAndAddText('A', 1, 2, 0.1, {
@@ -623,10 +629,12 @@ describe('ThreeSceneService', () => {
       cake_textures: null,
       glaze_textures: null,
       wafer_texture_url: null,
-      wafer_scale: 1,
+      wafer_scale: 0.85,
       wafer_texture_zoom: 1,
       wafer_texture_offset_x: 0,
       wafer_texture_offset_y: 0,
+      wafer_mask: 'circle',
+      wafer_perspective: 0,
     };
 
     (service as any).loadAndAddText('TOP', 1, 2, 0.1, {

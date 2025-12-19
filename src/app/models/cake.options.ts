@@ -36,4 +36,6 @@ export interface CakeOptions {
   wafer_texture_zoom: number;
   wafer_texture_offset_x: number;
   wafer_texture_offset_y: number;
+  wafer_mask: 'circle' | 'square';
+  wafer_perspective: number;
 }

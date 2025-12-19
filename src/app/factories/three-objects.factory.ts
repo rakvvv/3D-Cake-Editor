@@ -159,18 +159,22 @@ export class ThreeObjectsFactory {
 
   private static createWaferDetailTexture(): THREE.DataTexture {
     const size = 128;
-    const data = new Uint8Array(size * size * 3);
+    const data = new Uint8Array(size * size * 4);
 
-    for (let i = 0; i < data.length; i += 3) {
+    for (let i = 0; i < data.length; i += 4) {
       const noise = 110 + Math.random() * 60;
       data[i] = noise;
       data[i + 1] = noise;
       data[i + 2] = noise;
+      data[i + 3] = 255;
     }
 
-    const texture = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.anisotropy = 4;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
     texture.needsUpdate = true;
     return texture;
   }
@@ -330,19 +334,10 @@ export class ThreeObjectsFactory {
       return null;
     }
 
-    const texture = this.textureLoader.load(options.wafer_texture_url);
-    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 8;
+    const transform = this.computeWaferTransform(options);
+    const texture = this.createWaferTexture(options.wafer_texture_url, transform);
 
     const detailTexture = this.createWaferDetailTexture();
-
-    const { repeat, offsetX, offsetY } = this.computeWaferTransform(options);
-
-    // texture.center.set(0.5, 0.5);
-    texture.repeat.set(repeat, repeat);
-    texture.offset.set(offsetX, offsetY);
-    texture.needsUpdate = true;
 
     const material = new THREE.MeshPhysicalMaterial({
       map: texture,
@@ -364,12 +359,16 @@ export class ThreeObjectsFactory {
     const scale = THREE.MathUtils.clamp(options.wafer_scale ?? 1, 0.4, 2.5);
     let geometry: THREE.BufferGeometry;
 
-    if (metadata.shape === 'cylinder') {
-      const radius = (topLayer.radius ?? metadata.radius ?? 2) * scale;
+    const maskShape = options.wafer_mask ?? (metadata.shape === 'cylinder' ? 'circle' : 'square');
+
+    if (maskShape === 'circle') {
+      const radius = (topLayer.radius ?? metadata.radius ?? Math.min(topLayer.width ?? 2, topLayer.depth ?? 2) / 2) * scale;
       geometry = new THREE.CircleGeometry(radius, 64);
     } else {
-      const width = (topLayer.width ?? metadata.width ?? 2) * scale;
-      const depth = (topLayer.depth ?? metadata.depth ?? 2) * scale;
+      const baseWidth = topLayer.width ?? metadata.width ?? (topLayer.radius ?? metadata.radius ?? 1) * 2;
+      const baseDepth = topLayer.depth ?? metadata.depth ?? (topLayer.radius ?? metadata.radius ?? 1) * 2;
+      const width = baseWidth * scale;
+      const depth = baseDepth * scale;
       geometry = new THREE.PlaneGeometry(width, depth);
     }
 
@@ -380,7 +379,7 @@ export class ThreeObjectsFactory {
     wafer.userData['waferTexture'] = texture;
     wafer.userData['waferDetailTexture'] = detailTexture;
     wafer.rotation.x = -Math.PI / 2;
-    wafer.position.y = topLayer.topY + 0.05;
+    wafer.position.y = topLayer.topY + 0.005;
     wafer.renderOrder = 2;
     material.polygonOffset = true;
     material.polygonOffsetFactor = -1;
@@ -416,23 +415,84 @@ export class ThreeObjectsFactory {
     return wafer;
   }
 
-  private static computeWaferTransform(options: CakeOptions): { repeat: number; offsetX: number; offsetY: number } {
-    const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
+  private static computeWaferTransform(options: CakeOptions): {
+    repeat: number;
+    offsetX: number;
+    offsetY: number;
+    rotation: number;
+  } {
+    const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 3);
     const repeat = 1 / zoom;
 
     const offsetLimit = Math.max(0, 0.5 * (zoom - 1));
-
     const rawOffsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -offsetLimit, offsetLimit);
     const rawOffsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -offsetLimit, offsetLimit);
 
+    const rotation = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(options.wafer_perspective ?? 0, -45, 45));
+
+    const centerOffset = (1 - repeat) / 2;
+
     return {
       repeat,
-      // Oś X: (Lewo/Prawo) - działa tak samo jak w HTML
-      offsetX: 0.5 - repeat / 2 + rawOffsetX * repeat,
-
-      // Oś Y: (Góra/Dół) - musi być odwrócona (minus) względem HTML
-      offsetY: 0.5 - repeat / 2 - rawOffsetY * repeat,
+      offsetX: centerOffset - rawOffsetX,
+      offsetY: centerOffset - rawOffsetY,
+      rotation,
     };
+  }
+
+  private static createWaferTexture(
+    url: string,
+    transform: { repeat: number; offsetX: number; offsetY: number; rotation: number },
+  ): THREE.Texture {
+    const texture = new THREE.Texture();
+
+    const applyTransform = (texture: THREE.Texture): void => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.repeat.set(transform.repeat, transform.repeat);
+      texture.offset.set(transform.offsetX, transform.offsetY);
+      if (transform.rotation !== 0) {
+        texture.center.set(0.5, 0.5);
+        texture.rotation = transform.rotation;
+      }
+      texture.anisotropy = 8;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = false;
+    };
+
+    applyTransform(texture);
+
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+
+    image.onload = () => {
+      if (!image.width || !image.height) {
+        return;
+      }
+      texture.image = image;
+      applyTransform(texture);
+      texture.needsUpdate = true;
+      this.onTextureLoaded?.();
+    };
+
+    image.onerror = () => {
+      console.warn('Failed to load wafer texture:', url);
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#cccccc';
+        ctx.fillRect(0, 0, 64, 64);
+      }
+      texture.image = canvas;
+      texture.needsUpdate = true;
+    };
+
+    image.src = url;
+
+    return texture;
   }
 
   // ========= GLAZE CREATION =========

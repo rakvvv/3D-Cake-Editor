@@ -96,6 +96,10 @@
             <span class="icon-24" aria-hidden="true">🍫</span>
             <span>Polewa</span>
           </button>
+          <button class="setup-sidebar__item" type="button" [class.setup-sidebar__item--active]="setupTab === 'wafer'" (click)="selectSetupTab('wafer')">
+            <span class="icon-24" aria-hidden="true">🧇</span>
+            <span>Opłatek</span>
+          </button>
         </aside>
 
         <section class="setup-panel">
@@ -327,170 +331,141 @@
               </div>
             </div>
 
-            <div *ngSwitchCase="'glaze'" class="setup-panel__content">
-              <div class="panel-block">
-                <div class="panel-block__header">
-                  <div class="panel-block__title">Polewa</div>
-                  <button class="btn-toggle" type="button" [disabled]="setupLocked" (click)="toggleGlaze(!glazeEnabled)">
-                    <span class="icon-16" aria-hidden="true">⏻</span>
-                  </button>
-                </div>
-                <div class="color-row" [class.color-row--disabled]="!glazeColorEditable || !glazeEnabled || setupLocked">
-                  <span class="color-row__label">Kolor polewy</span>
-                  <div class="color-row__input">
-                    <input
-                      type="color"
-                      [disabled]="!glazeEnabled || !glazeColorEditable || setupLocked"
-                      [ngModel]="options.glaze_color"
-                      (input)="setGlazeColor(getInputValue($event))"
-                    />
-                    <input
-                      type="text"
-                      [disabled]="!glazeEnabled || !glazeColorEditable || setupLocked"
-                      [ngModel]="options.glaze_color"
-                      (ngModelChange)="setGlazeColor($event)"
-                    />
+              <div *ngSwitchCase="'glaze'" class="setup-panel__content">
+                <div class="panel-block">
+                  <div class="panel-block__header">
+                    <div class="panel-block__title">Polewa</div>
+                    <button class="btn-toggle" type="button" [disabled]="setupLocked" (click)="toggleGlaze(!glazeEnabled)">
+                      <span class="icon-16" aria-hidden="true">⏻</span>
+                    </button>
                   </div>
-                  <div class="color-swatch" [style.background]="options.glaze_color"></div>
+                  <div class="color-row" [class.color-row--disabled]="!glazeColorEditable || !glazeEnabled || setupLocked">
+                    <span class="color-row__label">Kolor polewy</span>
+                    <div class="color-row__input">
+                      <input
+                        type="color"
+                        [disabled]="!glazeEnabled || !glazeColorEditable || setupLocked"
+                        [ngModel]="options.glaze_color"
+                        (input)="setGlazeColor(getInputValue($event))"
+                      />
+                      <input
+                        type="text"
+                        [disabled]="!glazeEnabled || !glazeColorEditable || setupLocked"
+                        [ngModel]="options.glaze_color"
+                        (ngModelChange)="setGlazeColor($event)"
+                      />
+                    </div>
+                    <div class="color-swatch" [style.background]="options.glaze_color"></div>
+                  </div>
+                  <div class="toggle-tab">
+                    <button
+                      class="toggle-tab__item"
+                      [class.toggle-tab__item--active]="glazeMode === 'taffla'"
+                      type="button"
+                      [disabled]="setupLocked"
+                      (click)="setGlazeMode('taffla')"
+                    >
+                      Tafla
+                    </button>
+                    <button
+                      class="toggle-tab__item"
+                      [class.toggle-tab__item--active]="glazeMode === 'plain'"
+                      type="button"
+                      [disabled]="setupLocked"
+                      (click)="setGlazeMode('plain')"
+                    >
+                      Bez tafli
+                    </button>
+                  </div>
                 </div>
-                <div class="toggle-tab">
-                  <button
-                    class="toggle-tab__item"
-                    [class.toggle-tab__item--active]="glazeMode === 'taffla'"
-                    type="button"
-                    [disabled]="setupLocked"
-                    (click)="setGlazeMode('taffla')"
-                  >
-                    Tafla
-                  </button>
-                  <button
-                    class="toggle-tab__item"
-                    [class.toggle-tab__item--active]="glazeMode === 'plain'"
-                    type="button"
-                    [disabled]="setupLocked"
-                    (click)="setGlazeMode('plain')"
-                  >
-                    Bez tafli
-                  </button>
+                <div class="panel-block">
+                  <div class="panel-block__title">Tekstury polewy</div>
+                  <div *ngIf="textureLoadError" class="panel-block__error">{{ textureLoadError }}</div>
+                  <div class="texture-grid">
+                    <button
+                      *ngFor="let texture of glazeTextureOptions"
+                      type="button"
+                      class="texture-card"
+                      [class.texture-card--active]="selectedGlazeTextureId === texture.id"
+                      [disabled]="setupLocked"
+                      (click)="selectTexture('glaze', texture.id)"
+                    >
+                      <div
+                        class="texture-card__preview"
+                        [class.texture-card__preview--overlay]="texture.previewOverlay"
+                        [ngStyle]="buildTexturePreviewStyle(texture)"
+                        aria-hidden="true"
+                      ></div>
+                      <div class="texture-card__name">{{ texture.label }}</div>
+                      <div class="texture-card__meta">
+                        <span
+                          *ngIf="texture.maps.repeat"
+                          class="texture-card__chip"
+                          title="Powtórzenie"
+                        >
+                          ×{{ texture.maps.repeat }}
+                        </span>
+                        <span
+                          *ngIf="texture.maps.affectDrips !== undefined && texture.maps.affectDrips !== null"
+                          class="texture-card__chip"
+                          title="Wpływ tekstury na spływanie polewy"
+                        >
+                          Drip: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div class="panel-block">
-                <div class="panel-block__title">Tekstury polewy</div>
-                <div *ngIf="textureLoadError" class="panel-block__error">{{ textureLoadError }}</div>
-                <div class="texture-grid">
-                  <button
-                    *ngFor="let texture of glazeTextureOptions"
-                    type="button"
-                    class="texture-card"
-                    [class.texture-card--active]="selectedGlazeTextureId === texture.id"
-                    [disabled]="setupLocked"
-                    (click)="selectTexture('glaze', texture.id)"
-                  >
-                    <div
-                      class="texture-card__preview"
-                      [class.texture-card__preview--overlay]="texture.previewOverlay"
-                      [ngStyle]="buildTexturePreviewStyle(texture)"
+              <div *ngSwitchCase="'wafer'" class="setup-panel__content">
+                <div class="panel-block">
+                  <div class="panel-block__header">
+                    <div class="panel-block__title">Opłatek</div>
+                    <button class="btn-toggle" type="button" [disabled]="setupLocked" (click)="toggleWafer(!waferEnabled)">
+                      <span class="icon-16" aria-hidden="true">⏻</span>
+                    </button>
+                  </div>
+                  <div class="panel-block__description">
+                    Skala dopasowuje się automatycznie do rozmiaru tortu, aby opłatek nie wystawał poza krawędzie.
+                  </div>
+                  <div class="file-row">
+                    <span class="color-row__label">Wybierz obraz</span>
+                    <label class="file-input" [class.file-input--disabled]="!waferEnabled || setupLocked">
+                      <input
+                        type="file"
+                        (change)="onWaferFileSelected($event)"
+                        [disabled]="!waferEnabled || setupLocked"
+                        hidden
+                      />
+                      <span>Wybierz plik</span>
+                    </label>
+                  </div>
+                  <div *ngIf="waferLoadError" class="panel-block__error">{{ waferLoadError }}</div>
+                  <div class="wafer-preview" [class.wafer-preview--disabled]="!waferEnabled || setupLocked">
+                    <canvas
+                      #waferCanvas
                       aria-hidden="true"
-                    ></div>
-                    <div class="texture-card__name">{{ texture.label }}</div>
-                  <div class="texture-card__meta">
-                    <span
-                      *ngIf="texture.maps.repeat"
-                      class="texture-card__chip"
-                      title="Powtórzenie"
-                    >
-                      ×{{ texture.maps.repeat }}
-                    </span>
-                    <span
-                      *ngIf="texture.maps.affectDrips !== undefined && texture.maps.affectDrips !== null"
-                      class="texture-card__chip"
-                      title="Wpływ tekstury na spływanie polewy"
-                    >
-                      Drip: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
-                    </span>
+                      (pointerdown)="onWaferPointerDown($event)"
+                      (pointermove)="onWaferPointerMove($event)"
+                      (pointerup)="onWaferPointerUp()"
+                      (pointerleave)="onWaferPointerUp()"
+                      (wheel)="onWaferWheel($event)"
+                    ></canvas>
                   </div>
-                </button>
+                  <div class="wafer-note">Maska i proporcje są dobierane automatycznie do kształtu i wielkości tortu.</div>
+                  <div class="wafer-actions wafer-actions--single">
+                    <button
+                      class="btn btn--primary"
+                      type="button"
+                      [disabled]="!waferEnabled || setupLocked || !waferHasPendingChanges"
+                      (click)="applyWaferSettings()"
+                    >
+                      Zastosuj na torcie
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <div class="panel-block">
-                <div class="panel-block__header">
-                  <div class="panel-block__title">Opłatek</div>
-                  <button class="btn-toggle" type="button" [disabled]="setupLocked" (click)="toggleWafer(!waferEnabled)">
-                    <span class="icon-16" aria-hidden="true">⏻</span>
-                  </button>
-                </div>
-                <div class="file-row">
-                  <span class="color-row__label">Wybierz obraz</span>
-                  <label class="file-input" [class.file-input--disabled]="!waferEnabled || setupLocked">
-                    <input
-                      type="file"
-                      (change)="onWaferFileSelected($event)"
-                      [disabled]="!waferEnabled || setupLocked"
-                      hidden
-                    />
-                    <span>Wybierz plik</span>
-                  </label>
-                </div>
-                <div class="slider-row" [class.slider-row--disabled]="!waferEnabled || setupLocked">
-                  <span class="slider-row__label">Skala</span>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="2"
-                    step="0.05"
-                    [value]="waferScale"
-                    [disabled]="!waferEnabled || setupLocked"
-                    class="slider-row__range"
-                    (input)="setWaferScale($any($event.target).valueAsNumber || 1)"
-                  />
-                  <div class="slider-row__value">{{ waferScale | number: '1.2-2' }}</div>
-                </div>
-                <div class="slider-row" [class.slider-row--disabled]="!waferEnabled || setupLocked">
-                  <span class="slider-row__label">Zoom</span>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="3"
-                    step="0.1"
-                    [value]="waferZoom"
-                    [disabled]="!waferEnabled || setupLocked"
-                    class="slider-row__range"
-                    (input)="setWaferZoom($any($event.target).valueAsNumber || 1)"
-                  />
-                  <div class="slider-row__value">{{ waferZoom | number: '1.1-2' }}</div>
-                </div>
-                <div class="slider-row slider-row--compact" [class.slider-row--disabled]="!waferEnabled || setupLocked">
-                  <span class="slider-row__label">Offset X</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.05"
-                    [value]="waferOffsetX"
-                    [disabled]="!waferEnabled || setupLocked"
-                    class="slider-row__range"
-                    (input)="setWaferOffset('x', $any($event.target).valueAsNumber || 0)"
-                  />
-                  <div class="slider-row__value">{{ waferOffsetX | number: '1.2-2' }}</div>
-                </div>
-                <div class="slider-row slider-row--compact" [class.slider-row--disabled]="!waferEnabled || setupLocked">
-                  <span class="slider-row__label">Offset Y</span>
-                  <input
-                    type="range"
-                    min="-1"
-                    max="1"
-                    step="0.05"
-                    [value]="waferOffsetY"
-                    [disabled]="!waferEnabled || setupLocked"
-                    class="slider-row__range"
-                    (input)="setWaferOffset('y', $any($event.target).valueAsNumber || 0)"
-                  />
-                  <div class="slider-row__value">{{ waferOffsetY | number: '1.2-2' }}</div>
-                </div>
-              </div>
-            </div>
           </ng-container>
         </section>
 

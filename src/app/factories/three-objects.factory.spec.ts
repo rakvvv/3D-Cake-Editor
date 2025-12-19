@@ -24,10 +24,12 @@ describe('ThreeObjectsFactory', () => {
     cake_textures: null,
     glaze_textures: null,
     wafer_texture_url: null,
-    wafer_scale: 1,
+    wafer_scale: 0.85,
     wafer_texture_zoom: 1,
     wafer_texture_offset_x: 0,
     wafer_texture_offset_y: 0,
+    wafer_mask: 'circle',
+    wafer_perspective: 0,
   };
 
   const getOptions = (overrides: Partial<CakeOptions> = {}): CakeOptions => ({
