@@ -430,10 +430,12 @@ export class ThreeObjectsFactory {
 
     const rotation = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(options.wafer_perspective ?? 0, -45, 45));
 
+    const centerOffset = (1 - repeat) / 2;
+
     return {
       repeat,
-      offsetX: (1 - repeat) / 2 - rawOffsetX * repeat,
-      offsetY: (1 - repeat) / 2 - rawOffsetY * repeat,
+      offsetX: centerOffset - rawOffsetX,
+      offsetY: centerOffset - rawOffsetY,
       rotation,
     };
   }
@@ -447,10 +449,12 @@ export class ThreeObjectsFactory {
     const applyTransform = (texture: THREE.Texture): void => {
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.center.set(0.5, 0.5);
       texture.repeat.set(transform.repeat, transform.repeat);
       texture.offset.set(transform.offsetX, transform.offsetY);
-      texture.rotation = transform.rotation;
+      if (transform.rotation !== 0) {
+        texture.center.set(0.5, 0.5);
+        texture.rotation = transform.rotation;
+      }
       texture.anisotropy = 8;
       texture.minFilter = THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;

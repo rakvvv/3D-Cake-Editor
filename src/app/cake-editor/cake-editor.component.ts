@@ -1315,11 +1315,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.waferImage) {
       context.save();
       context.translate(centerX, centerY);
-      const rotationRad = (this.waferPerspective / 45) * (Math.PI / 4);
+      const rotationRad = THREE.MathUtils.degToRad(this.waferPerspective);
       context.rotate(rotationRad);
 
-      const offsetX = this.waferOffsetX * maskRadius;
-      const offsetY = -this.waferOffsetY * maskRadius;
+      const offsetX = this.waferOffsetX * maskSize;
+      const offsetY = -this.waferOffsetY * maskSize;
 
       const baseScale = maskSize > 0 ? maskSize / Math.max(this.waferImage.width, this.waferImage.height) : 1;
       const drawWidth = this.waferImage.width * baseScale * this.waferZoom;
