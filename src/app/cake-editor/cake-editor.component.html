@@ -212,9 +212,26 @@
                   ></div>
                   <div class="texture-card__name">{{ texture.label }}</div>
                   <div class="texture-card__meta">
-                    <span *ngIf="texture.maps.repeat">Powtórzenie: {{ texture.maps.repeat }}</span>
-                    <span *ngIf="texture.maps.affectDrips !== undefined && texture.maps.affectDrips !== null">
-                      Spływanie: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
+                    <span
+                      *ngIf="texture.maps.repeat"
+                      class="texture-card__chip"
+                      title="Powtórzenie"
+                    >
+                      ×{{ texture.maps.repeat }}
+                    </span>
+                    <span
+                      *ngIf="texture.maps.affectDrips !== undefined && texture.maps.affectDrips !== null"
+                      class="texture-card__chip"
+                      title="Wpływ tekstury na spływanie polewy"
+                    >
+                      Drip: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
+                    </span>
+                    <span
+                      *ngFor="let badge of texture.badges"
+                      class="texture-card__chip"
+                      [attr.title]="badge.title"
+                    >
+                      {{ badge.label }}
                     </span>
                   </div>
                 </button>
@@ -372,13 +389,30 @@
                       aria-hidden="true"
                     ></div>
                     <div class="texture-card__name">{{ texture.label }}</div>
-                    <div class="texture-card__meta">
-                      <span *ngIf="texture.maps.repeat">Powtórzenie: {{ texture.maps.repeat }}</span>
-                      <span *ngIf="texture.maps.affectDrips !== undefined && texture.maps.affectDrips !== null">
-                        Spływanie: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
-                      </span>
-                    </div>
-                  </button>
+                  <div class="texture-card__meta">
+                    <span
+                      *ngIf="texture.maps.repeat"
+                      class="texture-card__chip"
+                      title="Powtórzenie"
+                    >
+                      ×{{ texture.maps.repeat }}
+                    </span>
+                    <span
+                      *ngIf="texture.maps.affectDrips !== undefined && texture.maps.affectDrips !== null"
+                      class="texture-card__chip"
+                      title="Wpływ tekstury na spływanie polewy"
+                    >
+                      Drip: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
+                    </span>
+                    <span
+                      *ngFor="let badge of texture.badges"
+                      class="texture-card__chip"
+                      [attr.title]="badge.title"
+                    >
+                      {{ badge.label }}
+                    </span>
+                  </div>
+                </button>
                 </div>
               </div>
 

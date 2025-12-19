@@ -41,12 +41,18 @@ type HelperSettings = {
   highQuality: boolean;
 };
 
+type TextureBadge = {
+  label: string;
+  title: string;
+};
+
 type TexturePickerOption = {
   id: string;
   label: string;
   preview: string | null;
   target: 'cake' | 'glaze';
   maps: TextureMaps;
+  badges: TextureBadge[];
 };
 
 type CameraOption = 'perspective' | 'orthographic' | 'isometric' | 'top' | 'front' | 'right';
@@ -370,25 +376,27 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     sets.forEach((set) => {
       if (set.cake) {
         const maps = this.normalizeTextureMaps(set.cake);
-        const preview = this.normalizeTextureUrl(set.thumbnailUrl) ?? maps.baseColor ?? null;
+        const preview = this.pickTexturePreview(set.thumbnailUrl, maps);
         cakeOptions.push({
           id: set.id,
           label: set.label,
           preview,
           target: 'cake',
           maps,
+          badges: this.buildTextureBadges(maps),
         });
       }
 
       if (set.glaze) {
         const maps = this.normalizeTextureMaps(set.glaze);
-        const preview = this.normalizeTextureUrl(set.thumbnailUrl) ?? maps.baseColor ?? null;
+        const preview = this.pickTexturePreview(set.thumbnailUrl, maps);
         glazeOptions.push({
           id: set.id,
           label: set.label,
           preview,
           target: 'glaze',
           maps,
+          badges: this.buildTextureBadges(maps),
         });
       }
     });
@@ -465,6 +473,65 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     return normalized;
+  }
+
+  private pickTexturePreview(
+    thumbnailUrl: string | null | undefined,
+    maps: TextureMaps,
+  ): string | null {
+    const normalizedThumbnail = this.normalizeTextureUrl(thumbnailUrl);
+    if (normalizedThumbnail) {
+      return normalizedThumbnail;
+    }
+
+    const candidates = [
+      maps.baseColor,
+      maps.normal,
+      maps.roughness,
+      maps.displacement,
+      maps.metallic,
+      maps.emissive,
+      maps.ambientOcclusion,
+      maps.alpha,
+    ];
+
+    for (const candidate of candidates) {
+      if (candidate && !this.isProbablyColor(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private buildTextureBadges(maps: TextureMaps): TextureBadge[] {
+    const badges: TextureBadge[] = [];
+
+    const badgeEntries: Array<[keyof TextureMaps, TextureBadge]> = [
+      ['normal', { label: 'N', title: 'Mapa normalnych' }],
+      ['roughness', { label: 'R', title: 'Mapa szorstkości' }],
+      ['displacement', { label: 'D', title: 'Mapa wysokości' }],
+      ['metallic', { label: 'M', title: 'Mapa metaliczności' }],
+      ['ambientOcclusion', { label: 'AO', title: 'Mapa ambient occlusion' }],
+      ['emissive', { label: 'E', title: 'Mapa emisyjna' }],
+      ['alpha', { label: 'A', title: 'Mapa alfa' }],
+    ];
+
+    badgeEntries.forEach(([key, badge]) => {
+      if (maps[key]) {
+        badges.push(badge);
+      }
+    });
+
+    return badges;
+  }
+
+  private isProbablyColor(value: string | null | undefined): boolean {
+    if (!value) {
+      return false;
+    }
+
+    return /^#|^rgb\(/i.test(value.trim());
   }
 
   private normalizeTextureUrl(url: string | null | undefined): string | null {
