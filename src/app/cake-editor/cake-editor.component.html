@@ -433,6 +433,37 @@
                     <span>Wybierz plik</span>
                   </label>
                 </div>
+                <div *ngIf="waferLoadError" class="panel-block__error">{{ waferLoadError }}</div>
+                <div class="toggle-tab" [class.toggle-tab--disabled]="!waferEnabled || setupLocked">
+                  <button
+                    class="toggle-tab__item"
+                    [class.toggle-tab__item--active]="waferMask === 'circle'"
+                    type="button"
+                    [disabled]="!waferEnabled || setupLocked"
+                    (click)="setWaferMask('circle')"
+                  >
+                    Koło
+                  </button>
+                  <button
+                    class="toggle-tab__item"
+                    [class.toggle-tab__item--active]="waferMask === 'square'"
+                    type="button"
+                    [disabled]="!waferEnabled || setupLocked"
+                    (click)="setWaferMask('square')"
+                  >
+                    Kwadrat
+                  </button>
+                </div>
+                <div class="wafer-preview"
+                     [class.wafer-preview--disabled]="!waferEnabled || setupLocked"
+                     (pointerdown)="onWaferPointerDown($event)"
+                     (pointermove)="onWaferPointerMove($event)"
+                     (pointerup)="onWaferPointerUp()"
+                     (pointerleave)="onWaferPointerUp()"
+                     (wheel)="onWaferWheel($event)">
+                  <canvas #waferCanvas aria-hidden="true"></canvas>
+                  <div class="wafer-preview__hint">Przeciągnij obraz, przewiń aby zmienić zoom</div>
+                </div>
                 <div class="slider-row" [class.slider-row--disabled]="!waferEnabled || setupLocked">
                   <span class="slider-row__label">Skala</span>
                   <input
@@ -488,6 +519,25 @@
                     (input)="setWaferOffset('y', $any($event.target).valueAsNumber || 0)"
                   />
                   <div class="slider-row__value">{{ waferOffsetY | number: '1.2-2' }}</div>
+                </div>
+                <div class="slider-row" [class.slider-row--disabled]="!waferEnabled || setupLocked">
+                  <span class="slider-row__label">Perspektywa</span>
+                  <input
+                    type="range"
+                    min="-30"
+                    max="30"
+                    step="1"
+                    [value]="waferPerspective"
+                    [disabled]="!waferEnabled || setupLocked"
+                    class="slider-row__range"
+                    (input)="setWaferPerspective($any($event.target).valueAsNumber || 0)"
+                  />
+                  <div class="slider-row__value">{{ waferPerspective | number: '1.0-0' }}°</div>
+                </div>
+                <div class="wafer-actions">
+                  <button class="btn btn--ghost" type="button" [disabled]="!waferEnabled || setupLocked" (click)="resetWaferTransform()">
+                    Resetuj / wyśrodkuj
+                  </button>
                 </div>
               </div>
             </div>

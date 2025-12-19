@@ -25,8 +25,13 @@ export const DEFAULT_CAKE_OPTIONS: CakeOptions = {
   wafer_texture_zoom: 1,
   wafer_texture_offset_x: 0,
   wafer_texture_offset_y: 0,
+  wafer_mask: 'circle',
+  wafer_perspective: 0,
 };
 
 export function cloneCakeOptions(options: CakeOptions): CakeOptions {
-  return JSON.parse(JSON.stringify(options));
+  return {
+    ...DEFAULT_CAKE_OPTIONS,
+    ...JSON.parse(JSON.stringify(options)),
+  };
 }

@@ -28,6 +28,8 @@ describe('ThreeObjectsFactory', () => {
     wafer_texture_zoom: 1,
     wafer_texture_offset_x: 0,
     wafer_texture_offset_y: 0,
+    wafer_mask: 'circle',
+    wafer_perspective: 0,
   };
 
   const getOptions = (overrides: Partial<CakeOptions> = {}): CakeOptions => ({

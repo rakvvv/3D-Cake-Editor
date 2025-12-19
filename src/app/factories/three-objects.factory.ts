@@ -337,11 +337,13 @@ export class ThreeObjectsFactory {
 
     const detailTexture = this.createWaferDetailTexture();
 
-    const { repeat, offsetX, offsetY } = this.computeWaferTransform(options);
+    const { repeat, offsetX, offsetY, rotation } = this.computeWaferTransform(options);
 
     // texture.center.set(0.5, 0.5);
     texture.repeat.set(repeat, repeat);
     texture.offset.set(offsetX, offsetY);
+    texture.center.set(0.5, 0.5);
+    texture.rotation = rotation;
     texture.needsUpdate = true;
 
     const material = new THREE.MeshPhysicalMaterial({
@@ -364,12 +366,16 @@ export class ThreeObjectsFactory {
     const scale = THREE.MathUtils.clamp(options.wafer_scale ?? 1, 0.4, 2.5);
     let geometry: THREE.BufferGeometry;
 
-    if (metadata.shape === 'cylinder') {
-      const radius = (topLayer.radius ?? metadata.radius ?? 2) * scale;
+    const maskShape = options.wafer_mask ?? (metadata.shape === 'cylinder' ? 'circle' : 'square');
+
+    if (maskShape === 'circle') {
+      const radius = (topLayer.radius ?? metadata.radius ?? Math.min(topLayer.width ?? 2, topLayer.depth ?? 2) / 2) * scale;
       geometry = new THREE.CircleGeometry(radius, 64);
     } else {
-      const width = (topLayer.width ?? metadata.width ?? 2) * scale;
-      const depth = (topLayer.depth ?? metadata.depth ?? 2) * scale;
+      const baseWidth = topLayer.width ?? metadata.width ?? (topLayer.radius ?? metadata.radius ?? 1) * 2;
+      const baseDepth = topLayer.depth ?? metadata.depth ?? (topLayer.radius ?? metadata.radius ?? 1) * 2;
+      const width = baseWidth * scale;
+      const depth = baseDepth * scale;
       geometry = new THREE.PlaneGeometry(width, depth);
     }
 
@@ -416,7 +422,12 @@ export class ThreeObjectsFactory {
     return wafer;
   }
 
-  private static computeWaferTransform(options: CakeOptions): { repeat: number; offsetX: number; offsetY: number } {
+  private static computeWaferTransform(options: CakeOptions): {
+    repeat: number;
+    offsetX: number;
+    offsetY: number;
+    rotation: number;
+  } {
     const zoom = THREE.MathUtils.clamp(options.wafer_texture_zoom ?? 1, 1, 5);
     const repeat = 1 / zoom;
 
@@ -425,6 +436,8 @@ export class ThreeObjectsFactory {
     const rawOffsetX = THREE.MathUtils.clamp(options.wafer_texture_offset_x ?? 0, -offsetLimit, offsetLimit);
     const rawOffsetY = THREE.MathUtils.clamp(options.wafer_texture_offset_y ?? 0, -offsetLimit, offsetLimit);
 
+    const rotation = THREE.MathUtils.degToRad(THREE.MathUtils.clamp(options.wafer_perspective ?? 0, -45, 45));
+
     return {
       repeat,
       // Oś X: (Lewo/Prawo) - działa tak samo jak w HTML
@@ -432,6 +445,7 @@ export class ThreeObjectsFactory {
 
       // Oś Y: (Góra/Dół) - musi być odwrócona (minus) względem HTML
       offsetY: 0.5 - repeat / 2 - rawOffsetY * repeat,
+      rotation,
     };
   }
 
