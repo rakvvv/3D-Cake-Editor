@@ -379,7 +379,7 @@ export class ThreeObjectsFactory {
     wafer.userData['waferTexture'] = texture;
     wafer.userData['waferDetailTexture'] = detailTexture;
     wafer.rotation.x = -Math.PI / 2;
-    wafer.position.y = topLayer.topY + 0.05;
+    wafer.position.y = topLayer.topY + 0.005;
     wafer.renderOrder = 2;
     material.polygonOffset = true;
     material.polygonOffsetFactor = -1;
