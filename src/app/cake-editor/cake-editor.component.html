@@ -226,13 +226,6 @@
                     >
                       Drip: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
                     </span>
-                    <span
-                      *ngFor="let badge of texture.badges"
-                      class="texture-card__chip"
-                      [attr.title]="badge.title"
-                    >
-                      {{ badge.label }}
-                    </span>
                   </div>
                 </button>
               </div>
@@ -415,13 +408,6 @@
                       title="Wpływ tekstury na spływanie polewy"
                     >
                       Drip: {{ texture.maps.affectDrips ? 'tak' : 'nie' }}
-                    </span>
-                    <span
-                      *ngFor="let badge of texture.badges"
-                      class="texture-card__chip"
-                      [attr.title]="badge.title"
-                    >
-                      {{ badge.label }}
                     </span>
                   </div>
                 </button>
