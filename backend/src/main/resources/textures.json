@@ -3,12 +3,12 @@
     {
       "id": "chocolate-cake-02",
       "label": "Czekoladowa polewa",
-      "thumbnailUrl": null,
+      "thumbnailUrl": "/assets/textures/Chocolate%2002_Albedo.jpg",
       "glaze": {
-        "baseColor": "/assets/textures/Chocolate 02_Albedo.jpg",
-        "roughness": "/assets/textures/Chocolate 02_Roughness.jpg",
-        "normal": "/assets/textures/Chocolate 02_Normal.jpg",
-        "displacement": "/assets/textures/Chocolate 02_Displacement.jpg",
+        "baseColor": "/assets/textures/Chocolate%2002_Albedo.jpg",
+        "roughness": "/assets/textures/Chocolate%2002_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate%2002_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate%2002_Displacement.jpg",
         "repeat": 2,
         "affectDrips": true
       }
@@ -16,12 +16,12 @@
     {
       "id": "chocolate-cake-03",
       "label": "Biała Czekolada polewa",
-      "thumbnailUrl": null,
+      "thumbnailUrl": "/assets/textures/Chocolate%2003_Albedo.jpg",
       "glaze": {
-        "baseColor": "/assets/textures/Chocolate 03_Albedo.jpg",
-        "roughness": "/assets/textures/Chocolate 03_Roughness.jpg",
-        "normal": "/assets/textures/Chocolate 03_Normal.jpg",
-        "displacement": "/assets/textures/Chocolate 03_Displacement.jpg",
+        "baseColor": "/assets/textures/Chocolate%2003_Albedo.jpg",
+        "roughness": "/assets/textures/Chocolate%2003_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate%2003_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate%2003_Displacement.jpg",
         "repeat": 2,
         "affectDrips": true
       }
@@ -32,9 +32,9 @@
       "thumbnailUrl": null,
       "glaze": {
         "baseColor": "/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg",
-        "roughness": "/assets/textures/Chocolate 03_Roughness.jpg",
-        "normal": "/assets/textures/Chocolate 03_Normal.jpg",
-        "displacement": "/assets/textures/Chocolate 03_Displacement.jpg",
+        "roughness": "/assets/textures/Chocolate%2003_Roughness.jpg",
+        "normal": "/assets/textures/Chocolate%2003_Normal.jpg",
+        "displacement": "/assets/textures/Chocolate%2003_Displacement.jpg",
         "repeat": 2,
         "affectDrips": true
       }
@@ -48,22 +48,6 @@
         "normal": "/assets/textures/Pink_Cake_Frosting_01-normal.jpg",
         "roughness": "/assets/textures/Pink_Cake_Frosting_01-bump.jpg",
         "repeat": 2.5
-      }
-    },
-    {
-      "id": "pink-candy",
-      "label": "Różowa cukierkowa polewa",
-      "thumbnailUrl": null,
-      "glaze": {
-        "baseColor": "/assets/textures/Pink_Candy_BaseColor.jpg",
-        "normal": "/assets/textures/Pink_Candy_Normal.jpg",
-        "roughness": "/assets/textures/Pink_Candy_Roughness.jpg",
-        "metallic": "/assets/textures/Pink_Candy_Metallic.jpg",
-        "displacement": "/assets/textures/Pink_Candy_Displacement.jpg",
-        "emissive": "/assets/textures/Pink_Candy_Emissive.jpg",
-        "alpha": "/assets/textures/Pink_Candy_Alpha.jpg",
-        "repeat": 3,
-        "affectDrips": false
       }
     },
     {
@@ -88,7 +72,7 @@
         "baseColor": "/assets/textures/Pink_Cake_Frosting_01-diffuse.jpg",
         "roughness": "/assets/textures/Pink_Cake_Frosting_01-bump.jpg",
         "normal": "/assets/textures/Pink_Cake_Frosting_01-normal.jpg",
-        "displacement": "/assets/textures/Chocolate 03_Displacement.jpg",
+        "displacement": "/assets/textures/Chocolate%2003_Displacement.jpg",
         "repeat": 0.4
       }
     }
