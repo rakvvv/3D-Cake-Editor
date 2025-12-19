@@ -619,7 +619,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return null;
     }
 
-    return encodeURI(url);
+    try {
+      return encodeURI(decodeURI(url));
+    } catch {
+      return encodeURI(url);
+    }
   }
 
   private maybeInitializeScene(): void {
