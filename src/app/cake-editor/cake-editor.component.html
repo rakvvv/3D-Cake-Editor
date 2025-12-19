@@ -761,7 +761,7 @@
       <button
         type="button"
         class="scene-node__visibility"
-        *ngIf="node.type === 'decoration' || node.type === 'group'"
+        *ngIf="isSceneNodeSelectable(node)"
         (click)="toggleSceneNodeVisibility(node)"
         [attr.aria-pressed]="node.visible"
         [title]="node.visible ? 'Ukryj' : 'Pokaż'"

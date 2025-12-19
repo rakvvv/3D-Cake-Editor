@@ -735,7 +735,10 @@ export class PaintService {
     }
 
     const roots = this.collectPaintStrokeRoots(targetScene);
-    return roots.map((root) => this.serializePaintStroke(root)).filter((item): item is PaintStrokePreset => Boolean(item));
+    return roots
+      .map((root) => this.serializePaintStroke(root))
+      .filter((item): item is PaintStrokePreset => Boolean(item))
+      .filter((stroke) => stroke.type !== 'decoration');
   }
 
   public get extruderPathNodes$() {
@@ -797,15 +800,15 @@ export class PaintService {
     this.cakeBaseRef = cakeBase;
 
     for (const entry of entries) {
+      if (entry.type === 'decoration') {
+        continue;
+      }
       switch (entry.type) {
         case 'extruder':
           await this.restoreExtruderStroke(entry, scene, cakeBase);
           break;
         case 'pen':
           await this.restorePenStroke(entry, scene);
-          break;
-        case 'decoration':
-          await this.restoreDecorationStroke(entry, scene);
           break;
       }
     }
