@@ -1081,7 +1081,7 @@
   overflow: hidden;
   border: 1px solid #1f1f1f;
   background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.4));
-  cursor: grab;
+  cursor: default;
 }
 
 .wafer-preview--disabled {
@@ -1114,6 +1114,10 @@
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.wafer-actions--single {
+  justify-content: center;
 }
 
 .toggle-tab--disabled {

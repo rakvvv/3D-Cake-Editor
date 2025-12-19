@@ -24,7 +24,7 @@ describe('ThreeObjectsFactory', () => {
     cake_textures: null,
     glaze_textures: null,
     wafer_texture_url: null,
-    wafer_scale: 1,
+    wafer_scale: 0.85,
     wafer_texture_zoom: 1,
     wafer_texture_offset_x: 0,
     wafer_texture_offset_y: 0,

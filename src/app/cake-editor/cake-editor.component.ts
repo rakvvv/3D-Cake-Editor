@@ -67,7 +67,7 @@ type CameraOption = 'perspective' | 'orthographic' | 'isometric' | 'top' | 'fron
 })
 export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   mode: 'setup' | 'workspace' = 'setup';
-  setupTab: 'cake' | 'texture' | 'color' | 'glaze' = 'cake';
+  setupTab: 'cake' | 'texture' | 'color' | 'glaze' | 'wafer' = 'cake';
   paintingMode: SidebarPaintMode = 'decor3d';
   activeSidebarPanel: SidebarPanelKey = 'decorations';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
@@ -88,6 +88,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   waferMask: 'circle' | 'square' = 'circle';
   waferPerspective = 0;
   waferLoadError: string | null = null;
+  waferPreviewDirty = false;
   setupLocked = false;
   canUndoAction = false;
   canRedoAction = false;
@@ -887,7 +888,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneTreeScale = Math.min(1.3, Math.max(0.9, this.sceneTreeScale + delta));
   }
 
-  selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze'): void {
+  selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze' | 'wafer'): void {
     this.setupTab = tab;
   }
 
@@ -897,6 +898,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.selectedCakeSize = size;
     this.applyLayerSizing(this.selectedLayers, this.getBaseWidth(size));
+    this.refreshAutoWaferScale(true);
   }
 
   selectShape(shape: 'cylinder' | 'cuboid'): void {
@@ -914,6 +916,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.selectedLayers = layers;
     this.applyLayerSizing(layers, this.getBaseWidth());
+    this.refreshAutoWaferScale(true);
   }
 
   selectTexture(target: 'cake' | 'glaze', textureId: string): void {
@@ -1047,6 +1050,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.waferEnabled = enabled;
     this.syncWaferMaskToShape(false);
+    this.refreshAutoWaferScale(enabled);
     const fallback = this.options.wafer_texture_url ?? '/assets/textures/Pink%20Candy_BaseColor.jpg';
     this.patchOptions({
       wafer_texture_url: enabled ? fallback : null,
@@ -1063,6 +1067,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.waferOffsetX = 0;
       this.waferOffsetY = 0;
       this.waferPerspective = 0;
+      this.waferPreviewDirty = false;
       this.syncWaferMaskToShape(false);
       this.waferLoadError = null;
       this.loadWaferImage(null);
@@ -1136,11 +1141,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     return (
+      this.waferPreviewDirty ||
       (this.options.wafer_scale ?? 1) !== this.waferScale ||
-      (this.options.wafer_texture_zoom ?? 1) !== this.waferZoom ||
-      (this.options.wafer_texture_offset_x ?? 0) !== this.waferOffsetX ||
-      (this.options.wafer_texture_offset_y ?? 0) !== this.waferOffsetY ||
-      (this.options.wafer_perspective ?? 0) !== this.waferPerspective ||
       (this.options.wafer_mask ?? this.getMaskForShape(this.selectedShape)) !== this.waferMask
     );
   }
@@ -1152,12 +1154,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.patchOptions({
       wafer_scale: this.waferScale,
-      wafer_texture_zoom: this.waferZoom,
-      wafer_texture_offset_x: this.waferOffsetX,
-      wafer_texture_offset_y: this.waferOffsetY,
       wafer_mask: this.waferMask,
-      wafer_perspective: this.waferPerspective,
     });
+
+    this.waferPreviewDirty = false;
 
     if (showStatus) {
       this.showStatus('Zastosowano ustawienia opłatka.');
@@ -1342,6 +1342,25 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return 1;
   }
 
+  private computeAutoWaferScale(): number {
+    const topSize = this.options.layerSizes?.[this.selectedLayers - 1] ?? this.getBaseWidth(this.selectedCakeSize);
+    const normalized = Math.max(0.8, Math.min(1.2, topSize));
+    const scaled = THREE.MathUtils.clamp(normalized / 1.2, 0.78, 0.92);
+    return Number(scaled.toFixed(3));
+  }
+
+  private refreshAutoWaferScale(applyToOptions = false): void {
+    const nextScale = this.computeAutoWaferScale();
+    if (this.waferScale !== nextScale) {
+      this.waferScale = nextScale;
+      this.waferPreviewDirty = true;
+      if (applyToOptions && this.waferEnabled) {
+        this.patchOptions({ wafer_scale: nextScale });
+      }
+      this.scheduleWaferPreviewRender();
+    }
+  }
+
   private getMaskForShape(shape: 'cylinder' | 'cuboid'): 'circle' | 'square' {
     return shape === 'cylinder' ? 'circle' : 'square';
   }
@@ -1381,6 +1400,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     reader.onload = () => {
       const result = typeof reader.result === 'string' ? reader.result : '';
       this.waferLoadError = null;
+      this.waferPreviewDirty = true;
       this.patchOptions({ wafer_texture_url: result });
       this.loadWaferImage(result);
       this.scheduleWaferPreviewRender();
@@ -2019,14 +2039,15 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.glazeEnabled = this.options.glaze_enabled;
     this.glazeMode = this.options.glaze_top_enabled ? 'taffla' : 'plain';
     this.waferEnabled = !!this.options.wafer_texture_url;
-    this.waferScale = this.options.wafer_scale ?? 1;
-    this.waferZoom = this.options.wafer_texture_zoom ?? 1;
-    this.waferOffsetX = this.options.wafer_texture_offset_x ?? 0;
-    this.waferOffsetY = this.options.wafer_texture_offset_y ?? 0;
+    this.waferScale = this.computeAutoWaferScale();
+    this.waferZoom = 1;
+    this.waferOffsetX = 0;
+    this.waferOffsetY = 0;
     this.waferMask = this.getMaskForShape(this.selectedShape);
-    this.waferPerspective = this.options.wafer_perspective ?? 0;
+    this.waferPerspective = 0;
     this.syncWaferMaskToShape(this.waferEnabled);
     this.loadWaferImage(this.options.wafer_texture_url);
+    this.waferPreviewDirty = false;
     this.scheduleWaferPreviewRender();
     this.syncSelectedTextures();
   }
