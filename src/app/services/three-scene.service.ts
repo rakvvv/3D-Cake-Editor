@@ -93,6 +93,7 @@ export class ThreeSceneService {
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
+    this.paintService.sceneChanged$.subscribe(() => this.requestRender());
     this.anchorPresetsService.setRenderScheduler(() => this.requestRender());
   }
 
