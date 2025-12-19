@@ -1698,7 +1698,13 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     if (this.gradientEnabled) {
-      const texture: TextureMaps = { baseColor: gradientDataUrl ?? undefined, repeat: 1 };
+      const preservedMaps = this.textureBeforeGradient ?? undefined;
+      const texture: TextureMaps = {
+        ...(preservedMaps ?? {}),
+        baseColor: gradientDataUrl ?? preservedMaps?.baseColor,
+        repeat: preservedMaps?.repeat ?? 1,
+      };
+
       this.patchOptions({ cake_color: this.gradientFirst, cake_textures: texture });
     } else {
       this.patchOptions({ cake_color: this.primaryColor, cake_textures: this.textureBeforeGradient });
