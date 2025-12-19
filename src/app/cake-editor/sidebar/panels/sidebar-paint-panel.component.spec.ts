@@ -1,35 +1,27 @@
 import { BehaviorSubject } from 'rxjs';
 import { SidebarPaintPanelComponent } from './sidebar-paint-panel.component';
-import { DecorationInfo } from '../../../models/decorationInfo';
 import { CreamPathNode, CreamRingPreset } from '../../../models/cream-presets';
 import { SprinkleShape } from '../../../services/surface-painting.service';
 
-class DecorationsServiceMock {
-  decorationsSubject = new BehaviorSubject<DecorationInfo[]>([]);
-  decorations$ = this.decorationsSubject.asObservable();
-}
-
-class AnchorPresetsServiceMock {
-  pendingDecorationSubject = new BehaviorSubject<DecorationInfo | null>(null);
-  pendingDecoration$ = this.pendingDecorationSubject.asObservable();
-  setPendingDecoration(): void {}
-}
+type ExtruderPreview = { id: number; name: string; thumbnail: string | null };
 
 class PaintServiceMock {
   creamRingPresets$ = new BehaviorSubject<CreamRingPreset[]>([]);
   extruderPathNodes$ = new BehaviorSubject<CreamPathNode[]>([]);
   setCurrentBrush = jasmine.createSpy('setCurrentBrush');
-  setBrushMetadata = jasmine.createSpy('setBrushMetadata');
-  setExtruderPathMode(): void {}
-  setExtruderPathContext(): void {}
-  setExtruderPathNodes(): void {}
+  setExtruderBrush = jasmine.createSpy('setExtruderBrush');
+  setExtruderPathMode = jasmine.createSpy('setExtruderPathMode');
+  setExtruderPathContext = jasmine.createSpy('setExtruderPathContext');
+  setExtruderPathNodes = jasmine.createSpy('setExtruderPathNodes');
+  setExtruderVariantSelection = jasmine.createSpy('setExtruderVariantSelection');
+  updatePenSettings = jasmine.createSpy('updatePenSettings');
+  async generateExtruderStroke(): Promise<void> {}
+  async getExtruderVariantPreviews(): Promise<ExtruderPreview[]> {
+    return [];
+  }
   getExtruderVariantSelection(): number | 'random' {
     return 'random';
   }
-  async getExtruderVariantPreviews(): Promise<{ id: number; name: string; thumbnail: string | null }[]> {
-    return [];
-  }
-  async generateExtruderStroke(): Promise<void> {}
 }
 
 class SurfacePaintingServiceMock {
@@ -38,85 +30,51 @@ class SurfacePaintingServiceMock {
   sprinkleRandomness = 0.3;
   sprinkleColor = '#ffffff';
   sprinkleShape: SprinkleShape = 'stick';
-  setEnabled(): void {}
-  setSprinkleShape(): void {}
-  setExtruderPathMode(): void {}
-  setExtruderPathContext(): void {}
+  setEnabled = jasmine.createSpy('setEnabled');
+  setSprinkleShape = jasmine.createSpy('setSprinkleShape');
 }
 
 describe('SidebarPaintPanelComponent', () => {
   let component: SidebarPaintPanelComponent;
-  let decorationsService: DecorationsServiceMock;
   let paintService: PaintServiceMock;
+  let surfacePaintingService: SurfacePaintingServiceMock;
 
   beforeEach(() => {
-    decorationsService = new DecorationsServiceMock();
     paintService = new PaintServiceMock();
-    component = new SidebarPaintPanelComponent(
-      decorationsService as any,
-      new AnchorPresetsServiceMock() as any,
-      paintService as any,
-      new SurfacePaintingServiceMock() as any,
-    );
+    surfacePaintingService = new SurfacePaintingServiceMock();
+    component = new SidebarPaintPanelComponent(paintService as any, surfacePaintingService as any);
+    const preset: CreamRingPreset = {
+      id: 'path',
+      name: 'Path preset',
+      mode: 'PATH',
+      layerIndex: 0,
+      position: 'SIDE_ARC',
+      heightNorm: 0.5,
+      radiusOffset: 0.01,
+      nodes: [
+        { angleDeg: 0, heightNorm: 0.5 },
+        { angleDeg: 180, heightNorm: 0.5 },
+      ],
+    };
+    paintService.creamRingPresets$.next([preset]);
     component.ngOnInit();
   });
 
-  it('filters out non-paintable decorations in decor painting mode', () => {
-    const paintableDecoration: DecorationInfo = {
-      id: 'paintable',
-      modelFileName: 'paintable.glb',
-      name: 'Paintable',
-      type: 'TOP',
-      paintable: true,
-      paintInitialRotation: [10, 20, 30],
-    };
-    const nonPaintableDecoration: DecorationInfo = {
-      id: 'non-paintable',
-      modelFileName: 'non-paintable.glb',
-      name: 'Non Paintable',
-      type: 'TOP',
-      paintable: false,
-    };
+  it('toggles painting power for surface modes', () => {
+    component.mode = 'brush';
+    component.paintingEnabled = true;
 
-    decorationsService.decorationsSubject.next([paintableDecoration, nonPaintableDecoration]);
+    component.togglePainting();
 
-    expect(component.filteredDecorations).toEqual([paintableDecoration]);
-    expect(paintService.setBrushMetadata).toHaveBeenCalledTimes(1);
-    expect(paintService.setBrushMetadata).toHaveBeenCalledWith('paintable.glb', {
-      initialScale: undefined,
-      initialRotation: [10, 20, 30],
-      material: undefined,
-      paintInitialRotation: [10, 20, 30],
-      surfaceOffset: undefined,
-      modelUpAxis: undefined,
-      modelForwardAxis: undefined,
-      faceOutwardOnSides: undefined,
-    });
+    expect(component.paintingEnabled).toBeFalse();
+    expect(surfacePaintingService.setEnabled).toHaveBeenCalledWith(false);
   });
 
-  it('applies painting-specific rotation when provided', () => {
-    const paintableDecoration: DecorationInfo = {
-      id: 'paintable-rotation',
-      modelFileName: 'paintable-rotation.glb',
-      name: 'Paintable Rotation',
-      type: 'TOP',
-      paintable: true,
-      paintInitialRotation: [0, 90, 45],
-      initialRotation: [1, 2, 3],
-    };
+  it('enables path mode when selecting a path preset', () => {
+    component.onExtruderPresetSelect('path');
 
-    decorationsService.decorationsSubject.next([paintableDecoration]);
-
-    expect(component.filteredDecorations).toEqual([paintableDecoration]);
-    expect(paintService.setBrushMetadata).toHaveBeenCalledWith('paintable-rotation.glb', {
-      initialScale: undefined,
-      initialRotation: [0, 90, 45],
-      material: undefined,
-      paintInitialRotation: [0, 90, 45],
-      surfaceOffset: undefined,
-      modelUpAxis: undefined,
-      modelForwardAxis: undefined,
-      faceOutwardOnSides: undefined,
-    });
+    expect(component.extruderPathModeEnabled).toBeTrue();
+    expect(paintService.setExtruderPathMode).toHaveBeenCalledWith(true);
+    expect(paintService.setExtruderPathNodes).toHaveBeenCalled();
   });
 });

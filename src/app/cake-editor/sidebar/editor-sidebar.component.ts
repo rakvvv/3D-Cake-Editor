@@ -30,7 +30,7 @@ import { BrushSettings, SidebarPanelKey, SidebarPaintMode } from './sidebar.type
 export class EditorSidebarComponent implements OnInit, OnDestroy {
   @Input() options!: CakeOptions;
   @Input() authorModeEnabled = false;
-  @Input() paintingMode: SidebarPaintMode = 'decor3d';
+  @Input() paintingMode: SidebarPaintMode = 'brush';
   @Input() paintColor = '#ff4d6d';
   @Input() penSize = 0.05;
   @Input() penThickness = 0.02;

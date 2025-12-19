@@ -68,7 +68,7 @@ type CameraOption = 'perspective' | 'orthographic' | 'isometric' | 'top' | 'fron
 export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   mode: 'setup' | 'workspace' = 'setup';
   setupTab: 'cake' | 'texture' | 'color' | 'glaze' | 'wafer' = 'cake';
-  paintingMode: SidebarPaintMode = 'decor3d';
+  paintingMode: SidebarPaintMode = 'brush';
   activeSidebarPanel: SidebarPanelKey = 'decorations';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
   selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
@@ -805,7 +805,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   continueToWorkspace(): void {
     this.mode = 'workspace';
     this.activeSidebarPanel = 'decorations';
-    this.paintingMode = 'decor3d';
+    this.paintingMode = 'brush';
     this.maybeInitializeScene();
   }
 
@@ -870,6 +870,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private isSceneNodeSelectable(node: SceneOutlineNode): boolean {
+    if (node.id === 'decorations-root') {
+      return false;
+    }
     return node.type === 'decoration' || node.type === 'group';
   }
 
@@ -1489,20 +1492,22 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onSidebarPaintModeChange(mode: SidebarPaintMode): void {
-    this.paintingMode = mode;
-    const usesSurfacePainting = mode === 'brush' || mode === 'sprinkles';
+    const allowedModes: SidebarPaintMode[] = ['brush', 'pen', 'extruder', 'sprinkles'];
+    const normalizedMode = allowedModes.includes(mode) ? mode : 'brush';
+    this.paintingMode = normalizedMode;
+    const usesSurfacePainting = normalizedMode === 'brush' || normalizedMode === 'sprinkles';
     const powerEnabled = this.paintingPowerEnabled;
     this.surfacePaintingService.enabled = usesSurfacePainting && powerEnabled;
 
     if (usesSurfacePainting) {
-      this.surfacePaintingService.mode = mode === 'brush' ? 'brush' : 'sprinkles';
+      this.surfacePaintingService.mode = normalizedMode === 'brush' ? 'brush' : 'sprinkles';
       this.onTogglePaintMode(false);
       return;
     }
 
     this.surfacePaintingService.enabled = false;
-    const tool = mode === 'extruder' ? 'extruder' : mode === 'decor3d' ? 'decoration' : 'pen';
-    this.paintService.setPaintTool(tool as 'decoration' | 'pen' | 'extruder');
+    const tool = normalizedMode === 'extruder' ? 'extruder' : 'pen';
+    this.paintService.setPaintTool(tool);
     this.onTogglePaintMode(powerEnabled);
   }
 
@@ -1601,7 +1606,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.paintingPowerEnabled = false;
       this.surfacePaintingService.enabled = false;
       this.paintService.paintMode = false;
-      this.onSidebarPaintModeChange('decor3d');
+      this.onSidebarPaintModeChange('brush');
       this.anchorPresetsService.setFocusedAnchor(null);
       this.anchorPresetsService.setRecordingOptions(false);
       return;

@@ -2,14 +2,10 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
-import { DecorationInfo } from '../../../models/decorationInfo';
 import { BrushSettings, SidebarPaintMode } from '../sidebar.types';
-import { DecorationsService } from '../../../services/decorations.service';
-import { AnchorPresetsService } from '../../../services/anchor-presets.service';
 import { PaintService } from '../../../services/paint.service';
 import { SurfacePaintingService, SprinkleShape } from '../../../services/surface-painting.service';
 import { CreamPathNode, CreamPosition, CreamRingPreset, ExtruderStrokeMode } from '../../../models/cream-presets';
-import { DecorationSurfaceTarget } from '../../../models/add-decoration-request';
 
 @Component({
   selector: 'app-sidebar-paint-panel',
@@ -19,7 +15,7 @@ import { DecorationSurfaceTarget } from '../../../models/add-decoration-request'
   styleUrls: ['./sidebar-paint-panel.component.css'],
 })
 export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
-  @Input() mode: SidebarPaintMode = 'decor3d';
+  @Input() mode: SidebarPaintMode = 'brush';
   @Input() paintColor = '#ff4d6d';
   @Input() penSize = 0.02;
   @Input() penThickness = 0.02;
@@ -32,11 +28,6 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   @Output() brushChange = new EventEmitter<BrushSettings>();
   @Output() paintingPowerChange = new EventEmitter<boolean>();
 
-  private allDecorations: DecorationInfo[] = [];
-  decorations: DecorationInfo[] = [];
-  decorationSearch = '';
-  selectedDecorationId: string | null = null;
-  preferredSurface: DecorationSurfaceTarget = 'AUTO';
   targetLayerIndex = 0;
 
   extruderVariants: { id: number; name: string; thumbnail: string | null }[] = [];
@@ -71,30 +62,14 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     { id: 'star', label: 'Gwiazdki' },
   ];
 
-  private readonly decorationPlaceholder = '/assets/decorations/thumbnails/placeholder.svg';
   private readonly subscriptions = new Subscription();
 
   constructor(
-    private readonly decorationsService: DecorationsService,
-    private readonly anchorPresetsService: AnchorPresetsService,
     private readonly paintService: PaintService,
     private readonly surfacePaintingService: SurfacePaintingService,
   ) {}
 
   ngOnInit(): void {
-    this.subscriptions.add(
-      this.decorationsService.decorations$.subscribe((decorations) => {
-        this.allDecorations = decorations;
-        this.refreshDecorations();
-        this.registerDecorationMetadata(this.decorations);
-      }),
-    );
-    this.subscriptions.add(
-      this.anchorPresetsService.pendingDecoration$.subscribe((decoration) => {
-        this.selectedDecorationId = decoration?.modelFileName ?? decoration?.id ?? null;
-      }),
-    );
-
     this.loadExtruderVariants();
     this.subscriptions.add(
       this.paintService.creamRingPresets$.subscribe((presets) => {
@@ -125,32 +100,6 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
   }
 
-  get filteredDecorations(): DecorationInfo[] {
-    const availableDecorations = this.filterDecorationsForMode(this.decorations);
-    const term = this.decorationSearch.trim().toLowerCase();
-    if (!term) {
-      return availableDecorations;
-    }
-    return availableDecorations.filter((item) => item.name.toLowerCase().includes(term));
-  }
-
-  getDecorationThumbnail(decoration: DecorationInfo): string {
-    return decoration.thumbnailUrl ?? `/assets/decorations/thumbnails/${decoration.id}.png`;
-  }
-
-  onDecorationThumbnailError(event: Event, decoration: DecorationInfo): void {
-    const img = event.target as HTMLImageElement;
-    const generatedUrl = new URL(`/assets/decorations/thumbnails/${decoration.id}.png`, img.baseURI).toString();
-
-    if (img.dataset['fallback'] !== 'generated' && img.src !== generatedUrl) {
-      img.dataset['fallback'] = 'generated';
-      img.src = generatedUrl;
-      return;
-    }
-
-    img.src = new URL(this.decorationPlaceholder, img.baseURI).toString();
-  }
-
   togglePainting(): void {
     this.paintingEnabled = !this.paintingEnabled;
     this.paintingPowerChange.emit(this.paintingEnabled);
@@ -162,18 +111,6 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   selectMode(mode: SidebarPaintMode): void {
     this.mode = mode;
     this.paintModeChange.emit(mode);
-    this.refreshDecorations();
-  }
-
-  selectDecoration(decoration: DecorationInfo): void {
-    this.selectedDecorationId = decoration.id ?? decoration.modelFileName;
-    this.anchorPresetsService.setPendingDecoration(decoration);
-    this.paintService.setCurrentBrush(decoration.modelFileName);
-    this.brushChange.emit({ brushId: decoration.modelFileName });
-  }
-
-  onDecorationSearch(term: string): void {
-    this.decorationSearch = term;
   }
 
   onBrushColorChange(color: string): void {
@@ -379,25 +316,6 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     }
   }
 
-  private registerDecorationMetadata(decorations: DecorationInfo[]): void {
-    decorations.forEach((decoration) => {
-      if (!decoration.paintable) {
-        return;
-      }
-
-      this.paintService.setBrushMetadata(decoration.modelFileName, {
-        initialScale: decoration.initialScale,
-        initialRotation: decoration.paintInitialRotation ?? decoration.initialRotation,
-        material: decoration.material,
-        paintInitialRotation: decoration.paintInitialRotation,
-        surfaceOffset: decoration.surfaceOffset,
-        modelUpAxis: decoration.modelUpAxis,
-        modelForwardAxis: decoration.modelForwardAxis,
-        faceOutwardOnSides: decoration.faceOutwardOnSides,
-      });
-    });
-  }
-
   private getActivePreset(): CreamRingPreset | null {
     return this.getPresetConfig();
   }
@@ -473,21 +391,5 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       { angleDeg: 0, heightNorm: this.extruderHeightNorm },
       { angleDeg: 180, heightNorm: this.extruderHeightNorm },
     ];
-  }
-
-  private refreshDecorations(): void {
-    this.decorations = this.filterDecorationsForMode(this.allDecorations);
-  }
-
-  private filterDecorationsForMode(decorations: DecorationInfo[]): DecorationInfo[] {
-    if (!this.requiresPaintableDecorations) {
-      return decorations;
-    }
-
-    return decorations.filter((item) => item.paintable);
-  }
-
-  private get requiresPaintableDecorations(): boolean {
-    return this.mode === 'decor3d';
   }
 }

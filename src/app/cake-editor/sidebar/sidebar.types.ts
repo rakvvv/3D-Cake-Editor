@@ -2,7 +2,7 @@ import { TextureMaps } from '../../models/cake.options';
 
 export type SidebarPanelKey = 'decorations' | 'presets' | 'paint' | 'admin';
 
-export type SidebarPaintMode = 'decor3d' | 'brush' | 'pen' | 'extruder' | 'sprinkles';
+export type SidebarPaintMode = 'brush' | 'pen' | 'extruder' | 'sprinkles';
 
 export interface BrushSettings {
   size?: number;

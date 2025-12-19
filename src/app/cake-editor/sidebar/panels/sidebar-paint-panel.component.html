@@ -11,88 +11,11 @@
       <span class="select-row__label">Tryb</span>
       <div class="select-row__input select-row__input--native">
         <select [ngModel]="mode" (ngModelChange)="selectMode($event)" aria-label="Tryb malowania">
-          <option value="decor3d">Dekoracje 3D</option>
           <option value="brush">Smugi (pędzel)</option>
           <option value="pen">Pisak</option>
           <option value="sprinkles">Posypka</option>
           <option value="extruder">Ekstruder</option>
         </select>
-      </div>
-    </div>
-  </div>
-
-  <div
-    class="painting-mode painting-mode--decor3d"
-    [class.painting-mode--active]="mode === 'decor3d'"
-  >
-    <div class="editor-panel__section">
-      <div class="section-header">
-        <span class="section-header__icon">🧁</span>
-        <h2 class="section-header__title">Dekoracje 3D</h2>
-      </div>
-
-      <div class="decorations-header-row">
-        <span class="color-row__label">Dekoracje</span>
-        <div class="input input--with-icon editor-panel__search">
-          <input
-            type="text"
-            [ngModel]="decorationSearch"
-            (ngModelChange)="onDecorationSearch($event)"
-            placeholder="Szukaj"
-            aria-label="Szukaj dekoracji"
-          />
-          <span class="icon-16" aria-hidden="true">🔍</span>
-        </div>
-      </div>
-
-      <div class="decorations-list">
-        <button
-          class="decorations-list__item"
-          *ngFor="let decoration of filteredDecorations"
-          [class.decorations-list__item--active]="
-            decoration.modelFileName === selectedDecorationId || decoration.id === selectedDecorationId
-          "
-          [attr.aria-label]="decoration.name"
-          (click)="selectDecoration(decoration)"
-          type="button"
-        >
-          <img
-            class="decorations-list__icon"
-            [src]="getDecorationThumbnail(decoration)"
-            [alt]="decoration.name"
-            (error)="onDecorationThumbnailError($event, decoration)"
-          />
-          <span class="sr-only">{{ decoration.name }}</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="editor-panel__section">
-      <div class="functions-row">
-        <div class="section-header__title">Opcje dodawania</div>
-        <button class="btn-toggle" type="button" (click)="togglePainting()">
-          <span class="icon-16" aria-hidden="true">{{ paintingEnabled ? '⏽' : '⭘' }}</span>
-        </button>
-      </div>
-
-      <div class="select-row">
-        <span class="select-row__label">Powierzchnia</span>
-        <div class="select-row__input select-row__input--native">
-          <select [(ngModel)]="preferredSurface" aria-label="Powierzchnia">
-            <option value="AUTO">Automatycznie</option>
-            <option value="TOP">Góra</option>
-            <option value="SIDE">Boki</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="select-row">
-        <span class="select-row__label">Warstwa</span>
-        <div class="select-row__input select-row__input--native">
-          <select [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Warstwa">
-            <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
-          </select>
-        </div>
       </div>
     </div>
   </div>

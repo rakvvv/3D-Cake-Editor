@@ -1077,6 +1077,7 @@ export class ThreeSceneService {
     );
     if (decoration) {
       this.paintService.registerDecorationAddition(decoration);
+      this.selectDecorationById(decoration.uuid);
       this.emitOutlineChanged();
     }
   }
@@ -1693,6 +1694,18 @@ export class ThreeSceneService {
       children: [],
     };
 
+    const decorationsRoot: SceneOutlineNode = {
+      id: 'decorations-root',
+      name: 'Dekoracje 3D',
+      type: 'group',
+      attached: true,
+      visible: true,
+      parentId: rootId,
+      layerIndex: null,
+      surface: null,
+      children: [],
+    };
+
     const unattachedRoot: SceneOutlineNode = {
       id: 'unattached-root',
       name: 'Nieprzyczepione',
@@ -1707,6 +1720,7 @@ export class ThreeSceneService {
 
     const nodes = new Map<string, SceneOutlineNode>();
     nodes.set(rootId, root);
+    nodes.set(decorationsRoot.id, decorationsRoot);
     nodes.set(unattachedRoot.id, unattachedRoot);
 
     const appendNode = (node: SceneOutlineNode, parentId: string | null) => {
@@ -1729,7 +1743,7 @@ export class ThreeSceneService {
       const attached = this.isAttachedToCake(object);
       const snapInfo = this.findSnapInfo(object);
       const surface = snapInfo?.surfaceType ?? null;
-      const parentId = attached ? rootId : unattachedRoot.id;
+      const parentId = attached ? decorationsRoot.id : unattachedRoot.id;
 
       const node: SceneOutlineNode = {
         id: object.uuid,
@@ -1746,10 +1760,10 @@ export class ThreeSceneService {
       appendNode(node, parentId);
     };
 
+    appendNode(decorationsRoot, rootId);
+    appendNode(unattachedRoot, decorationsRoot.id);
     const sceneChildren = this.sceneInitService.scene?.children ?? [];
     sceneChildren.forEach(processDecoration);
-
-    root.children.push(unattachedRoot);
 
     return root;
   }
@@ -1759,7 +1773,7 @@ export class ThreeSceneService {
     const flattened: SceneOutlineNode[] = [];
 
     const collect = (node: SceneOutlineNode) => {
-      if (node.type !== 'cake' && node.type !== 'layer') {
+      if (node.id !== 'decorations-root' && node.type !== 'cake' && node.type !== 'layer') {
         flattened.push(node);
       }
 
@@ -1854,6 +1868,7 @@ export class ThreeSceneService {
     this.applyAnchorPlacement(decoration, anchor, decorationId, options);
 
     this.paintService.registerDecorationAddition(decoration);
+    this.selectDecorationById(decoration.uuid);
     this.emitOutlineChanged();
 
     return { success: true, message: 'Dekoracja umieszczona na kotwicy.' };
