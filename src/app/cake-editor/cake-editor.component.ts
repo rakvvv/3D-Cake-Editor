@@ -923,6 +923,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         cake_textures: { ...match.maps },
         cake_color: cakeColor,
       });
+      this.syncGradientDisabledState();
       return;
     }
 
@@ -948,6 +949,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedCakeTextureId = null;
     this.textureBeforeGradient = null;
     this.patchOptions({ cake_color: color, cake_textures: null });
+    this.syncGradientDisabledState();
   }
 
   setGradientColor(which: 'first' | 'second', color: string): void {
@@ -968,6 +970,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   toggleGradient(enabled: boolean): void {
     if (!this.cakeColorEditable) {
       this.gradientEnabled = false;
+      this.syncGradientDisabledState();
       return;
     }
     this.gradientEnabled = enabled;
@@ -975,7 +978,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.textureBeforeGradient = this.options.cake_textures ?? null;
       this.applyGradientTexture();
     } else {
-      this.patchOptions({ cake_color: this.primaryColor, cake_textures: this.textureBeforeGradient });
+      this.applyGradientTexture();
     }
   }
 
@@ -1687,23 +1690,25 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private applyGradientTexture(): void {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 1024;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    this.surfacePaintingService.updateGradientTexture({
+      enabled: this.gradientEnabled,
+      startColor: this.gradientFirst,
+      endColor: this.gradientSecond,
+      flip: this.gradientDirection === 'bottom-top',
+    });
 
-    const startY = this.gradientDirection === 'top-bottom' ? 0 : canvas.height;
-    const endY = this.gradientDirection === 'top-bottom' ? canvas.height : 0;
-    const gradient = ctx.createLinearGradient(canvas.width / 2, startY, canvas.width / 2, endY);
-    gradient.addColorStop(0, this.gradientFirst);
-    gradient.addColorStop(1, this.gradientSecond);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!this.gradientEnabled) {
+      this.patchOptions({ cake_color: this.primaryColor, cake_textures: this.textureBeforeGradient });
+    }
+  }
 
-    const dataUrl = canvas.toDataURL('image/png');
-    const texture: TextureMaps = { baseColor: dataUrl, repeat: 1 };
-    this.patchOptions({ cake_color: this.gradientFirst, cake_textures: texture });
+  private syncGradientDisabledState(): void {
+    this.surfacePaintingService.updateGradientTexture({
+      enabled: false,
+      startColor: this.gradientFirst,
+      endColor: this.gradientSecond,
+      flip: this.gradientDirection === 'bottom-top',
+    });
   }
 
   private syncSetupStateWithOptions(): void {

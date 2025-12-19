@@ -7,9 +7,13 @@ import {
   SerializedSprinkleStroke,
   SurfacePaintingPreset,
 } from '../models/cake-preset';
+import {
+  GradientTextureConfig,
+  GradientTextureService,
+  PaintingShaderUniforms,
+} from './gradient-texture.service';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
-export type GradientDirection = 'vertical';
 export type SprinkleShape = 'stick' | 'ball' | 'star';
 
 const SPRINKLE_PALETTE = ['#ff6b81', '#ffd66b', '#6bffb0', '#6bb8ff', '#ffffff'];
@@ -18,14 +22,6 @@ const DEFAULT_SPRINKLE_COLOR = SPRINKLE_PALETTE[0];
 // --- SEPARATOR ---
 // Służy do oddzielania pociągnięć w scalonym pliku JSON
 const STROKE_SEPARATOR = 99999;
-
-interface PaintingShaderUniforms {
-  gradientMap: { value: THREE.Texture };
-  useGradient: { value: boolean };
-  gradientMinY: { value: number };
-  gradientHeight: { value: number };
-  gradientFlip: { value: number };
-}
 
 @Injectable({ providedIn: 'root' })
 export class SurfacePaintingService {
@@ -38,11 +34,37 @@ export class SurfacePaintingService {
   public brushColor = '#ff6b6b';
 
   private brushTexture: THREE.CanvasTexture | null = null;
-  public gradientEnabled = false;
-  public gradientDirection: GradientDirection = 'vertical';
-  public gradientFlip = false;
-  public gradientStart = '#ffffff';
-  public gradientEnd = '#ffe3f3';
+  public get gradientEnabled(): boolean {
+    return this.gradientTextureService.gradientEnabled;
+  }
+
+  public set gradientEnabled(enabled: boolean) {
+    this.gradientTextureService.gradientEnabled = enabled;
+  }
+
+  public get gradientFlip(): boolean {
+    return this.gradientTextureService.gradientFlip;
+  }
+
+  public set gradientFlip(flip: boolean) {
+    this.gradientTextureService.gradientFlip = flip;
+  }
+
+  public get gradientStart(): string {
+    return this.gradientTextureService.gradientStart;
+  }
+
+  public set gradientStart(color: string) {
+    this.gradientTextureService.gradientStart = color;
+  }
+
+  public get gradientEnd(): string {
+    return this.gradientTextureService.gradientEnd;
+  }
+
+  public set gradientEnd(color: string) {
+    this.gradientTextureService.gradientEnd = color;
+  }
   public sprinkleDensity = 6;
   public sprinkleShape: SprinkleShape = 'stick';
   public sprinkleMinScale = 0.7;
@@ -52,9 +74,6 @@ export class SurfacePaintingService {
   public sprinkleRandomness = 0.3;
 
   private readonly isBrowser: boolean;
-  private gradientCanvas?: HTMLCanvasElement;
-  private gradientContext?: CanvasRenderingContext2D | null;
-  private gradientTexture?: THREE.CanvasTexture;
   private painting = false;
   private lastBrushPoint: THREE.Vector3 | null = null;
 
@@ -122,10 +141,14 @@ export class SurfacePaintingService {
   private lastRecordedPoint: THREE.Vector3 | null = null;
   private isReplayingSprinkles = false;
 
-  constructor(@Inject(PLATFORM_ID) platformId: object, private readonly paintService: PaintService) {
+  constructor(
+    @Inject(PLATFORM_ID) platformId: object,
+    private readonly paintService: PaintService,
+    private readonly gradientTextureService: GradientTextureService,
+  ) {
     this.isBrowser = isPlatformBrowser(platformId);
     if (this.isBrowser) {
-      this.ensureCanvases();
+      this.gradientTextureService.refreshTexture();
     }
   }
 
@@ -141,7 +164,7 @@ export class SurfacePaintingService {
     this.ensurePaintAnchor();
     this.applyPaintingShader();
     this.reattachPaintEntries();
-    this.updateGradientTexture();
+    this.gradientTextureService.refreshTexture();
   }
 
   public setEnabled(enabled: boolean): void {
@@ -556,14 +579,13 @@ export class SurfacePaintingService {
   // --- RESZTA LOGIKI (GRADIENTY, CZYSZCZENIE, UTILS) ---
 
   public applyGradientSettings(): void {
-    this.gradientEnabled = true;
-    this.updateGradientTexture();
+    this.gradientTextureService.updateConfig({ enabled: true });
     this.applyPaintingShader();
     this.flagMaterialUpdate();
   }
 
   public disableGradient(): void {
-    this.gradientEnabled = false;
+    this.gradientTextureService.updateConfig({ enabled: false });
     this.applyPaintingShader();
     this.flagMaterialUpdate();
   }
@@ -613,19 +635,9 @@ export class SurfacePaintingService {
 
   private applyGradientFromHit(hit: THREE.Intersection): void {
     if (!hit.uv) return;
-    this.gradientEnabled = true;
-    this.updateGradientTexture();
+    this.gradientTextureService.updateConfig({ enabled: true });
+    this.applyPaintingShader();
     this.flagMaterialUpdate();
-  }
-
-  private ensureCanvases(): void {
-    if (this.gradientCanvas) return;
-    this.gradientCanvas = document.createElement('canvas');
-    this.gradientCanvas.width = 1024;
-    this.gradientCanvas.height = 1024;
-    this.gradientContext = this.gradientCanvas.getContext('2d');
-    this.gradientTexture = new THREE.CanvasTexture(this.gradientCanvas);
-    this.gradientTexture.colorSpace = THREE.SRGBColorSpace;
   }
 
   private round(val: number): number {
@@ -633,28 +645,14 @@ export class SurfacePaintingService {
   }
 
   private applyPaintingShader(): void {
-    this.ensureCanvases();
-    if (!this.gradientTexture || !this.cakeGroup) return;
+    if (!this.cakeGroup) return;
 
     const bbox = new THREE.Box3().setFromObject(this.cakeGroup);
-    const gradientHeight = Math.max(0.001, bbox.max.y - bbox.min.y);
-    const gradientMinY = bbox.min.y;
-
-    if (!this.shaderUniforms) {
-      this.shaderUniforms = {
-        gradientMap: { value: this.gradientTexture },
-        useGradient: { value: this.gradientEnabled },
-        gradientMinY: { value: gradientMinY },
-        gradientHeight: { value: gradientHeight },
-        gradientFlip: { value: this.gradientFlip ? 1 : 0 },
-      };
-    } else {
-      this.shaderUniforms.gradientMap.value = this.gradientTexture;
-      this.shaderUniforms.useGradient.value = this.gradientEnabled;
-      this.shaderUniforms.gradientMinY.value = gradientMinY;
-      this.shaderUniforms.gradientHeight.value = gradientHeight;
-      this.shaderUniforms.gradientFlip.value = this.gradientFlip ? 1 : 0;
-    }
+    this.shaderUniforms = this.gradientTextureService.updateUniformsFromBounds(
+      bbox,
+      this.shaderUniforms,
+    ) ?? this.shaderUniforms;
+    if (!this.shaderUniforms) return;
 
     const uniforms = this.shaderUniforms;
     this.paintedMaterials = [];
@@ -804,24 +802,11 @@ export class SurfacePaintingService {
     this.paintedMaterials.push(typed);
   }
 
-  private updateGradientTexture(): void {
-    if (!this.gradientContext || !this.gradientCanvas) return;
-    const ctx = this.gradientContext;
-    const { width, height } = this.gradientCanvas;
-    ctx.clearRect(0, 0, width, height);
-    if (!this.gradientEnabled) {
-      if (this.gradientTexture) this.gradientTexture.needsUpdate = true;
-      return;
-    }
-    let gradient: CanvasGradient;
-    const startY = this.gradientFlip ? height : 0;
-    const endY = this.gradientFlip ? 0 : height;
-    gradient = ctx.createLinearGradient(width / 2, startY, width / 2, endY);
-    gradient.addColorStop(0, this.gradientStart);
-    gradient.addColorStop(1, this.gradientEnd);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-    if (this.gradientTexture) this.gradientTexture.needsUpdate = true;
+  public updateGradientTexture(config: GradientTextureConfig): string | null {
+    this.gradientTextureService.updateConfig(config);
+    this.applyPaintingShader();
+    this.flagMaterialUpdate();
+    return this.gradientTextureService.getDataUrl();
   }
 
   // --- RYSOWANIE PĘDZLA ---
@@ -1350,17 +1335,14 @@ export class SurfacePaintingService {
   }
 
   private flagMaterialUpdate(): void {
-    if (this.shaderUniforms) {
-      this.shaderUniforms.useGradient.value = this.gradientEnabled;
-      if (this.gradientTexture) this.shaderUniforms.gradientMap.value = this.gradientTexture;
-      const bbox = this.cakeGroup ? new THREE.Box3().setFromObject(this.cakeGroup) : null;
-      if (bbox) {
-        this.shaderUniforms.gradientMinY.value = bbox.min.y;
-        this.shaderUniforms.gradientHeight.value = Math.max(0.001, bbox.max.y - bbox.min.y);
-      }
-      this.shaderUniforms.gradientFlip.value = this.gradientFlip ? 1 : 0;
+    if (this.shaderUniforms && this.cakeGroup) {
+      const bbox = new THREE.Box3().setFromObject(this.cakeGroup);
+      this.shaderUniforms =
+        this.gradientTextureService.updateUniformsFromBounds(bbox, this.shaderUniforms) ??
+        this.shaderUniforms;
     }
     this.paintedMaterials.forEach((mat) => (mat.needsUpdate = true));
+    this.paintService.sceneChanged$.next();
   }
 
   private sanitizeHexColor(value: string, fallback: string = DEFAULT_SPRINKLE_COLOR): string {

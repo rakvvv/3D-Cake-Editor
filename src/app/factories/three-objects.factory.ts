@@ -41,6 +41,7 @@ export interface CakeCreationResult {
 
 export class ThreeObjectsFactory {
   private static textureLoader = new THREE.TextureLoader();
+  private static onTextureLoaded: (() => void) | null = null;
   private static colorMap: THREE.Texture | null = null;
   private static bumpMap: THREE.Texture | null = null;
   private static normalMap: THREE.Texture | null = null;
@@ -48,6 +49,10 @@ export class ThreeObjectsFactory {
   private static glazeColorMap: THREE.Texture | null = null;
   private static glazeNormalMap: THREE.Texture | null = null;
   private static glazeRoughnessMap: THREE.Texture | null = null;
+
+  public static setTextureLoadCallback(callback: (() => void) | null): void {
+    this.onTextureLoaded = callback;
+  }
 
   private static loadTexture(
     url: string | null | undefined,
@@ -58,7 +63,9 @@ export class ThreeObjectsFactory {
       return null;
     }
 
-    const texture = this.textureLoader.load(url);
+    const texture = this.textureLoader.load(url, () => {
+      this.onTextureLoaded?.();
+    });
     texture.wrapS = texture.wrapT = THREE.MirroredRepeatWrapping;
     texture.repeat.set(repeat, repeat);
     texture.anisotropy = 4;
