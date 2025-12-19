@@ -233,6 +233,15 @@
   color: #f0f0f0;
 }
 
+.panel-block__error {
+  color: #f0b45b;
+  background: #2a1c0a;
+  border: 1px solid #3c2a0e;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
 .panel-block__header {
   display: flex;
   align-items: center;
@@ -362,8 +371,9 @@
   background: #0f0f0f;
   border: 1px solid #1f1f1f;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
+  display: block;
+  width: 100%;
+  text-align: center;
 }
 
 .texture-card--active {
@@ -372,17 +382,51 @@
 }
 
 .texture-card__preview {
+  display: block;
   height: 120px;
+  width: 100%;
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
 }
 
+.texture-card__preview--overlay {
+  background-repeat: repeat, no-repeat;
+  background-size: auto 120px, cover;
+  background-blend-mode: overlay, normal;
+}
+
 .texture-card__name {
-  padding: 8px;
+  display: block;
+  padding: 8px 10px 2px;
   font-size: 14px;
   font-weight: 600;
   color: #f0f0f0;
+  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  min-height: 42px;
+}
+
+.texture-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 12px;
+  color: #c0c0c0;
+  font-size: 12px;
+  justify-content: center;
+}
+
+.texture-card__chip {
+  background: #161616;
+  border-radius: 8px;
+  padding: 4px 7px;
+  line-height: 1.2;
+  min-width: 30px;
 }
 
 .setup-viewport {
