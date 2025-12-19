@@ -171,6 +171,9 @@ export class ThreeObjectsFactory {
     const texture = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.anisotropy = 4;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
     texture.needsUpdate = true;
     return texture;
   }
@@ -461,6 +464,9 @@ export class ThreeObjectsFactory {
       texture.offset.set(transform.offsetX, transform.offsetY);
       texture.rotation = transform.rotation;
       texture.anisotropy = 8;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = false;
     };
 
     applyTransform(placeholder);
@@ -469,6 +475,12 @@ export class ThreeObjectsFactory {
     this.textureLoader.load(
       url,
       (loaded) => {
+        const image = loaded.image as { width?: number; height?: number };
+        if (!image || !image.width || !image.height) {
+          placeholder.needsUpdate = true;
+          return;
+        }
+
         applyTransform(loaded);
         placeholder.image = loaded.image;
         placeholder.needsUpdate = true;
