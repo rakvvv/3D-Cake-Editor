@@ -206,8 +206,8 @@
                 >
                   <div
                     class="texture-card__preview"
-                    [style.background-image]="texture.preview ? 'url(' + texture.preview + ')' : ''"
-                    [style.background-color]="!texture.preview ? texture.maps.baseColor : ''"
+                    [class.texture-card__preview--overlay]="texture.previewOverlay"
+                    [ngStyle]="buildTexturePreviewStyle(texture)"
                     aria-hidden="true"
                   ></div>
                   <div class="texture-card__name">{{ texture.label }}</div>
@@ -241,16 +241,22 @@
             <div *ngSwitchCase="'color'" class="setup-panel__content">
               <div class="panel-block">
                 <div class="panel-block__title">Kolor tortu</div>
-                <div class="color-row">
+                <div class="color-row" [class.color-row--disabled]="!cakeColorEditable || setupLocked">
                   <span class="color-row__label">Podstawowy</span>
                   <div class="color-row__input">
                     <input
                       type="color"
+                      [disabled]="!cakeColorEditable || setupLocked"
                       [ngModel]="primaryColor"
                       aria-label="Wybierz kolor tortu"
                       (input)="setCakeColor(getInputValue($event))"
                     />
-                    <input type="text" [ngModel]="primaryColor" (ngModelChange)="setCakeColor($event)" />
+                    <input
+                      type="text"
+                      [disabled]="!cakeColorEditable || setupLocked"
+                      [ngModel]="primaryColor"
+                      (ngModelChange)="setCakeColor($event)"
+                    />
                   </div>
                   <div class="color-swatch" [style.background]="primaryColor"></div>
                 </div>
@@ -259,15 +265,21 @@
               <div class="panel-block">
                 <div class="panel-block__header">
                   <div class="panel-block__title">Gradient</div>
-                  <button class="btn-toggle" type="button" [class.btn-toggle--active]="gradientEnabled" (click)="toggleGradient(!gradientEnabled)">
+                  <button
+                    class="btn-toggle"
+                    type="button"
+                    [disabled]="!cakeColorEditable || setupLocked"
+                    [class.btn-toggle--active]="gradientEnabled"
+                    (click)="toggleGradient(!gradientEnabled)"
+                  >
                     <span class="icon-16" aria-hidden="true">⏻</span>
                   </button>
                 </div>
-                <div class="toggle-tab" [class.toggle-tab--disabled]="!gradientEnabled">
+                <div class="toggle-tab" [class.toggle-tab--disabled]="!gradientEnabled || !cakeColorEditable || setupLocked">
                   <button
                     class="toggle-tab__item"
                     [class.toggle-tab__item--active]="gradientDirection === 'top-bottom'"
-                    [disabled]="!gradientEnabled"
+                    [disabled]="!gradientEnabled || !cakeColorEditable || setupLocked"
                     type="button"
                     (click)="setGradientDirection('top-bottom')"
                   >
@@ -276,43 +288,43 @@
                   <button
                     class="toggle-tab__item"
                     [class.toggle-tab__item--active]="gradientDirection === 'bottom-top'"
-                    [disabled]="!gradientEnabled"
+                    [disabled]="!gradientEnabled || !cakeColorEditable || setupLocked"
                     type="button"
                     (click)="setGradientDirection('bottom-top')"
                   >
                     Dół → góra
                   </button>
                 </div>
-                <div class="color-row" [class.color-row--disabled]="!gradientEnabled">
+                <div class="color-row" [class.color-row--disabled]="!gradientEnabled || !cakeColorEditable || setupLocked">
                   <span class="color-row__label">Pierwszy kolor</span>
                   <div class="color-row__input">
                     <input
                       type="color"
-                      [disabled]="!gradientEnabled"
+                      [disabled]="!gradientEnabled || !cakeColorEditable || setupLocked"
                       [ngModel]="gradientFirst"
                       (input)="setGradientColor('first', getInputValue($event))"
                     />
                     <input
                       type="text"
-                      [disabled]="!gradientEnabled"
+                      [disabled]="!gradientEnabled || !cakeColorEditable || setupLocked"
                       [ngModel]="gradientFirst"
                       (ngModelChange)="setGradientColor('first', $event)"
                     />
                   </div>
                   <div class="color-swatch" [style.background]="gradientFirst"></div>
                 </div>
-                <div class="color-row" [class.color-row--disabled]="!gradientEnabled">
+                <div class="color-row" [class.color-row--disabled]="!gradientEnabled || !cakeColorEditable || setupLocked">
                   <span class="color-row__label">Drugi kolor</span>
                   <div class="color-row__input">
                     <input
                       type="color"
-                      [disabled]="!gradientEnabled"
+                      [disabled]="!gradientEnabled || !cakeColorEditable || setupLocked"
                       [ngModel]="gradientSecond"
                       (input)="setGradientColor('second', getInputValue($event))"
                     />
                     <input
                       type="text"
-                      [disabled]="!gradientEnabled"
+                      [disabled]="!gradientEnabled || !cakeColorEditable || setupLocked"
                       [ngModel]="gradientSecond"
                       (ngModelChange)="setGradientColor('second', $event)"
                     />
@@ -330,18 +342,18 @@
                     <span class="icon-16" aria-hidden="true">⏻</span>
                   </button>
                 </div>
-                <div class="color-row">
+                <div class="color-row" [class.color-row--disabled]="!glazeColorEditable || !glazeEnabled || setupLocked">
                   <span class="color-row__label">Kolor polewy</span>
                   <div class="color-row__input">
                     <input
                       type="color"
-                      [disabled]="!glazeEnabled"
+                      [disabled]="!glazeEnabled || !glazeColorEditable || setupLocked"
                       [ngModel]="options.glaze_color"
                       (input)="setGlazeColor(getInputValue($event))"
                     />
                     <input
                       type="text"
-                      [disabled]="!glazeEnabled"
+                      [disabled]="!glazeEnabled || !glazeColorEditable || setupLocked"
                       [ngModel]="options.glaze_color"
                       (ngModelChange)="setGlazeColor($event)"
                     />
@@ -384,8 +396,8 @@
                   >
                     <div
                       class="texture-card__preview"
-                      [style.background-image]="texture.preview ? 'url(' + texture.preview + ')' : ''"
-                      [style.background-color]="!texture.preview ? texture.maps.baseColor : ''"
+                      [class.texture-card__preview--overlay]="texture.previewOverlay"
+                      [ngStyle]="buildTexturePreviewStyle(texture)"
                       aria-hidden="true"
                     ></div>
                     <div class="texture-card__name">{{ texture.label }}</div>

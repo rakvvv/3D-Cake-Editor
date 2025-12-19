@@ -46,13 +46,19 @@ type TextureBadge = {
   title: string;
 };
 
-type TexturePickerOption = {
+type TexturePreviewLayers = {
+  previewImage: string | null;
+  previewOverlay: string | null;
+  previewColor: string | null;
+};
+
+type TexturePickerOption = TexturePreviewLayers & {
   id: string;
   label: string;
-  preview: string | null;
   target: 'cake' | 'glaze';
   maps: TextureMaps;
   badges: TextureBadge[];
+  isCustomColorizable: boolean;
 };
 
 type CameraOption = 'perspective' | 'orthographic' | 'isometric' | 'top' | 'front' | 'right';
@@ -172,6 +178,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private paintSceneSubscription?: Subscription;
   private userSubscription?: Subscription;
   private texturesSubscription?: Subscription;
+  private readonly customCakeTextureIds = new Set(['frosting', 'chocolate-cake-03']);
+  private readonly customGlazeTextureIds = new Set(['polewa']);
   private canvasListenerTarget?: HTMLElement;
   private rightClickDrag?: { x: number; y: number; moved: boolean };
 
@@ -374,30 +382,15 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const glazeOptions: TexturePickerOption[] = [];
 
     sets.forEach((set) => {
-      if (set.cake) {
-        const maps = this.normalizeTextureMaps(set.cake);
-        const preview = this.pickTexturePreview(set.thumbnailUrl, maps);
-        cakeOptions.push({
-          id: set.id,
-          label: set.label,
-          preview,
-          target: 'cake',
-          maps,
-          badges: this.buildTextureBadges(maps),
-        });
+      const cakeOption = this.toTexturePickerOption(set, 'cake');
+      const glazeOption = this.toTexturePickerOption(set, 'glaze');
+
+      if (cakeOption) {
+        cakeOptions.push(cakeOption);
       }
 
-      if (set.glaze) {
-        const maps = this.normalizeTextureMaps(set.glaze);
-        const preview = this.pickTexturePreview(set.thumbnailUrl, maps);
-        glazeOptions.push({
-          id: set.id,
-          label: set.label,
-          preview,
-          target: 'glaze',
-          maps,
-          badges: this.buildTextureBadges(maps),
-        });
+      if (glazeOption) {
+        glazeOptions.push(glazeOption);
       }
     });
 
@@ -429,6 +422,29 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return match?.id ?? null;
   }
 
+  private toTexturePickerOption(
+    set: TextureSet,
+    target: 'cake' | 'glaze',
+  ): TexturePickerOption | null {
+    const maps = target === 'cake' ? set.cake : set.glaze;
+    if (!maps) {
+      return null;
+    }
+
+    const normalizedMaps = this.normalizeTextureMaps(maps);
+    const previewLayers = this.pickTexturePreviewLayers(set.thumbnailUrl, normalizedMaps);
+
+    return {
+      id: set.id,
+      label: this.normalizeTextureLabel(set),
+      target,
+      maps: normalizedMaps,
+      badges: this.buildTextureBadges(normalizedMaps),
+      isCustomColorizable: this.isCustomTexture(set.id, target),
+      ...previewLayers,
+    };
+  }
+
   private areTextureMapsEqual(
     first: TextureMaps | undefined,
     second: TextureMaps | null | undefined,
@@ -449,6 +465,35 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       first.affectDrips === second.affectDrips &&
       first.repeat === second.repeat
     );
+  }
+
+  get cakeColorEditable(): boolean {
+    return !this.selectedCakeTextureId || this.isCustomTexture(this.selectedCakeTextureId, 'cake');
+  }
+
+  get glazeColorEditable(): boolean {
+    return !this.selectedGlazeTextureId || this.isCustomTexture(this.selectedGlazeTextureId, 'glaze');
+  }
+
+  buildTexturePreviewStyle(option: TexturePickerOption): Record<string, string> {
+    const layers: string[] = [];
+    if (option.previewOverlay) {
+      layers.push(`url(${option.previewOverlay})`);
+    }
+
+    if (option.previewImage) {
+      layers.push(`url(${option.previewImage})`);
+    } else if (option.previewColor) {
+      layers.push(`linear-gradient(${option.previewColor}, ${option.previewColor})`);
+    }
+
+    const blendMode = option.previewOverlay ? 'overlay, normal' : '';
+
+    return {
+      'background-image': layers.join(', '),
+      'background-color': option.previewColor ?? '',
+      'background-blend-mode': blendMode,
+    };
   }
 
   private normalizeTextureMaps(
@@ -475,29 +520,38 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return normalized;
   }
 
-  private pickTexturePreview(
+  private pickTexturePreviewLayers(
     thumbnailUrl: string | null | undefined,
     maps: TextureMaps,
-  ): string | null {
-    const normalizedThumbnail = this.normalizeTextureUrl(thumbnailUrl);
-    if (normalizedThumbnail) {
-      return normalizedThumbnail;
-    }
+  ): TexturePreviewLayers {
+    const previewImage =
+      this.normalizeTextureUrl(thumbnailUrl) ||
+      this.normalizeTextureUrl(!this.isProbablyColor(maps.baseColor) ? maps.baseColor : null);
 
+    const previewColor = this.isProbablyColor(maps.baseColor) ? maps.baseColor ?? null : null;
+    const previewOverlay = this.pickTextureOverlay(maps);
+
+    return {
+      previewImage: previewImage || previewOverlay || null,
+      previewOverlay,
+      previewColor,
+    };
+  }
+
+  private pickTextureOverlay(maps: TextureMaps): string | null {
     const candidates = [
-      maps.baseColor,
       maps.normal,
       maps.roughness,
       maps.displacement,
       maps.metallic,
-      maps.emissive,
       maps.ambientOcclusion,
+      maps.emissive,
       maps.alpha,
     ];
 
     for (const candidate of candidates) {
       if (candidate && !this.isProbablyColor(candidate)) {
-        return candidate;
+        return this.normalizeTextureUrl(candidate);
       }
     }
 
@@ -524,6 +578,22 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     return badges;
+  }
+
+  private normalizeTextureLabel(set: TextureSet): string {
+    if (this.customCakeTextureIds.has(set.id) || this.customGlazeTextureIds.has(set.id)) {
+      if (set.id === 'polewa') {
+        return 'Niestandardowa polewa';
+      }
+
+      return set.id === 'chocolate-cake-03' ? 'Niestandardowy krem 2' : 'Niestandardowy krem';
+    }
+
+    return set.label;
+  }
+
+  private isCustomTexture(id: string, target: 'cake' | 'glaze'): boolean {
+    return target === 'cake' ? this.customCakeTextureIds.has(id) : this.customGlazeTextureIds.has(id);
   }
 
   private isProbablyColor(value: string | null | undefined): boolean {
@@ -834,9 +904,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedCakeTextureId = textureId;
       this.gradientEnabled = false;
       this.textureBeforeGradient = null;
+      const cakeColor = match.isCustomColorizable ? this.primaryColor : '#ffffff';
       this.patchOptions({
         cake_textures: { ...match.maps },
-        cake_color: '#ffffff',
+        cake_color: cakeColor,
       });
       return;
     }
@@ -855,6 +926,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setCakeColor(color: string): void {
+    if (!this.cakeColorEditable) {
+      return;
+    }
     this.primaryColor = color;
     this.gradientEnabled = false;
     this.selectedCakeTextureId = null;
@@ -863,6 +937,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setGradientColor(which: 'first' | 'second', color: string): void {
+    if (!this.cakeColorEditable) {
+      return;
+    }
     if (which === 'first') {
       this.gradientFirst = color;
     } else {
@@ -875,6 +952,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleGradient(enabled: boolean): void {
+    if (!this.cakeColorEditable) {
+      this.gradientEnabled = false;
+      return;
+    }
     this.gradientEnabled = enabled;
     if (enabled) {
       this.textureBeforeGradient = this.options.cake_textures ?? null;
@@ -885,6 +966,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setGradientDirection(direction: 'top-bottom' | 'bottom-top'): void {
+    if (!this.cakeColorEditable) {
+      return;
+    }
     this.gradientDirection = direction;
     if (this.gradientEnabled) {
       this.applyGradientTexture();
@@ -908,6 +992,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setGlazeColor(color: string): void {
+    if (!this.glazeColorEditable) {
+      return;
+    }
     this.selectedGlazeTextureId = null;
     this.patchOptions({ glaze_color: color, glaze_textures: null });
   }

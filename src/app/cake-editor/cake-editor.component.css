@@ -390,6 +390,12 @@
   background-repeat: no-repeat;
 }
 
+.texture-card__preview--overlay {
+  background-repeat: repeat, no-repeat;
+  background-size: auto 120px, cover;
+  background-blend-mode: overlay, normal;
+}
+
 .texture-card__name {
   display: block;
   padding: 8px 10px 2px;
