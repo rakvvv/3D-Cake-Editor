@@ -83,8 +83,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   primaryColor = '#ffffff';
   gradientFirst = '#ffffff';
   gradientSecond = '#ffffff';
-  glazeMode: 'taffla' | 'plain' = 'taffla';
-  glazeEnabled = true;
+  glazeMode: 'taffla' | 'plain' = 'plain';
+  glazeEnabled = false;
   waferEnabled = false;
   waferZoom = 1;
   waferScale = 1;
