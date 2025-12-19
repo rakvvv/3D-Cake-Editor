@@ -159,16 +159,17 @@ export class ThreeObjectsFactory {
 
   private static createWaferDetailTexture(): THREE.DataTexture {
     const size = 128;
-    const data = new Uint8Array(size * size * 3);
+    const data = new Uint8Array(size * size * 4);
 
-    for (let i = 0; i < data.length; i += 3) {
+    for (let i = 0; i < data.length; i += 4) {
       const noise = 110 + Math.random() * 60;
       data[i] = noise;
       data[i + 1] = noise;
       data[i + 2] = noise;
+      data[i + 3] = 255;
     }
 
-    const texture = new THREE.DataTexture(data, size, size, THREE.RGBFormat);
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.anisotropy = 4;
     texture.minFilter = THREE.LinearFilter;
@@ -445,7 +446,7 @@ export class ThreeObjectsFactory {
     url: string,
     transform: { repeat: number; offsetX: number; offsetY: number; rotation: number },
   ): THREE.Texture {
-    const placeholder = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
+    const texture = new THREE.Texture();
 
     const applyTransform = (texture: THREE.Texture): void => {
       texture.colorSpace = THREE.SRGBColorSpace;
@@ -460,28 +461,38 @@ export class ThreeObjectsFactory {
       texture.generateMipmaps = false;
     };
 
-    applyTransform(placeholder);
-    placeholder.needsUpdate = true;
+    applyTransform(texture);
 
-    this.textureLoader.load(
-      url,
-      (loaded) => {
-        const image = loaded.image as { width?: number; height?: number };
-        if (!image || !image.width || !image.height) {
-          placeholder.needsUpdate = true;
-          return;
-        }
-        placeholder.image = loaded.image;
-        applyTransform(placeholder);
-        placeholder.needsUpdate = true;
-      },
-      undefined,
-      () => {
-        placeholder.needsUpdate = true;
-      },
-    );
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
 
-    return placeholder;
+    image.onload = () => {
+      if (!image.width || !image.height) {
+        return;
+      }
+      texture.image = image;
+      applyTransform(texture);
+      texture.needsUpdate = true;
+      this.onTextureLoaded?.();
+    };
+
+    image.onerror = () => {
+      console.warn('Failed to load wafer texture:', url);
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#cccccc';
+        ctx.fillRect(0, 0, 64, 64);
+      }
+      texture.image = canvas;
+      texture.needsUpdate = true;
+    };
+
+    image.src = url;
+
+    return texture;
   }
 
   // ========= GLAZE CREATION =========
