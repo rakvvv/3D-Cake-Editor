@@ -1009,8 +1009,23 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.glazeColorEditable) {
       return;
     }
-    this.selectedGlazeTextureId = null;
-    this.patchOptions({ glaze_color: color, glaze_textures: null });
+    const selectedGlaze = this.selectedGlazeTextureId
+      ? this.glazeTextureOptions.find((option) => option.id === this.selectedGlazeTextureId)
+      : null;
+
+    const shouldPreserveTexture =
+      !!selectedGlaze && this.isCustomTexture(selectedGlaze.id, 'glaze') && !!selectedGlaze.maps;
+
+    if (!shouldPreserveTexture) {
+      this.selectedGlazeTextureId = null;
+    }
+
+    this.glazeEnabled = true;
+    this.patchOptions({
+      glaze_enabled: true,
+      glaze_color: color,
+      glaze_textures: shouldPreserveTexture ? { ...selectedGlaze!.maps } : null,
+    });
   }
 
   toggleWafer(enabled: boolean): void {
