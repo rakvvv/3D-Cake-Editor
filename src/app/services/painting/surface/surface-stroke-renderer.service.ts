@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import * as THREE from 'three';
 import { PaintingContext } from '../common/painting-context';
+import { markSceneStroke } from '../common/painting-metadata';
 
 @Injectable({ providedIn: 'root' })
 export class SurfaceStrokeRendererService {
@@ -20,8 +21,7 @@ export class SurfaceStrokeRendererService {
 
     const root = new THREE.Group();
     root.name = 'surface-root';
-    root.userData['kind'] = 'surface-root';
-    root.userData['projectId'] = context.projectId ?? undefined;
+    markSceneStroke(root, 'surface', undefined, context.projectId, 'surface-root');
     cakeRoot.add(root);
     this.surfaceRoot = root;
     return root;
@@ -32,6 +32,7 @@ export class SurfaceStrokeRendererService {
     if (!root) {
       return;
     }
+    markSceneStroke(stroke, 'surface', stroke.userData['strokeId'], context.projectId, 'smear');
     root.add(stroke);
     this.strokeGroup = stroke;
     context.onSceneChanged?.();
@@ -52,6 +53,7 @@ export class SurfaceStrokeRendererService {
     if (!root) {
       return;
     }
+    markSceneStroke(stroke, 'surface', stroke.userData['strokeId'], context.projectId, 'sprinkle');
     root.add(stroke);
     this.sprinkleGroup = stroke;
     context.onSceneChanged?.();

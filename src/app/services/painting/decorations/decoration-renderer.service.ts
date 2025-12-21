@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import * as THREE from 'three';
 import { PaintingContext } from '../common/painting-context';
+import { markSceneStroke } from '../common/painting-metadata';
 
 @Injectable({ providedIn: 'root' })
 export class DecorationRendererService {
@@ -17,12 +18,8 @@ export class DecorationRendererService {
     }
 
     const group = new THREE.Group();
-    group.userData['isPaintDecoration'] = true;
-    group.userData['displayName'] = 'Dekoracja malowana';
-    group.userData['isPaintStroke'] = true;
-    group.userData['paintStrokeType'] = 'decoration';
+    markSceneStroke(group, 'decoration', undefined, context.projectId, 'decoration', 'Dekoracja malowana');
     group.userData['brushId'] = brushId;
-    group.userData['projectId'] = context.projectId ?? undefined;
     context.scene.add(group);
     this.decorationGroups.set(brushId, group);
     return group;
@@ -94,8 +91,7 @@ export class DecorationRendererService {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.frustumCulled = false;
-      mesh.userData['isPaintDecoration'] = true;
-      mesh.userData['isPaintStroke'] = true;
+      markSceneStroke(mesh, 'decoration', undefined, decorationGroup.userData['projectId'], 'decoration');
       mesh.userData['brushId'] = brushId;
       decorationGroup.add(mesh);
       return mesh;
