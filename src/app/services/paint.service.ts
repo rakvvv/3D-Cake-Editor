@@ -220,7 +220,7 @@ export class PaintService {
 
     if (this.paintTool === 'extruder' && this.extruderPathModeEnabled) {
       if (event.type === 'mousedown') {
-        this.captureExtruderPathPoint(pointOnCakeWorld);
+        this.captureExtruderPathPoint(pointOnCakeWorld, normal);
       }
       return;
     }
@@ -883,7 +883,7 @@ export class PaintService {
     this.pendingPathReplaceIndex = index;
   }
 
-  public captureExtruderPathPoint(worldPoint: THREE.Vector3): void {
+  public captureExtruderPathPoint(worldPoint: THREE.Vector3, worldNormal?: THREE.Vector3): void {
     const metadata = this.snapService.getCakeMetadataSnapshot();
     if (!metadata) {
       return;
@@ -916,11 +916,18 @@ export class PaintService {
     this.pendingPathReplaceIndex = null;
     const radial = new THREE.Vector3(localPoint.x, 0, localPoint.z);
     const radialNormal = radial.lengthSq() > 1e-6 ? radial.clone().normalize() : new THREE.Vector3(0, 1, 0);
-    const capturedNormal = heightNorm >= 0.85 ? new THREE.Vector3(0, 1, 0) : radialNormal;
-    const positionHint: CreamPosition = Math.abs(capturedNormal.y) > 0.65 ? 'TOP_EDGE' : this.extruderPathPosition;
-    if (positionHint === 'TOP_EDGE') {
+    const hitNormal = worldNormal ? worldNormal.clone().normalize() : radialNormal;
+    const isTopHit = Math.abs(hitNormal.y) > 0.65 && heightNorm >= 0.6;
+    const positionHint: CreamPosition = isTopHit
+      ? 'TOP_EDGE'
+      : this.extruderPathPosition === 'TOP_EDGE'
+        ? 'SIDE_ARC'
+        : this.extruderPathPosition;
+
+    if (positionHint === 'TOP_EDGE' && heightNorm < 0.95) {
       newNode.heightNorm = 1;
     }
+
     const baseConfig = this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, layerIndex);
     const config = baseConfig ? { ...baseConfig, position: positionHint } : null;
     this.extruderPathPosition = positionHint;
