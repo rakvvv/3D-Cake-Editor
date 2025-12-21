@@ -17,6 +17,11 @@ import {RaycastService} from './interaction/raycast/raycast.service';
 import {PointerInputService} from './interaction/input/pointer-input.service';
 import {DecorationRegistryService} from './decoration-registry.service';
 import {environment} from '../../environments/environment';
+import {PaintingContext} from './painting/common/painting-context';
+import {DecorationRendererService} from './painting/decorations/decoration-renderer.service';
+import {DecorationStrokeBuilderService} from './painting/decorations/decoration-stroke-builder.service';
+import {CommandFactoryService} from './interaction/history/command-factory.service';
+import {PaintMaterialHooksService} from './painting/common/paint-material-hooks.service';
 import {
   CreamPathNode,
   CreamPosition,
@@ -84,7 +89,7 @@ export class PaintService {
   public penThickness = 0.02;
   public penColor = '#ff4d6d';
   public penOpacity = 1;
-  public readonly sceneChanged$ = new Subject<void>();
+  public readonly sceneChanged$: Subject<void>;
 
   private readonly historyDomain = HistoryDomain.Decorations;
   private currentProjectId: string | null = null;
@@ -175,10 +180,7 @@ export class PaintService {
   private activePenStartCapIndex: number | null = null;
   private activePenEndCapIndex: number | null = null;
   private activeDecorationGroup: THREE.Group | null = null;
-  private decorationGroups = new Map<string, THREE.Group>();
-
   private decorationVariants = new Map<string, DecorationVariantData[]>();
-  private decorationStrokeInstances = new Map<string, DecorationInstanceState[]>();
   private decorationVariantCursor = new Map<string, number>();
 
   private get sceneRef(): THREE.Scene | null {
@@ -187,6 +189,15 @@ export class PaintService {
 
   private get cakeBaseRef(): THREE.Object3D | null {
     return this.stateStore.cakeBase;
+  }
+
+  private get paintingContext(): PaintingContext {
+    return {
+      projectId: this.currentProjectId,
+      cakeRoot: this.cakeBaseRef,
+      scene: this.sceneRef,
+      onSceneChanged: () => this.notifySceneChanged(),
+    };
   }
 
   constructor(
@@ -200,9 +211,14 @@ export class PaintService {
     private readonly raycastService: RaycastService,
     private readonly pointerInputService: PointerInputService,
     private readonly decorationRegistry: DecorationRegistryService,
+    private readonly decorationRenderer: DecorationRendererService,
+    private readonly decorationStrokeBuilder: DecorationStrokeBuilderService,
+    private readonly commandFactory: CommandFactoryService,
+    private readonly paintHooks: PaintMaterialHooksService,
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
+    this.sceneChanged$ = this.paintHooks.sceneChanged$;
     void this.loadCreamRingPresets();
     this.historyService.registerDomain(this.historyDomain);
     this.strokeSampler = new StrokeSampler(this.samplingService);
@@ -353,7 +369,6 @@ export class PaintService {
     this.extruderLastNormal = null;
     this.extruderFirstInstance = null;
     this.activeDecorationGroup = null;
-    this.decorationStrokeInstances.clear();
     this.decorationVariantCursor.clear();
   }
 
@@ -388,7 +403,10 @@ export class PaintService {
         }
       } else if (this.sceneRef) {
         this.sceneRef.remove(this.activeDecorationGroup);
-        this.decorationGroups.delete(this.activeDecorationGroup.userData['brushId']);
+        const brushKey = this.activeDecorationGroup.userData['brushId'];
+        if (brushKey) {
+          this.decorationRenderer.removeDecorationGroup(brushKey);
+        }
       }
     }
     this.activeDecorationGroup = null;
@@ -517,11 +535,10 @@ export class PaintService {
 
     this.brushCache.delete(brushId);
     this.brushPromises.delete(brushId);
-    this.decorationVariants.delete(brushId);
-    this.decorationStrokeInstances.delete(brushId);
-    this.decorationGroups.delete(brushId);
-    this.brushSizes.delete(brushId);
-  }
+      this.decorationVariants.delete(brushId);
+      this.decorationRenderer.disposeDecorationAssets(brushId);
+      this.brushSizes.delete(brushId);
+    }
 
   private getDecorationInfoForBrush(brushId: string): DecorationInfo {
     const fallback: DecorationInfo = {
@@ -561,19 +578,12 @@ export class PaintService {
   }
 
   private ensureActiveDecorationGroup(scene: THREE.Scene): THREE.Group {
-    // Zawsze twórz nową grupę dla nowego pociągnięcia
-    if (this.activeDecorationGroup) {
-      return this.activeDecorationGroup;
+    const group =
+      this.activeDecorationGroup ??
+      this.decorationRenderer.ensureActiveDecorationGroup(this.paintingContext, this.currentBrush);
+    if (!group) {
+      throw new Error('Brak grupy dekoracji');
     }
-
-    const group = new THREE.Group();
-    group.userData['isPaintDecoration'] = true;
-    group.userData['displayName'] = 'Dekoracja malowana';
-    group.userData['isPaintStroke'] = true;
-    group.userData['paintStrokeType'] = 'decoration';
-    group.userData['brushId'] = this.currentBrush;
-    scene.add(group);
-
     this.activeDecorationGroup = group;
     return group;
   }
@@ -585,18 +595,14 @@ export class PaintService {
     matrix: THREE.Matrix4,
     selectedIndex?: number,
   ): void {
-    const states = this.ensureDecorationInstanceMeshes(brushId, variants, decorationGroup);
-
-    const targetIndex = typeof selectedIndex === 'number' ? selectedIndex : 0;
-    const state = states[targetIndex];
-    if (!state || state.count >= this.extruderMaxInstances) {
-      return;
-    }
-
-    state.mesh.setMatrixAt(state.count, matrix);
-    state.mesh.count = state.count + 1;
-    state.mesh.instanceMatrix.needsUpdate = true;
-    state.count += 1;
+    this.decorationRenderer.addDecorationInstances(
+      brushId,
+      variants,
+      decorationGroup,
+      matrix,
+      this.extruderMaxInstances,
+      selectedIndex,
+    );
   }
 
   private getNextDecorationVariantIndex(brushId: string, total: number): number {
@@ -610,40 +616,8 @@ export class PaintService {
     return index;
   }
 
-  private ensureDecorationInstanceMeshes(
-    brushId: string,
-    variants: DecorationVariantData[],
-    decorationGroup: THREE.Group,
-  ): DecorationInstanceState[] {
-    const existing = this.decorationStrokeInstances.get(brushId);
-    if (existing && existing.length === variants.length) {
-      const allValid = existing.every(state =>
-        state.mesh.parent === decorationGroup &&
-        state.count < this.extruderMaxInstances
-      );
-      if (allValid) {
-        return existing;
-      }
-    }
-
-    const states: DecorationInstanceState[] = variants.map((variant) => {
-      const mesh = new THREE.InstancedMesh(variant.geometry, variant.material, this.extruderMaxInstances);
-      mesh.count = 0;
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.frustumCulled = false;
-      mesh.userData['isPaintDecoration'] = true;
-      mesh.userData['isPaintStroke'] = true;
-      mesh.userData['brushId'] = brushId;
-      decorationGroup.add(mesh);
-
-      return { mesh, count: 0 };
-    });
-
-
-    this.decorationStrokeInstances.set(brushId, states);
-    return states;
+  private ensureDecorationInstanceMeshes(): void {
+    // Kept for backward compatibility; handled by DecorationRendererService
   }
 
   private getDecorationScale(brushId: string): number {
@@ -717,16 +691,14 @@ export class PaintService {
 
     const scale = this.getDecorationScale(this.currentBrush);
     const decorationInfo = this.getDecorationInfoForBrush(this.currentBrush);
-    const cakeCenterWorld = new THREE.Vector3(0, 0, 0);
-    this.cakeBaseRef?.getWorldPosition(cakeCenterWorld);
     const decoRoot = new THREE.Object3D();
     decoRoot.scale.setScalar(scale);
-    this.applySurfacePlacement(decoRoot, hit, decorationInfo, cakeCenterWorld);
-
-    const matrix = new THREE.Matrix4().compose(
-      decoRoot.position.clone(),
-      decoRoot.quaternion.clone(),
-      new THREE.Vector3(scale, scale, scale),
+    const matrix = this.decorationStrokeBuilder.buildPlacementMatrix(
+      hit,
+      decorationInfo,
+      scale,
+      this.penSurfaceOffset,
+      decoRoot,
     );
     const selectedVariant = this.getNextDecorationVariantIndex(this.currentBrush, variants.length);
     this.addDecorationInstances(this.currentBrush, variants, decorationGroup, matrix, selectedVariant);
@@ -2641,63 +2613,6 @@ export class PaintService {
     }
   }
 
-  private applySurfacePlacement(
-    obj: THREE.Object3D,
-    hit: HitResult,
-    info: DecorationInfo,
-    cakeCenterWorld: THREE.Vector3,
-  ): void {
-    const normalW = this.getWorldNormal(hit);
-
-    const modelUpAxis = info.modelUpAxis ?? 'Y';
-    const modelForwardAxis = info.modelForwardAxis ?? 'Z';
-    const surfaceOffset = info.surfaceOffset ?? 0.002;
-    const faceOutwardOnSides = info.faceOutwardOnSides ?? true;
-
-    // 1) align: modelUp -> normal powierzchni
-    const modelUp = this.axisVector(modelUpAxis).clone().normalize();
-    const qAlign = new THREE.Quaternion().setFromUnitVectors(modelUp, normalW);
-
-    // 2) twist na boku: ustaw "przód" w stronę od środka tortu do punktu
-    const qTwist = new THREE.Quaternion().identity();
-    if (faceOutwardOnSides) {
-      const radial = hit.point.clone().sub(cakeCenterWorld);
-      const desiredForward = this.projectOnPlane(radial, normalW).normalize();
-
-      const modelForward = this.axisVector(modelForwardAxis).clone().normalize();
-      const currentForward = modelForward.applyQuaternion(qAlign);
-      const currentForwardProj = this.projectOnPlane(currentForward.clone(), normalW).normalize();
-
-      if (desiredForward.lengthSq() > 1e-6 && currentForwardProj.lengthSq() > 1e-6) {
-        qTwist.setFromUnitVectors(currentForwardProj, desiredForward);
-      }
-    }
-
-    // 3) offset rotacji z JSON (paintInitialRotation)
-    const addRot = info.paintInitialRotation ?? info.initialRotation ?? [0, 0, 0];
-    const qOffset = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(
-        THREE.MathUtils.degToRad(addRot[0]),
-        THREE.MathUtils.degToRad(addRot[1]),
-        THREE.MathUtils.degToRad(addRot[2]),
-        'XYZ'
-      )
-    );
-
-    // final = twist * align * offset
-    const qFinal = qAlign.clone();
-    qFinal.premultiply(qTwist);
-    qFinal.multiply(qOffset);
-
-    obj.quaternion.copy(qFinal);
-
-    // 4) pozycja + wypchnięcie z tortu
-    obj.position.copy(hit.point).add(normalW.multiplyScalar(surfaceOffset));
-
-    obj.updateMatrixWorld(true);
-  }
-
-
   private async restoreDecorationStroke(entry: PaintStrokePreset, scene: THREE.Scene): Promise<void> {
     const brushId = entry.brushId ?? this.currentBrush;
     const variants = await this.getDecorationVariants(brushId);
@@ -2927,35 +2842,27 @@ export class PaintService {
   private createAddRemoveCommand(object: THREE.Object3D, parent: THREE.Object3D | null): Command<THREE.Object3D | null> {
     const targetParent = parent ?? this.sceneRef;
     const instanceId = this.tagDecoration(object);
+    const base = this.commandFactory.createAddRemoveCommand(
+      this.historyDomain,
+      object,
+      targetParent,
+      this.currentProjectId,
+      () => this.notifySceneChanged(),
+    );
     return {
+      description: base.description,
       do: () => {
-        if (object.userData['projectId'] && object.userData['projectId'] !== this.currentProjectId) {
-          return object;
+        const result = base.do();
+        if (result) {
+          this.decorationRegistry.register(this.currentProjectId, instanceId, object);
         }
-        if (!targetParent) {
-          return null;
-        }
-        if (object.parent !== targetParent) {
-          targetParent.add(object);
-        } else if (!targetParent.children.includes(object)) {
-          targetParent.add(object);
-        }
-        delete object.userData['removedByUndo'];
-        this.decorationRegistry.register(this.currentProjectId, instanceId, object);
-        return object;
+        return result;
       },
       undo: () => {
-        if (object.userData['projectId'] && object.userData['projectId'] !== this.currentProjectId) {
-          return object;
-        }
-        if (object.parent) {
-          object.parent.remove(object);
-          object.userData['removedByUndo'] = true;
-        }
+        const result = base.undo();
         this.decorationRegistry.unregister(instanceId, this.currentProjectId);
-        return object;
+        return result;
       },
-      description: 'paint-add-remove',
     };
   }
 
@@ -3059,13 +2966,8 @@ export class PaintService {
   }
 
   private teardownDecorationInstances(): void {
-    this.decorationGroups.forEach((group) => group.parent?.remove(group));
-    this.decorationGroups.clear();
-    this.decorationStrokeInstances.forEach((states) => {
-      states.forEach((state) => state.mesh.parent?.remove(state.mesh));
-    });
-    this.decorationStrokeInstances.clear();
     this.decorationVariantCursor.clear();
+    this.decorationVariants.forEach((_, brushId) => this.decorationRenderer.removeDecorationGroup(brushId));
   }
 
   private teardownPenInstances(): void {

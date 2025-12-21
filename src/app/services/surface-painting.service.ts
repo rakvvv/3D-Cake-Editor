@@ -1,7 +1,6 @@
 import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import * as THREE from 'three';
-import { PaintService } from './paint.service';
 import {
   SerializedBrushStroke,
   SerializedSprinkleStroke,
@@ -16,6 +15,10 @@ import { SamplingService } from './interaction/sampling/sampling.service';
 import { Command, HistoryDomain } from './interaction/types/interaction-types';
 import { HistoryService } from './interaction/history/history.service';
 import { PresetService } from './interaction/presets/preset.service';
+import { PaintMaterialHooksService } from './painting/common/paint-material-hooks.service';
+import { SurfaceStrokeRendererService } from './painting/surface/surface-stroke-renderer.service';
+import { SurfaceStrokeBuilderService } from './painting/surface/surface-stroke-builder.service';
+import { CommandFactoryService } from './interaction/history/command-factory.service';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
 export type SprinkleShape = 'stick' | 'ball' | 'star';
@@ -150,11 +153,14 @@ export class SurfacePaintingService {
 
   constructor(
     @Inject(PLATFORM_ID) platformId: object,
-    private readonly paintService: PaintService,
     private readonly gradientTextureService: GradientTextureService,
     private readonly samplingService: SamplingService,
     private readonly historyService: HistoryService,
     private readonly presetService: PresetService,
+    private readonly paintHooks: PaintMaterialHooksService,
+    private readonly surfaceRenderer: SurfaceStrokeRendererService,
+    private readonly surfaceStrokeBuilder: SurfaceStrokeBuilderService,
+    private readonly commandFactory: CommandFactoryService,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
     if (this.isBrowser) {
@@ -227,12 +233,12 @@ export class SurfacePaintingService {
 
   public undo(): void {
     this.historyService.undo(this.historyDomain);
-    this.paintService.sceneChanged$.next();
+    this.paintHooks.notifySceneChanged();
   }
 
   public redo(): void {
     this.historyService.redo(this.historyDomain);
-    this.paintService.sceneChanged$.next();
+    this.paintHooks.notifySceneChanged();
   }
 
   public canUndo(): boolean {
@@ -909,17 +915,13 @@ export class SurfacePaintingService {
   private ensureSurfaceRoot(): THREE.Group | null {
     if (!this.cakeGroup) return null;
 
-    const existing = this.surfaceRoot ?? (this.cakeGroup.children.find((child) => child.name === 'surface-root') as THREE.Group | undefined);
-    const root = existing ?? new THREE.Group();
-    root.name = 'surface-root';
-    root.userData['isSurfaceRoot'] = true;
-    root.userData['kind'] = 'surface-root';
-    root.userData['projectId'] = this.currentProjectId ?? undefined;
-    root.userData['belongsToCakeId'] = this.cakeGroup.uuid;
-    if (root.parent !== this.cakeGroup) {
-      this.cakeGroup.add(root);
-    }
-
+    const context = {
+      projectId: this.currentProjectId,
+      cakeRoot: this.cakeGroup,
+      scene: null,
+      onSceneChanged: () => this.paintHooks.notifySceneChanged(),
+    };
+    const root = this.surfaceRenderer.ensureSurfaceRoot(context);
     this.surfaceRoot = root;
     return root;
   }
@@ -1192,21 +1194,20 @@ export class SurfacePaintingService {
     (mesh as any).raycast = () => {};
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.name = 'Malowanie pędzlem';
-    mesh.count = 0;
-    mesh.frustumCulled = false;
-    mesh.renderOrder = this.globalRenderOrder++;
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      mesh.renderOrder = this.globalRenderOrder++;
 
-    const group = new THREE.Group();
-    group.name = 'Malowanie pędzlem';
-    group.userData['displayName'] = 'Malowanie pędzlem';
-    group.userData['isPaintDecoration'] = true;
-    group.userData['isSurfaceStroke'] = true;
-    group.userData['strokeIds'] = [] as string[];
-    group.userData['kind'] = 'surface-stroke';
-    group.userData['subkind'] = 'brush';
-    group.userData['projectId'] = this.currentProjectId ?? undefined;
-    group.add(mesh);
-    anchor.add(group);
+      const strokeId = (this.activeStroke as any)?.id ?? `brush-${this.nextStrokeId}`;
+      const group = this.surfaceStrokeBuilder.createBrushStrokeGroup(
+        strokeId,
+        this.brushColor,
+        this.brushOpacity,
+        mesh.renderOrder,
+        this.currentProjectId,
+      );
+      group.add(mesh);
+      anchor.add(group);
 
     this.brushStrokeGroup = group;
     this.brushStrokeMesh = mesh;
@@ -1496,17 +1497,15 @@ export class SurfacePaintingService {
     mesh.frustumCulled = false;
     mesh.renderOrder = this.globalRenderOrder++;
 
-    const group = new THREE.Group();
-    group.name = 'Posypka';
-    group.userData['displayName'] = 'Posypka';
-    group.userData['isPaintDecoration'] = true;
-    group.userData['isSurfaceStroke'] = true;
-    group.userData['strokeIds'] = [] as string[];
-    group.userData['kind'] = 'surface-stroke';
-    group.userData['subkind'] = 'sprinkle';
-    group.userData['projectId'] = this.currentProjectId ?? undefined;
-    group.add(mesh);
-    anchor.add(group);
+      const strokeId = (this.activeStroke as any)?.id ?? `sprinkle-${this.nextStrokeId}`;
+      const group = this.surfaceStrokeBuilder.createSprinkleStrokeGroup(
+        strokeId,
+        this.sprinkleShape,
+        this.sprinkleUseRandomColors ? this.sprinkleColor : this.sprinkleColor,
+        this.currentProjectId,
+      );
+      group.add(mesh);
+      anchor.add(group);
 
     this.sprinkleStrokeGroup = group;
     this.sprinkleStrokeMesh = mesh;
@@ -1525,7 +1524,7 @@ export class SurfacePaintingService {
         this.shaderUniforms;
     }
     this.paintedMaterials.forEach((mat) => (mat.needsUpdate = true));
-    this.paintService.sceneChanged$.next();
+    this.paintHooks.notifySceneChanged();
   }
 
   private trackSurfaceAddition(object: THREE.Object3D | null): void {
@@ -1536,7 +1535,7 @@ export class SurfacePaintingService {
     const parent = object.parent ?? this.cakeGroup ?? null;
     const command = this.createAddRemoveCommand(object, parent);
     this.historyService.push(this.historyDomain, command, {execute: false});
-    this.paintService.sceneChanged$.next();
+    this.paintHooks.notifySceneChanged();
   }
 
   private createAddRemoveCommand(
@@ -1544,31 +1543,14 @@ export class SurfacePaintingService {
     parent: THREE.Object3D | null,
   ): Command<THREE.Object3D | null> {
     const targetParent = parent ?? this.cakeGroup ?? null;
-    return {
-      do: () => {
-        if (!targetParent) return null;
-        if (this.currentProjectId && object.userData['projectId'] && object.userData['projectId'] !== this.currentProjectId) {
-          return null;
-        }
-        if (object.parent !== targetParent) {
-          targetParent.add(object);
-        } else if (!targetParent.children.includes(object)) {
-          targetParent.add(object);
-        }
-        delete object.userData['removedByUndo'];
-        this.paintService.sceneChanged$.next();
-        return object;
-      },
-      undo: () => {
-        if (object.parent) {
-          object.parent.remove(object);
-          object.userData['removedByUndo'] = true;
-        }
-        this.paintService.sceneChanged$.next();
-        return object;
-      },
-      description: 'surface-add-remove',
-    };
+    const base = this.commandFactory.createAddRemoveCommand(
+      this.historyDomain,
+      object,
+      targetParent,
+      this.currentProjectId,
+      () => this.paintHooks.notifySceneChanged(),
+    );
+    return base;
   }
 
   private sanitizeHexColor(value: string, fallback: string = DEFAULT_SPRINKLE_COLOR): string {
