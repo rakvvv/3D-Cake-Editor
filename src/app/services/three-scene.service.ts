@@ -2223,6 +2223,8 @@ export class ThreeSceneService {
       this.surfacePainting.seedHistoryFromExistingStrokes();
     }
 
+    this.paintService.seedHistoryFromExistingDecorations(this.collectDecorationRoots());
+
     this.updateBoxHelper();
     this.emitOutlineChanged();
   }

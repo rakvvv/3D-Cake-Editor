@@ -15,6 +15,7 @@ import {Command, HistoryDomain, HitResult, PointerSample, SamplingConfig} from '
 import {SamplingService} from './interaction/sampling/sampling.service';
 import {RaycastService} from './interaction/raycast/raycast.service';
 import {PointerInputService} from './interaction/input/pointer-input.service';
+import {DecorationRegistryService} from './decoration-registry.service';
 import {environment} from '../../environments/environment';
 import {
   CreamPathNode,
@@ -156,6 +157,7 @@ export class PaintService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
 
   private suppressHistory = false;
+  private historySeededForProject: string | null = null;
 
   private readonly stateStore = new PaintingStateStore();
   private readonly strokeSampler: StrokeSampler;
@@ -197,6 +199,7 @@ export class PaintService {
     private readonly historyService: HistoryService,
     private readonly raycastService: RaycastService,
     private readonly pointerInputService: PointerInputService,
+    private readonly decorationRegistry: DecorationRegistryService,
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -211,6 +214,8 @@ export class PaintService {
       this.currentProjectId = projectId;
       this.historyService.resetDomain(this.historyDomain);
       this.historyService.registerDomain(this.historyDomain);
+      this.decorationRegistry.clearForProject(projectId);
+      this.historySeededForProject = null;
       this.stateStore.setScene(null);
       this.stateStore.setCakeBase(null);
       this.paintMode = false;
@@ -245,6 +250,7 @@ export class PaintService {
   public disposeProjectState(): void {
     this.resetProjectState(`disposed-${Date.now()}`);
     this.currentProjectId = null;
+    this.decorationRegistry.clearAll();
   }
 
   public setRenderScheduler(callback: () => void): void {
@@ -547,6 +553,7 @@ export class PaintService {
     }
 
     const parent = object.parent ?? this.stateStore.paintParent ?? this.stateStore.scene;
+    this.tagDecoration(object);
     object.userData['paintParent'] = parent ?? null;
     const command = this.createAddRemoveCommand(object, parent ?? null);
     this.historyService.push(this.historyDomain, command, {execute: false});
@@ -2919,8 +2926,12 @@ export class PaintService {
 
   private createAddRemoveCommand(object: THREE.Object3D, parent: THREE.Object3D | null): Command<THREE.Object3D | null> {
     const targetParent = parent ?? this.sceneRef;
+    const instanceId = this.tagDecoration(object);
     return {
       do: () => {
+        if (object.userData['projectId'] && object.userData['projectId'] !== this.currentProjectId) {
+          return object;
+        }
         if (!targetParent) {
           return null;
         }
@@ -2930,17 +2941,89 @@ export class PaintService {
           targetParent.add(object);
         }
         delete object.userData['removedByUndo'];
+        this.decorationRegistry.register(this.currentProjectId, instanceId, object);
         return object;
       },
       undo: () => {
+        if (object.userData['projectId'] && object.userData['projectId'] !== this.currentProjectId) {
+          return object;
+        }
         if (object.parent) {
           object.parent.remove(object);
           object.userData['removedByUndo'] = true;
         }
+        this.decorationRegistry.unregister(instanceId, this.currentProjectId);
         return object;
       },
       description: 'paint-add-remove',
     };
+  }
+
+  public seedHistoryFromExistingDecorations(objects?: THREE.Object3D[]): void {
+    const projectId = this.currentProjectId;
+    if (!projectId || this.historySeededForProject === projectId) {
+      return;
+    }
+
+    const parent = this.stateStore.paintParent ?? this.sceneRef;
+    if (!parent) {
+      return;
+    }
+
+    const decorations = objects ?? this.collectDecorationRootsFromScene(parent);
+    decorations.forEach((object) => {
+      this.tagDecoration(object);
+      const command = this.createAddRemoveCommand(object, object.parent ?? parent);
+      this.historyService.seed(this.historyDomain, command);
+    });
+
+    this.historySeededForProject = projectId;
+  }
+
+  private collectDecorationRootsFromScene(root: THREE.Object3D): THREE.Object3D[] {
+    const result: THREE.Object3D[] = [];
+    const visited = new Set<THREE.Object3D>();
+
+    const traverse = (object: THREE.Object3D) => {
+      object.children.forEach((child) => {
+        if (
+          child.userData['decorationType'] ||
+          child.userData['isPaintStroke'] ||
+          child.userData['isPaintDecoration']
+        ) {
+          const rootNode = this.resolveDecorationRoot(child);
+          if (!visited.has(rootNode)) {
+            visited.add(rootNode);
+            result.push(rootNode);
+          }
+        }
+        traverse(child);
+      });
+    };
+
+    traverse(root);
+    return result;
+  }
+
+  private resolveDecorationRoot(node: THREE.Object3D): THREE.Object3D {
+    let current: THREE.Object3D | null = node;
+    while (current?.parent) {
+      if (current.parent === this.sceneRef || current.parent === this.cakeBaseRef) {
+        return current;
+      }
+      current = current.parent;
+    }
+    return node;
+  }
+
+  private tagDecoration(object: THREE.Object3D): string {
+    const instanceId = (object.userData['instanceId'] as string | undefined) ?? object.uuid;
+    object.userData['instanceId'] = instanceId;
+    object.userData['projectId'] = this.currentProjectId;
+    object.userData['domain'] = 'decoration';
+    object.userData['belongsToCakeId'] = this.cakeBaseRef?.uuid;
+    this.decorationRegistry.register(this.currentProjectId, instanceId, object);
+    return instanceId;
   }
 
   private withHistorySuppressed<TResult>(fn: () => TResult): TResult {
