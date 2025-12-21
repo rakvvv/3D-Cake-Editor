@@ -403,37 +403,7 @@
       </div>
 
       <div class="advanced-panel" *ngIf="showPresetAdvanced">
-          <div class="advanced-panel__grid">
-            <label>
-              Tryb generatora
-              <select class="sidebar-panel__select" [ngModel]="extruderMode" (ngModelChange)="onExtruderModeChange($event)">
-                <option [ngValue]="'RING'">Pełny pierścień</option>
-                <option [ngValue]="'ARC'">Łuk / pas</option>
-                <option [ngValue]="'PATH'">Łączenie punktów</option>
-              </select>
-            </label>
-            <label>
-              Pozycja
-              <select class="sidebar-panel__select" [ngModel]="extruderPosition" (ngModelChange)="onExtruderPositionChange($event)">
-                <option [ngValue]="'TOP_EDGE'">Krawędź górna</option>
-                <option [ngValue]="'BOTTOM_EDGE'">Krawędź dolna</option>
-                <option [ngValue]="'SIDE_ARC'">Bok / łuk</option>
-              </select>
-            </label>
-            <label>
-              Kąt startowy (°)
-              <input type="number" class="sidebar-panel__input" [(ngModel)]="extruderStartAngle" (change)="onExtruderAnglesChange()" />
-            </label>
-            <label>
-              Kąt końcowy (°)
-              <input
-                type="number"
-                class="sidebar-panel__input"
-                [(ngModel)]="extruderEndAngle"
-                [disabled]="extruderMode === 'RING'"
-                (change)="onExtruderAnglesChange()"
-              />
-            </label>
+          <div class="advanced-panel__grid advanced-panel__grid--condensed">
             <label>
               Gęstość
               <input type="number" class="sidebar-panel__input" min="2" [(ngModel)]="extruderSegments" (change)="onExtruderSegmentsChange($any($event.target).value)" />

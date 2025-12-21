@@ -63,6 +63,10 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   nodeErrors: (string | null)[] = [];
   angleError: string | null = null;
   segmentError: string | null = null;
+  private presetMode: ExtruderStrokeMode = 'RING';
+  private presetPosition: CreamPosition = 'SIDE_ARC';
+  private presetStartAngle = 0;
+  private presetEndAngle = 360;
   private userExtruderColor: string | null = null;
   private skipNextServiceSync = false;
 
@@ -249,11 +253,8 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.applyPresetToForm(preset);
     this.paintService.setExtruderPathMode(preset.mode === 'PATH');
     if (preset.mode === 'PATH') {
-      this.extruderPathModeEnabled = true;
       this.paintService.setExtruderPathContext(preset);
       this.paintService.setExtruderPathNodes(preset.nodes ?? [], preset);
-    } else {
-      this.extruderPathModeEnabled = false;
     }
   }
 
@@ -323,7 +324,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       this.validateNodes();
       this.refreshNodePreview();
     } else {
-      this.extruderMode = this.extruderMode === 'PATH' ? 'ARC' : this.extruderMode;
+      this.extruderMode = this.presetMode;
     }
 
     this.paintService.setExtruderPathMode(this.extruderPathModeEnabled);
@@ -331,31 +332,9 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.refreshPathMarkers();
   }
 
-  onExtruderModeChange(mode: ExtruderStrokeMode): void {
-    this.extruderMode = mode;
-    if (this.extruderMode === 'RING') {
-      this.extruderEndAngle = this.extruderStartAngle + 360;
-    }
-    this.validateAngles();
-    this.syncExtruderContext();
-  }
-
-  onExtruderPositionChange(position: CreamPosition): void {
-    this.extruderPosition = position;
-    this.syncExtruderContext();
-  }
-
   onExtruderSegmentsChange(value: number): void {
     this.extruderSegments = Math.max(2, Math.min(512, Math.round(Number(value)) || 2));
     this.validateSegments();
-    this.syncExtruderContext();
-  }
-
-  onExtruderAnglesChange(): void {
-    if (this.extruderMode === 'RING') {
-      this.extruderEndAngle = this.extruderStartAngle + 360;
-    }
-    this.validateAngles();
     this.syncExtruderContext();
   }
 
@@ -647,11 +626,16 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   }
 
   private applyPresetToForm(preset: CreamRingPreset): void {
-    this.extruderMode = preset.mode;
-    this.extruderPosition = preset.position;
+    this.extruderPathModeEnabled = preset.mode === 'PATH';
+    this.presetMode = preset.mode;
+    this.presetPosition = preset.position;
+    this.presetStartAngle = preset.startAngleDeg ?? 0;
+    this.presetEndAngle = preset.endAngleDeg ?? (preset.mode === 'RING' ? this.presetStartAngle + 360 : 180);
+    this.extruderMode = this.extruderPathModeEnabled ? 'PATH' : this.presetMode;
+    this.extruderPosition = this.presetPosition;
     this.extruderSegments = preset.segments ?? this.extruderSegments;
-    this.extruderStartAngle = preset.startAngleDeg ?? 0;
-    this.extruderEndAngle = preset.endAngleDeg ?? (preset.mode === 'RING' ? this.extruderStartAngle + 360 : 180);
+    this.extruderStartAngle = this.presetStartAngle;
+    this.extruderEndAngle = this.presetMode === 'RING' ? this.presetStartAngle + 360 : this.presetEndAngle;
     this.extruderHeightNorm = preset.heightNorm ?? this.extruderHeightNorm;
     this.extruderRadiusOffset = preset.radiusOffset ?? this.extruderRadiusOffset;
     this.extruderScale = preset.scale ?? this.extruderScale;
@@ -660,7 +644,6 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       this.paintColor = preset.color;
     }
     this.targetLayerIndex = preset.layerIndex;
-    this.extruderPathModeEnabled = preset.mode === 'PATH';
     if (preset.mode === 'PATH') {
       this.extruderPathNodes = preset.nodes?.map((node) => ({ ...node })) ?? this.extruderPathNodes;
     }
@@ -678,14 +661,19 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       return null;
     }
 
+    const baseMode = base.mode ?? this.presetMode;
+    const basePosition = base.position ?? this.presetPosition;
+    const baseStartAngle = base.startAngleDeg ?? this.presetStartAngle;
+    const baseEndAngle = baseMode === 'RING' ? baseStartAngle + 360 : base.endAngleDeg ?? this.presetEndAngle;
+
     return {
       ...base,
-      mode: this.extruderMode,
+      mode: baseMode,
       layerIndex: this.targetLayerIndex,
-      position: this.extruderPosition,
+      position: basePosition,
       segments: this.extruderSegments,
-      startAngleDeg: this.extruderStartAngle,
-      endAngleDeg: this.extruderMode === 'RING' ? this.extruderStartAngle + 360 : this.extruderEndAngle,
+      startAngleDeg: baseStartAngle,
+      endAngleDeg: baseEndAngle,
       heightNorm: this.extruderHeightNorm,
       radiusOffset: this.extruderRadiusOffset,
       scale: this.extruderScale,
@@ -700,10 +688,10 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       name: 'Edycja ścieżki',
       mode: 'PATH',
       layerIndex: this.targetLayerIndex,
-      position: this.extruderPosition,
+      position: this.presetPosition,
       segments: this.extruderSegments,
-      startAngleDeg: this.extruderStartAngle,
-      endAngleDeg: this.extruderMode === 'RING' ? this.extruderStartAngle + 360 : this.extruderEndAngle,
+      startAngleDeg: this.presetStartAngle,
+      endAngleDeg: this.presetMode === 'RING' ? this.presetStartAngle + 360 : this.presetEndAngle,
       heightNorm: this.extruderHeightNorm,
       radiusOffset: this.extruderRadiusOffset,
       scale: this.extruderScale,
