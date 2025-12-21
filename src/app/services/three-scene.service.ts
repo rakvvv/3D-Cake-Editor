@@ -22,25 +22,15 @@ import { DecorationFactory, DecorationLoadError } from '../factories/decoration.
 import { AnchorPresetsService } from './anchor-presets.service';
 import { AnchorPoint, AnchorPreset } from '../models/anchors';
 import { DecoratedCakePreset, DecorationPresetEntry } from '../models/cake-preset';
-
-interface DecorationClipboardEntry {
-  template: THREE.Object3D;
-  worldPosition: THREE.Vector3;
-  worldQuaternion: THREE.Quaternion;
-  localScale: THREE.Vector3;
-  snapInfo: SnapInfoSnapshot | null;
-  pasteCount: number;
-}
+import { SceneInteractionController } from './three-scene/scene-interaction.controller';
+import { DecorationClipboardEntry, ThreeSceneState } from './three-scene/three-scene.state';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
 })
 export class ThreeSceneService {
-  public objects: THREE.Object3D[] = [];
-  public cakeBase: THREE.Group | null = null;
-  private cakeLayers: THREE.Mesh[] = [];
-  private cakeMetadata: CakeMetadata | null = null;
-  private textMesh: THREE.Object3D | null = null;
+  private readonly state = new ThreeSceneState();
+  private readonly interactions: SceneInteractionController;
   private readonly fontCache = new Map<string, Font>();
   private readonly fontLoader = new FontLoader();
   private readonly fontUrls: Record<string, string> = {
@@ -59,26 +49,142 @@ export class ThreeSceneService {
   private options!: CakeOptions;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
-  private boxHelper: THREE.BoxHelper | null = null;
-  private boxHelperTarget: THREE.Object3D | null = null;
-  private clipboard: DecorationClipboardEntry | null = null;
-  private gridHelper: THREE.GridHelper | null = null;
-  private axesHelper: THREE.AxesHelper | null = null;
-  private cakeOutlineHelper: THREE.BoxHelper | null = null;
-  private boundingBoxesEnabled = false;
-  private highQualityMode = true;
-  private container?: HTMLElement;
-  private ownerDocument?: Document;
-  private readonly anchorOccupants = new Map<string, Set<THREE.Object3D>>();
-  private lastIsolatedAnchorId: string | null = null;
   private readonly outlineChanged = new Subject<void>();
   public readonly outlineChanges$ = this.outlineChanged.asObservable();
   private readonly statusMessages = new Subject<string>();
   public readonly statusMessages$ = this.statusMessages.asObservable();
 
-  // Prevent multiple undo/redo executions from a single physical keydown.
-  private lastUndoEventStamp: number | null = null;
-  private lastRedoEventStamp: number | null = null;
+  public get objects(): THREE.Object3D[] {
+    return this.state.objects;
+  }
+
+  public set objects(value: THREE.Object3D[]) {
+    this.state.objects = value;
+  }
+
+  public get cakeBase(): THREE.Group | null {
+    return this.state.cakeBase;
+  }
+
+  public set cakeBase(value: THREE.Group | null) {
+    this.state.cakeBase = value;
+  }
+
+  private get cakeLayers(): THREE.Mesh[] {
+    return this.state.cakeLayers;
+  }
+
+  private set cakeLayers(value: THREE.Mesh[]) {
+    this.state.cakeLayers = value;
+  }
+
+  private get cakeMetadata(): CakeMetadata | null {
+    return this.state.cakeMetadata;
+  }
+
+  private set cakeMetadata(value: CakeMetadata | null) {
+    this.state.cakeMetadata = value;
+  }
+
+  private get textMesh(): THREE.Object3D | null {
+    return this.state.textMesh;
+  }
+
+  private set textMesh(value: THREE.Object3D | null) {
+    this.state.textMesh = value;
+  }
+
+  private get boxHelper(): THREE.BoxHelper | null {
+    return this.state.boxHelper;
+  }
+
+  private set boxHelper(value: THREE.BoxHelper | null) {
+    this.state.boxHelper = value;
+  }
+
+  private get boxHelperTarget(): THREE.Object3D | null {
+    return this.state.boxHelperTarget;
+  }
+
+  private set boxHelperTarget(value: THREE.Object3D | null) {
+    this.state.boxHelperTarget = value;
+  }
+
+  private get clipboard(): DecorationClipboardEntry | null {
+    return this.state.clipboard;
+  }
+
+  private set clipboard(value: DecorationClipboardEntry | null) {
+    this.state.clipboard = value;
+  }
+
+  private get gridHelper(): THREE.GridHelper | null {
+    return this.state.gridHelper;
+  }
+
+  private set gridHelper(value: THREE.GridHelper | null) {
+    this.state.gridHelper = value;
+  }
+
+  private get axesHelper(): THREE.AxesHelper | null {
+    return this.state.axesHelper;
+  }
+
+  private set axesHelper(value: THREE.AxesHelper | null) {
+    this.state.axesHelper = value;
+  }
+
+  private get cakeOutlineHelper(): THREE.BoxHelper | null {
+    return this.state.cakeOutlineHelper;
+  }
+
+  private set cakeOutlineHelper(value: THREE.BoxHelper | null) {
+    this.state.cakeOutlineHelper = value;
+  }
+
+  private get boundingBoxesEnabled(): boolean {
+    return this.state.boundingBoxesEnabled;
+  }
+
+  private set boundingBoxesEnabled(value: boolean) {
+    this.state.boundingBoxesEnabled = value;
+  }
+
+  private get highQualityMode(): boolean {
+    return this.state.highQualityMode;
+  }
+
+  private set highQualityMode(value: boolean) {
+    this.state.highQualityMode = value;
+  }
+
+  private get container(): HTMLElement | undefined {
+    return this.state.container;
+  }
+
+  private set container(value: HTMLElement | undefined) {
+    this.state.container = value;
+  }
+
+  private get ownerDocument(): Document | undefined {
+    return this.state.ownerDocument;
+  }
+
+  private set ownerDocument(value: Document | undefined) {
+    this.state.ownerDocument = value;
+  }
+
+  private get anchorOccupants(): Map<string, Set<THREE.Object3D>> {
+    return this.state.anchorOccupants;
+  }
+
+  private get lastIsolatedAnchorId(): string | null {
+    return this.state.lastIsolatedAnchorId;
+  }
+
+  private set lastIsolatedAnchorId(value: string | null) {
+    this.state.lastIsolatedAnchorId = value;
+  }
 
 
 
@@ -94,6 +200,24 @@ export class ThreeSceneService {
     private anchorPresetsService: AnchorPresetsService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
+    this.interactions = new SceneInteractionController({
+      state: this.state,
+      mouse: this.mouse,
+      raycaster: this.raycaster,
+      paintService: this.paintService,
+      surfacePainting: this.surfacePainting,
+      transformControlsService: this.transformControlsService,
+      sceneInitService: this.sceneInitService,
+      pickPaintableHit: (intersects) => this.pickPaintableHit(intersects),
+      isPaintable: (object) => this.isPaintable(object),
+      onClickDown: (event) => this.onClickDown(event),
+      stopPaintingStroke: () => this.stopPaintingStroke(),
+      handleAnchorOptionHistory: (object, redo) => this.handleAnchorOptionHistory(object, redo),
+      requestRender: () => this.requestRender(),
+      getCamera: () => this.camera,
+      getRenderer: () => this.renderer,
+      getScene: () => this.scene,
+    });
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
     this.paintService.sceneChanged$.subscribe(() => this.requestRender());
     this.paintService.setRenderScheduler(() => this.requestRender());
@@ -103,209 +227,6 @@ export class ThreeSceneService {
 
   private notifyStatus(message: string): void {
     this.statusMessages.next(message);
-  }
-
-  private handleMouseDown = (event: MouseEvent) => {
-    if (!this.container) {
-      return;
-    }
-
-    if (event.button !== 0) {
-      return;
-    }
-
-    if (this.surfacePainting.enabled && this.cakeBase) {
-      const rect = this.renderer.domElement.getBoundingClientRect();
-      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      this.raycaster.setFromCamera(this.mouse, this.camera);
-      const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-      const paintHit = this.pickPaintableHit(intersectsCake);
-      if (!paintHit || this.transformControlsService.isDragging()) {
-        this.onClickDown(event);
-        return;
-      }
-
-      if (!this.isPaintable(paintHit.object)) {
-        this.onClickDown(event);
-        return;
-      }
-
-      this.surfacePainting.startStroke();
-      this.sceneInitService.setOrbitEnabled(false);
-      void this.surfacePainting.handlePointer(paintHit, this.scene);
-      this.requestRender();
-      return;
-    }
-
-    if (this.paintService.paintMode && this.cakeBase) {
-      const rect = this.renderer.domElement.getBoundingClientRect();
-      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      this.raycaster.setFromCamera(this.mouse, this.camera);
-      const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-      if (!intersectsCake.length || this.transformControlsService.isDragging()) {
-        this.onClickDown(event);
-        return;
-      }
-
-      this.paintService.beginStroke(rect);
-      this.sceneInitService.setOrbitEnabled(false);
-      void this.paintService.handlePaint(
-        event,
-        this.renderer,
-        this.camera,
-        this.scene,
-        this.cakeBase,
-        this.mouse,
-        this.raycaster,
-      );
-      this.requestRender();
-      return;
-    }
-
-    this.onClickDown(event);
-  };
-
-  private handleMouseMove = (event: MouseEvent) => {
-    if (!this.container) {
-      return;
-    }
-
-    if (this.surfacePainting.enabled && this.surfacePainting.isPainting() && this.cakeBase) {
-      if (event.buttons !== undefined && (event.buttons & 1) === 0) {
-        this.stopPaintingStroke();
-        return;
-      }
-
-      if (this.transformControlsService.isDragging()) {
-        this.stopPaintingStroke();
-        return;
-      }
-
-      const rect = this.renderer.domElement.getBoundingClientRect();
-      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      this.raycaster.setFromCamera(this.mouse, this.camera);
-      const intersectsCake = this.raycaster.intersectObject(this.cakeBase, true);
-      const paintHit = this.pickPaintableHit(intersectsCake);
-      if (!paintHit) {
-        return;
-      }
-      if (!this.isPaintable(paintHit.object)) {
-        return;
-      }
-      void this.surfacePainting.handlePointer(paintHit, this.scene);
-      this.requestRender();
-      return;
-    }
-
-    if (!this.paintService.paintMode || !this.paintService.isPainting || !this.cakeBase) {
-      return;
-    }
-
-    if (event.buttons !== undefined && (event.buttons & 1) === 0) {
-      this.stopPaintingStroke();
-      return;
-    }
-
-    if (this.transformControlsService.isDragging()) {
-      this.stopPaintingStroke();
-      return;
-    }
-
-    void this.paintService.handlePaint(
-      event,
-      this.renderer,
-      this.camera,
-      this.scene,
-      this.cakeBase,
-      this.mouse,
-      this.raycaster,
-    );
-    this.requestRender();
-  };
-
-  private handleMouseUp = () => this.stopPaintingStroke();
-
-  private handleMouseLeave = () => this.stopPaintingStroke();
-
-  private handleContextMenu = (event: MouseEvent) => {
-    const painting =
-      (this.paintService.paintMode && this.paintService.isPainting) ||
-      (this.surfacePainting.enabled && this.surfacePainting.isPainting());
-    const orbitActive = this.sceneInitService.isOrbitBusy(200);
-    if (painting || orbitActive) {
-      event.preventDefault();
-    }
-  };
-
-  private handleKeyDown = (event: KeyboardEvent) => {
-    const ctrlOrMeta = event.ctrlKey || event.metaKey;
-    if (!ctrlOrMeta) {
-      return;
-    }
-
-    if (event.repeat) {
-      return;
-    }
-
-    const key = event.key.toLowerCase();
-    const wantsUndo = key === 'z' && !event.shiftKey;
-    const wantsRedo = key === 'y' || (key === 'z' && event.shiftKey);
-
-    if (wantsUndo) {
-      if (this.paintService.canUndo()) {
-        if (this.lastUndoEventStamp === event.timeStamp) {
-          return;
-        }
-        this.lastUndoEventStamp = event.timeStamp;
-        const undone = this.paintService.undo();
-        this.handleAnchorOptionHistory(undone, false);
-        event.preventDefault();
-      }
-    } else if (wantsRedo) {
-      if (this.paintService.canRedo()) {
-        if (this.lastRedoEventStamp === event.timeStamp) {
-          return;
-        }
-        this.lastRedoEventStamp = event.timeStamp;
-        const redone = this.paintService.redo();
-        this.handleAnchorOptionHistory(redone, true);
-        event.preventDefault();
-      }
-    }
-  };
-
-  private attachInputListeners(container: HTMLElement): void {
-    this.detachInputListeners();
-    this.container = container;
-    this.ownerDocument = container.ownerDocument ?? document;
-
-    container.addEventListener('mousedown', this.handleMouseDown);
-    container.addEventListener('mousemove', this.handleMouseMove);
-    container.addEventListener('mouseup', this.handleMouseUp);
-    container.addEventListener('mouseleave', this.handleMouseLeave);
-    container.addEventListener('contextmenu', this.handleContextMenu);
-
-    this.ownerDocument.addEventListener('keydown', this.handleKeyDown);
-  }
-
-  private detachInputListeners(): void {
-    if (this.container) {
-      this.container.removeEventListener('mousedown', this.handleMouseDown);
-      this.container.removeEventListener('mousemove', this.handleMouseMove);
-      this.container.removeEventListener('mouseup', this.handleMouseUp);
-      this.container.removeEventListener('mouseleave', this.handleMouseLeave);
-      this.container.removeEventListener('contextmenu', this.handleContextMenu);
-    }
-
-    if (this.ownerDocument) {
-      this.ownerDocument.removeEventListener('keydown', this.handleKeyDown);
-    }
-
-    this.container = undefined;
-    this.ownerDocument = undefined;
   }
 
   public get scene(): THREE.Scene {
@@ -374,14 +295,14 @@ export class ThreeSceneService {
       void this.loadAndAddText(this.options.cake_text_value, textSize, textHeight, textDepth, textConfig);
     }
 
-    this.attachInputListeners(container);
+    this.interactions.attach(container);
   }
 
   public reattachRenderer(container: HTMLElement): void {
     const changed = this.container !== container;
     this.sceneInitService.reattachRenderer(container);
     if (changed) {
-      this.attachInputListeners(container);
+      this.interactions.attach(container);
     }
     this.requestRender();
   }
