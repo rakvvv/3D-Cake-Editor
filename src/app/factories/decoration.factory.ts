@@ -147,10 +147,7 @@ export class DecorationFactory {
       contentType.includes('application/gltf-buffer');
 
     if (contentType && isHtml) {
-      throw new DecorationLoadError(
-        'Serwer zwrócił stronę HTML zamiast pliku dekoracji.',
-        resolvedUrl,
-      );
+      throw this.buildHtmlLoadError(resolvedUrl, response);
     }
 
     const bodySample = await response
@@ -162,10 +159,7 @@ export class DecorationFactory {
     const looksLikeHtml = this.bodyLooksLikeHtml(bodySample);
 
     if (looksLikeHtml) {
-      throw new DecorationLoadError(
-        'Serwer zwrócił stronę HTML zamiast pliku dekoracji.',
-        resolvedUrl,
-      );
+      throw this.buildHtmlLoadError(resolvedUrl, response);
     }
 
     if (contentType && !isGltfType) {
@@ -180,6 +174,26 @@ export class DecorationFactory {
 
   private static bodyLooksLikeHtml(sample: string): boolean {
     return /<!doctype\s+html/i.test(sample) || /<html[\s>]/i.test(sample);
+  }
+
+  private static buildHtmlLoadError(resolvedUrl: string, response?: Response): DecorationLoadError {
+    const redirectInfo = response?.redirected && response.url !== resolvedUrl;
+    const redirectHint = redirectInfo
+      ? `Adres został przekierowany na ${response?.url ?? 'inny adres'} (routing Angular może przechwytywać /models/*).`
+      : '';
+
+    const hint =
+      'Sprawdź, czy modelFileName w JSON jest poprawny i czy plik GLB/GLTF faktycznie istnieje na serwerze.';
+    const message = [
+      'Serwer zwrócił stronę HTML zamiast pliku dekoracji.',
+      `Adres: ${resolvedUrl}.`,
+      redirectHint,
+      hint,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return new DecorationLoadError(message, resolvedUrl);
   }
 
   private static emitError(error: unknown): void {
