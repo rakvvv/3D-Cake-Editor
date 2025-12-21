@@ -967,7 +967,7 @@ export class PaintService {
   }
 
   private updateExtruderPathMarkers(nodes: CreamPathNode[], config?: CreamRingPreset): void {
-    if (!this.sceneRef || !this.extruderPathModeEnabled) {
+    if (!this.sceneRef) {
       this.clearExtruderPathMarkers();
       return;
     }
