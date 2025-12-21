@@ -884,6 +884,10 @@ export class PaintService {
   }
 
   public captureExtruderPathPoint(worldPoint: THREE.Vector3, worldNormal?: THREE.Vector3): void {
+    if (!this.extruderPathModeEnabled) {
+      this.setExtruderPathMode(true);
+    }
+
     const metadata = this.snapService.getCakeMetadataSnapshot();
     if (!metadata) {
       return;

@@ -372,7 +372,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   }
 
   onGenerateExtruderStroke(): void {
-    const preset = this.getPresetConfig();
+    const preset = this.getActivePreset();
     if (!preset) {
       return;
     }
@@ -537,7 +537,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   }
 
   private refreshNodePreview(): void {
-    const config = this.getPresetConfig();
+    const config = this.getActivePreset();
     if (!config || config.mode !== 'PATH') {
       this.extruderNodePreview = [];
       return;
@@ -582,7 +582,11 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   }
 
   private getActivePreset(): CreamRingPreset | null {
-    return this.getPresetConfig();
+    if (this.extruderMode === 'PATH') {
+      return this.getPathEditorPreset();
+    }
+
+    return this.getPresetConfigFromSelection();
   }
 
   private async loadExtruderVariants(): Promise<void> {
@@ -621,7 +625,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.refreshNodePreview();
   }
 
-  private getPresetConfig(): CreamRingPreset | null {
+  private getPresetConfigFromSelection(): CreamRingPreset | null {
     const active = this.creamPresets.find((item) => item.id === this.selectedCreamPresetId);
     const fallback = this.creamPresets[0];
     const base = active ?? fallback;
@@ -641,12 +645,30 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       radiusOffset: this.extruderRadiusOffset,
       scale: this.extruderScale,
       color: this.extruderColor,
-      nodes: this.extruderMode === 'PATH' ? this.extruderPathNodes.map((node) => ({ ...node })) : base.nodes,
+      nodes: base.mode === 'PATH' ? base.nodes?.map((node) => ({ ...node })) : base.nodes,
+    };
+  }
+
+  private getPathEditorPreset(): CreamRingPreset | null {
+    return {
+      id: 'path-editor',
+      name: 'Edycja ścieżki',
+      mode: 'PATH',
+      layerIndex: this.targetLayerIndex,
+      position: this.extruderPosition,
+      segments: this.extruderSegments,
+      startAngleDeg: this.extruderStartAngle,
+      endAngleDeg: this.extruderMode === 'RING' ? this.extruderStartAngle + 360 : this.extruderEndAngle,
+      heightNorm: this.extruderHeightNorm,
+      radiusOffset: this.extruderRadiusOffset,
+      scale: this.extruderScale,
+      color: this.extruderColor,
+      nodes: this.extruderPathNodes.map((node) => ({ ...node })),
     };
   }
 
   private syncExtruderContext(): void {
-    const config = this.getPresetConfig();
+    const config = this.getActivePreset();
     if (!config) {
       return;
     }
