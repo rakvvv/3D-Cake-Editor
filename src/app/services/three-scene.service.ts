@@ -18,7 +18,7 @@ import { DecorationValidationIssue } from '../models/decoration-validation';
 import { DecorationInfo, DecorationPlacementType } from '../models/decorationInfo';
 import { environment } from '../../environments/environment';
 import { SceneOutlineNode } from '../models/scene-outline';
-import { DecorationFactory } from '../factories/decoration.factory';
+import { DecorationFactory, DecorationLoadError } from '../factories/decoration.factory';
 import { AnchorPresetsService } from './anchor-presets.service';
 import { AnchorPoint, AnchorPreset } from '../models/anchors';
 import { DecoratedCakePreset, DecorationPresetEntry } from '../models/cake-preset';
@@ -73,6 +73,8 @@ export class ThreeSceneService {
   private lastIsolatedAnchorId: string | null = null;
   private readonly outlineChanged = new Subject<void>();
   public readonly outlineChanges$ = this.outlineChanged.asObservable();
+  private readonly statusMessages = new Subject<string>();
+  public readonly statusMessages$ = this.statusMessages.asObservable();
 
   // Prevent multiple undo/redo executions from a single physical keydown.
   private lastUndoEventStamp: number | null = null;
@@ -97,6 +99,10 @@ export class ThreeSceneService {
     this.paintService.setRenderScheduler(() => this.requestRender());
     this.anchorPresetsService.setRenderScheduler(() => this.requestRender());
     ThreeObjectsFactory.setTextureLoadCallback(() => this.requestRender());
+  }
+
+  private notifyStatus(message: string): void {
+    this.statusMessages.next(message);
   }
 
   private handleMouseDown = (event: MouseEvent) => {
@@ -3035,6 +3041,20 @@ export class ThreeSceneService {
   } | null> {
     const info = this.decorationsService.getDecorationInfo(entry.modelFileName);
     const modelFileName = info?.modelFileName ?? entry.modelFileName;
+
+    if (!info && this.isPaintAnchorPlaceholder(modelFileName)) {
+      this.notifyStatus(
+        'Pominięto zapisany element "Cake Paint Anchor" – to techniczny znacznik malowania, nie plik GLB.',
+      );
+      return null;
+    }
+
+    if (!info && !this.looksLikeModelFileName(modelFileName)) {
+      this.notifyStatus(
+        `Dekoracja "${modelFileName}" nie została wczytana: nazwa pliku nie ma rozszerzenia .glb/.gltf.`,
+      );
+      return null;
+    }
     const modelUrl = `/models/${modelFileName}`;
 
     try {
@@ -3089,9 +3109,23 @@ export class ThreeSceneService {
 
       return { object: decoration, snapInfo, anchorId: entry.anchorId };
     } catch (error) {
+      const label = info?.name ?? modelFileName;
+      const reason =
+        error instanceof DecorationLoadError
+          ? error.message
+          : 'Nie udało się wczytać dekoracji.';
+      this.notifyStatus(`Dekoracja "${label}" nie została wczytana: ${reason}`);
       console.error('Nie udało się wczytać dekoracji z presetu:', error);
       return null;
     }
+  }
+
+  private isPaintAnchorPlaceholder(modelFileName: string): boolean {
+    return modelFileName.trim().toLowerCase() === 'cake paint anchor';
+  }
+
+  private looksLikeModelFileName(modelFileName: string): boolean {
+    return /\.gl(tf)?b?$/i.test(modelFileName.trim());
   }
 
   private cloneCakeOptions(options: CakeOptions): CakeOptions {

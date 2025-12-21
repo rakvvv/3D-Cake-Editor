@@ -185,6 +185,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private anchorClickSubscription?: Subscription;
   private outlineSubscription?: Subscription;
   private paintSceneSubscription?: Subscription;
+  private sceneStatusSubscription?: Subscription;
   private userSubscription?: Subscription;
   private texturesSubscription?: Subscription;
   private readonly customCakeTextureIds = new Set(['frosting', 'chocolate-cake-03']);
@@ -317,6 +318,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.refreshUndoRedoAvailability();
       this.updateSetupLockState();
     });
+    this.sceneStatusSubscription = this.sceneService.statusMessages$.subscribe((message) =>
+      this.showStatus(message),
+    );
   }
 
   ngAfterViewInit(): void {
@@ -667,6 +671,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.anchorClickSubscription?.unsubscribe();
     this.outlineSubscription?.unsubscribe();
     this.paintSceneSubscription?.unsubscribe();
+    this.sceneStatusSubscription?.unsubscribe();
     this.userSubscription?.unsubscribe();
     this.texturesSubscription?.unsubscribe();
 

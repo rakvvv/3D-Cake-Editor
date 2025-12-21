@@ -3,6 +3,13 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { Subject } from 'rxjs';
 
+export class DecorationLoadError extends Error {
+  constructor(message: string, public readonly resourceUrl?: string) {
+    super(message);
+    this.name = 'DecorationLoadError';
+  }
+}
+
 export class DecorationFactory {
   private static readonly errorSubject = new Subject<unknown>();
   public static readonly errors$ = this.errorSubject.asObservable();
@@ -21,23 +28,24 @@ export class DecorationFactory {
     const loader = await this.getLoader(renderer);
     const resolvedUrl = this.resolveAssetUrl(url);
 
-    return new Promise((resolve, reject) => {
-      loader.load(
-        resolvedUrl,
-        gltf => {
-          const meshes = this.getAllMeshes(gltf.scene);
-          this.ensureLitMaterials(meshes);
-          this.prepareMeshesForClick(meshes);
-          gltf.scene.userData['clickableMeshes'] = meshes;
-          resolve(gltf.scene);
-        },
-        undefined,
-        err => {
-          this.emitError(err);
-          reject(err);
-        }
-      );
-    });
+    try {
+      const arrayBuffer = await this.preflightModelRequest(resolvedUrl);
+      const basePath = this.getBasePath(resolvedUrl);
+      const gltf = await loader.parseAsync(arrayBuffer, basePath);
+
+      const meshes = this.getAllMeshes(gltf.scene);
+      this.ensureLitMaterials(meshes);
+      this.prepareMeshesForClick(meshes);
+      gltf.scene.userData['clickableMeshes'] = meshes;
+      return gltf.scene;
+    } catch (error) {
+      const wrappedError =
+        error instanceof DecorationLoadError
+          ? error
+          : new DecorationLoadError('Nie udało się wczytać pliku dekoracji.', resolvedUrl);
+      this.emitError(wrappedError);
+      throw wrappedError;
+    }
   }
 
   private static async getLoader(renderer?: THREE.WebGLRenderer): Promise<GLTFLoader> {
@@ -106,6 +114,86 @@ export class DecorationFactory {
     }
 
     return `http://localhost:4200/${normalizedPath}`;
+  }
+
+  private static getBasePath(url: string): string {
+    const lastSlash = url.lastIndexOf('/') + 1;
+    return lastSlash > 0 ? url.slice(0, lastSlash) : url;
+  }
+
+  private static async preflightModelRequest(resolvedUrl: string): Promise<ArrayBuffer> {
+    let response: Response;
+
+    try {
+      response = await fetch(resolvedUrl);
+    } catch (error) {
+      throw new DecorationLoadError('Nie udało się pobrać dekoracji (błąd sieci).', resolvedUrl);
+    }
+
+    if (!response.ok) {
+      throw new DecorationLoadError(
+        `Dekoracja niedostępna (status ${response.status}).`,
+        resolvedUrl,
+      );
+    }
+
+    const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+    const isHtml = contentType.includes('text/html');
+    const isGltfType =
+      contentType.includes('model/gltf') ||
+      contentType.includes('model/gltf-binary') ||
+      contentType.includes('model/gltf+json') ||
+      contentType.includes('application/octet-stream') ||
+      contentType.includes('application/gltf-buffer');
+
+    if (contentType && isHtml) {
+      throw this.buildHtmlLoadError(resolvedUrl, response);
+    }
+
+    const bodySample = await response
+      .clone()
+      .text()
+      .then(text => text.slice(0, 256))
+      .catch(() => '');
+
+    const looksLikeHtml = this.bodyLooksLikeHtml(bodySample);
+
+    if (looksLikeHtml) {
+      throw this.buildHtmlLoadError(resolvedUrl, response);
+    }
+
+    if (contentType && !isGltfType) {
+      throw new DecorationLoadError(
+        `Nieprawidłowy typ pliku dekoracji (content-type: ${contentType}).`,
+        resolvedUrl,
+      );
+    }
+
+    return response.arrayBuffer();
+  }
+
+  private static bodyLooksLikeHtml(sample: string): boolean {
+    return /<!doctype\s+html/i.test(sample) || /<html[\s>]/i.test(sample);
+  }
+
+  private static buildHtmlLoadError(resolvedUrl: string, response?: Response): DecorationLoadError {
+    const redirectInfo = response?.redirected && response.url !== resolvedUrl;
+    const redirectHint = redirectInfo
+      ? `Adres został przekierowany na ${response?.url ?? 'inny adres'} (routing Angular może przechwytywać /models/*).`
+      : '';
+
+    const hint =
+      'Sprawdź, czy modelFileName w JSON jest poprawny i czy plik GLB/GLTF faktycznie istnieje na serwerze.';
+    const message = [
+      'Serwer zwrócił stronę HTML zamiast pliku dekoracji.',
+      `Adres: ${resolvedUrl}.`,
+      redirectHint,
+      hint,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return new DecorationLoadError(message, resolvedUrl);
   }
 
   private static emitError(error: unknown): void {
