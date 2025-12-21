@@ -146,11 +146,34 @@ export class DecorationFactory {
       contentType.includes('application/octet-stream') ||
       contentType.includes('application/gltf-buffer');
 
-    if (contentType && !isGltfType && isHtml) {
+    if (contentType && isHtml) {
       throw new DecorationLoadError(
         'Serwer zwrócił stronę HTML zamiast pliku dekoracji.',
         resolvedUrl,
       );
+    }
+
+    if (contentType && !isGltfType) {
+      throw new DecorationLoadError(
+        `Nieprawidłowy typ pliku dekoracji (content-type: ${contentType}).`,
+        resolvedUrl,
+      );
+    }
+
+    const bodySample = await response
+      .clone()
+      .text()
+      .then(text => text.slice(0, 256))
+      .catch(() => '');
+
+    if (!isGltfType) {
+      const looksLikeHtml = /<!doctype\s+html/i.test(bodySample) || /<html[\s>]/i.test(bodySample);
+      if (looksLikeHtml) {
+        throw new DecorationLoadError(
+          'Serwer zwrócił stronę HTML zamiast pliku dekoracji.',
+          resolvedUrl,
+        );
+      }
     }
 
     return response.arrayBuffer();
