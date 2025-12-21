@@ -15,6 +15,7 @@ export class RaycastService {
     target: THREE.Object3D,
     options?: RaycastOptions,
   ): HitResult | null {
+    target.updateMatrixWorld(true);
     const recursive = options?.recursive ?? true;
     const intersections = raycaster.intersectObject(target, recursive);
     if (!intersections.length) {
@@ -29,9 +30,16 @@ export class RaycastService {
     });
 
     const selected = filtered ?? intersections[0];
+    const normalMatrix = new THREE.Matrix3().getNormalMatrix(selected.object.matrixWorld);
+    const normalWorld = selected.face?.normal
+      ? selected.face.normal.clone().applyMatrix3(normalMatrix).normalize()
+      : undefined;
+    const pointWorld = selected.point.clone();
     return {
-      point: selected.point.clone(),
-      normal: selected.face?.normal?.clone(),
+      point: pointWorld.clone(),
+      pointWorld,
+      normal: normalWorld ?? selected.face?.normal?.clone(),
+      normalWorld,
       object: selected.object,
       distance: selected.distance,
       face: selected.face ?? undefined,

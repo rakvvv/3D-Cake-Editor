@@ -11,6 +11,7 @@ import {PaintingContext} from '../common/painting-context';
 import {markSceneStroke, tagNode} from '../common/painting-metadata';
 import {DecorationRendererService} from '../decorations/decoration-renderer.service';
 import {DecorationStrokeBuilderService} from '../decorations/decoration-stroke-builder.service';
+import {environment} from '../../../../environments/environment';
 
 class DecorationPlacementState {
   activeDecorationGroup: THREE.Group | null = null;
@@ -21,6 +22,8 @@ class DecorationPlacementState {
   brushMetadata = new Map<string, Partial<DecorationInfo> & { initialScale?: number }>();
   decorationVariants = new Map<string, { geometry: THREE.BufferGeometry; material: THREE.Material; name: string }[]>();
   decorationVariantCursor = new Map<string, number>();
+  debugMarker?: THREE.Mesh;
+  debugNormal?: THREE.Line;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -212,6 +215,42 @@ export class DecorationPlacementTool {
 
     traverse(root);
     return result;
+  }
+
+  public updateDebugHit(hit: HitResult, context: PaintingContext): void {
+    if (!environment.debugInteractionNormals || !context.scene) {
+      return;
+    }
+    const point = hit.pointWorld ?? hit.point;
+    const normal = hit.normalWorld ?? hit.normal;
+    if (!point || !normal) {
+      return;
+    }
+
+    if (!this.state.debugMarker) {
+      const geometry = new THREE.SphereGeometry(0.01, 8, 8);
+      const material = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+      this.state.debugMarker = new THREE.Mesh(geometry, material);
+      this.state.debugMarker.name = 'debug-hit-marker';
+      context.scene.add(this.state.debugMarker);
+    }
+
+    if (!this.state.debugNormal) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3));
+      const material = new THREE.LineBasicMaterial({ color: 0x00ffff });
+      this.state.debugNormal = new THREE.Line(geometry, material);
+      this.state.debugNormal.name = 'debug-hit-normal';
+      context.scene.add(this.state.debugNormal);
+    }
+
+    this.state.debugMarker.position.copy(point);
+
+    const positions = (this.state.debugNormal.geometry as THREE.BufferGeometry).getAttribute('position') as THREE.BufferAttribute;
+    positions.setXYZ(0, point.x, point.y, point.z);
+    const endPoint = point.clone().addScaledVector(normal, 0.05);
+    positions.setXYZ(1, endPoint.x, endPoint.y, endPoint.z);
+    positions.needsUpdate = true;
   }
 
   private resolveDecorationRoot(node: THREE.Object3D): THREE.Object3D {

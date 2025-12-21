@@ -45,6 +45,7 @@ export class PointerInputService {
   }
 
   public updateRaycasterFromSample(sample: PointerSample, camera: THREE.Camera, raycaster: THREE.Raycaster): void {
+    camera.updateMatrixWorld(true);
     const ndc = new THREE.Vector2(sample.xNdc, sample.yNdc);
     raycaster.setFromCamera(ndc, camera);
   }

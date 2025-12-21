@@ -18,7 +18,11 @@ export interface PointerSample {
 
 export interface HitResult {
   point: THREE.Vector3;
+  /** World-space hit position */
+  pointWorld?: THREE.Vector3;
+  /** World-space normal */
   normal?: THREE.Vector3;
+  normalWorld?: THREE.Vector3;
   object: THREE.Object3D;
   distance: number;
   face?: THREE.Face;

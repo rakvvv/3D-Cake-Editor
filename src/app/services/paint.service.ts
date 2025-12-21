@@ -288,12 +288,7 @@ export class PaintService {
       this.refreshExtruderPathMarkers();
     }
 
-    const rect = this.paintCanvasRect ?? renderer.domElement.getBoundingClientRect();
-    if (!this.paintCanvasRect) {
-      this.paintCanvasRect = rect;
-    }
-
-    const sample = options?.sample ?? this.pointerInputService.createSample(event, rect);
+    const sample = options?.sample ?? this.pointerInputService.createSample(event, renderer.domElement);
     mouse.x = sample.xNdc;
     mouse.y = sample.yNdc;
     this.pointerInputService.updateRaycasterFromSample(sample, camera, raycaster);
@@ -306,7 +301,8 @@ export class PaintService {
     if (!hit) {
       return;
     }
-    const pointOnCakeWorld = hit.point.clone();
+    this.decorationPlacementTool.updateDebugHit(hit, this.paintingContext);
+    const pointOnCakeWorld = (hit.pointWorld ?? hit.point).clone();
     const normal = this.getWorldNormal(hit);
 
     if (this.paintTool === 'extruder' && this.extruderPathModeEnabled) {
@@ -1882,6 +1878,10 @@ export class PaintService {
   }
 
   private getWorldNormal(hit: HitResult): THREE.Vector3 {
+    if (hit.normalWorld) {
+      return hit.normalWorld.clone();
+    }
+
     const object = hit.rawIntersection?.object ?? hit.object;
     const n = hit.normal?.clone() ?? hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
     if (object) {

@@ -29,10 +29,11 @@ export class DecorationStrokeBuilderService {
     cakeCenterWorld: THREE.Vector3,
     penSurfaceOffset: number,
   ): void {
-    const { point, normal } = hit;
-    decoRoot.position.copy(point ?? new THREE.Vector3());
-    if (normal) {
-      decoRoot.lookAt(point!.clone().add(normal));
+    const pointWorld = hit.pointWorld ?? hit.point;
+    const normalWorld = hit.normalWorld ?? hit.normal;
+    decoRoot.position.copy(pointWorld ?? new THREE.Vector3());
+    if (normalWorld && pointWorld) {
+      decoRoot.lookAt(pointWorld.clone().add(normalWorld));
       decoRoot.rotateX(-Math.PI / 2);
     }
     if (decorationInfo.initialRotation) {
@@ -45,7 +46,7 @@ export class DecorationStrokeBuilderService {
     if (decorationInfo.initialScale) {
       decoRoot.scale.setScalar(decorationInfo.initialScale);
     }
-    decoRoot.position.addScaledVector(normal ?? new THREE.Vector3(0, 1, 0), penSurfaceOffset);
+    decoRoot.position.addScaledVector(normalWorld ?? new THREE.Vector3(0, 1, 0), penSurfaceOffset);
     decoRoot.position.sub(cakeCenterWorld);
   }
 }
