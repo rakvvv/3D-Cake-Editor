@@ -23,8 +23,8 @@ class PaintServiceMock {
   setExtruderPathMode(): void {}
   setExtruderPathContext(): void {}
   setExtruderPathNodes(): void {}
-  getExtruderVariantSelection(): number | 'random' {
-    return 'random';
+  getExtruderVariantSelection(): number {
+    return 0;
   }
   async getExtruderVariantPreviews(): Promise<{ id: number; name: string; thumbnail: string | null }[]> {
     return [];

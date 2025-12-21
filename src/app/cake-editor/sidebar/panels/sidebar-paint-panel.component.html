@@ -311,28 +311,16 @@
       <div class="section-header section-header--tight">
         <h3 class="section-header__title">Rodzaj końcówki</h3>
       </div>
-      <div class="paint-panel__tiles paint-panel__tiles--inline" aria-label="Końcówki kremu">
+      <div class="variant-list" aria-label="Końcówki kremu">
         <button
           type="button"
-          class="paint-panel__tile"
-          [class.paint-panel__tile--selected]="extruderSelection === 'random'"
-          (click)="onExtruderSelectionChange('random')"
-        >
-          <span class="paint-panel__tile-thumb" aria-hidden="true">🎲</span>
-          <span class="paint-panel__tile-name">Losowy</span>
-        </button>
-        <button
-          type="button"
-          class="paint-panel__tile"
+          class="variant-list__item"
           *ngFor="let variant of extruderVariants"
-          [class.paint-panel__tile--selected]="variant.id === extruderSelection"
+          [class.variant-list__item--selected]="variant.id === extruderSelection"
           (click)="onExtruderSelectionChange(variant.id)"
         >
-          <span class="paint-panel__tile-thumb" aria-hidden="true">
-            <img *ngIf="variant.thumbnail" [src]="variant.thumbnail" [alt]="variant.name" />
-            <span *ngIf="!variant.thumbnail" class="paint-panel__tile-placeholder">{{ variant.name }}</span>
-          </span>
-          <span class="paint-panel__tile-name">{{ variant.name }}</span>
+          <span class="variant-list__name">{{ variant.name }}</span>
+          <span class="variant-list__description">{{ variant.description || 'Uniwersalny wzór' }}</span>
         </button>
       </div>
 
@@ -342,11 +330,11 @@
           <input
             type="color"
             class="color-picker__native"
-            [ngModel]="paintColor"
+            [ngModel]="extruderColor"
             (ngModelChange)="onExtruderColorChange($event)"
             aria-label="Kolor kremu"
           />
-          <span class="color-picker__value">{{ paintColor }}</span>
+          <span class="color-picker__value">{{ extruderColor }}</span>
         </div>
       </div>
     </div>
@@ -372,28 +360,16 @@
       <div class="section-header section-header--tight">
         <h3 class="section-header__title">Rodzaj końcówki</h3>
       </div>
-      <div class="paint-panel__tiles paint-panel__tiles--inline" aria-label="Końcówki kremu">
+      <div class="variant-list" aria-label="Końcówki kremu">
         <button
           type="button"
-          class="paint-panel__tile"
-          [class.paint-panel__tile--selected]="extruderSelection === 'random'"
-          (click)="onExtruderSelectionChange('random')"
-        >
-          <span class="paint-panel__tile-thumb" aria-hidden="true">🎲</span>
-          <span class="paint-panel__tile-name">Losowy</span>
-        </button>
-        <button
-          type="button"
-          class="paint-panel__tile"
+          class="variant-list__item"
           *ngFor="let variant of extruderVariants"
-          [class.paint-panel__tile--selected]="variant.id === extruderSelection"
+          [class.variant-list__item--selected]="variant.id === extruderSelection"
           (click)="onExtruderSelectionChange(variant.id)"
         >
-          <span class="paint-panel__tile-thumb" aria-hidden="true">
-            <img *ngIf="variant.thumbnail" [src]="variant.thumbnail" [alt]="variant.name" />
-            <span *ngIf="!variant.thumbnail" class="paint-panel__tile-placeholder">{{ variant.name }}</span>
-          </span>
-          <span class="paint-panel__tile-name">{{ variant.name }}</span>
+          <span class="variant-list__name">{{ variant.name }}</span>
+          <span class="variant-list__description">{{ variant.description || 'Uniwersalny wzór' }}</span>
         </button>
         <div class="color-row color-row--compact">
           <span class="color-row__label">Kolor kremu</span>
@@ -427,37 +403,7 @@
       </div>
 
       <div class="advanced-panel" *ngIf="showPresetAdvanced">
-          <div class="advanced-panel__grid">
-            <label>
-              Tryb generatora
-              <select class="sidebar-panel__select" [ngModel]="extruderMode" (ngModelChange)="onExtruderModeChange($event)">
-                <option [ngValue]="'RING'">Pełny pierścień</option>
-                <option [ngValue]="'ARC'">Łuk / pas</option>
-                <option [ngValue]="'PATH'">Łączenie punktów</option>
-              </select>
-            </label>
-            <label>
-              Pozycja
-              <select class="sidebar-panel__select" [ngModel]="extruderPosition" (ngModelChange)="onExtruderPositionChange($event)">
-                <option [ngValue]="'TOP_EDGE'">Krawędź górna</option>
-                <option [ngValue]="'BOTTOM_EDGE'">Krawędź dolna</option>
-                <option [ngValue]="'SIDE_ARC'">Bok / łuk</option>
-              </select>
-            </label>
-            <label>
-              Kąt startowy (°)
-              <input type="number" class="sidebar-panel__input" [(ngModel)]="extruderStartAngle" (change)="onExtruderAnglesChange()" />
-            </label>
-            <label>
-              Kąt końcowy (°)
-              <input
-                type="number"
-                class="sidebar-panel__input"
-                [(ngModel)]="extruderEndAngle"
-                [disabled]="extruderMode === 'RING'"
-                (change)="onExtruderAnglesChange()"
-              />
-            </label>
+          <div class="advanced-panel__grid advanced-panel__grid--condensed">
             <label>
               Gęstość
               <input type="number" class="sidebar-panel__input" min="2" [(ngModel)]="extruderSegments" (change)="onExtruderSegmentsChange($any($event.target).value)" />
@@ -496,6 +442,8 @@
               />
             </label>
           </div>
+          <div class="form-error" *ngIf="angleError">{{ angleError }}</div>
+          <div class="form-error" *ngIf="segmentError">{{ segmentError }}</div>
 
       </div>
 
@@ -532,9 +480,27 @@
           <button type="button" class="sidebar-panel__button sidebar-panel__button--primary" (click)="connectExtruderNodes()">
             Dodaj / połącz punkty
           </button>
-          <button type="button" class="sidebar-panel__button sidebar-panel__button--ghost" (click)="clearExtruderNodes()">
-            Usuń wszystkie punkty
-          </button>
+          <div class="points-panel__actions-row">
+            <button
+              type="button"
+              class="sidebar-panel__button sidebar-panel__button--ghost"
+              (click)="undoExtruderNodes()"
+              [disabled]="!extruderPathHistory.length"
+            >
+              Cofnij
+            </button>
+            <button
+              type="button"
+              class="sidebar-panel__button sidebar-panel__button--ghost"
+              (click)="redoExtruderNodes()"
+              [disabled]="!extruderPathRedo.length"
+            >
+              Przywróć
+            </button>
+            <button type="button" class="sidebar-panel__button sidebar-panel__button--ghost" (click)="clearExtruderNodes()">
+              Usuń wszystkie punkty
+            </button>
+          </div>
         </div>
         <div class="points-panel__empty" *ngIf="!extruderPathNodes.length">
           Wybierz preset, aby załadować punkty ścieżki.
@@ -555,13 +521,31 @@
               (ngModelChange)="updateExtruderNode(idx, 'heightNorm', $event)"
             />
           </label>
-          <button
-            class="sidebar-panel__button sidebar-panel__button--ghost sidebar-panel__button--compact"
-            type="button"
-            (click)="removeExtruderNode(idx)"
+          <div class="points-panel__coordinates" *ngIf="extruderMode === 'PATH' && extruderNodePreview[idx]?.position as position">
+            <span>X: {{ position.x | number: '1.2-2' }}</span>
+            <span>Y: {{ position.y | number: '1.2-2' }}</span>
+            <span>Z: {{ position.z | number: '1.2-2' }}</span>
+          </div>
+          <div
+            class="points-panel__coordinates points-panel__coordinates--disabled"
+            *ngIf="extruderMode === 'PATH' && !extruderNodePreview[idx]?.position"
           >
-            Usuń
-          </button>
+            Punkt wyłączony w ścieżce
+          </div>
+          <div class="points-panel__error" *ngIf="nodeErrors[idx]">{{ nodeErrors[idx] }}</div>
+          <div class="points-panel__row-actions">
+            <label class="points-panel__toggle">
+              <input type="checkbox" [checked]="node.enabled !== false" (change)="toggleExtruderNodeEnabled(idx)" />
+              <span>{{ node.enabled === false ? 'Wyłączony' : 'Aktywny' }}</span>
+            </label>
+            <button
+              class="sidebar-panel__button sidebar-panel__button--ghost sidebar-panel__button--compact"
+              type="button"
+              (click)="removeExtruderNode(idx)"
+            >
+              Usuń
+            </button>
+          </div>
         </div>
 
         <button

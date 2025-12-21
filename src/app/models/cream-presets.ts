@@ -7,6 +7,7 @@ export type ExtruderStrokeMode = 'RING' | 'ARC' | 'PATH';
 export type CreamPathNode = {
   angleDeg: number;
   heightNorm?: number;
+  enabled?: boolean;
 };
 
 export type CreamRingPreset = {

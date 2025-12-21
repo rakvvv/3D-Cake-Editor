@@ -1,23 +1,26 @@
 [
   {
     "id": "cream-dot",
-    "name": "Kropka",
+    "name": "Perły",
     "modelFileName": "cream_dot.glb",
     "scaleMultiplier": 1.85,
-    "thumbnailUrl": "/assets/extruder/thumbnails/cream-dot.svg"
+    "thumbnailUrl": "/assets/extruder/thumbnails/cream-dot.svg",
+    "description": "Delikatna kropka o gładkich krawędziach"
   },
   {
     "id": "cream-shell",
-    "name": "Muszelka",
+    "name": "Muszelki gładkie",
     "modelFileName": "cream_shell.glb",
     "scaleMultiplier": 2,
-    "thumbnailUrl": "/assets/extruder/thumbnails/cream-shell.svg"
+    "thumbnailUrl": "/assets/extruder/thumbnails/cream-shell.svg",
+    "description": "Wypukły kształt przypominający muszlę"
   },
   {
     "id": "cream-wave",
-    "name": "Fala",
+    "name": "Muszelki",
     "modelFileName": "cream_wave.glb",
     "scaleMultiplier": 2,
-    "thumbnailUrl": "/assets/extruder/thumbnails/cream-wave.svg"
+    "thumbnailUrl": "/assets/extruder/thumbnails/cream-wave.svg",
+    "description": "Fala z wyraźnym żłobieniem"
   }
 ]
