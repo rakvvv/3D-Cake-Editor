@@ -104,6 +104,7 @@ export class PaintService {
   private extruderVariants: ExtruderVariantData[] | null = null;
   private extruderVariantsPromise: Promise<ExtruderVariantData[]> | null = null;
   private extruderVariantThumbnails = new Map<string, string>();
+  private extruderColor = '#ffffff';
   private extruderStrokeInstances: Map<number, ExtruderInstanceState> = new Map();
   private activeExtruderStrokeGroup: THREE.Group | null = null;
   private extruderLastPlacedPoint: THREE.Vector3 | null = null;
@@ -126,7 +127,7 @@ export class PaintService {
   private pendingPathReplaceIndex: number | null = null;
   private extruderPathMarkers: THREE.Mesh[] = [];
   private extruderPathMarkerGroup: THREE.Group | null = null;
-  private extruderPathMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0xff7ea8, emissive: 0x331122 });
+  private extruderPathMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0x71b6ff, emissive: 0x14253f });
   private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.02, 16, 12);
 
   private readonly isBrowser: boolean;
@@ -373,6 +374,16 @@ export class PaintService {
     this.extruderFirstInstance = null;
   }
 
+  public setExtruderColor(color: string): void {
+    if (!color) {
+      return;
+    }
+
+    this.extruderColor = color;
+    this.extruderStrokeInstances.clear();
+    this.activeExtruderStrokeGroup = null;
+  }
+
   public updatePenSettings(settings: { size?: number; thickness?: number; color?: string; opacity?: number }): void {
     if (settings.size !== undefined && settings.size > 0) {
       this.penSize = Math.max(settings.size, 0.005);
@@ -384,6 +395,9 @@ export class PaintService {
 
     if (settings.color) {
       this.penColor = settings.color;
+      if (this.paintTool === 'extruder') {
+        this.setExtruderColor(settings.color);
+      }
     }
 
     if (settings.opacity !== undefined) {
@@ -1160,7 +1174,7 @@ export class PaintService {
     const scale = this.getExtruderScale(variant) * scaleMultiplier;
     const transform = this.buildExtruderMatrix(position, normal, tangent, scale);
 
-    const state = this.ensureExtruderInstanceMesh(selectedIndex, variant, strokeGroup, colorOverride);
+    const state = this.ensureExtruderInstanceMesh(selectedIndex, variant, strokeGroup, colorOverride ?? this.extruderColor);
     const isFirstPlacement =
       !this.extruderFirstInstance && Array.from(this.extruderStrokeInstances.values()).every((meshState) => meshState.count === 0);
     if (state.count >= this.extruderMaxInstances) {
@@ -1715,7 +1729,7 @@ export class PaintService {
       geometry,
       material,
       size,
-      name: mesh.name || source.name,
+      name: source.name || mesh.name || source.id,
       sourceId: modelId,
       scaleMultiplier: source.scaleMultiplier,
       thumbnailUrl: source.thumbnailUrl,
@@ -1761,7 +1775,7 @@ export class PaintService {
       return null;
     }
 
-    ctx.fillStyle = '#fff8fb';
+    ctx.fillStyle = '#f0f7ff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const maxDimension = Math.max(variant.size.x || 1, variant.size.y || 1, variant.size.z || 1);
@@ -1772,8 +1786,8 @@ export class PaintService {
     const centerY = canvas.height / 2;
     const radius = Math.min(drawWidth, drawHeight) * 0.15;
 
-    ctx.fillStyle = '#ffdee7';
-    ctx.strokeStyle = '#ff4d6d';
+    ctx.fillStyle = '#e6f3ff';
+    ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 2;
 
     if ((ctx as any).roundRect) {

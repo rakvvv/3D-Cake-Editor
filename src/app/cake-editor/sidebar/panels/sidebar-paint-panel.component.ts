@@ -90,6 +90,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.extruderColor = this.paintColor;
+    this.paintService.setExtruderColor(this.extruderColor);
     this.subscriptions.add(
       this.decorationsService.decorations$.subscribe((decorations) => {
         this.allDecorations = decorations;
@@ -254,6 +255,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.paintColor = color;
     this.extruderColor = color;
     this.brushChange.emit({ color });
+    this.paintService.setExtruderColor(color);
     this.syncExtruderContext();
   }
 
@@ -620,6 +622,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.validateSegments();
     this.refreshNodePreview();
     this.paintService.setExtruderPathContext(config);
+    this.paintService.setExtruderColor(this.extruderColor);
     if (this.extruderMode === 'PATH') {
       this.paintService.setExtruderPathNodes(this.extruderPathNodes, config);
     }

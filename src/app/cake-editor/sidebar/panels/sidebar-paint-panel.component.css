@@ -1,8 +1,8 @@
 .editor-panel--painting {
   min-height: 100%;
-  max-height: calc(100vh - 140px);
-  overflow-y: auto;
-  padding-right: 6px;
+  height: 100%;
+  overflow-y: visible;
+  padding-right: 0;
 }
 
 .painting-mode {
@@ -99,7 +99,7 @@
 }
 
 .editor-panel--painting .btn-toggle:hover {
-  border-color: #ff7ea8;
+  border-color: #7ecbff;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
 }
 
@@ -108,10 +108,10 @@
 }
 
 .editor-panel--painting .btn-toggle.btn-toggle--active {
-  border-color: #ff97ba;
-  background: linear-gradient(135deg, #ff7ea8, #ff4d6d);
+  border-color: #9ad4ff;
+  background: linear-gradient(135deg, #7ecbff, #3b82f6);
   color: #0c0c0c;
-  box-shadow: 0 0 0 1px rgba(255, 126, 168, 0.35), 0 6px 14px rgba(255, 77, 109, 0.4);
+  box-shadow: 0 0 0 1px rgba(124, 187, 255, 0.35), 0 6px 14px rgba(59, 130, 246, 0.4);
 }
 
 .sidebar-panel__button {
@@ -132,7 +132,7 @@
 }
 
 .sidebar-panel__button:hover {
-  border-color: #ff6fa5;
+  border-color: #6ab8ff;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
@@ -141,15 +141,15 @@
 }
 
 .sidebar-panel__button--primary {
-  background: linear-gradient(135deg, #ff7ea8, #ff4d6d);
-  border-color: #ff97ba;
+  background: linear-gradient(135deg, #7ecbff, #3b82f6);
+  border-color: #9ad4ff;
   color: #0c0c0c;
-  box-shadow: 0 6px 18px rgba(255, 77, 109, 0.35);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35);
 }
 
 .sidebar-panel__button--primary:hover {
-  border-color: #ffd1df;
-  box-shadow: 0 10px 22px rgba(255, 77, 109, 0.4);
+  border-color: #cfe6ff;
+  box-shadow: 0 10px 22px rgba(59, 130, 246, 0.4);
 }
 
 .sidebar-panel__button--ghost {
@@ -266,11 +266,11 @@
 .points-panel__toggle input {
   width: 16px;
   height: 16px;
-  accent-color: #ff7ea8;
+  accent-color: #7ecbff;
 }
 
 .points-panel__error {
-  color: #ff97ba;
+  color: #9ad4ff;
   font-size: 12px;
 }
 
@@ -308,14 +308,14 @@
 }
 
 .btn-toggle.btn-toggle--accent {
-  background: linear-gradient(145deg, #ff7ea8, #ff4d6d);
-  border-color: #ff97ba;
+  background: linear-gradient(145deg, #7ecbff, #3b82f6);
+  border-color: #9ad4ff;
   color: #0c0c0c;
-  box-shadow: 0 6px 16px rgba(255, 77, 109, 0.35);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
 }
 
 .btn-toggle.btn-toggle--accent.btn-toggle--active {
-  box-shadow: 0 0 0 2px rgba(255, 126, 168, 0.35), 0 8px 18px rgba(255, 77, 109, 0.4);
+  box-shadow: 0 0 0 2px rgba(124, 187, 255, 0.35), 0 8px 18px rgba(59, 130, 246, 0.4);
 }
 
 .advanced-panel__row {
@@ -369,8 +369,8 @@
 }
 
 .advanced-panel__details[open] summary {
-  border-color: #ff97ba;
-  box-shadow: 0 0 0 1px rgba(255, 126, 168, 0.25);
+  border-color: #9ad4ff;
+  box-shadow: 0 0 0 1px rgba(124, 187, 255, 0.25);
 }
 
 .advanced-panel__details[open] summary::after {
@@ -387,7 +387,7 @@
 
 .form-error {
   margin-top: 6px;
-  color: #ff97ba;
+  color: #9ad4ff;
   font-size: 12px;
 }
 
@@ -416,8 +416,8 @@
 }
 
 .paint-panel__tile--selected {
-  border-color: #ff7ea8;
-  box-shadow: 0 0 0 1px #ff7ea8 inset;
+  border-color: #7ecbff;
+  box-shadow: 0 0 0 1px #7ecbff inset;
 }
 
 .paint-panel__tile-thumb {
@@ -467,8 +467,8 @@
 }
 
 .variant-list__item--selected {
-  border-color: #ff7ea8;
-  box-shadow: 0 0 0 1px rgba(255, 126, 168, 0.4);
+  border-color: #7ecbff;
+  box-shadow: 0 0 0 1px rgba(124, 187, 255, 0.4);
 }
 
 .variant-list__name {
