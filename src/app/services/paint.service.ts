@@ -8,12 +8,13 @@ import {TransformManagerService} from './transform-manager.service';
 import {SnapService} from './snap.service';
 import {CakeMetadata, LayerMetadata} from '../factories/three-objects.factory';
 import {ExtruderVariantInfo} from '../models/extruderVariantInfo';
-import {PaintRaycastAdapter} from './painting/paint-raycast.adapter';
 import {PaintingStateStore} from './painting/painting-state.store';
 import {StrokeSampler} from './painting/stroke-sampler';
 import {HistoryService} from './interaction/history/history.service';
-import {Command, HistoryDomain, SamplingConfig} from './interaction/types/interaction-types';
+import {Command, HistoryDomain, HitResult, PointerSample, SamplingConfig} from './interaction/types/interaction-types';
 import {SamplingService} from './interaction/sampling/sampling.service';
+import {RaycastService} from './interaction/raycast/raycast.service';
+import {PointerInputService} from './interaction/input/pointer-input.service';
 import {environment} from '../../environments/environment';
 import {
   CreamPathNode,
@@ -154,10 +155,9 @@ export class PaintService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
 
   private readonly stateStore = new PaintingStateStore();
-  private readonly raycastAdapter = new PaintRaycastAdapter();
   private readonly strokeSampler: StrokeSampler;
 
-  private paintCanvasRect: { left: number; top: number; width: number; height: number } | null = null;
+  private paintCanvasRect: DOMRect | DOMRectReadOnly | null = null;
   private lastPenDirection: THREE.Vector3 | null = null;
 
   private activePenStrokeGroup: THREE.Group | null = null;
@@ -192,6 +192,8 @@ export class PaintService {
     private readonly zone: NgZone,
     private readonly samplingService: SamplingService,
     private readonly historyService: HistoryService,
+    private readonly raycastService: RaycastService,
+    private readonly pointerInputService: PointerInputService,
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -212,6 +214,7 @@ export class PaintService {
     cakeBase: THREE.Object3D | null,
     mouse: THREE.Vector2,
     raycaster: THREE.Raycaster,
+    options?: { sample?: PointerSample; hit?: HitResult | null },
   ): Promise<void> {
     if (!this.paintMode) {
       return;
@@ -226,24 +229,19 @@ export class PaintService {
 
     const rect = this.paintCanvasRect ?? renderer.domElement.getBoundingClientRect();
     if (!this.paintCanvasRect) {
-      this.paintCanvasRect = {
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height,
-      };
+      this.paintCanvasRect = rect;
     }
 
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, camera);
+    const sample = options?.sample ?? this.pointerInputService.createSample(event, rect);
+    mouse.x = sample.xNdc;
+    mouse.y = sample.yNdc;
+    this.pointerInputService.updateRaycasterFromSample(sample, camera, raycaster);
 
     if (!cakeBase) {
       return;
     }
 
-    const hit = this.raycastAdapter.findPaintTarget(raycaster, cakeBase);
+    const hit = options?.hit ?? this.raycastService.performRaycast(raycaster, cakeBase, {recursive: true});
     if (!hit) {
       return;
     }
@@ -286,12 +284,7 @@ export class PaintService {
   public beginStroke(rect: DOMRect): void {
     this.isPainting = true;
     this.strokeSampler.reset();
-    this.paintCanvasRect = {
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-    };
+    this.paintCanvasRect = rect;
     this.activePenStrokePoints = [];
     this.activePenStrokeGroup = null;
     this.activePenSegments = [];
@@ -663,7 +656,7 @@ export class PaintService {
     return variants;
   }
 
-  private async placeDecorationBrush(hit: THREE.Intersection, scene: THREE.Scene): Promise<void> {
+  private async placeDecorationBrush(hit: HitResult, scene: THREE.Scene): Promise<void> {
     const decorationGroup = this.ensureActiveDecorationGroup(scene);
     const variants = await this.getDecorationVariants(this.currentBrush);
     if (!variants.length) {
@@ -2051,9 +2044,12 @@ export class PaintService {
     return new THREE.Vector3(0, 0, 1);
   }
 
-  private getWorldNormal(hit: THREE.Intersection): THREE.Vector3 {
-    const n = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
-    n.transformDirection(hit.object.matrixWorld).normalize();
+  private getWorldNormal(hit: HitResult): THREE.Vector3 {
+    const object = hit.rawIntersection?.object ?? hit.object;
+    const n = hit.normal?.clone() ?? hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
+    if (object) {
+      n.transformDirection(object.matrixWorld).normalize();
+    }
     return n;
   }
 
@@ -2583,7 +2579,7 @@ export class PaintService {
 
   private applySurfacePlacement(
     obj: THREE.Object3D,
-    hit: THREE.Intersection,
+    hit: HitResult,
     info: DecorationInfo,
     cakeCenterWorld: THREE.Vector3,
   ): void {

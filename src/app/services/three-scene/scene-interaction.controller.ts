@@ -166,6 +166,7 @@ export class SceneInteractionController {
         this.state.cakeBase,
         this.mouse,
         this.raycaster,
+        {sample, hit},
       );
       this.requestRender();
       return;
