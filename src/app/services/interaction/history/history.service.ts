@@ -16,33 +16,35 @@ export class HistoryService {
     }
   }
 
-  public push(domain: HistoryDomain, command: Command): void {
+  public push(domain: HistoryDomain, command: Command, options?: {execute?: boolean}): void {
     const stack = this.ensure(domain);
     stack.past.push(command);
     stack.future.length = 0;
-    command.do();
+    if (options?.execute !== false) {
+      command.do();
+    }
   }
 
-  public undo(domain: HistoryDomain): boolean {
+  public undo<TResult = unknown>(domain: HistoryDomain): TResult | undefined {
     const stack = this.ensure(domain);
     const command = stack.past.pop();
     if (!command) {
-      return false;
+      return undefined;
     }
-    command.undo();
+    const result = (command as Command<TResult>).undo();
     stack.future.push(command);
-    return true;
+    return result;
   }
 
-  public redo(domain: HistoryDomain): boolean {
+  public redo<TResult = unknown>(domain: HistoryDomain): TResult | undefined {
     const stack = this.ensure(domain);
     const command = stack.future.pop();
     if (!command) {
-      return false;
+      return undefined;
     }
-    command.do();
+    const result = (command as Command<TResult>).do();
     stack.past.push(command);
-    return true;
+    return result;
   }
 
   public canUndo(domain: HistoryDomain): boolean {

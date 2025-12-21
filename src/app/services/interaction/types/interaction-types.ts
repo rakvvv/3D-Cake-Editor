@@ -56,9 +56,9 @@ export interface SamplingDecision {
   reason?: string;
 }
 
-export interface Command {
-  do(): void;
-  undo(): void;
+export interface Command<TResult = unknown> {
+  do(): TResult;
+  undo(): TResult;
   description?: string;
 }
 

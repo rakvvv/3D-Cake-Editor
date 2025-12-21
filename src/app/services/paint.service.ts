@@ -11,6 +11,9 @@ import {ExtruderVariantInfo} from '../models/extruderVariantInfo';
 import {PaintRaycastAdapter} from './painting/paint-raycast.adapter';
 import {PaintingStateStore} from './painting/painting-state.store';
 import {StrokeSampler} from './painting/stroke-sampler';
+import {HistoryService} from './interaction/history/history.service';
+import {Command, HistoryDomain, SamplingConfig} from './interaction/types/interaction-types';
+import {SamplingService} from './interaction/sampling/sampling.service';
 import {environment} from '../../environments/environment';
 import {
   CreamPathNode,
@@ -81,8 +84,7 @@ export class PaintService {
   public penOpacity = 1;
   public readonly sceneChanged$ = new Subject<void>();
 
-  private readonly baseMinDistance = 0.02;
-  private readonly baseMinTimeMs = 40;
+  private readonly historyDomain = HistoryDomain.Decorations;
   private readonly penSurfaceOffset = 0.003;
   private readonly penMaxInstances = 6000;
   private brushCache = new Map<string, THREE.Object3D>();
@@ -140,12 +142,20 @@ export class PaintService {
   private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.03, 20, 16);
   private readonly extruderPathMarkerOffset = 0.012;
 
+  private get baseMinDistance(): number {
+    return this.samplingService.getConfig(this.historyDomain).minDistance ?? 0.02;
+  }
+
+  private get baseMinTimeMs(): number {
+    return this.samplingService.getConfig(this.historyDomain).minTimeMs ?? 0;
+  }
+
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
 
   private readonly stateStore = new PaintingStateStore();
   private readonly raycastAdapter = new PaintRaycastAdapter();
-  private readonly strokeSampler = new StrokeSampler();
+  private readonly strokeSampler: StrokeSampler;
 
   private paintCanvasRect: { left: number; top: number; width: number; height: number } | null = null;
   private lastPenDirection: THREE.Vector3 | null = null;
@@ -180,10 +190,14 @@ export class PaintService {
     private readonly http: HttpClient,
     private readonly decorationsService: DecorationsService,
     private readonly zone: NgZone,
+    private readonly samplingService: SamplingService,
+    private readonly historyService: HistoryService,
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
     void this.loadCreamRingPresets();
+    this.historyService.registerDomain(this.historyDomain);
+    this.strokeSampler = new StrokeSampler(this.samplingService);
   }
 
   public setRenderScheduler(callback: () => void): void {
@@ -246,7 +260,11 @@ export class PaintService {
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const previousState = this.strokeSampler.snapshot();
     const minDistance = this.getMinDistanceThreshold();
-    if (!this.strokeSampler.shouldSample(pointOnCakeWorld, normal, minDistance, this.baseMinTimeMs, now)) {
+    const samplingConfig: SamplingConfig = {
+      ...this.samplingService.getConfig(this.historyDomain),
+      minDistance,
+    };
+    if (!this.strokeSampler.shouldSample(pointOnCakeWorld, normal, samplingConfig, now)) {
       return;
     }
 
@@ -414,40 +432,27 @@ export class PaintService {
   }
 
   public undo(): THREE.Object3D | undefined {
-    const scene = this.stateStore.scene;
-    if (!scene || !this.stateStore.hasUndo) {
-      return;
+    const result = this.historyService.undo<THREE.Object3D | undefined>(this.historyDomain);
+    if (result) {
+      this.notifySceneChanged();
     }
-
-    const lastObject = this.stateStore.popUndo()!;
-    lastObject.parent?.remove(lastObject);
-    lastObject.userData['removedByUndo'] = true;
-    this.stateStore.pushRedo(lastObject);
-    this.notifySceneChanged();
-    return lastObject;
+    return result;
   }
 
   public redo(): THREE.Object3D | undefined {
-    const scene = this.stateStore.scene;
-    if (!scene || !this.stateStore.hasRedo) {
-      return;
+    const result = this.historyService.redo<THREE.Object3D | undefined>(this.historyDomain);
+    if (result) {
+      this.notifySceneChanged();
     }
-
-    const object = this.stateStore.popRedo()!;
-    const targetParent = this.getPaintParent(object) ?? scene;
-    targetParent.add(object);
-    delete object.userData['removedByUndo'];
-    this.stateStore.pushUndo(object);
-    this.notifySceneChanged();
-    return object;
+    return result;
   }
 
   public canUndo(): boolean {
-    return this.stateStore.hasUndo;
+    return this.historyService.canUndo(this.historyDomain);
   }
 
   public canRedo(): boolean {
-    return this.stateStore.hasRedo;
+    return this.historyService.canRedo(this.historyDomain);
   }
 
   public setBrushMetadata(brushId: string, metadata: Partial<DecorationInfo> & { initialScale?: number } | null): void {
@@ -503,9 +508,10 @@ export class PaintService {
       return;
     }
 
-    object.userData['paintParent'] = object.parent ?? null;
-    this.stateStore.pushUndo(object);
-    this.stateStore.clearRedo();
+    const parent = object.parent ?? this.stateStore.paintParent ?? this.stateStore.scene;
+    object.userData['paintParent'] = parent ?? null;
+    const command = this.createAddRemoveCommand(object, parent ?? null);
+    this.historyService.push(this.historyDomain, command, {execute: false});
     this.notifySceneChanged();
   }
 
@@ -522,7 +528,6 @@ export class PaintService {
     group.userData['paintStrokeType'] = 'decoration';
     group.userData['brushId'] = this.currentBrush;
     scene.add(group);
-    this.stateStore.clearRedo();
 
     this.activeDecorationGroup = group;
     return group;
@@ -1344,7 +1349,6 @@ export class PaintService {
       this.activeExtruderStrokeGroup.userData['paintStrokeType'] = 'extruder';
       this.activeExtruderStrokeGroup.userData['snapPoints'] = [] as number[][];
       scene.add(this.activeExtruderStrokeGroup);
-      this.stateStore.clearRedo();
       this.extruderStrokeInstances.clear();
       this.extruderLastPlacedPoint = null;
       this.extruderLastNormal = null;
@@ -2087,7 +2091,6 @@ export class PaintService {
       this.activePenStrokeGroup.userData['penColor'] = this.penColor;
       this.activePenStrokeGroup.userData['penOpacity'] = this.penOpacity;
       scene.add(this.activePenStrokeGroup);
-      this.stateStore.clearRedo();
       this.activePenStrokePoints = [];
       this.activePenSegments = [];
       this.activePenJoints = [];
@@ -2861,9 +2864,36 @@ export class PaintService {
     return this.sceneRef ?? null;
   }
 
+  private createAddRemoveCommand(object: THREE.Object3D, parent: THREE.Object3D | null): Command<THREE.Object3D | null> {
+    const targetParent = parent ?? this.sceneRef;
+    return {
+      do: () => {
+        if (!targetParent) {
+          return null;
+        }
+        if (object.parent !== targetParent) {
+          targetParent.add(object);
+        } else if (!targetParent.children.includes(object)) {
+          targetParent.add(object);
+        }
+        delete object.userData['removedByUndo'];
+        return object;
+      },
+      undo: () => {
+        if (object.parent) {
+          object.parent.remove(object);
+          object.userData['removedByUndo'] = true;
+        }
+        return object;
+      },
+      description: 'paint-add-remove',
+    };
+  }
+
   private trackPaintAddition(object: THREE.Object3D): void {
-    this.stateStore.pushUndo(object);
-    this.stateStore.clearRedo();
+    const parent = object.parent ?? this.stateStore.paintParent ?? this.stateStore.scene;
+    const command = this.createAddRemoveCommand(object, parent ?? null);
+    this.historyService.push(this.historyDomain, command, {execute: false});
     this.notifySceneChanged();
   }
 

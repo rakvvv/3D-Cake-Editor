@@ -1,9 +1,18 @@
 import {Injectable} from '@angular/core';
 import * as THREE from 'three';
-import {SamplingConfig, SamplingDecision} from '../types/interaction-types';
+import {HistoryDomain, SamplingConfig, SamplingDecision} from '../types/interaction-types';
 
 @Injectable({providedIn: 'root'})
 export class SamplingService {
+  private readonly defaultConfigs: Record<HistoryDomain, SamplingConfig> = {
+    [HistoryDomain.Surface]: {minDistance: 0.015},
+    [HistoryDomain.Decorations]: {minDistance: 0.02, minTimeMs: 40},
+  };
+
+  public getConfig(domain: HistoryDomain): SamplingConfig {
+    return this.defaultConfigs[domain];
+  }
+
   public shouldRecordPoint(
     lastPoint: THREE.Vector3 | null,
     newPoint: THREE.Vector3,

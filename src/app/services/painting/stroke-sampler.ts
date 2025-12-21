@@ -26,24 +26,16 @@ export class StrokeSampler {
     };
   }
 
-  public shouldSample(
-    point: THREE.Vector3,
-    normal: THREE.Vector3,
-    minDistance: number,
-    minTimeMs: number,
-    now: number,
-  ): boolean {
-    const config: SamplingConfig = {minDistance, minTimeMs};
+  public shouldSample(point: THREE.Vector3, normal: THREE.Vector3, config: SamplingConfig, now: number): boolean {
     const decision = this.samplingService.shouldRecordPoint(this.lastPoint, point, config, this.lastTimestamp, now);
     if (!decision.accepted) {
       return false;
     }
 
-    if (this.lastPoint) {
-      // Preserve legacy normal gating even though sampling service already accepted.
+    if (this.lastPoint && config.minDistance !== undefined && config.minTimeMs !== undefined) {
       const distance = point.distanceTo(this.lastPoint);
       const timeDelta = now - this.lastTimestamp;
-      if (distance < minDistance && timeDelta < minTimeMs) {
+      if (distance < config.minDistance && timeDelta < config.minTimeMs) {
         return false;
       }
     }
