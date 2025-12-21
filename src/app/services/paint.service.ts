@@ -8,6 +8,9 @@ import {TransformManagerService} from './transform-manager.service';
 import {SnapService} from './snap.service';
 import {CakeMetadata, LayerMetadata} from '../factories/three-objects.factory';
 import {ExtruderVariantInfo} from '../models/extruderVariantInfo';
+import {PaintRaycastAdapter} from './painting/paint-raycast.adapter';
+import {PaintingStateStore} from './painting/painting-state.store';
+import {StrokeSampler} from './painting/stroke-sampler';
 import {environment} from '../../environments/environment';
 import {
   CreamPathNode,
@@ -137,19 +140,13 @@ export class PaintService {
   private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.03, 20, 16);
   private readonly extruderPathMarkerOffset = 0.012;
 
-  private renderScheduler: (() => void) | null = null;
-
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
 
-  private sceneRef: THREE.Scene | null = null;
-  private cakeBaseRef: THREE.Object3D | null = null;
-  private undoStack: THREE.Object3D[] = [];
-  private redoStack: THREE.Object3D[] = [];
+  private readonly stateStore = new PaintingStateStore();
+  private readonly raycastAdapter = new PaintRaycastAdapter();
+  private readonly strokeSampler = new StrokeSampler();
 
-  private lastPaintPoint: THREE.Vector3 | null = null;
-  private lastPaintNormal: THREE.Vector3 | null = null;
-  private lastPaintTime = 0;
   private paintCanvasRect: { left: number; top: number; width: number; height: number } | null = null;
   private lastPenDirection: THREE.Vector3 | null = null;
 
@@ -169,6 +166,14 @@ export class PaintService {
   private decorationStrokeInstances = new Map<string, DecorationInstanceState[]>();
   private decorationVariantCursor = new Map<string, number>();
 
+  private get sceneRef(): THREE.Scene | null {
+    return this.stateStore.scene;
+  }
+
+  private get cakeBaseRef(): THREE.Object3D | null {
+    return this.stateStore.cakeBase;
+  }
+
   constructor(
     private readonly transformManager: TransformManagerService,
     private readonly snapService: SnapService,
@@ -182,7 +187,7 @@ export class PaintService {
   }
 
   public setRenderScheduler(callback: () => void): void {
-    this.renderScheduler = callback;
+    this.stateStore.setRenderScheduler(callback);
   }
 
   public async handlePaint(
@@ -198,8 +203,8 @@ export class PaintService {
       return;
     }
 
-    this.sceneRef = scene;
-    this.cakeBaseRef = cakeBase;
+    this.stateStore.setScene(scene);
+    this.stateStore.setCakeBase(cakeBase);
 
     if (this.extruderMarkerDirty && this.extruderPathNodesSubject.value.length) {
       this.refreshExtruderPathMarkers();
@@ -224,15 +229,10 @@ export class PaintService {
       return;
     }
 
-    const intersects = raycaster.intersectObject(cakeBase, true);
-
-    if (intersects.length === 0) {
+    const hit = this.raycastAdapter.findPaintTarget(raycaster, cakeBase);
+    if (!hit) {
       return;
     }
-
-    const hit =
-      intersects.find((intersection) => !this.isPaintStroke(intersection.object)) ??
-      intersects[0];
     const pointOnCakeWorld = hit.point.clone();
     const normal = this.getWorldNormal(hit);
 
@@ -244,30 +244,22 @@ export class PaintService {
     }
 
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const previousPoint = this.lastPaintPoint ? this.lastPaintPoint.clone() : null;
-    const previousNormal = this.lastPaintNormal ? this.lastPaintNormal.clone() : null;
-
-    if (previousPoint) {
-      const distance = pointOnCakeWorld.distanceTo(previousPoint);
-      const timeDelta = now - this.lastPaintTime;
-      const minDistance = this.getMinDistanceThreshold();
-      if (distance < minDistance && timeDelta < this.baseMinTimeMs) {
-        return;
-      }
+    const previousState = this.strokeSampler.snapshot();
+    const minDistance = this.getMinDistanceThreshold();
+    if (!this.strokeSampler.shouldSample(pointOnCakeWorld, normal, minDistance, this.baseMinTimeMs, now)) {
+      return;
     }
 
     try {
       if (this.paintTool === 'decoration') {
         await this.placeDecorationBrush(hit, scene);
       } else if (this.paintTool === 'extruder') {
-        await this.placeExtruderStroke(pointOnCakeWorld, normal, previousPoint, previousNormal, scene);
+        await this.placeExtruderStroke(pointOnCakeWorld, normal, previousState.point, previousState.normal, scene);
       } else {
-        this.placePenStroke(pointOnCakeWorld, normal, previousPoint, previousNormal, scene);
+        this.placePenStroke(pointOnCakeWorld, normal, previousState.point, previousState.normal, scene);
       }
 
-      this.lastPaintPoint = pointOnCakeWorld.clone();
-      this.lastPaintNormal = normal.clone();
-      this.lastPaintTime = now;
+      this.strokeSampler.commit(pointOnCakeWorld, normal, now);
     } catch (error) {
       console.error('Paint: błąd procesu malowania:', error);
     }
@@ -275,9 +267,7 @@ export class PaintService {
 
   public beginStroke(rect: DOMRect): void {
     this.isPainting = true;
-    this.lastPaintPoint = null;
-    this.lastPaintNormal = null;
-    this.lastPaintTime = 0;
+    this.strokeSampler.reset();
     this.paintCanvasRect = {
       left: rect.left,
       top: rect.top,
@@ -305,21 +295,9 @@ export class PaintService {
     this.decorationVariantCursor.clear();
   }
 
-  private isPaintStroke(object: THREE.Object3D | null): boolean {
-    let current: THREE.Object3D | null = object;
-    while (current) {
-      if (current.userData?.['isPaintStroke'] || current.userData?.['isSurfaceStroke']) {
-        return true;
-      }
-      current = current.parent;
-    }
-    return false;
-  }
-
   public endStroke(): void {
     this.isPainting = false;
-    this.lastPaintPoint = null;
-    this.lastPaintNormal = null;
+    this.strokeSampler.reset();
     this.paintCanvasRect = null;
     if (this.activePenStrokeGroup) {
       if (this.activePenStrokeGroup.children.length) {
@@ -429,45 +407,47 @@ export class PaintService {
   }
 
   public registerScene(scene: THREE.Scene): void {
-    this.sceneRef = scene;
+    this.stateStore.setScene(scene);
     if (this.extruderMarkerDirty && this.extruderPathNodesSubject.value.length) {
       this.refreshExtruderPathMarkers();
     }
   }
 
   public undo(): THREE.Object3D | undefined {
-    if (!this.sceneRef || !this.undoStack.length) {
+    const scene = this.stateStore.scene;
+    if (!scene || !this.stateStore.hasUndo) {
       return;
     }
 
-    const lastObject = this.undoStack.pop()!;
+    const lastObject = this.stateStore.popUndo()!;
     lastObject.parent?.remove(lastObject);
     lastObject.userData['removedByUndo'] = true;
-    this.redoStack.push(lastObject);
+    this.stateStore.pushRedo(lastObject);
     this.notifySceneChanged();
     return lastObject;
   }
 
   public redo(): THREE.Object3D | undefined {
-    if (!this.sceneRef || !this.redoStack.length) {
+    const scene = this.stateStore.scene;
+    if (!scene || !this.stateStore.hasRedo) {
       return;
     }
 
-    const object = this.redoStack.pop()!;
-    const targetParent = this.getPaintParent(object) ?? this.sceneRef;
+    const object = this.stateStore.popRedo()!;
+    const targetParent = this.getPaintParent(object) ?? scene;
     targetParent.add(object);
     delete object.userData['removedByUndo'];
-    this.undoStack.push(object);
+    this.stateStore.pushUndo(object);
     this.notifySceneChanged();
     return object;
   }
 
   public canUndo(): boolean {
-    return this.undoStack.length > 0;
+    return this.stateStore.hasUndo;
   }
 
   public canRedo(): boolean {
-    return this.redoStack.length > 0;
+    return this.stateStore.hasRedo;
   }
 
   public setBrushMetadata(brushId: string, metadata: Partial<DecorationInfo> & { initialScale?: number } | null): void {
@@ -524,8 +504,8 @@ export class PaintService {
     }
 
     object.userData['paintParent'] = object.parent ?? null;
-    this.undoStack.push(object);
-    this.redoStack = [];
+    this.stateStore.pushUndo(object);
+    this.stateStore.clearRedo();
     this.notifySceneChanged();
   }
 
@@ -542,7 +522,7 @@ export class PaintService {
     group.userData['paintStrokeType'] = 'decoration';
     group.userData['brushId'] = this.currentBrush;
     scene.add(group);
-    this.redoStack = [];
+    this.stateStore.clearRedo();
 
     this.activeDecorationGroup = group;
     return group;
@@ -890,9 +870,9 @@ export class PaintService {
       return;
     }
 
-    this.sceneRef = scene;
+    this.stateStore.setScene(scene);
     const cakeBase = this.snapService.getCakeBase() ?? this.cakeBaseRef ?? null;
-    this.cakeBaseRef = cakeBase;
+    this.stateStore.setCakeBase(cakeBase);
 
     for (const entry of entries) {
       switch (entry.type) {
@@ -1364,7 +1344,7 @@ export class PaintService {
       this.activeExtruderStrokeGroup.userData['paintStrokeType'] = 'extruder';
       this.activeExtruderStrokeGroup.userData['snapPoints'] = [] as number[][];
       scene.add(this.activeExtruderStrokeGroup);
-      this.redoStack = [];
+      this.stateStore.clearRedo();
       this.extruderStrokeInstances.clear();
       this.extruderLastPlacedPoint = null;
       this.extruderLastNormal = null;
@@ -2107,7 +2087,7 @@ export class PaintService {
       this.activePenStrokeGroup.userData['penColor'] = this.penColor;
       this.activePenStrokeGroup.userData['penOpacity'] = this.penOpacity;
       scene.add(this.activePenStrokeGroup);
-      this.redoStack = [];
+      this.stateStore.clearRedo();
       this.activePenStrokePoints = [];
       this.activePenSegments = [];
       this.activePenJoints = [];
@@ -2594,7 +2574,7 @@ export class PaintService {
     this.activeExtruderStrokeGroup = previousGroup;
     this.extruderStrokeInstances = previousInstances;
     if (cakeBase) {
-      this.cakeBaseRef = cakeBase;
+      this.stateStore.setCakeBase(cakeBase);
     }
   }
 
@@ -2882,14 +2862,14 @@ export class PaintService {
   }
 
   private trackPaintAddition(object: THREE.Object3D): void {
-    this.undoStack.push(object);
-    this.redoStack = [];
+    this.stateStore.pushUndo(object);
+    this.stateStore.clearRedo();
     this.notifySceneChanged();
   }
 
   private notifySceneChanged(): void {
     this.zone.run(() => {
-      this.renderScheduler?.();
+      this.stateStore.scheduleRender();
       this.sceneChanged$.next();
     });
   }
