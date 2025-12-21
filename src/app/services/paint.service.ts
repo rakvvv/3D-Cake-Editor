@@ -86,6 +86,7 @@ export class PaintService {
   public readonly sceneChanged$ = new Subject<void>();
 
   private readonly historyDomain = HistoryDomain.Decorations;
+  private currentProjectId: string | null = null;
   private readonly penSurfaceOffset = 0.003;
   private readonly penMaxInstances = 6000;
   private brushCache = new Map<string, THREE.Object3D>();
@@ -154,6 +155,8 @@ export class PaintService {
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
 
+  private suppressHistory = false;
+
   private readonly stateStore = new PaintingStateStore();
   private readonly strokeSampler: StrokeSampler;
 
@@ -200,6 +203,48 @@ export class PaintService {
     void this.loadCreamRingPresets();
     this.historyService.registerDomain(this.historyDomain);
     this.strokeSampler = new StrokeSampler(this.samplingService);
+  }
+
+  public resetProjectState(projectId: string): void {
+    this.suppressHistory = true;
+    try {
+      this.currentProjectId = projectId;
+      this.historyService.resetDomain(this.historyDomain);
+      this.historyService.registerDomain(this.historyDomain);
+      this.stateStore.setScene(null);
+      this.stateStore.setCakeBase(null);
+      this.paintMode = false;
+      this.paintTool = 'decoration';
+      this.isPainting = false;
+      this.paintCanvasRect = null;
+      this.teardownActiveStrokes();
+      this.teardownDecorationInstances();
+      this.teardownPenInstances();
+      this.teardownExtruderInstances();
+      this.extruderPathNodesSubject.next([]);
+      this.extruderPathModeEnabled = false;
+      this.extruderPathLayerIndex = 0;
+      this.extruderPathPosition = 'SIDE_ARC';
+      this.extruderPathRadiusOffset = 0;
+      this.extruderPathConfig = null;
+      this.pendingPathReplaceIndex = null;
+      this.extruderMarkerDirty = false;
+      this.extruderPathMarkerGroup?.parent?.remove(this.extruderPathMarkerGroup);
+      this.extruderPathMarkerGroup = null;
+      this.extruderPathMarkers = [];
+      this.activeExtruderStrokeGroup = null;
+      this.extruderFirstInstance = null;
+      this.extruderLastPlacedPoint = null;
+      this.extruderLastNormal = null;
+    } finally {
+      this.suppressHistory = false;
+    }
+    this.sceneChanged$.next();
+  }
+
+  public disposeProjectState(): void {
+    this.resetProjectState(`disposed-${Date.now()}`);
+    this.currentProjectId = null;
   }
 
   public setRenderScheduler(callback: () => void): void {
@@ -497,7 +542,7 @@ export class PaintService {
   }
 
   public registerDecorationAddition(object: THREE.Object3D): void {
-    if (!object) {
+    if (!object || this.suppressHistory) {
       return;
     }
 
@@ -863,27 +908,39 @@ export class PaintService {
     });
   }
 
-  public async restorePaintStrokes(entries: PaintStrokePreset[], scene: THREE.Scene): Promise<void> {
+  public async restorePaintStrokes(
+    entries: PaintStrokePreset[],
+    scene: THREE.Scene,
+    options?: { skipHistory?: boolean },
+  ): Promise<void> {
     if (!entries?.length) {
       return;
     }
 
-    this.stateStore.setScene(scene);
-    const cakeBase = this.snapService.getCakeBase() ?? this.cakeBaseRef ?? null;
-    this.stateStore.setCakeBase(cakeBase);
+    const restore = async () => {
+      this.stateStore.setScene(scene);
+      const cakeBase = this.snapService.getCakeBase() ?? this.cakeBaseRef ?? null;
+      this.stateStore.setCakeBase(cakeBase);
 
-    for (const entry of entries) {
-      switch (entry.type) {
-        case 'extruder':
-          await this.restoreExtruderStroke(entry, scene, cakeBase);
-          break;
-        case 'pen':
-          await this.restorePenStroke(entry, scene);
-          break;
-        case 'decoration':
-          await this.restoreDecorationStroke(entry, scene);
-          break;
+      for (const entry of entries) {
+        switch (entry.type) {
+          case 'extruder':
+            await this.restoreExtruderStroke(entry, scene, cakeBase);
+            break;
+          case 'pen':
+            await this.restorePenStroke(entry, scene);
+            break;
+          case 'decoration':
+            await this.restoreDecorationStroke(entry, scene);
+            break;
+        }
       }
+    };
+
+    if (options?.skipHistory) {
+      await this.withHistorySuppressedAsync(restore);
+    } else {
+      await restore();
     }
   }
 
@@ -2886,7 +2943,78 @@ export class PaintService {
     };
   }
 
+  private withHistorySuppressed<TResult>(fn: () => TResult): TResult {
+    const previous = this.suppressHistory;
+    this.suppressHistory = true;
+    try {
+      return fn();
+    } finally {
+      this.suppressHistory = previous;
+    }
+  }
+
+  private async withHistorySuppressedAsync<TResult>(fn: () => Promise<TResult>): Promise<TResult> {
+    const previous = this.suppressHistory;
+    this.suppressHistory = true;
+    try {
+      return await fn();
+    } finally {
+      this.suppressHistory = previous;
+    }
+  }
+
+  private teardownActiveStrokes(): void {
+    this.activeDecorationGroup?.parent?.remove(this.activeDecorationGroup);
+    this.activeDecorationGroup = null;
+    this.activePenStrokeGroup?.parent?.remove(this.activePenStrokeGroup);
+    this.activePenStrokeGroup = null;
+    this.activePenStrokePoints = [];
+    this.activePenSegments = [];
+    this.activePenJoints = [];
+    this.activePenStartCapIndex = null;
+    this.activePenEndCapIndex = null;
+  }
+
+  private teardownDecorationInstances(): void {
+    this.decorationGroups.forEach((group) => group.parent?.remove(group));
+    this.decorationGroups.clear();
+    this.decorationStrokeInstances.forEach((states) => {
+      states.forEach((state) => state.mesh.parent?.remove(state.mesh));
+    });
+    this.decorationStrokeInstances.clear();
+    this.decorationVariantCursor.clear();
+  }
+
+  private teardownPenInstances(): void {
+    [this.penSegmentInstance, this.penJointInstance, this.penCapInstance].forEach((state) => {
+      state?.mesh.parent?.remove(state.mesh);
+      if (state?.mesh) {
+        state.mesh.count = 0;
+      }
+    });
+    this.penSegmentInstance = null;
+    this.penJointInstance = null;
+    this.penCapInstance = null;
+    this.activePenStartCapIndex = null;
+    this.activePenEndCapIndex = null;
+    this.lastPenDirection = null;
+  }
+
+  private teardownExtruderInstances(): void {
+    this.extruderStrokeInstances.forEach((state) => {
+      state.mesh.parent?.remove(state.mesh);
+      state.mesh.count = 0;
+    });
+    this.extruderStrokeInstances.clear();
+    this.activeExtruderStrokeGroup?.parent?.remove(this.activeExtruderStrokeGroup);
+    this.activeExtruderStrokeGroup = null;
+  }
+
   private trackPaintAddition(object: THREE.Object3D): void {
+    if (this.suppressHistory) {
+      return;
+    }
+
     const parent = object.parent ?? this.stateStore.paintParent ?? this.stateStore.scene;
     const command = this.createAddRemoveCommand(object, parent ?? null);
     this.historyService.push(this.historyDomain, command, {execute: false});

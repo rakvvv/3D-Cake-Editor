@@ -79,6 +79,7 @@ export class SurfacePaintingService {
 
   private readonly historyDomain = HistoryDomain.Surface;
   private readonly isBrowser: boolean;
+  private currentProjectId: string | null = null;
   private painting = false;
   private lastBrushPoint: THREE.Vector3 | null = null;
 
@@ -159,6 +160,39 @@ export class SurfacePaintingService {
     }
     this.samplingService.getConfig(this.historyDomain);
     this.historyService.registerDomain(this.historyDomain);
+  }
+
+  public resetProjectState(projectId: string): void {
+    this.suppressHistory = true;
+    try {
+      this.currentProjectId = projectId;
+      this.historyService.resetDomain(this.historyDomain);
+      this.historyService.registerDomain(this.historyDomain);
+      this.enabled = false;
+      this.mode = 'brush';
+      this.painting = false;
+      this.clearPaintInternal();
+      this.brushStrokes = [];
+      this.sprinkleStrokes = [];
+      this.activeStroke = null;
+      this.nextStrokeId = 1;
+      this.lastBrushPoint = null;
+      this.lastSprinklePoint = null;
+      this.lastStrokeDir = null;
+      this.lastRecordedPoint = null;
+      this.strokeCurrentLength = 0;
+      this.globalRenderOrder = 100;
+      this.cakeGroup = null;
+      this.paintAnchor?.parent?.remove(this.paintAnchor);
+      this.paintAnchor = null;
+    } finally {
+      this.suppressHistory = false;
+    }
+  }
+
+  public disposeProjectState(): void {
+    this.resetProjectState(`disposed-${Date.now()}`);
+    this.currentProjectId = null;
   }
 
   // --- GŁÓWNE METODY STERUJĄCE ---
@@ -439,11 +473,19 @@ export class SurfacePaintingService {
     return this.presetService.exportPreset(preset).data;
   }
 
-  public restorePaintingPreset(preset: SurfacePaintingPreset | undefined | null): void {
+  public restorePaintingPreset(
+    preset: SurfacePaintingPreset | undefined | null,
+    options?: { skipHistory?: boolean },
+  ): void {
     const previous = this.exportPaintingPreset();
     const targetPreset = preset
       ? this.presetService.importPreset<SurfacePaintingPreset>({version: 1, data: preset})
       : null;
+
+    if (options?.skipHistory) {
+      this.applyPresetSnapshot(targetPreset);
+      return;
+    }
 
     const command: Command<void> = {
       do: () => this.applyPresetSnapshot(targetPreset),

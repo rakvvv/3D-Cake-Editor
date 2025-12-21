@@ -57,6 +57,14 @@ export class HistoryService {
     return stack.future.length > 0;
   }
 
+  public resetDomain(domain: HistoryDomain): void {
+    this.stacks.set(domain, {past: [], future: []});
+  }
+
+  public resetAll(): void {
+    this.stacks.clear();
+  }
+
   private ensure(domain: HistoryDomain): HistoryStack {
     if (!this.stacks.has(domain)) {
       this.registerDomain(domain);

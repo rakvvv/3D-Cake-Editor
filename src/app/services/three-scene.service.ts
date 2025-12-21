@@ -27,6 +27,7 @@ import { DecorationClipboardEntry, ThreeSceneState } from './three-scene/three-s
 import { PointerInputService } from './interaction/input/pointer-input.service';
 import { RaycastService } from './interaction/raycast/raycast.service';
 import { InteractionPolicyService } from './interaction/policy/interaction-policy.service';
+import { ProjectLifecycleService } from './project-lifecycle.service';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
@@ -50,6 +51,7 @@ export class ThreeSceneService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
   private readonly endpoints = environment.endpoints;
   private options!: CakeOptions;
+  private currentProjectId: string | null = null;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private readonly outlineChanged = new Subject<void>();
@@ -204,6 +206,7 @@ export class ThreeSceneService {
     private pointerInputService: PointerInputService,
     private raycastService: RaycastService,
     private policyService: InteractionPolicyService,
+    private readonly projectLifecycle: ProjectLifecycleService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.interactions = new SceneInteractionController({
@@ -231,6 +234,34 @@ export class ThreeSceneService {
     this.paintService.setRenderScheduler(() => this.requestRender());
     this.anchorPresetsService.setRenderScheduler(() => this.requestRender());
     ThreeObjectsFactory.setTextureLoadCallback(() => this.requestRender());
+  }
+
+  public startProjectSession(projectId?: string): string {
+    this.disposeProject();
+    const id = this.projectLifecycle.initializeProject(projectId);
+    this.currentProjectId = id;
+    this.paintService.resetProjectState(id);
+    this.surfacePainting.resetProjectState(id);
+    this.state.anchorOccupants.clear();
+    return id;
+  }
+
+  public disposeProject(): void {
+    const hadProject = !!this.currentProjectId;
+    this.paintService.disposeProjectState();
+    this.surfacePainting.disposeProjectState();
+    this.projectLifecycle.disposeProject();
+    this.currentProjectId = hadProject ? null : this.currentProjectId;
+    this.state.anchorOccupants.clear();
+    this.interactions.detach();
+    this.objects = [];
+    this.cakeBase = null;
+    this.cakeLayers = [];
+    this.cakeMetadata = null;
+    this.textMesh = null;
+    this.boxHelper = null;
+    this.boxHelperTarget = null;
+    this.clipboard = null;
   }
 
   private notifyStatus(message: string): void {
@@ -2184,11 +2215,11 @@ export class ThreeSceneService {
     });
 
     if (preset.paintStrokes?.length) {
-      await this.paintService.restorePaintStrokes(preset.paintStrokes, this.scene);
+      await this.paintService.restorePaintStrokes(preset.paintStrokes, this.scene, {skipHistory: true});
     }
 
     if (preset.surfacePainting) {
-      this.surfacePainting.restorePaintingPreset(preset.surfacePainting);
+      this.surfacePainting.restorePaintingPreset(preset.surfacePainting, {skipHistory: true});
     }
 
     this.updateBoxHelper();
