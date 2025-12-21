@@ -844,6 +844,10 @@ export class PaintService {
 
   public setExtruderPathNodes(nodes: CreamPathNode[], config?: CreamRingPreset): void {
     this.extruderPathNodesSubject.next(nodes.map((node) => ({ ...node })));
+    if (config?.mode === 'PATH' && !this.extruderPathModeEnabled) {
+      this.setExtruderPathMode(true);
+    }
+
     if (config) {
       this.setExtruderPathContext(config);
     } else {
@@ -912,8 +916,11 @@ export class PaintService {
     this.pendingPathReplaceIndex = null;
     const radial = new THREE.Vector3(localPoint.x, 0, localPoint.z);
     const radialNormal = radial.lengthSq() > 1e-6 ? radial.clone().normalize() : new THREE.Vector3(0, 1, 0);
-    const normal = heightNorm > 0.95 ? new THREE.Vector3(0, 1, 0) : radialNormal;
-    const positionHint: CreamPosition = Math.abs(normal.y) > 0.8 ? 'TOP_EDGE' : this.extruderPathPosition;
+    const capturedNormal = heightNorm >= 0.85 ? new THREE.Vector3(0, 1, 0) : radialNormal;
+    const positionHint: CreamPosition = Math.abs(capturedNormal.y) > 0.65 ? 'TOP_EDGE' : this.extruderPathPosition;
+    if (positionHint === 'TOP_EDGE') {
+      newNode.heightNorm = 1;
+    }
     const baseConfig = this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, layerIndex);
     const config = baseConfig ? { ...baseConfig, position: positionHint } : null;
     this.extruderPathPosition = positionHint;

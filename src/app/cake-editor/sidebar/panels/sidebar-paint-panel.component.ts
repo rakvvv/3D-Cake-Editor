@@ -609,9 +609,11 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     }
     this.targetLayerIndex = preset.layerIndex;
     this.extruderPathModeEnabled = preset.mode === 'PATH';
-    this.extruderPathNodes = preset.nodes?.map((node) => ({ ...node })) ?? this.extruderPathNodes;
-    if (this.extruderPathModeEnabled && !this.extruderPathNodes.length) {
-      this.extruderPathNodes = this.getDefaultPathNodes();
+    if (preset.mode === 'PATH') {
+      this.extruderPathNodes = preset.nodes?.map((node) => ({ ...node })) ?? this.extruderPathNodes;
+      if (!this.extruderPathNodes.length) {
+        this.extruderPathNodes = this.getDefaultPathNodes();
+      }
     }
     this.extruderPathHistory = [];
     this.extruderPathRedo = [];
