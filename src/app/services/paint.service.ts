@@ -137,6 +137,8 @@ export class PaintService {
   private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.03, 20, 16);
   private readonly extruderPathMarkerOffset = 0.012;
 
+  private renderScheduler: (() => void) | null = null;
+
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
 
@@ -176,6 +178,10 @@ export class PaintService {
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
     void this.loadCreamRingPresets();
+  }
+
+  public setRenderScheduler(callback: () => void): void {
+    this.renderScheduler = callback;
   }
 
   public async handlePaint(
@@ -2868,6 +2874,7 @@ export class PaintService {
   }
 
   private notifySceneChanged(): void {
+    this.renderScheduler?.();
     this.sceneChanged$.next();
   }
 }

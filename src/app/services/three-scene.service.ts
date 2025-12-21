@@ -94,6 +94,7 @@ export class ThreeSceneService {
   ) {
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
     this.paintService.sceneChanged$.subscribe(() => this.requestRender());
+    this.paintService.setRenderScheduler(() => this.requestRender());
     this.anchorPresetsService.setRenderScheduler(() => this.requestRender());
     ThreeObjectsFactory.setTextureLoadCallback(() => this.requestRender());
   }
