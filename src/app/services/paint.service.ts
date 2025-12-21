@@ -1043,6 +1043,7 @@ export class PaintService {
     });
 
     this.extruderMarkerDirty = false;
+    this.notifySceneChanged();
   }
 
   private ensureExtruderMarkerGroup(): THREE.Group | null {
@@ -1070,6 +1071,7 @@ export class PaintService {
       this.extruderPathMarkers.forEach((marker) => this.extruderPathMarkerGroup?.remove(marker));
     }
     this.extruderPathMarkers = [];
+    this.notifySceneChanged();
   }
 
   private async placeExtruderStroke(

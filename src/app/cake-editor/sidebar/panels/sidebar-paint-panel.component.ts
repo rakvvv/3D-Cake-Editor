@@ -176,8 +176,15 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   }
 
   selectMode(mode: SidebarPaintMode): void {
+    const previousMode = this.mode;
     this.mode = mode;
     this.paintModeChange.emit(mode);
+    if (previousMode === 'extruder' && mode !== 'extruder' && this.extruderPathModeEnabled) {
+      this.extruderPathModeEnabled = false;
+      this.showPresetPoints = false;
+      this.paintService.setExtruderPathMode(false);
+      this.refreshPathMarkers();
+    }
     this.refreshDecorations();
   }
 
