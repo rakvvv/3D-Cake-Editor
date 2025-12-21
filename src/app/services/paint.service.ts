@@ -127,8 +127,8 @@ export class PaintService {
   private pendingPathReplaceIndex: number | null = null;
   private extruderPathMarkers: THREE.Mesh[] = [];
   private extruderPathMarkerGroup: THREE.Group | null = null;
-  private extruderPathMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0x71b6ff, emissive: 0x14253f });
-  private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.02, 16, 12);
+  private extruderPathMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0x5db5ff, emissive: 0x183c66 });
+  private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.03, 20, 16);
 
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
@@ -975,7 +975,7 @@ export class PaintService {
       marker.position.copy(position);
       marker.renderOrder = 2;
       marker.material = marker.material as THREE.MeshStandardMaterial;
-      (marker.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.35;
+      (marker.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.7;
       marker.userData['label'] = index + 1;
       markerGroup.add(marker);
       return marker;
@@ -1438,6 +1438,7 @@ export class PaintService {
     }
 
     const totalSegments = Math.max(1, preset.segments ?? nodes.length * 8);
+    const unwrappedAngles = this.unwrapNodeAngles(nodes);
     const points: { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] = [];
     let lastPosition: THREE.Vector3 | null = null;
     let segmentsLeft = totalSegments;
@@ -1449,8 +1450,8 @@ export class PaintService {
 
       const next = nodes[index + 1];
       const steps = Math.max(1, Math.round(segmentsLeft / (nodes.length - 1 - index)));
-      const startAngle = THREE.MathUtils.degToRad(node.angleDeg);
-      const endAngle = THREE.MathUtils.degToRad(next.angleDeg);
+      const startAngle = THREE.MathUtils.degToRad(unwrappedAngles[index]);
+      const endAngle = THREE.MathUtils.degToRad(unwrappedAngles[index + 1]);
       const startHeight = this.getCreamHeightForPreset(preset, layer, metadata, node.heightNorm);
       const endHeight = this.getCreamHeightForPreset(preset, layer, metadata, next.heightNorm);
 
@@ -1487,6 +1488,27 @@ export class PaintService {
     });
 
     return points;
+  }
+
+  private unwrapNodeAngles(nodes: CreamPathNode[]): number[] {
+    if (!nodes.length) {
+      return [];
+    }
+
+    const angles = [nodes[0].angleDeg];
+    for (let i = 1; i < nodes.length; i++) {
+      const prev = angles[i - 1];
+      const raw = nodes[i].angleDeg;
+      const options = [raw, raw + 360, raw - 360];
+      const best = options.reduce((closest, current) => {
+        const currentDiff = Math.abs(current - prev);
+        const closestDiff = Math.abs(closest - prev);
+        return currentDiff < closestDiff ? current : closest;
+      });
+      angles.push(best);
+    }
+
+    return angles;
   }
 
     private normalizeNodes(preset: CreamRingPreset): CreamPathNode[] {
