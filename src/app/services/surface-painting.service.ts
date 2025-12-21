@@ -13,7 +13,9 @@ import {
   PaintingShaderUniforms,
 } from './gradient-texture.service';
 import { SamplingService } from './interaction/sampling/sampling.service';
-import { HistoryDomain } from './interaction/types/interaction-types';
+import { Command, HistoryDomain } from './interaction/types/interaction-types';
+import { HistoryService } from './interaction/history/history.service';
+import { PresetService } from './interaction/presets/preset.service';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
 export type SprinkleShape = 'stick' | 'ball' | 'star';
@@ -135,6 +137,7 @@ export class SurfacePaintingService {
   private readonly tempQuat2 = new THREE.Quaternion();
   private readonly tempQuat3 = new THREE.Quaternion();
   private readonly tempScale = new THREE.Vector3();
+  private suppressHistory = false;
 
   // Tutaj przechowujemy surowe pociągnięcia przed scaleniem
   private brushStrokes: SerializedBrushStroke[] = [];
@@ -148,12 +151,15 @@ export class SurfacePaintingService {
     private readonly paintService: PaintService,
     private readonly gradientTextureService: GradientTextureService,
     private readonly samplingService: SamplingService,
+    private readonly historyService: HistoryService,
+    private readonly presetService: PresetService,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
     if (this.isBrowser) {
       this.gradientTextureService.refreshTexture();
     }
     this.samplingService.getConfig(this.historyDomain);
+    this.historyService.registerDomain(this.historyDomain);
   }
 
   // --- GŁÓWNE METODY STERUJĄCE ---
@@ -178,6 +184,24 @@ export class SurfacePaintingService {
 
   public isPainting(): boolean {
     return this.painting;
+  }
+
+  public undo(): void {
+    this.historyService.undo(this.historyDomain);
+    this.paintService.sceneChanged$.next();
+  }
+
+  public redo(): void {
+    this.historyService.redo(this.historyDomain);
+    this.paintService.sceneChanged$.next();
+  }
+
+  public canUndo(): boolean {
+    return this.historyService.canUndo(this.historyDomain);
+  }
+
+  public canRedo(): boolean {
+    return this.historyService.canRedo(this.historyDomain);
   }
 
   public startStroke(): void {
@@ -420,27 +444,49 @@ export class SurfacePaintingService {
       }
     });
 
-    return {
+    const preset: SurfacePaintingPreset = {
       brushColor: this.brushColor,
       brushStrokes: Array.from(mergedBrushMap.values()),
       sprinkleStrokes: Array.from(mergedSprinklesMap.values()),
     };
+
+    return this.presetService.exportPreset(preset).data;
   }
 
   public restorePaintingPreset(preset: SurfacePaintingPreset | undefined | null): void {
+    const previous = this.exportPaintingPreset();
+    const targetPreset = preset
+      ? this.presetService.importPreset<SurfacePaintingPreset>({version: 1, data: preset})
+      : null;
+
+    const command: Command<void> = {
+      do: () => this.applyPresetSnapshot(targetPreset),
+      undo: () => this.applyPresetSnapshot(previous),
+      description: 'surface-restore-preset',
+    };
+
+    this.historyService.push(this.historyDomain, command);
+  }
+
+  private applyPresetSnapshot(preset: SurfacePaintingPreset | undefined | null): void {
     if (!preset) return;
 
-    this.clearPaint();
-    this.brushStrokes = [];
-    this.sprinkleStrokes = [];
-    this.activeStroke = null;
-    this.nextStrokeId = 1;
+    this.suppressHistory = true;
+    try {
+      this.clearPaintInternal();
+      this.brushStrokes = [];
+      this.sprinkleStrokes = [];
+      this.activeStroke = null;
+      this.nextStrokeId = 1;
 
-    this.attachCake(this.cakeGroup, false);
-    this.brushColor = preset.brushColor ?? this.brushColor;
+      this.attachCake(this.cakeGroup, false);
+      this.brushColor = preset.brushColor ?? this.brushColor;
 
-    preset.brushStrokes?.forEach((stroke) => this.replayBrushStroke(stroke));
-    preset.sprinkleStrokes?.forEach((stroke) => this.replaySprinkleStroke(stroke));
+      preset.brushStrokes?.forEach((stroke) => this.replayBrushStroke(stroke));
+      preset.sprinkleStrokes?.forEach((stroke) => this.replaySprinkleStroke(stroke));
+    } finally {
+      this.suppressHistory = false;
+    }
   }
 
   private replayBrushStroke(stroke: SerializedBrushStroke): void {
@@ -591,23 +637,23 @@ export class SurfacePaintingService {
   }
 
   public clearPaint(): void {
-    this.finalizePreviousBatch();
-    this.clearSprinkles();
-    this.clearBrushStrokes();
-    this.activeStroke = null;
-    this.nextStrokeId = 1;
-    this.lastRecordedPoint = null;
-
-    // Reset kolejności rysowania warstw
-    this.globalRenderOrder = 100;
+    const previous = this.exportPaintingPreset();
+    const command: Command<void> = {
+      do: () => this.clearPaintInternal(),
+      undo: () => this.applyPresetSnapshot(previous),
+      description: 'surface-clear-paint',
+    };
+    this.historyService.push(this.historyDomain, command);
   }
 
   public clearSprinkles(): void {
-    this.lastSprinklePoint = null;
-    this.lastRecordedPoint = null;
-    this.activeStroke = null;
-    this.sprinkleStrokes = [];
-    this.disposeSprinkles();
+    const previous = this.exportPaintingPreset();
+    const command: Command<void> = {
+      do: () => this.clearSprinklesInternal(),
+      undo: () => this.applyPresetSnapshot(previous),
+      description: 'surface-clear-sprinkles',
+    };
+    this.historyService.push(this.historyDomain, command);
   }
 
   public setSprinkleShape(shape: SprinkleShape): void {
@@ -627,6 +673,34 @@ export class SurfacePaintingService {
   }
 
   public clearBrushStrokes(): void {
+    const previous = this.exportPaintingPreset();
+    const command: Command<void> = {
+      do: () => this.clearBrushStrokesInternal(),
+      undo: () => this.applyPresetSnapshot(previous),
+      description: 'surface-clear-brush',
+    };
+    this.historyService.push(this.historyDomain, command);
+  }
+
+  private clearPaintInternal(): void {
+    this.finalizePreviousBatch();
+    this.clearSprinklesInternal();
+    this.clearBrushStrokesInternal();
+    this.activeStroke = null;
+    this.nextStrokeId = 1;
+    this.lastRecordedPoint = null;
+    this.globalRenderOrder = 100;
+  }
+
+  private clearSprinklesInternal(): void {
+    this.lastSprinklePoint = null;
+    this.lastRecordedPoint = null;
+    this.activeStroke = null;
+    this.sprinkleStrokes = [];
+    this.disposeSprinkles();
+  }
+
+  private clearBrushStrokesInternal(): void {
     this.disposePaintStrokes();
     this.brushStrokes = [];
     this.activeStroke = null;
@@ -1031,7 +1105,7 @@ export class SurfacePaintingService {
     this.brushStrokeIndex = 0;
     this.brushStrokeCapacity = maxInstances;
 
-    this.paintService.registerDecorationAddition(this.brushStrokeGroup);
+    this.trackSurfaceAddition(this.brushStrokeGroup);
     this.paintEntries.push(this.brushStrokeGroup);
   }
 
@@ -1330,7 +1404,7 @@ export class SurfacePaintingService {
     this.sprinkleStrokeCapacity = capacity;
     this.sprinkleStrokeShape = this.sprinkleShape;
 
-    this.paintService.registerDecorationAddition(this.sprinkleStrokeGroup);
+    this.trackSurfaceAddition(this.sprinkleStrokeGroup);
     this.sprinkleEntries.push(this.sprinkleStrokeGroup);
   }
 
@@ -1343,6 +1417,43 @@ export class SurfacePaintingService {
     }
     this.paintedMaterials.forEach((mat) => (mat.needsUpdate = true));
     this.paintService.sceneChanged$.next();
+  }
+
+  private trackSurfaceAddition(object: THREE.Object3D | null): void {
+    if (!object || this.suppressHistory) {
+      return;
+    }
+
+    const parent = object.parent ?? this.cakeGroup ?? null;
+    const command = this.createAddRemoveCommand(object, parent);
+    this.historyService.push(this.historyDomain, command, {execute: false});
+  }
+
+  private createAddRemoveCommand(
+    object: THREE.Object3D,
+    parent: THREE.Object3D | null,
+  ): Command<THREE.Object3D | null> {
+    const targetParent = parent ?? this.cakeGroup ?? null;
+    return {
+      do: () => {
+        if (!targetParent) return null;
+        if (object.parent !== targetParent) {
+          targetParent.add(object);
+        } else if (!targetParent.children.includes(object)) {
+          targetParent.add(object);
+        }
+        delete object.userData['removedByUndo'];
+        return object;
+      },
+      undo: () => {
+        if (object.parent) {
+          object.parent.remove(object);
+          object.userData['removedByUndo'] = true;
+        }
+        return object;
+      },
+      description: 'surface-add-remove',
+    };
   }
 
   private sanitizeHexColor(value: string, fallback: string = DEFAULT_SPRINKLE_COLOR): string {
