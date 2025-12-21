@@ -127,8 +127,14 @@ export class PaintService {
   private pendingPathReplaceIndex: number | null = null;
   private extruderPathMarkers: THREE.Mesh[] = [];
   private extruderPathMarkerGroup: THREE.Group | null = null;
-  private extruderPathMarkerMaterial = new THREE.MeshStandardMaterial({ color: 0x5db5ff, emissive: 0x183c66 });
+  private extruderPathMarkerMaterial = new THREE.MeshStandardMaterial({
+    color: 0x5db5ff,
+    emissive: 0x183c66,
+    depthTest: false,
+    depthWrite: false,
+  });
   private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.03, 20, 16);
+  private readonly extruderPathMarkerOffset = 0.012;
 
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
@@ -811,10 +817,13 @@ export class PaintService {
   }
 
   public setExtruderPathMode(enabled: boolean): void {
+    const wasEnabled = this.extruderPathModeEnabled;
     this.extruderPathModeEnabled = enabled;
     if (!enabled) {
       this.pendingPathReplaceIndex = null;
       this.updateExtruderPathMarkers([]);
+    } else if (!wasEnabled) {
+      this.refreshExtruderPathMarkers();
     }
   }
 
@@ -994,7 +1003,11 @@ export class PaintService {
     const markerPositions = normalizedPreset.nodes.map((node) => {
       const angle = THREE.MathUtils.degToRad(node.angleDeg);
       const height = this.getCreamHeightForPreset(normalizedPreset, layer, metadata, node.heightNorm);
-      return new THREE.Vector3(adjustedRadiusX * Math.cos(angle), height, adjustedRadiusZ * Math.sin(angle));
+      const basePosition = new THREE.Vector3(adjustedRadiusX * Math.cos(angle), height, adjustedRadiusZ * Math.sin(angle));
+      const radialNormal = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
+      const isTopEdge = normalizedPreset.position === 'TOP_EDGE' || node.heightNorm >= 0.98;
+      const markerNormal = isTopEdge ? new THREE.Vector3(0, 1, 0) : radialNormal;
+      return basePosition.add(markerNormal.multiplyScalar(this.extruderPathMarkerOffset));
     });
 
     const markerGroup = this.ensureExtruderMarkerGroup();
