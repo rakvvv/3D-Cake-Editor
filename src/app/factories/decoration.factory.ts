@@ -153,6 +153,21 @@ export class DecorationFactory {
       );
     }
 
+    const bodySample = await response
+      .clone()
+      .text()
+      .then(text => text.slice(0, 256))
+      .catch(() => '');
+
+    const looksLikeHtml = this.bodyLooksLikeHtml(bodySample);
+
+    if (looksLikeHtml) {
+      throw new DecorationLoadError(
+        'Serwer zwrócił stronę HTML zamiast pliku dekoracji.',
+        resolvedUrl,
+      );
+    }
+
     if (contentType && !isGltfType) {
       throw new DecorationLoadError(
         `Nieprawidłowy typ pliku dekoracji (content-type: ${contentType}).`,
@@ -160,23 +175,11 @@ export class DecorationFactory {
       );
     }
 
-    const bodySample = await response
-      .clone()
-      .text()
-      .then(text => text.slice(0, 256))
-      .catch(() => '');
-
-    if (!isGltfType) {
-      const looksLikeHtml = /<!doctype\s+html/i.test(bodySample) || /<html[\s>]/i.test(bodySample);
-      if (looksLikeHtml) {
-        throw new DecorationLoadError(
-          'Serwer zwrócił stronę HTML zamiast pliku dekoracji.',
-          resolvedUrl,
-        );
-      }
-    }
-
     return response.arrayBuffer();
+  }
+
+  private static bodyLooksLikeHtml(sample: string): boolean {
+    return /<!doctype\s+html/i.test(sample) || /<html[\s>]/i.test(sample);
   }
 
   private static emitError(error: unknown): void {
