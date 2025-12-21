@@ -517,7 +517,9 @@ export class PaintService {
     }
 
     const parent = object.parent ?? this.stateStore.paintParent ?? this.stateStore.scene;
-    const command = this.decorationPlacementTool.createAddRemoveCommand(object, parent ?? null, this.paintingContext);
+    const command = this.decorationPlacementTool.createAddRemoveCommand(object, parent ?? null, this.paintingContext, {
+      kind: 'DECORATION_MANUAL',
+    });
     this.historyService.push(this.historyDomain, command, {execute: false});
     this.notifySceneChanged();
   }

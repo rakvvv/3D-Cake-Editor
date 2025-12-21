@@ -8,7 +8,7 @@ import {CommandFactoryService} from '../../interaction/history/command-factory.s
 import {HistoryService} from '../../interaction/history/history.service';
 import {HistoryDomain, HitResult} from '../../interaction/types/interaction-types';
 import {PaintingContext} from '../common/painting-context';
-import {markSceneStroke, tagNode} from '../common/painting-metadata';
+import {PaintingKind, markSceneStroke, readKind, tagNode} from '../common/painting-metadata';
 import {DecorationRendererService} from '../decorations/decoration-renderer.service';
 import {DecorationStrokeBuilderService} from '../decorations/decoration-stroke-builder.service';
 import {environment} from '../../../../environments/environment';
@@ -150,9 +150,15 @@ export class DecorationPlacementTool {
     object: THREE.Object3D,
     parent: THREE.Object3D | null,
     context: PaintingContext,
+    options?: { kind?: PaintingKind },
   ) {
     const targetParent = parent ?? context.scene;
-    const instanceId = this.tagDecoration(object, context.projectId ?? null, context.cakeRoot?.uuid);
+    const instanceId = this.tagDecoration(
+      object,
+      context.projectId ?? null,
+      context.cakeRoot?.uuid,
+      options?.kind ?? 'DECORATION_STAMP',
+    );
     const base = this.commandFactory.createAddRemoveCommand(
       this.historyDomain,
       object,
@@ -189,8 +195,9 @@ export class DecorationPlacementTool {
     const parent = context.cakeRoot ?? context.scene;
     const decorations = objects ?? this.collectDecorationRootsFromScene(parent);
     decorations.forEach((object) => {
-      this.tagDecoration(object, projectId, context.cakeRoot?.uuid);
-      const command = this.createAddRemoveCommand(object, object.parent ?? parent, context);
+      const detectedKind = readKind(object) ?? (object.userData['isPaintStroke'] ? 'DECORATION_STAMP' : 'DECORATION_MANUAL');
+      this.tagDecoration(object, projectId, context.cakeRoot?.uuid, detectedKind);
+      const command = this.createAddRemoveCommand(object, object.parent ?? parent, context, { kind: detectedKind });
       this.historyService.seed(this.historyDomain, command);
     });
   }
@@ -201,7 +208,15 @@ export class DecorationPlacementTool {
 
     const traverse = (object: THREE.Object3D) => {
       object.children.forEach((child) => {
-        if (child.userData['decorationType'] || child.userData['isPaintStroke'] || child.userData['isPaintDecoration']) {
+        const kind = readKind(child);
+        const looksLikeDecoration =
+          child.userData['decorationType'] ||
+          child.userData['isPaintDecoration'] ||
+          kind === 'DECORATION_STAMP' ||
+          kind === 'DECORATION_MANUAL' ||
+          child.userData['isPaintStroke'] === true ||
+          child.userData['isDecoration'] === true;
+        if (looksLikeDecoration) {
           const rootNode = this.resolveDecorationRoot(child);
           if (!visited.has(rootNode)) {
             visited.add(rootNode);
@@ -442,12 +457,20 @@ export class DecorationPlacementTool {
     });
   }
 
-  private tagDecoration(object: THREE.Object3D, projectId: string | null, cakeId?: string): string {
+  private tagDecoration(
+    object: THREE.Object3D,
+    projectId: string | null,
+    cakeId?: string,
+    kind: PaintingKind = 'DECORATION_STAMP',
+  ): string {
     const instanceId = (object.userData['instanceId'] as string | undefined) ?? object.uuid;
     object.userData['instanceId'] = instanceId;
     object.userData['belongsToCakeId'] = cakeId;
-    markSceneStroke(object, 'decoration', instanceId, projectId ?? undefined, 'decoration');
-    tagNode(object, { projectId: projectId ?? undefined, cakeId });
+    if (kind === 'DECORATION_STAMP') {
+      markSceneStroke(object, 'decoration', instanceId, projectId ?? undefined, 'decoration', undefined, kind);
+    } else {
+      tagNode(object, { projectId: projectId ?? undefined, cakeId, kind, domain: 'decoration' });
+    }
     this.decorationRegistry.register(projectId, instanceId, object);
     return instanceId;
   }

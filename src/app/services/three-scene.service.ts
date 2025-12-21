@@ -28,6 +28,7 @@ import { PointerInputService } from './interaction/input/pointer-input.service';
 import { RaycastService } from './interaction/raycast/raycast.service';
 import { InteractionPolicyService } from './interaction/policy/interaction-policy.service';
 import { ProjectLifecycleService } from './project-lifecycle.service';
+import { readKind } from './painting/common/painting-metadata';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
@@ -1232,8 +1233,11 @@ export class ThreeSceneService {
       return null;
     }
 
-    const candidate = this.findParentDecoration(intersects[0].object) ?? intersects[0].object;
-    const selected = candidate === this.cakeBase ? null : candidate;
+    const selectableRoot = this.findSelectableDecorationRoot(intersects[0].object);
+    const candidate = selectableRoot ?? this.findParentDecoration(intersects[0].object) ?? intersects[0].object;
+    const kind = readKind(candidate);
+    const isStrokeCandidate = kind === 'DECORATION_STAMP' || kind === 'PEN_STROKE' || candidate.userData['isPaintStroke'];
+    const selected = candidate === this.cakeBase || isStrokeCandidate ? null : candidate;
 
     if (!selected) {
       if (attach) {
@@ -2730,7 +2734,13 @@ export class ThreeSceneService {
 
     const traverse = (object: THREE.Object3D) => {
       for (const child of object.children) {
-        if (child.userData['decorationType'] || child.userData['isPaintStroke'] || child.userData['isPaintDecoration']) {
+        const kind = readKind(child);
+        if (
+          child.userData['decorationType'] ||
+          child.userData['isPaintDecoration'] ||
+          kind === 'DECORATION_STAMP' ||
+          kind === 'DECORATION_MANUAL'
+        ) {
           const root = this.resolveDecorationRoot(child);
           if (!visited.has(root)) {
             visited.add(root);
@@ -2767,13 +2777,31 @@ export class ThreeSceneService {
   }
 
   private isDecorationNode(object: THREE.Object3D): boolean {
+    const kind = readKind(object);
     return Boolean(
       object.userData['isDecorationGroup'] === true ||
-      object.userData['isDecoration'] === true ||
-      object.userData['decorationType'] ||
-      object.userData['isPaintStroke'] === true ||
-      object.userData['isPaintDecoration'] === true
+        object.userData['isDecoration'] === true ||
+        object.userData['decorationType'] ||
+        object.userData['isPaintDecoration'] === true ||
+        kind === 'DECORATION_STAMP' ||
+        kind === 'DECORATION_MANUAL'
     );
+  }
+
+  private findSelectableDecorationRoot(object: THREE.Object3D): THREE.Object3D | null {
+    let current: THREE.Object3D | null = object;
+    let candidate: THREE.Object3D | null = null;
+    while (current && current !== this.scene && current !== this.cakeBase) {
+      const kind = readKind(current);
+      if (kind === 'DECORATION_MANUAL') {
+        return current;
+      }
+      if (this.isDecorationNode(current)) {
+        candidate = current;
+      }
+      current = current.parent ?? null;
+    }
+    return candidate;
   }
 
   private findParentDecoration(object: THREE.Object3D): THREE.Object3D | null {
@@ -2849,18 +2877,16 @@ export class ThreeSceneService {
   }
 
   private describeDecoration(object: THREE.Object3D): string {
-    if (object.userData['isPaintStroke']) {
+    const kind = readKind(object);
+    if (kind === 'PEN_STROKE') {
       return object.userData['displayName'] || 'Ślad pisaka';
     }
 
-    if (object.userData['isPaintDecoration']) {
+    if (kind === 'DECORATION_STAMP') {
       return object.userData['displayName'] || 'Dekoracja malowana';
     }
 
-    const label =
-      object.userData['displayName'] ||
-      object.userData['modelFileName'] ||
-      object.name;
+    const label = object.userData['displayName'] || object.userData['modelFileName'] || object.name;
 
     return label || 'Dekoracja';
   }
