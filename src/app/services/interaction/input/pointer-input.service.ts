@@ -18,10 +18,10 @@ export class PointerInputService {
 
     const pointerEvent = event as PointerEvent;
     const modifiers = {
-      alt: !!(event as KeyboardEvent).altKey,
-      ctrl: !!(event as KeyboardEvent).ctrlKey,
-      shift: !!(event as KeyboardEvent).shiftKey,
-      meta: !!(event as KeyboardEvent).metaKey,
+      alt: 'altKey' in event ? !!event.altKey : false,
+      ctrl: 'ctrlKey' in event ? !!event.ctrlKey : false,
+      shift: 'shiftKey' in event ? !!event.shiftKey : false,
+      meta: 'metaKey' in event ? !!event.metaKey : false,
     };
 
     return {

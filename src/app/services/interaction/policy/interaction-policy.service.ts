@@ -14,8 +14,8 @@ export class InteractionPolicyService {
     if (!hit) {
       return {allowed: false, reason: 'no-hit'};
     }
-    if (context?.activeLayer !== undefined && hit.object.userData?.layer !== undefined) {
-      if (hit.object.userData.layer !== context.activeLayer) {
+    if (context?.activeLayer !== undefined && hit.object.userData?.['layer'] !== undefined) {
+      if (hit.object.userData['layer'] !== context.activeLayer) {
         return {allowed: false, reason: 'layer-mismatch'};
       }
     }
