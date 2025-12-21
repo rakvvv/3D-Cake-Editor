@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { DecorationInfo } from '../../../models/decorationInfo';
@@ -120,6 +120,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
         this.extruderPathNodes = nodes;
         this.validateNodes();
         this.refreshNodePreview();
+        this.refreshPathMarkers();
       }),
     );
 
@@ -301,6 +302,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     } else if (this.extruderPathModeEnabled) {
       this.setExtruderDrawingMode('free');
     }
+    this.refreshPathMarkers();
   }
 
   togglePathConnection(): void {
@@ -323,6 +325,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
     this.paintService.setExtruderPathMode(this.extruderPathModeEnabled);
     this.syncExtruderContext();
+    this.refreshPathMarkers();
   }
 
   onExtruderModeChange(mode: ExtruderStrokeMode): void {
@@ -452,10 +455,37 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       this.paintService.setExtruderPathNodes(this.extruderPathNodes, preset);
     }
     this.refreshNodePreview();
+    this.refreshPathMarkers();
   }
 
   private cloneExtruderNodes(nodes: CreamPathNode[]): CreamPathNode[] {
     return nodes.map((node) => ({ ...node, enabled: node.enabled !== false }));
+  }
+
+  private refreshPathMarkers(): void {
+    if (!this.extruderPathModeEnabled) {
+      return;
+    }
+
+    this.paintService.refreshExtruderPathMarkers();
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  handleGlobalShortcuts(event: KeyboardEvent): void {
+    if (!this.showPresetPoints || !this.extruderPathModeEnabled) {
+      return;
+    }
+
+    const isRedo = (event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z'));
+    const isUndo = (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z';
+
+    if (isUndo) {
+      event.preventDefault();
+      this.undoExtruderNodes();
+    } else if (isRedo) {
+      event.preventDefault();
+      this.redoExtruderNodes();
+    }
   }
 
   private validateNodes(nodes: CreamPathNode[] = this.extruderPathNodes): void {

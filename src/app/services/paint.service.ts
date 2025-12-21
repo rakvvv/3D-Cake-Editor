@@ -834,6 +834,14 @@ export class PaintService {
     this.updateExtruderPathMarkers(this.extruderPathNodesSubject.value, config);
   }
 
+  public refreshExtruderPathMarkers(config?: CreamRingPreset | null): void {
+    const metadata = this.snapService.getCakeMetadataSnapshot();
+    const layerIndex = metadata ? this.resolveLayerIndex(this.extruderPathLayerIndex, metadata) : this.extruderPathLayerIndex;
+    const preset = config ?? this.extruderPathConfig ?? this.buildPathEditorConfig(this.extruderPathNodesSubject.value, layerIndex);
+
+    this.updateExtruderPathMarkers(this.extruderPathNodesSubject.value, preset ?? undefined);
+  }
+
   public setExtruderPathNodes(nodes: CreamPathNode[], config?: CreamRingPreset): void {
     this.extruderPathNodesSubject.next(nodes.map((node) => ({ ...node })));
     if (config) {
@@ -902,7 +910,11 @@ export class PaintService {
     }
 
     this.pendingPathReplaceIndex = null;
-    const config = this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, layerIndex);
+    const positionHint: CreamPosition = Math.abs(normal.y) > 0.8 ? 'TOP_EDGE' : this.extruderPathPosition;
+    const baseConfig = this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, layerIndex);
+    const config = baseConfig ? { ...baseConfig, position: positionHint } : null;
+    this.extruderPathPosition = positionHint;
+
     this.setExtruderPathNodes(nodes, config ?? undefined);
   }
 
