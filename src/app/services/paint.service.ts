@@ -124,6 +124,7 @@ export class PaintService {
   private extruderPathPosition: CreamPosition = 'SIDE_ARC';
   private extruderPathRadiusOffset = 0;
   private extruderPathConfig: CreamRingPreset | null = null;
+  private extruderMarkerDirty = false;
   private pendingPathReplaceIndex: number | null = null;
   private extruderPathMarkers: THREE.Mesh[] = [];
   private extruderPathMarkerGroup: THREE.Group | null = null;
@@ -192,6 +193,10 @@ export class PaintService {
 
     this.sceneRef = scene;
     this.cakeBaseRef = cakeBase;
+
+    if (this.extruderMarkerDirty && this.extruderPathNodesSubject.value.length) {
+      this.refreshExtruderPathMarkers();
+    }
 
     const rect = this.paintCanvasRect ?? renderer.domElement.getBoundingClientRect();
     if (!this.paintCanvasRect) {
@@ -414,6 +419,9 @@ export class PaintService {
 
   public registerScene(scene: THREE.Scene): void {
     this.sceneRef = scene;
+    if (this.extruderMarkerDirty && this.extruderPathNodesSubject.value.length) {
+      this.refreshExtruderPathMarkers();
+    }
   }
 
   public undo(): THREE.Object3D | undefined {
@@ -968,30 +976,35 @@ export class PaintService {
 
   private updateExtruderPathMarkers(nodes: CreamPathNode[], config?: CreamRingPreset): void {
     if (!this.sceneRef) {
+      this.extruderMarkerDirty = nodes.length > 0;
       this.clearExtruderPathMarkers();
       return;
     }
 
     const metadata = this.snapService.getCakeMetadataSnapshot();
     if (!metadata || !nodes.length) {
+      this.extruderMarkerDirty = nodes.length > 0;
       this.clearExtruderPathMarkers();
       return;
     }
 
     const preset = config ?? this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, this.extruderPathLayerIndex);
     if (!preset) {
+      this.extruderMarkerDirty = nodes.length > 0;
       this.clearExtruderPathMarkers();
       return;
     }
 
     const normalizedPreset = this.normalizePresetForMetadata(preset, metadata);
     if (!normalizedPreset || normalizedPreset.mode !== 'PATH' || !normalizedPreset.nodes?.length) {
+      this.extruderMarkerDirty = nodes.length > 0;
       this.clearExtruderPathMarkers();
       return;
     }
 
     const layer = metadata.layerDimensions[this.resolveLayerIndex(normalizedPreset.layerIndex, metadata)];
     if (!layer) {
+      this.extruderMarkerDirty = nodes.length > 0;
       this.clearExtruderPathMarkers();
       return;
     }
@@ -1013,6 +1026,7 @@ export class PaintService {
 
     const markerGroup = this.ensureExtruderMarkerGroup();
     if (!markerGroup) {
+      this.extruderMarkerDirty = nodes.length > 0;
       return;
     }
 
@@ -1027,6 +1041,8 @@ export class PaintService {
       markerGroup.add(marker);
       return marker;
     });
+
+    this.extruderMarkerDirty = false;
   }
 
   private ensureExtruderMarkerGroup(): THREE.Group | null {
