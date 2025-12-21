@@ -126,14 +126,13 @@ export class DecorationPlacementTool {
 
     const scale = this.getDecorationScale(brushId);
     const decorationInfo = this.getDecorationInfoForBrush(brushId);
-    const decoRoot = new THREE.Object3D();
-    decoRoot.scale.setScalar(scale);
+    const parent = decorationGroup;
     const matrix = this.decorationStrokeBuilder.buildPlacementMatrix(
       hit,
       decorationInfo,
       scale,
       penSurfaceOffset,
-      decoRoot,
+      parent ?? null,
     );
     const selectedVariant = this.getNextDecorationVariantIndex(brushId, variants.length);
     this.decorationRenderer.addDecorationInstances(
