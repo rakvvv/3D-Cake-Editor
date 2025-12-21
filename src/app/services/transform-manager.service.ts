@@ -5,35 +5,24 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { SelectionService } from './selection.service';
 import { SnapService } from './snap.service';
+import { TransformManagerState } from './transform-manager/transform-manager.state';
+import { TransformEventHandler } from './transform-manager/transform-event-handler';
 
 @Injectable({
   providedIn: 'root',
 })
 export class TransformManagerService {
-  private transformControls!: TransformControls;
-  private scene!: THREE.Scene;
-  private camera!: THREE.Camera;
-  private renderer!: THREE.WebGLRenderer;
-  private orbit!: OrbitControls;
-  private boxHelperCallback: (() => void) | null = null;
-  private removeDecorationCallback: ((object: THREE.Object3D) => void) | null = null;
-  private copyDecorationCallback: (() => void) | null = null;
-  private pasteDecorationCallback: (() => void) | null = null;
-  private anchorSnapshotCallback: ((object: THREE.Object3D | null) => void) | null = null;
-  private wasDragging = false;
-  private cakeSize = 1;
-  private lockedSelection: {
-    object: THREE.Object3D | null;
-    position: THREE.Vector3;
-    quaternion: THREE.Quaternion;
-    scale: THREE.Vector3;
-  } = {
-    object: null,
-    position: new THREE.Vector3(),
-    quaternion: new THREE.Quaternion(),
-    scale: new THREE.Vector3(),
-  };
+  private readonly state = new TransformManagerState();
+  private eventHandler!: TransformEventHandler;
   private readonly isBrowser: boolean;
+
+  private readonly renderScene = () => {
+    if (!this.state.scene || !this.state.camera || !this.state.renderer) {
+      return;
+    }
+
+    this.state.renderer.render(this.state.scene, this.state.camera);
+  };
 
   constructor(
     @Inject(PLATFORM_ID) private readonly platformId: Object,
@@ -41,6 +30,12 @@ export class TransformManagerService {
     private readonly snapService: SnapService,
   ) {
     this.isBrowser = isPlatformBrowser(this.platformId);
+    this.eventHandler = new TransformEventHandler(
+      this.state,
+      this.selectionService,
+      this.snapService,
+      this.renderScene,
+    );
   }
 
   public init(
@@ -58,47 +53,46 @@ export class TransformManagerService {
       return;
     }
 
-    this.scene = scene;
-    this.camera = camera;
-    this.renderer = renderer;
-    this.orbit = orbit;
-    this.boxHelperCallback = boxHelperUpdateCallback || null;
-    this.removeDecorationCallback = removeDecorationCallback || null;
-    this.copyDecorationCallback = copyDecorationCallback || null;
-    this.pasteDecorationCallback = pasteDecorationCallback || null;
-    this.anchorSnapshotCallback = anchorSnapshotCallback || null;
+    this.state.setSession(scene, camera, renderer, orbit);
+    this.state.boxHelperCallback = boxHelperUpdateCallback || null;
+    this.state.removeDecorationCallback = removeDecorationCallback || null;
+    this.state.copyDecorationCallback = copyDecorationCallback || null;
+    this.state.pasteDecorationCallback = pasteDecorationCallback || null;
+    this.state.anchorSnapshotCallback = anchorSnapshotCallback || null;
 
-    this.orbit.addEventListener('change', this.renderScene);
+    this.state.orbit?.addEventListener('change', this.renderScene);
 
-    this.transformControls = new TransformControls(this.camera, this.renderer.domElement);
-    this.transformControls.space = 'world';
-    this.transformControls.mode = 'translate';
+    this.state.transformControls = new TransformControls(camera, renderer.domElement);
+    this.state.transformControls.space = 'world';
+    this.state.transformControls.mode = 'translate';
 
-    this.transformControls.addEventListener('change', this.onTransformChange);
-    this.transformControls.addEventListener('dragging-changed', this.onDraggingChanged);
+    this.state.transformControls.addEventListener('change', this.eventHandler.onTransformChange);
+    this.state.transformControls.addEventListener('dragging-changed', this.eventHandler.onDraggingChanged);
 
-    const gizmo = this.transformControls.getHelper();
-    this.scene.add(gizmo);
+    const gizmo = this.state.transformControls.getHelper();
+    this.state.scene?.add(gizmo);
 
-    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keydown', this.eventHandler.onKeyDown);
   }
 
   public updateCakeSize(size: number): void {
-    this.cakeSize = size;
+    this.state.cakeSize = size;
   }
 
   public setTransformMode(mode: 'translate' | 'rotate' | 'scale'): void {
-    if (!this.transformControls) {
+    if (!this.state.transformControls) {
       return;
     }
 
-    this.transformControls.mode = mode;
-    console.log(`TransformControls mode set to: ${mode}, enabled: ${this.transformControls.enabled}`);
+    this.state.transformControls.mode = mode;
+    console.log(`TransformControls mode set to: ${mode}, enabled: ${this.state.transformControls.enabled}`);
     this.renderScene();
   }
 
   public attachObject(object: THREE.Object3D): void {
-    if (!this.transformControls || !this.scene) {
+    const transformControls = this.state.transformControls;
+    const scene = this.state.scene;
+    if (!transformControls || !scene) {
       return;
     }
 
@@ -115,32 +109,32 @@ export class TransformManagerService {
     }
 
     const locked = this.isTransformLocked(object);
-    this.transformControls.enabled = !locked;
+    transformControls.enabled = !locked;
     if (locked) {
-      this.lockedSelection.object = object;
-      this.lockedSelection.position.copy(object.position);
-      this.lockedSelection.quaternion.copy(object.quaternion);
-      this.lockedSelection.scale.copy(object.scale);
-      this.transformControls.detach();
-      this.selectionService.selectObject(object, this.transformControls, this.boxHelperCallback, false);
+      this.state.lockedSelection.object = object;
+      this.state.lockedSelection.position.copy(object.position);
+      this.state.lockedSelection.quaternion.copy(object.quaternion);
+      this.state.lockedSelection.scale.copy(object.scale);
+      transformControls.detach();
+      this.selectionService.selectObject(object, transformControls, this.state.boxHelperCallback, false);
       return;
     }
 
-    this.lockedSelection.object = null;
-    this.selectionService.selectObject(object, this.transformControls, this.boxHelperCallback, true);
+    this.state.lockedSelection.object = null;
+    this.selectionService.selectObject(object, transformControls, this.state.boxHelperCallback, true);
   }
 
   public deselectObject(): void {
-    if (!this.transformControls) {
+    if (!this.state.transformControls) {
       return;
     }
 
-    this.lockedSelection.object = null;
-    this.selectionService.deselectObject(this.transformControls, this.boxHelperCallback);
+    this.state.lockedSelection.object = null;
+    this.selectionService.deselectObject(this.state.transformControls, this.state.boxHelperCallback);
   }
 
   public isDragging(): boolean {
-    return this.transformControls?.dragging === true;
+    return this.state.transformControls?.dragging === true;
   }
 
   public getSelectedObject(): THREE.Object3D | null {
@@ -148,30 +142,30 @@ export class TransformManagerService {
   }
 
   public getTransformControls(): TransformControls | null {
-    return this.transformControls || null;
+    return this.state.transformControls || null;
   }
 
   public lockSelectedObject(): { success: boolean; message: string } {
     const selected = this.selectionService.getSelectedObject();
-    if (!selected || !this.transformControls) {
+    if (!selected || !this.state.transformControls) {
       return { success: false, message: 'Najpierw zaznacz dekorację.' };
     }
 
     selected.userData['isTransformLocked'] = true;
-    this.lockedSelection.object = selected;
-    this.lockedSelection.position.copy(selected.position);
-    this.lockedSelection.quaternion.copy(selected.quaternion);
-    this.lockedSelection.scale.copy(selected.scale);
-    this.transformControls.enabled = false;
-    this.transformControls.detach();
-    this.selectionService.selectObject(selected, this.transformControls, this.boxHelperCallback, false);
+    this.state.lockedSelection.object = selected;
+    this.state.lockedSelection.position.copy(selected.position);
+    this.state.lockedSelection.quaternion.copy(selected.quaternion);
+    this.state.lockedSelection.scale.copy(selected.scale);
+    this.state.transformControls.enabled = false;
+    this.state.transformControls.detach();
+    this.selectionService.selectObject(selected, this.state.transformControls, this.state.boxHelperCallback, false);
 
     return { success: true, message: 'Dekoracja została zablokowana przed przypadkowym przesunięciem.' };
   }
 
   public unlockSelectedObject(): { success: boolean; message: string } {
     const selected = this.selectionService.getSelectedObject();
-    if (!selected || !this.transformControls) {
+    if (!selected || !this.state.transformControls) {
       return { success: false, message: 'Najpierw zaznacz dekorację.' };
     }
 
@@ -180,9 +174,9 @@ export class TransformManagerService {
     }
 
     selected.userData['isTransformLocked'] = false;
-    this.lockedSelection.object = null;
-    this.transformControls.enabled = true;
-    this.selectionService.selectObject(selected, this.transformControls, this.boxHelperCallback, true);
+    this.state.lockedSelection.object = null;
+    this.state.transformControls.enabled = true;
+    this.selectionService.selectObject(selected, this.state.transformControls, this.state.boxHelperCallback, true);
 
     return { success: true, message: 'Zablokowanie dekoracji zostało wyłączone.' };
   }
@@ -198,177 +192,51 @@ export class TransformManagerService {
     }
 
     const selected = this.selectionService.getSelectedObject();
-    if (selected === object && this.transformControls) {
-      this.selectionService.deselectObject(this.transformControls, this.boxHelperCallback);
+    if (selected === object && this.state.transformControls) {
+      this.selectionService.deselectObject(this.state.transformControls, this.state.boxHelperCallback);
     }
 
-    if (this.removeDecorationCallback) {
-      this.removeDecorationCallback(object);
+    if (this.state.removeDecorationCallback) {
+      this.state.removeDecorationCallback(object);
       return;
     }
 
-    if (!this.scene) {
+    if (!this.state.scene) {
       return;
     }
 
     const cakeBase = this.snapService.getCakeBase();
     if (cakeBase && object.parent === cakeBase) {
-      this.scene.attach(object);
+      this.state.scene.attach(object);
     }
 
-    this.scene.remove(object);
+    this.state.scene.remove(object);
   }
 
   public dispose(): void {
-    if (!this.isBrowser || !this.transformControls) {
+    if (!this.isBrowser || !this.state.transformControls) {
       return;
     }
 
-    window.removeEventListener('keydown', this.onKeyDown);
-    this.orbit?.removeEventListener('change', this.renderScene);
-    this.transformControls.removeEventListener('change', this.onTransformChange);
-    this.transformControls.removeEventListener('dragging-changed', this.onDraggingChanged);
+    window.removeEventListener('keydown', this.eventHandler.onKeyDown);
+    this.state.orbit?.removeEventListener('change', this.renderScene);
+    this.state.transformControls.removeEventListener('change', this.eventHandler.onTransformChange);
+    this.state.transformControls.removeEventListener('dragging-changed', this.eventHandler.onDraggingChanged);
 
-    this.transformControls.dispose();
+    this.state.transformControls.dispose();
     this.selectionService.clearSelection();
-    this.boxHelperCallback = null;
-    this.removeDecorationCallback = null;
-    this.copyDecorationCallback = null;
-    this.pasteDecorationCallback = null;
+    this.state.resetCallbacks();
   }
-
-  private renderScene = () => {
-    if (!this.scene || !this.camera || !this.renderer) {
-      return;
-    }
-
-    this.renderer.render(this.scene, this.camera);
-  };
-
-  private onTransformChange = () => {
-    this.renderScene();
-
-    if (this.boxHelperCallback) {
-      this.boxHelperCallback();
-    }
-
-    const selectedObject = this.selectionService.getSelectedObject();
-    if (selectedObject && this.transformControls) {
-      if (!this.transformControls.dragging) {
-        return;
-      }
-
-      const anchorId = selectedObject.userData['anchorId'] as string | undefined;
-
-      if (this.lockedSelection.object === selectedObject) {
-        this.lockedSelection.position.copy(selectedObject.position);
-        this.lockedSelection.quaternion.copy(selectedObject.quaternion);
-        this.lockedSelection.scale.copy(selectedObject.scale);
-        selectedObject.updateMatrixWorld(true);
-        this.snapService.enforceSnappedPosition(selectedObject);
-        return;
-      }
-
-      const mode = this.transformControls.mode;
-      if (!anchorId && (mode === 'translate' || mode === 'scale')) {
-        this.snapService.updateSnapFromObjectPosition(selectedObject);
-        this.snapService.enforceSnappedPosition(selectedObject);
-      }
-    }
-  };
 
   public syncLockedSelectionSnapshot(): void {
-    if (!this.lockedSelection.object) {
+    if (!this.state.lockedSelection.object) {
       return;
     }
 
-    this.lockedSelection.position.copy(this.lockedSelection.object.position);
-    this.lockedSelection.quaternion.copy(this.lockedSelection.object.quaternion);
-    this.lockedSelection.scale.copy(this.lockedSelection.object.scale);
+    this.state.lockedSelection.position.copy(this.state.lockedSelection.object.position);
+    this.state.lockedSelection.quaternion.copy(this.state.lockedSelection.object.quaternion);
+    this.state.lockedSelection.scale.copy(this.state.lockedSelection.object.scale);
   }
-
-  private onDraggingChanged = (event: THREE.Event) => {
-    const draggingValue = (event as THREE.Event & { value: boolean }).value;
-
-    this.orbit.enabled = !draggingValue;
-
-    if (draggingValue) {
-      this.wasDragging = true;
-      return;
-    }
-
-    if (!this.wasDragging) {
-      return;
-    }
-
-    this.wasDragging = false;
-
-    if (!draggingValue && this.transformControls) {
-      const selectedObject = this.selectionService.getSelectedObject();
-      if (!selectedObject) {
-        return;
-      }
-
-      const mode = this.transformControls.mode;
-      const anchorId = selectedObject.userData['anchorId'] as string | undefined;
-
-      if (mode === 'rotate') {
-        this.snapService.captureSnappedOrientation(selectedObject);
-      } else if (!anchorId && (mode === 'translate' || mode === 'scale')) {
-        this.snapService.enforceSnappedPosition(selectedObject);
-      }
-
-      if (this.anchorSnapshotCallback) {
-        this.anchorSnapshotCallback(selectedObject);
-      }
-    }
-  };
-
-  private onKeyDown = (event: KeyboardEvent): void => {
-    const selectedObject = this.selectionService.getSelectedObject();
-
-    if ((event.key === 'c' || event.key === 'C') && (event.ctrlKey || event.metaKey)) {
-      if (this.copyDecorationCallback && selectedObject) {
-        event.preventDefault();
-        this.copyDecorationCallback();
-      }
-      return;
-    }
-
-    if ((event.key === 'v' || event.key === 'V') && (event.ctrlKey || event.metaKey)) {
-      if (this.pasteDecorationCallback) {
-        event.preventDefault();
-        this.pasteDecorationCallback();
-      }
-      return;
-    }
-
-    if (!selectedObject) {
-      return;
-    }
-
-    if (event.key === 'Delete' || event.key === 'Backspace') {
-      const cakeBase = this.snapService.getCakeBase();
-      this.selectionService.removeSelectedObject(
-        this.scene,
-        cakeBase,
-        (object) => {
-          if (this.removeDecorationCallback) {
-            this.removeDecorationCallback(object);
-            return;
-          }
-
-          if (cakeBase && object.parent === cakeBase) {
-            this.scene.attach(object);
-          }
-
-          this.scene.remove(object);
-        },
-        this.transformControls,
-        this.boxHelperCallback,
-      );
-    }
-  };
 
   private isTransformLocked(object: THREE.Object3D): boolean {
     return (
@@ -381,7 +249,7 @@ export class TransformManagerService {
   private isObjectInSceneGraph(object: THREE.Object3D): boolean {
     let current: THREE.Object3D | null = object;
     while (current) {
-      if (current === this.scene) {
+      if (current === this.state.scene) {
         return true;
       }
       current = current.parent;
