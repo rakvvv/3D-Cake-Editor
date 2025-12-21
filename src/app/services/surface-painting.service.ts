@@ -117,10 +117,9 @@ export class SurfacePaintingService {
   private sprinkleStrokeCapacity = 0;
   private sprinkleStrokeShape: SprinkleShape | null = null;
   private paintedMaterials: THREE.Material[] = [];
-  private sprinkleGeometryCache: { stick: THREE.BufferGeometry; ball: THREE.BufferGeometry; star: THREE.BufferGeometry } | null = null;
+  private sprinkleGeometryCache: { stick: THREE.BufferGeometry; ball: THREE.BufferGeometry; star: THREE.BufferGeometry } | null
+    = null;
   private sprinkleMaterial: THREE.MeshStandardMaterial | null = null;
-  private sprinkleEntries: THREE.Object3D[] = [];
-  private paintEntries: THREE.Object3D[] = [];
   private shaderUniforms?: PaintingShaderUniforms;
   private readonly tempMatrix = new THREE.Matrix4();
   private readonly tempMatrixInverse = new THREE.Matrix4();
@@ -359,14 +358,11 @@ export class SurfacePaintingService {
     }
 
     // --- POSYPKA ---
-    if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh) {
-      // FIX: Bezwzględne usuwanie pustych grup
-      if (this.sprinkleStrokeMesh.count === 0) {
-        this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
-        // Oznaczamy jako usunięte z tablicy referencji
-        const idx = this.sprinkleEntries.indexOf(this.sprinkleStrokeGroup);
-        if (idx > -1) this.sprinkleEntries.splice(idx, 1);
-      } else if (this.sprinkleStrokeIndex > 0) {
+      if (this.sprinkleStrokeGroup && this.sprinkleStrokeMesh) {
+        // FIX: Bezwzględne usuwanie pustych grup
+        if (this.sprinkleStrokeMesh.count === 0) {
+          this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
+        } else if (this.sprinkleStrokeIndex > 0) {
         const existingIds = (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
 
         if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
@@ -386,21 +382,11 @@ export class SurfacePaintingService {
 
   public exportPaintingPreset(): SurfacePaintingPreset {
     // 1. Filtrujemy (usuwamy undo)
-    const validBrushStrokes = this.brushStrokes.filter((stroke) => {
-      const group = this.paintEntries.find((g) => {
-        const strokeIds = g.userData?.['strokeIds'] as string[] | undefined;
-        return strokeIds?.includes(stroke.id) || g.userData?.['strokeId'] === stroke.id;
-      });
-      return group && !group.userData?.['removedByUndo'];
-    });
+    const activeIds = this.collectActiveStrokeIds();
 
-    const validSprinkleStrokes = this.sprinkleStrokes.filter((stroke) => {
-      const group = this.sprinkleEntries.find((g) => {
-        const strokeIds = g.userData?.['strokeIds'] as string[] | undefined;
-        return strokeIds?.includes(stroke.id) || g.userData?.['strokeId'] === stroke.id;
-      });
-      return group && !group.userData?.['removedByUndo'];
-    });
+    const validBrushStrokes = this.brushStrokes.filter((stroke) => activeIds.has(stroke.id));
+
+    const validSprinkleStrokes = this.sprinkleStrokes.filter((stroke) => activeIds.has(stroke.id));
 
     // 2. SCALANIE PĘDZLI
     const mergedBrushMap = new Map<string, SerializedBrushStroke>();
@@ -753,14 +739,42 @@ export class SurfacePaintingService {
     const anchor = this.ensurePaintAnchor();
     if (!anchor) return;
 
-    this.paintEntries = this.paintEntries.filter((entry) => !entry.userData?.['removedByUndo']);
-    this.sprinkleEntries = this.sprinkleEntries.filter((entry) => !entry.userData?.['removedByUndo']);
+    if (anchor.parent !== this.cakeGroup && this.cakeGroup) {
+      this.cakeGroup.add(anchor);
+    }
 
-    [...this.paintEntries, ...this.sprinkleEntries].forEach((entry) => {
+    this.getStrokeGroups().forEach((entry) => {
       if (!entry.parent && !entry.userData?.['removedByUndo']) {
         anchor.add(entry);
+      } else if (entry.userData?.['removedByUndo']) {
+        entry.parent?.remove(entry);
       }
     });
+  }
+
+  private getStrokeGroups(filter?: (entry: THREE.Object3D) => boolean): THREE.Object3D[] {
+    const anchor = this.paintAnchor;
+    if (!anchor) return [];
+
+    const results: THREE.Object3D[] = [];
+    anchor.traverse((child) => {
+      if (!child.userData?.['isSurfaceStroke'] || child.userData?.['removedByUndo']) return;
+      if (!filter || filter(child)) {
+        results.push(child);
+      }
+    });
+    return results;
+  }
+
+  private collectActiveStrokeIds(): Set<string> {
+    const ids = new Set<string>();
+    this.getStrokeGroups().forEach((entry) => {
+      const strokeIds = entry.userData?.['strokeIds'] as string[] | undefined;
+      const strokeId = entry.userData?.['strokeId'] as string | undefined;
+      if (strokeIds) strokeIds.forEach((id) => ids.add(id));
+      if (strokeId) ids.add(strokeId);
+    });
+    return ids;
   }
 
   private createBrushStrokeContainer(color: string): { group: THREE.Group; mesh: THREE.InstancedMesh } | null {
@@ -1106,7 +1120,6 @@ export class SurfacePaintingService {
     this.brushStrokeCapacity = maxInstances;
 
     this.trackSurfaceAddition(this.brushStrokeGroup);
-    this.paintEntries.push(this.brushStrokeGroup);
   }
 
   private addBrushBlob(
@@ -1405,7 +1418,6 @@ export class SurfacePaintingService {
     this.sprinkleStrokeShape = this.sprinkleShape;
 
     this.trackSurfaceAddition(this.sprinkleStrokeGroup);
-    this.sprinkleEntries.push(this.sprinkleStrokeGroup);
   }
 
   private flagMaterialUpdate(): void {
@@ -1462,8 +1474,10 @@ export class SurfacePaintingService {
   }
 
   private disposeSprinkles(): void {
-    const allEntries = [...this.sprinkleEntries];
-    if (this.sprinkleStrokeGroup) allEntries.push(this.sprinkleStrokeGroup);
+    const allEntries = this.getStrokeGroups((entry) => !!entry.userData?.['isPaintDecoration']);
+    if (this.sprinkleStrokeGroup && !allEntries.includes(this.sprinkleStrokeGroup)) {
+      allEntries.push(this.sprinkleStrokeGroup);
+    }
     const sharedGeometries = this.sprinkleGeometryCache
       ? new Set<THREE.BufferGeometry>([
         this.sprinkleGeometryCache.stick,
@@ -1488,7 +1502,6 @@ export class SurfacePaintingService {
         }
       });
     });
-    this.sprinkleEntries = [];
     this.sprinkleStrokeGroup = null;
     this.sprinkleStrokeMesh = null;
     this.sprinkleStrokeIndex = 0;
@@ -1497,7 +1510,7 @@ export class SurfacePaintingService {
   }
 
   private disposePaintStrokes(): void {
-    this.paintEntries.forEach((entry) => {
+    this.getStrokeGroups((entry) => !!entry.userData?.['isPaintStroke']).forEach((entry) => {
       entry.parent?.remove(entry);
       entry.traverse((child) => {
         const mesh = child as THREE.Mesh;
@@ -1508,7 +1521,6 @@ export class SurfacePaintingService {
         }
       });
     });
-    this.paintEntries = [];
     this.brushStrokeGroup = null;
     this.brushStrokeMesh = null;
     this.brushStrokeIndex = 0;
