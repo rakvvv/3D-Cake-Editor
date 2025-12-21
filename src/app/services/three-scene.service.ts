@@ -2220,6 +2220,7 @@ export class ThreeSceneService {
 
     if (preset.surfacePainting) {
       this.surfacePainting.restorePaintingPreset(preset.surfacePainting, {skipHistory: true});
+      this.surfacePainting.seedHistoryFromExistingStrokes();
     }
 
     this.updateBoxHelper();

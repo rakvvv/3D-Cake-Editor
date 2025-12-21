@@ -139,6 +139,7 @@ export class SurfacePaintingService {
   private readonly tempQuat3 = new THREE.Quaternion();
   private readonly tempScale = new THREE.Vector3();
   private suppressHistory = false;
+  private historySeededForProject: string | null = null;
 
   // Tutaj przechowujemy surowe pociągnięcia przed scaleniem
   private brushStrokes: SerializedBrushStroke[] = [];
@@ -183,6 +184,7 @@ export class SurfacePaintingService {
       this.lastRecordedPoint = null;
       this.strokeCurrentLength = 0;
       this.globalRenderOrder = 100;
+      this.historySeededForProject = null;
       this.cakeGroup = null;
       this.surfaceRoot?.parent?.remove(this.surfaceRoot);
       this.surfaceRoot = null;
@@ -801,6 +803,28 @@ export class SurfacePaintingService {
     });
   }
 
+  public seedHistoryFromExistingStrokes(): void {
+    if (!this.cakeGroup) return;
+    const anchor = this.ensurePaintAnchor();
+    const parent = this.ensureSurfaceRoot() ?? this.cakeGroup;
+    if (!anchor || !parent) return;
+
+    const projectId = this.currentProjectId ?? undefined;
+    if (this.historySeededForProject === projectId) {
+      return;
+    }
+
+    const strokes = this.getStrokeGroups((entry) => !entry.userData?.['removedByUndo']);
+    strokes.forEach((entry) => {
+      entry.userData['projectId'] = projectId;
+      entry.userData['belongsToCakeId'] = this.cakeGroup?.uuid;
+      const command = this.createAddRemoveCommand(entry, entry.parent ?? parent);
+      this.historyService.seed(this.historyDomain, command);
+    });
+
+    this.historySeededForProject = projectId ?? null;
+  }
+
   private getStrokeGroups(filter?: (entry: THREE.Object3D) => boolean): THREE.Object3D[] {
     const anchor = this.paintAnchor;
     if (!anchor) return [];
@@ -863,10 +887,6 @@ export class SurfacePaintingService {
   }
 
   private ensurePaintAnchor(scene?: THREE.Scene): THREE.Group | null {
-    if (this.paintAnchor && this.paintAnchor.parent) {
-      return this.paintAnchor;
-    }
-
     const parent = this.ensureSurfaceRoot();
     const targetScene = scene ?? (this.cakeGroup?.parent as THREE.Scene) ?? null;
     if (!parent || !targetScene) {
@@ -878,24 +898,25 @@ export class SurfacePaintingService {
     anchor.userData['displayName'] = 'Malowanie tortu';
     anchor.userData['isPaintAnchor'] = true;
     anchor.userData['projectId'] = this.currentProjectId ?? undefined;
-    parent.add(anchor);
+    if (anchor.parent !== parent) {
+      parent.add(anchor);
+    }
+
     this.paintAnchor = anchor;
     return anchor;
   }
 
   private ensureSurfaceRoot(): THREE.Group | null {
     if (!this.cakeGroup) return null;
-    if (this.surfaceRoot && this.surfaceRoot.parent) {
-      return this.surfaceRoot;
-    }
 
-    const existing = this.cakeGroup.children.find((child) => child.name === 'surface-root') as THREE.Group | undefined;
+    const existing = this.surfaceRoot ?? (this.cakeGroup.children.find((child) => child.name === 'surface-root') as THREE.Group | undefined);
     const root = existing ?? new THREE.Group();
     root.name = 'surface-root';
     root.userData['isSurfaceRoot'] = true;
     root.userData['kind'] = 'surface-root';
     root.userData['projectId'] = this.currentProjectId ?? undefined;
-    if (!existing) {
+    root.userData['belongsToCakeId'] = this.cakeGroup.uuid;
+    if (root.parent !== this.cakeGroup) {
       this.cakeGroup.add(root);
     }
 

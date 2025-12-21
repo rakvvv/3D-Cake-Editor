@@ -29,6 +29,14 @@ export class HistoryService {
     }
   }
 
+  public seed(domain: HistoryDomain, command: Command): void {
+    const stack = this.ensure(domain);
+    stack.past.push(command);
+    stack.future.length = 0;
+    this.globalPast.push({domain, command});
+    this.globalFuture.length = 0;
+  }
+
   public undo<TResult = unknown>(domain: HistoryDomain): TResult | undefined {
     const stack = this.ensure(domain);
     const command = stack.past.pop();
