@@ -110,6 +110,7 @@ export class SurfacePaintingService {
   private readonly TEXTURE_ROUGH_URL = '/assets/textures/Pink_Cake_Frosting_01-bump.jpg';
   private lastStrokeDir: THREE.Vector3 | null = null;
   private cakeGroup: THREE.Group | null = null;
+  private surfaceRoot: THREE.Group | null = null;
   private paintAnchor: THREE.Group | null = null;
   private lastSprinklePoint: THREE.Vector3 | null = null;
   private sprinkleStrokeGroup: THREE.Group | null = null;
@@ -183,6 +184,8 @@ export class SurfacePaintingService {
       this.strokeCurrentLength = 0;
       this.globalRenderOrder = 100;
       this.cakeGroup = null;
+      this.surfaceRoot?.parent?.remove(this.surfaceRoot);
+      this.surfaceRoot = null;
       this.paintAnchor?.parent?.remove(this.paintAnchor);
       this.paintAnchor = null;
     } finally {
@@ -204,6 +207,7 @@ export class SurfacePaintingService {
       this.clearPaint();
     }
     this.cakeGroup = cake;
+    this.ensureSurfaceRoot();
     this.ensurePaintAnchor();
     this.applyPaintingShader();
     this.reattachPaintEntries();
@@ -379,6 +383,7 @@ export class SurfacePaintingService {
           existingIds.push(finishedStroke.id);
           this.brushStrokeGroup.userData['strokeIds'] = existingIds;
           this.brushStrokeGroup.userData['strokeId'] = finishedStroke.id;
+          this.brushStrokeGroup.userData['projectId'] = this.currentProjectId ?? undefined;
         } else {
           // Jeśli to było nowe pociągnięcie i jest puste, a grupa jest nowa -> usuń
           if (existingIds.length === 0) {
@@ -404,6 +409,7 @@ export class SurfacePaintingService {
           existingIds.push(finishedStroke.id);
           this.sprinkleStrokeGroup.userData['strokeIds'] = existingIds;
           this.sprinkleStrokeGroup.userData['strokeId'] = finishedStroke.id;
+          this.sprinkleStrokeGroup.userData['projectId'] = this.currentProjectId ?? undefined;
         } else if (existingIds.length === 0) {
           this.sprinkleStrokeGroup.parent?.remove(this.sprinkleStrokeGroup);
         }
@@ -779,10 +785,11 @@ export class SurfacePaintingService {
 
   private reattachPaintEntries(): void {
     const anchor = this.ensurePaintAnchor();
-    if (!anchor) return;
+    const surfaceRoot = this.ensureSurfaceRoot();
+    if (!anchor || !surfaceRoot) return;
 
-    if (anchor.parent !== this.cakeGroup && this.cakeGroup) {
-      this.cakeGroup.add(anchor);
+    if (anchor.parent !== surfaceRoot) {
+      surfaceRoot.add(anchor);
     }
 
     this.getStrokeGroups().forEach((entry) => {
@@ -860,7 +867,7 @@ export class SurfacePaintingService {
       return this.paintAnchor;
     }
 
-    const parent = this.cakeGroup ?? null;
+    const parent = this.ensureSurfaceRoot();
     const targetScene = scene ?? (this.cakeGroup?.parent as THREE.Scene) ?? null;
     if (!parent || !targetScene) {
       return null;
@@ -870,9 +877,30 @@ export class SurfacePaintingService {
     anchor.name = 'Cake Paint Anchor';
     anchor.userData['displayName'] = 'Malowanie tortu';
     anchor.userData['isPaintAnchor'] = true;
+    anchor.userData['projectId'] = this.currentProjectId ?? undefined;
     parent.add(anchor);
     this.paintAnchor = anchor;
     return anchor;
+  }
+
+  private ensureSurfaceRoot(): THREE.Group | null {
+    if (!this.cakeGroup) return null;
+    if (this.surfaceRoot && this.surfaceRoot.parent) {
+      return this.surfaceRoot;
+    }
+
+    const existing = this.cakeGroup.children.find((child) => child.name === 'surface-root') as THREE.Group | undefined;
+    const root = existing ?? new THREE.Group();
+    root.name = 'surface-root';
+    root.userData['isSurfaceRoot'] = true;
+    root.userData['kind'] = 'surface-root';
+    root.userData['projectId'] = this.currentProjectId ?? undefined;
+    if (!existing) {
+      this.cakeGroup.add(root);
+    }
+
+    this.surfaceRoot = root;
+    return root;
   }
 
   private patchMaterialForGradient(mat: THREE.Material): void {
@@ -1153,6 +1181,9 @@ export class SurfacePaintingService {
     group.userData['isPaintDecoration'] = true;
     group.userData['isSurfaceStroke'] = true;
     group.userData['strokeIds'] = [] as string[];
+    group.userData['kind'] = 'surface-stroke';
+    group.userData['subkind'] = 'brush';
+    group.userData['projectId'] = this.currentProjectId ?? undefined;
     group.add(mesh);
     anchor.add(group);
 
@@ -1450,6 +1481,9 @@ export class SurfacePaintingService {
     group.userData['isPaintDecoration'] = true;
     group.userData['isSurfaceStroke'] = true;
     group.userData['strokeIds'] = [] as string[];
+    group.userData['kind'] = 'surface-stroke';
+    group.userData['subkind'] = 'sprinkle';
+    group.userData['projectId'] = this.currentProjectId ?? undefined;
     group.add(mesh);
     anchor.add(group);
 
@@ -1481,6 +1515,7 @@ export class SurfacePaintingService {
     const parent = object.parent ?? this.cakeGroup ?? null;
     const command = this.createAddRemoveCommand(object, parent);
     this.historyService.push(this.historyDomain, command, {execute: false});
+    this.paintService.sceneChanged$.next();
   }
 
   private createAddRemoveCommand(
@@ -1491,12 +1526,16 @@ export class SurfacePaintingService {
     return {
       do: () => {
         if (!targetParent) return null;
+        if (this.currentProjectId && object.userData['projectId'] && object.userData['projectId'] !== this.currentProjectId) {
+          return null;
+        }
         if (object.parent !== targetParent) {
           targetParent.add(object);
         } else if (!targetParent.children.includes(object)) {
           targetParent.add(object);
         }
         delete object.userData['removedByUndo'];
+        this.paintService.sceneChanged$.next();
         return object;
       },
       undo: () => {
@@ -1504,6 +1543,7 @@ export class SurfacePaintingService {
           object.parent.remove(object);
           object.userData['removedByUndo'] = true;
         }
+        this.paintService.sceneChanged$.next();
         return object;
       },
       description: 'surface-add-remove',

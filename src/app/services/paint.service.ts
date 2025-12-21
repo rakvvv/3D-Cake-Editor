@@ -470,7 +470,7 @@ export class PaintService {
   }
 
   public undo(): THREE.Object3D | undefined {
-    const result = this.historyService.undo<THREE.Object3D | undefined>(this.historyDomain);
+    const result = this.historyService.undoAny<THREE.Object3D | undefined>();
     if (result) {
       this.notifySceneChanged();
     }
@@ -478,7 +478,7 @@ export class PaintService {
   }
 
   public redo(): THREE.Object3D | undefined {
-    const result = this.historyService.redo<THREE.Object3D | undefined>(this.historyDomain);
+    const result = this.historyService.redoAny<THREE.Object3D | undefined>();
     if (result) {
       this.notifySceneChanged();
     }
@@ -486,11 +486,11 @@ export class PaintService {
   }
 
   public canUndo(): boolean {
-    return this.historyService.canUndo(this.historyDomain);
+    return this.historyService.canUndoAny();
   }
 
   public canRedo(): boolean {
-    return this.historyService.canRedo(this.historyDomain);
+    return this.historyService.canRedoAny();
   }
 
   public setBrushMetadata(brushId: string, metadata: Partial<DecorationInfo> & { initialScale?: number } | null): void {
