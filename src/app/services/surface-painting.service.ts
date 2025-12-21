@@ -12,6 +12,7 @@ import {
   GradientTextureService,
   PaintingShaderUniforms,
 } from './gradient-texture.service';
+import { DistanceRecorder } from './painting/stroke-sampler';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
 export type SprinkleShape = 'stick' | 'ball' | 'star';
@@ -138,7 +139,7 @@ export class SurfacePaintingService {
   private sprinkleStrokes: SerializedSprinkleStroke[] = [];
   private activeStroke: SerializedBrushStroke | SerializedSprinkleStroke | null = null;
   private nextStrokeId = 1;
-  private lastRecordedPoint: THREE.Vector3 | null = null;
+  private readonly strokeRecorder = new DistanceRecorder();
   private isReplayingSprinkles = false;
 
   constructor(
@@ -183,7 +184,7 @@ export class SurfacePaintingService {
     this.lastStrokeDir = null;
     this.strokeCurrentLength = 0;
     this.activeStroke = null;
-    this.lastRecordedPoint = null;
+    this.strokeRecorder.reset();
 
     if (this.mode === 'brush') {
       const isSameColor = this.lastUsedBrushColor === this.brushColor;
@@ -260,17 +261,7 @@ export class SurfacePaintingService {
     // 1. ZAPIS DANYCH
     if (this.activeStroke) {
       const p = hit.point;
-      let shouldRecord = false;
-
-      // Sampling: nie zapisujemy każdego piksela ruchu
-      if (!this.lastRecordedPoint) {
-        shouldRecord = true;
-      } else {
-        const distSq = this.lastRecordedPoint.distanceToSquared(p);
-        if (distSq > this.RECORDING_DIST_SQ) {
-          shouldRecord = true;
-        }
-      }
+      const shouldRecord = this.strokeRecorder.shouldRecord(p, this.RECORDING_DIST_SQ);
 
       if (shouldRecord) {
         let normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
@@ -283,7 +274,6 @@ export class SurfacePaintingService {
           this.round(p.x), this.round(p.y), this.round(p.z),
           this.round(normal.x), this.round(normal.y), this.round(normal.z)
         );
-        this.lastRecordedPoint = p.clone();
       }
     }
 
@@ -304,7 +294,7 @@ export class SurfacePaintingService {
     this.lastBrushPoint = null;
     this.lastSprinklePoint = null;
     this.strokeCurrentLength = 0;
-    this.lastRecordedPoint = null;
+    this.strokeRecorder.reset();
     const finishedStroke = this.activeStroke;
     this.activeStroke = null;
 
@@ -596,7 +586,7 @@ export class SurfacePaintingService {
     this.clearBrushStrokes();
     this.activeStroke = null;
     this.nextStrokeId = 1;
-    this.lastRecordedPoint = null;
+    this.strokeRecorder.reset();
 
     // Reset kolejności rysowania warstw
     this.globalRenderOrder = 100;
@@ -604,7 +594,7 @@ export class SurfacePaintingService {
 
   public clearSprinkles(): void {
     this.lastSprinklePoint = null;
-    this.lastRecordedPoint = null;
+    this.strokeRecorder.reset();
     this.activeStroke = null;
     this.sprinkleStrokes = [];
     this.disposeSprinkles();
@@ -630,7 +620,7 @@ export class SurfacePaintingService {
     this.disposePaintStrokes();
     this.brushStrokes = [];
     this.activeStroke = null;
-    this.lastRecordedPoint = null;
+    this.strokeRecorder.reset();
   }
 
   private applyGradientFromHit(hit: THREE.Intersection): void {

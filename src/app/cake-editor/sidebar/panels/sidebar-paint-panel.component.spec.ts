@@ -1,3 +1,4 @@
+import { ChangeDetectorRef } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { SidebarPaintPanelComponent } from './sidebar-paint-panel.component';
 import { DecorationInfo } from '../../../models/decorationInfo';
@@ -48,15 +49,24 @@ describe('SidebarPaintPanelComponent', () => {
   let component: SidebarPaintPanelComponent;
   let decorationsService: DecorationsServiceMock;
   let paintService: PaintServiceMock;
+  let cdrMock: ChangeDetectorRef;
 
   beforeEach(() => {
     decorationsService = new DecorationsServiceMock();
     paintService = new PaintServiceMock();
+    cdrMock = {
+      markForCheck: jasmine.createSpy('markForCheck'),
+      detectChanges: jasmine.createSpy('detectChanges'),
+      detach: jasmine.createSpy('detach'),
+      reattach: jasmine.createSpy('reattach'),
+      checkNoChanges: jasmine.createSpy('checkNoChanges'),
+    } as unknown as ChangeDetectorRef;
     component = new SidebarPaintPanelComponent(
       decorationsService as any,
       new AnchorPresetsServiceMock() as any,
       paintService as any,
       new SurfacePaintingServiceMock() as any,
+      cdrMock,
     );
     component.ngOnInit();
   });

@@ -5,6 +5,7 @@ import { CakeMetadata } from '../factories/three-objects.factory';
 import { DecorationPlacementType } from '../models/decorationInfo';
 import { DecorationValidationIssue } from '../models/decoration-validation';
 import { AnchorPoint, AnchorSurfaceCoordinates } from '../models/anchors';
+import { SnapState } from './snap/snap-state';
 
 interface ScaledLayerInfo {
   index: number;
@@ -42,8 +43,15 @@ export class SnapService {
   private readonly attachmentTolerance = 0.75;
   private readonly maxEmbeddingDepth = Number.POSITIVE_INFINITY;
 
-  private cakeBase: THREE.Object3D | null = null;
-  private readonly identityRotation: [number, number, number, number] = [0, 0, 0, 1];
+  private readonly snapState = new SnapState();
+
+  private get cakeBase(): THREE.Object3D | null {
+    return this.snapState.getCakeBase();
+  }
+
+  private get identityRotation(): [number, number, number, number] {
+    return this.snapState.getIdentityRotation();
+  }
 
   public snapDecorationToCake(
     object: THREE.Object3D,
@@ -351,7 +359,7 @@ export class SnapService {
   }
 
   private getCakeMetadata(): CakeMetadata | undefined {
-    return this.cakeBase?.userData['metadata'] as CakeMetadata | undefined;
+    return this.snapState.getCakeMetadata();
   }
 
   private isPaintStroke(object: THREE.Object3D): boolean {
@@ -359,11 +367,11 @@ export class SnapService {
   }
 
   public setCakeBase(cake: THREE.Object3D | null): void {
-    this.cakeBase = cake;
+    this.snapState.setCakeBase(cake);
   }
 
   public getCakeBase(): THREE.Object3D | null {
-    return this.cakeBase;
+    return this.snapState.getCakeBase();
   }
 
   public getCakeMetadataSnapshot(): CakeMetadata | null {
