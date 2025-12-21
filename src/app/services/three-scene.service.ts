@@ -24,6 +24,9 @@ import { AnchorPoint, AnchorPreset } from '../models/anchors';
 import { DecoratedCakePreset, DecorationPresetEntry } from '../models/cake-preset';
 import { SceneInteractionController } from './three-scene/scene-interaction.controller';
 import { DecorationClipboardEntry, ThreeSceneState } from './three-scene/three-scene.state';
+import { PointerInputService } from './interaction/input/pointer-input.service';
+import { RaycastService } from './interaction/raycast/raycast.service';
+import { InteractionPolicyService } from './interaction/policy/interaction-policy.service';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
@@ -198,6 +201,9 @@ export class ThreeSceneService {
     private exportService: ExportService,
     private snapService: SnapService,
     private anchorPresetsService: AnchorPresetsService,
+    private pointerInputService: PointerInputService,
+    private raycastService: RaycastService,
+    private policyService: InteractionPolicyService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.interactions = new SceneInteractionController({
@@ -208,7 +214,6 @@ export class ThreeSceneService {
       surfacePainting: this.surfacePainting,
       transformControlsService: this.transformControlsService,
       sceneInitService: this.sceneInitService,
-      pickPaintableHit: (intersects) => this.pickPaintableHit(intersects),
       isPaintable: (object) => this.isPaintable(object),
       onClickDown: (event) => this.onClickDown(event),
       stopPaintingStroke: () => this.stopPaintingStroke(),
@@ -217,6 +222,9 @@ export class ThreeSceneService {
       getCamera: () => this.camera,
       getRenderer: () => this.renderer,
       getScene: () => this.scene,
+      pointerInputService: this.pointerInputService,
+      raycastService: this.raycastService,
+      policyService: this.policyService,
     });
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
     this.paintService.sceneChanged$.subscribe(() => this.requestRender());
@@ -3093,11 +3101,6 @@ export class ThreeSceneService {
     }
 
     return false;
-  }
-
-  private pickPaintableHit(intersects: THREE.Intersection[]): THREE.Intersection | null {
-    if (!intersects.length) return null;
-    return intersects.find((intersection) => !this.isPaintStroke(intersection.object)) ?? intersects[0];
   }
 
   private isPaintStroke(object: THREE.Object3D): boolean {

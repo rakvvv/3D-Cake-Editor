@@ -5,6 +5,10 @@ import { PaintService } from '../paint.service';
 import { TransformControlsService } from '../transform-controls-service';
 import { SceneInitService } from '../scene-init.service';
 import { ThreeSceneState } from './three-scene.state';
+import { PointerInputService } from '../interaction/input/pointer-input.service';
+import { RaycastService } from '../interaction/raycast/raycast.service';
+import { InteractionPolicyService } from '../interaction/policy/interaction-policy.service';
+import { PointerSample } from '../interaction/types/interaction-types';
 
 interface SceneInteractionDependencies {
   state: ThreeSceneState;
@@ -14,7 +18,6 @@ interface SceneInteractionDependencies {
   surfacePainting: SurfacePaintingService;
   transformControlsService: TransformControlsService;
   sceneInitService: SceneInitService;
-  pickPaintableHit: (intersects: THREE.Intersection[]) => THREE.Intersection | null;
   isPaintable: (object: THREE.Object3D) => boolean;
   onClickDown: (event: MouseEvent) => void;
   stopPaintingStroke: () => void;
@@ -23,6 +26,9 @@ interface SceneInteractionDependencies {
   getCamera: () => THREE.Camera;
   getRenderer: () => THREE.WebGLRenderer;
   getScene: () => THREE.Scene;
+  pointerInputService: PointerInputService;
+  raycastService: RaycastService;
+  policyService: InteractionPolicyService;
 }
 
 export class SceneInteractionController {
@@ -33,7 +39,6 @@ export class SceneInteractionController {
   private readonly surfacePainting: SurfacePaintingService;
   private readonly transformControlsService: TransformControlsService;
   private readonly sceneInitService: SceneInitService;
-  private readonly pickPaintableHit: SceneInteractionDependencies['pickPaintableHit'];
   private readonly isPaintable: SceneInteractionDependencies['isPaintable'];
   private readonly onClickDown: SceneInteractionDependencies['onClickDown'];
   private readonly stopPaintingStroke: SceneInteractionDependencies['stopPaintingStroke'];
@@ -42,6 +47,9 @@ export class SceneInteractionController {
   private readonly getCamera: SceneInteractionDependencies['getCamera'];
   private readonly getRenderer: SceneInteractionDependencies['getRenderer'];
   private readonly getScene: SceneInteractionDependencies['getScene'];
+  private readonly pointerInputService: PointerInputService;
+  private readonly raycastService: RaycastService;
+  private readonly policyService: InteractionPolicyService;
 
   // Prevent multiple undo/redo executions from a single physical keydown.
   private lastUndoEventStamp: number | null = null;
@@ -55,7 +63,6 @@ export class SceneInteractionController {
     this.surfacePainting = deps.surfacePainting;
     this.transformControlsService = deps.transformControlsService;
     this.sceneInitService = deps.sceneInitService;
-    this.pickPaintableHit = deps.pickPaintableHit;
     this.isPaintable = deps.isPaintable;
     this.onClickDown = deps.onClickDown;
     this.stopPaintingStroke = deps.stopPaintingStroke;
@@ -64,6 +71,9 @@ export class SceneInteractionController {
     this.getCamera = deps.getCamera;
     this.getRenderer = deps.getRenderer;
     this.getScene = deps.getScene;
+    this.pointerInputService = deps.pointerInputService;
+    this.raycastService = deps.raycastService;
+    this.policyService = deps.policyService;
   }
 
   public attach(container: HTMLElement): void {
@@ -106,17 +116,22 @@ export class SceneInteractionController {
       return;
     }
 
-    if (this.surfacePainting.enabled && this.state.cakeBase) {
-      const rect = this.getRenderer().domElement.getBoundingClientRect();
-      this.updatePointer(event, rect);
-      const intersectsCake = this.raycaster.intersectObject(this.state.cakeBase, true);
-      const paintHit = this.pickPaintableHit(intersectsCake);
-      if (!paintHit || this.transformControlsService.isDragging()) {
-        this.onClickDown(event);
-        return;
-      }
+    const sample = this.createPointerSample(event);
+    if (!sample) {
+      this.onClickDown(event);
+      return;
+    }
 
-      if (!this.isPaintable(paintHit.object)) {
+    const domain = this.resolveDomain();
+    if (domain === 'surface' && this.state.cakeBase) {
+      const hit = this.performSurfaceHit(sample);
+      const decision = this.policyService.canInteract(hit, {
+        enabled: this.surfacePainting.enabled,
+        isTransforming: this.transformControlsService.isDragging(),
+        allowStrokeOverPaint: false,
+      });
+      const paintHit = hit?.rawIntersection;
+      if (!decision.allowed || !paintHit) {
         this.onClickDown(event);
         return;
       }
@@ -128,11 +143,15 @@ export class SceneInteractionController {
       return;
     }
 
-    if (this.paintService.paintMode && this.state.cakeBase) {
+    if (domain === 'decorations' && this.state.cakeBase) {
       const rect = this.getRenderer().domElement.getBoundingClientRect();
-      this.updatePointer(event, rect);
-      const intersectsCake = this.raycaster.intersectObject(this.state.cakeBase, true);
-      if (!intersectsCake.length || this.transformControlsService.isDragging()) {
+      const hit = this.performDecorationHit(sample);
+      const decision = this.policyService.canInteract(hit, {
+        enabled: this.paintService.paintMode,
+        isTransforming: this.transformControlsService.isDragging(),
+        allowStrokeOverPaint: true,
+      });
+      if (!decision.allowed || !hit?.rawIntersection) {
         this.onClickDown(event);
         return;
       }
@@ -160,7 +179,14 @@ export class SceneInteractionController {
       return;
     }
 
-    if (this.surfacePainting.enabled && this.surfacePainting.isPainting() && this.state.cakeBase) {
+    const sample = this.createPointerSample(event);
+    if (!sample) {
+      return;
+    }
+
+    const domain = this.resolveDomain();
+
+    if (domain === 'surface' && this.surfacePainting.enabled && this.surfacePainting.isPainting() && this.state.cakeBase) {
       if (event.buttons !== undefined && (event.buttons & 1) === 0) {
         this.stopPaintingStroke();
         return;
@@ -171,14 +197,14 @@ export class SceneInteractionController {
         return;
       }
 
-      const rect = this.getRenderer().domElement.getBoundingClientRect();
-      this.updatePointer(event, rect);
-      const intersectsCake = this.raycaster.intersectObject(this.state.cakeBase, true);
-      const paintHit = this.pickPaintableHit(intersectsCake);
-      if (!paintHit) {
-        return;
-      }
-      if (!this.isPaintable(paintHit.object)) {
+      const hit = this.performSurfaceHit(sample);
+      const decision = this.policyService.canInteract(hit, {
+        enabled: this.surfacePainting.enabled,
+        isTransforming: this.transformControlsService.isDragging(),
+        allowStrokeOverPaint: false,
+      });
+      const paintHit = hit?.rawIntersection;
+      if (!decision.allowed || !paintHit) {
         return;
       }
       void this.surfacePainting.handlePointer(paintHit, this.getScene());
@@ -190,26 +216,29 @@ export class SceneInteractionController {
       return;
     }
 
-    if (event.buttons !== undefined && (event.buttons & 1) === 0) {
-      this.stopPaintingStroke();
-      return;
-    }
+    if (domain === 'decorations') {
+      if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+        this.stopPaintingStroke();
+        return;
+      }
 
-    if (this.transformControlsService.isDragging()) {
-      this.stopPaintingStroke();
-      return;
-    }
+      if (this.transformControlsService.isDragging()) {
+        this.stopPaintingStroke();
+        return;
+      }
 
-    void this.paintService.handlePaint(
-      event,
-      this.getRenderer(),
-      this.getCamera(),
-      this.getScene(),
-      this.state.cakeBase,
-      this.mouse,
-      this.raycaster,
-    );
-    this.requestRender();
+      this.performDecorationHit(sample);
+      void this.paintService.handlePaint(
+        event,
+        this.getRenderer(),
+        this.getCamera(),
+        this.getScene(),
+        this.state.cakeBase,
+        this.mouse,
+        this.raycaster,
+      );
+      this.requestRender();
+    }
   };
 
   private handleMouseUp = () => this.stopPaintingStroke();
@@ -263,9 +292,40 @@ export class SceneInteractionController {
     }
   };
 
-  private updatePointer(event: MouseEvent, rect: DOMRect): void {
-    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    this.raycaster.setFromCamera(this.mouse, this.getCamera());
+  private resolveDomain(): 'surface' | 'decorations' | null {
+    if (this.surfacePainting.enabled && this.state.cakeBase) {
+      return 'surface';
+    }
+    if (this.paintService.paintMode && this.state.cakeBase) {
+      return 'decorations';
+    }
+    return null;
+  }
+
+  private createPointerSample(event: MouseEvent): PointerSample | null {
+    const renderer = this.getRenderer();
+    if (!renderer?.domElement) {
+      return null;
+    }
+    const sample = this.pointerInputService.createSample(event, renderer.domElement);
+    this.mouse.x = sample.xNdc;
+    this.mouse.y = sample.yNdc;
+    return sample;
+  }
+
+  private performSurfaceHit(sample: PointerSample) {
+    this.pointerInputService.updateRaycasterFromSample(sample, this.getCamera(), this.raycaster);
+    return this.raycastService.performRaycast(this.raycaster, this.state.cakeBase as THREE.Object3D, {
+      recursive: true,
+      ignorePaintStrokes: true,
+      filter: (intersection) => this.isPaintable(intersection.object),
+    });
+  }
+
+  private performDecorationHit(sample: PointerSample) {
+    this.pointerInputService.updateRaycasterFromSample(sample, this.getCamera(), this.raycaster);
+    return this.raycastService.performRaycast(this.raycaster, this.state.cakeBase as THREE.Object3D, {
+      recursive: true,
+    });
   }
 }

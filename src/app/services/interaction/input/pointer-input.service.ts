@@ -1,4 +1,5 @@
 import {Injectable} from '@angular/core';
+import * as THREE from 'three';
 import {PointerSample} from '../types/interaction-types';
 
 @Injectable({providedIn: 'root'})
@@ -33,5 +34,18 @@ export class PointerInputService {
       time: now,
       originalEvent: event,
     };
+  }
+
+  public createSample(
+    event: PointerEvent | MouseEvent | TouchEvent,
+    target: HTMLElement | DOMRect,
+    now: number = performance.now(),
+  ): PointerSample {
+    return this.normalizeEvent(event, target, now);
+  }
+
+  public updateRaycasterFromSample(sample: PointerSample, camera: THREE.Camera, raycaster: THREE.Raycaster): void {
+    const ndc = new THREE.Vector2(sample.xNdc, sample.yNdc);
+    raycaster.setFromCamera(ndc, camera);
   }
 }
