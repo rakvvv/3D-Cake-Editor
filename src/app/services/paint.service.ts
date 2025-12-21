@@ -1002,14 +1002,20 @@ export class PaintService {
       return;
     }
 
-    const preset = config ?? this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, this.extruderPathLayerIndex);
-    if (!preset) {
+    const basePreset =
+      config ?? this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, this.extruderPathLayerIndex);
+    if (!basePreset) {
       this.extruderMarkerDirty = nodes.length > 0;
       this.clearExtruderPathMarkers();
       return;
     }
 
-    const normalizedPreset = this.normalizePresetForMetadata(preset, metadata);
+    const presetWithNodes: CreamRingPreset = {
+      ...basePreset,
+      nodes: nodes.map((node) => ({ ...node })),
+    };
+
+    const normalizedPreset = this.normalizePresetForMetadata(presetWithNodes, metadata);
     if (!normalizedPreset || normalizedPreset.mode !== 'PATH' || !normalizedPreset.nodes?.length) {
       this.extruderMarkerDirty = nodes.length > 0;
       this.clearExtruderPathMarkers();
