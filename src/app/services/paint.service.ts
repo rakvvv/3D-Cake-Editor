@@ -910,6 +910,9 @@ export class PaintService {
     }
 
     this.pendingPathReplaceIndex = null;
+    const radial = new THREE.Vector3(localPoint.x, 0, localPoint.z);
+    const radialNormal = radial.lengthSq() > 1e-6 ? radial.clone().normalize() : new THREE.Vector3(0, 1, 0);
+    const normal = heightNorm > 0.95 ? new THREE.Vector3(0, 1, 0) : radialNormal;
     const positionHint: CreamPosition = Math.abs(normal.y) > 0.8 ? 'TOP_EDGE' : this.extruderPathPosition;
     const baseConfig = this.extruderPathConfig ?? this.buildPathEditorConfig(nodes, layerIndex);
     const config = baseConfig ? { ...baseConfig, position: positionHint } : null;
