@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {SamplingService} from '../interaction/sampling/sampling.service';
+import {SamplingConfig} from '../interaction/types/interaction-types';
 
 /**
  * Tracks stroke spacing in distance and time to avoid excessive allocations in hot paths.
@@ -7,6 +9,8 @@ export class StrokeSampler {
   private lastPoint: THREE.Vector3 | null = null;
   private lastNormal: THREE.Vector3 | null = null;
   private lastTimestamp = 0;
+
+  constructor(private readonly samplingService: SamplingService = new SamplingService()) {}
 
   public reset(): void {
     this.lastPoint = null;
@@ -29,7 +33,14 @@ export class StrokeSampler {
     minTimeMs: number,
     now: number,
   ): boolean {
+    const config: SamplingConfig = {minDistance, minTimeMs};
+    const decision = this.samplingService.shouldRecordPoint(this.lastPoint, point, config, this.lastTimestamp, now);
+    if (!decision.accepted) {
+      return false;
+    }
+
     if (this.lastPoint) {
+      // Preserve legacy normal gating even though sampling service already accepted.
       const distance = point.distanceTo(this.lastPoint);
       const timeDelta = now - this.lastTimestamp;
       if (distance < minDistance && timeDelta < minTimeMs) {
