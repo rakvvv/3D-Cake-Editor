@@ -1,4 +1,4 @@
-import {Inject, Injectable, PLATFORM_ID} from '@angular/core';
+import {Inject, Injectable, NgZone, PLATFORM_ID} from '@angular/core';
 import {isPlatformBrowser} from '@angular/common';
 import {HttpClient} from '@angular/common/http';
 import {BehaviorSubject, firstValueFrom, Subject} from 'rxjs';
@@ -174,6 +174,7 @@ export class PaintService {
     private readonly snapService: SnapService,
     private readonly http: HttpClient,
     private readonly decorationsService: DecorationsService,
+    private readonly zone: NgZone,
     @Inject(PLATFORM_ID) platformId: object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -870,7 +871,9 @@ export class PaintService {
   }
 
   public setExtruderPathNodes(nodes: CreamPathNode[], config?: CreamRingPreset): void {
-    this.extruderPathNodesSubject.next(nodes.map((node) => ({ ...node })));
+    this.zone.run(() => {
+      this.extruderPathNodesSubject.next(nodes.map((node) => ({ ...node })));
+    });
     if (config?.mode === 'PATH' && !this.extruderPathModeEnabled) {
       this.setExtruderPathMode(true);
     }
@@ -2879,7 +2882,9 @@ export class PaintService {
   }
 
   private notifySceneChanged(): void {
-    this.renderScheduler?.();
-    this.sceneChanged$.next();
+    this.zone.run(() => {
+      this.renderScheduler?.();
+      this.sceneChanged$.next();
+    });
   }
 }
