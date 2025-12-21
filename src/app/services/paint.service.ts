@@ -1005,7 +1005,8 @@ export class PaintService {
       const height = this.getCreamHeightForPreset(normalizedPreset, layer, metadata, node.heightNorm);
       const basePosition = new THREE.Vector3(adjustedRadiusX * Math.cos(angle), height, adjustedRadiusZ * Math.sin(angle));
       const radialNormal = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
-      const isTopEdge = normalizedPreset.position === 'TOP_EDGE' || node.heightNorm >= 0.98;
+      const nodeHeightNorm = node.heightNorm ?? 0;
+      const isTopEdge = normalizedPreset.position === 'TOP_EDGE' || nodeHeightNorm >= 0.98;
       const markerNormal = isTopEdge ? new THREE.Vector3(0, 1, 0) : radialNormal;
       return basePosition.add(markerNormal.multiplyScalar(this.extruderPathMarkerOffset));
     });
