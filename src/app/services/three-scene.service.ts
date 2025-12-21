@@ -3041,6 +3041,20 @@ export class ThreeSceneService {
   } | null> {
     const info = this.decorationsService.getDecorationInfo(entry.modelFileName);
     const modelFileName = info?.modelFileName ?? entry.modelFileName;
+
+    if (!info && this.isPaintAnchorPlaceholder(modelFileName)) {
+      this.notifyStatus(
+        'Pominięto zapisany element "Cake Paint Anchor" – to techniczny znacznik malowania, nie plik GLB.',
+      );
+      return null;
+    }
+
+    if (!info && !this.looksLikeModelFileName(modelFileName)) {
+      this.notifyStatus(
+        `Dekoracja "${modelFileName}" nie została wczytana: nazwa pliku nie ma rozszerzenia .glb/.gltf.`,
+      );
+      return null;
+    }
     const modelUrl = `/models/${modelFileName}`;
 
     try {
@@ -3104,6 +3118,14 @@ export class ThreeSceneService {
       console.error('Nie udało się wczytać dekoracji z presetu:', error);
       return null;
     }
+  }
+
+  private isPaintAnchorPlaceholder(modelFileName: string): boolean {
+    return modelFileName.trim().toLowerCase() === 'cake paint anchor';
+  }
+
+  private looksLikeModelFileName(modelFileName: string): boolean {
+    return /\.gl(tf)?b?$/i.test(modelFileName.trim());
   }
 
   private cloneCakeOptions(options: CakeOptions): CakeOptions {
