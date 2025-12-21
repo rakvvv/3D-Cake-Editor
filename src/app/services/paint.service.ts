@@ -873,16 +873,16 @@ export class PaintService {
   public setExtruderPathNodes(nodes: CreamPathNode[], config?: CreamRingPreset): void {
     this.zone.run(() => {
       this.extruderPathNodesSubject.next(nodes.map((node) => ({ ...node })));
-    });
-    if (config?.mode === 'PATH' && !this.extruderPathModeEnabled) {
-      this.setExtruderPathMode(true);
-    }
+      if (config?.mode === 'PATH' && !this.extruderPathModeEnabled) {
+        this.setExtruderPathMode(true);
+      }
 
-    if (config) {
-      this.setExtruderPathContext(config);
-    } else {
-      this.updateExtruderPathMarkers(nodes);
-    }
+      if (config) {
+        this.setExtruderPathContext(config);
+      } else {
+        this.updateExtruderPathMarkers(nodes);
+      }
+    });
   }
 
   public async restorePaintStrokes(entries: PaintStrokePreset[], scene: THREE.Scene): Promise<void> {
