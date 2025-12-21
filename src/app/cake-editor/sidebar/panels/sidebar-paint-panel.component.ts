@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { DecorationInfo } from '../../../models/decorationInfo';
@@ -87,6 +87,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     private readonly anchorPresetsService: AnchorPresetsService,
     private readonly paintService: PaintService,
     private readonly surfacePaintingService: SurfacePaintingService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -506,6 +507,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.validateNodes();
     this.refreshNodePreview();
     this.refreshPathMarkers();
+    this.cdr.detectChanges();
   }
 
   private refreshPathMarkers(): void {
