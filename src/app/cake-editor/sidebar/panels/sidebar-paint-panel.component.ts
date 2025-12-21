@@ -64,6 +64,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   angleError: string | null = null;
   segmentError: string | null = null;
   private userExtruderColor: string | null = null;
+  private skipNextServiceSync = false;
 
   brushSize = 90;
   sprinkleSize = 40;
@@ -117,10 +118,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
     this.subscriptions.add(
       this.paintService.extruderPathNodes$.subscribe((nodes) => {
-        this.extruderPathNodes = nodes;
-        this.validateNodes();
-        this.refreshNodePreview();
-        this.refreshPathMarkers();
+        this.syncNodesFromService(nodes);
       }),
     );
 
@@ -314,9 +312,6 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.extruderPathModeEnabled = mode === 'path';
     if (this.extruderPathModeEnabled) {
       this.extruderMode = 'PATH';
-      if (!this.extruderPathNodes.length) {
-        this.extruderPathNodes = this.getDefaultPathNodes();
-      }
       this.validateNodes();
       this.refreshNodePreview();
     } else {
@@ -452,6 +447,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     const preset = this.getActivePreset();
     if (preset) {
       this.paintService.setExtruderPathMode(true);
+      this.skipNextServiceSync = true;
       this.paintService.setExtruderPathNodes(this.extruderPathNodes, preset);
     }
     this.refreshNodePreview();
@@ -460,6 +456,49 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
   private cloneExtruderNodes(nodes: CreamPathNode[]): CreamPathNode[] {
     return nodes.map((node) => ({ ...node, enabled: node.enabled !== false }));
+  }
+
+  private havePathNodesChanged(next: CreamPathNode[], current: CreamPathNode[]): boolean {
+    if (next.length !== current.length) {
+      return true;
+    }
+
+    return next.some((node, index) => {
+      const previous = current[index];
+      if (!previous) {
+        return true;
+      }
+
+      return (
+        node.angleDeg !== previous.angleDeg ||
+        (node.heightNorm ?? 0.5) !== (previous.heightNorm ?? 0.5) ||
+        (node.enabled !== false) !== (previous.enabled !== false)
+      );
+    });
+  }
+
+  private syncNodesFromService(nodes: CreamPathNode[]): void {
+    const normalized = this.cloneExtruderNodes(nodes);
+    const changed = this.havePathNodesChanged(normalized, this.extruderPathNodes);
+
+    if (changed && !this.skipNextServiceSync) {
+      this.extruderPathHistory.push(this.cloneExtruderNodes(this.extruderPathNodes));
+      if (this.extruderPathHistory.length > 50) {
+        this.extruderPathHistory.shift();
+      }
+      this.extruderPathRedo = [];
+    }
+
+    if (normalized.length && !this.extruderPathModeEnabled) {
+      this.extruderPathModeEnabled = true;
+      this.extruderMode = 'PATH';
+    }
+
+    this.skipNextServiceSync = false;
+    this.extruderPathNodes = normalized;
+    this.validateNodes();
+    this.refreshNodePreview();
+    this.refreshPathMarkers();
   }
 
   private refreshPathMarkers(): void {
@@ -615,9 +654,6 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.extruderPathModeEnabled = preset.mode === 'PATH';
     if (preset.mode === 'PATH') {
       this.extruderPathNodes = preset.nodes?.map((node) => ({ ...node })) ?? this.extruderPathNodes;
-      if (!this.extruderPathNodes.length) {
-        this.extruderPathNodes = this.getDefaultPathNodes();
-      }
     }
     this.extruderPathHistory = [];
     this.extruderPathRedo = [];
@@ -678,23 +714,14 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.paintService.setExtruderPathContext(config);
     this.paintService.setExtruderColor(this.extruderColor);
     if (this.extruderMode === 'PATH') {
+      this.skipNextServiceSync = true;
       this.paintService.setExtruderPathNodes(this.extruderPathNodes, config);
     }
   }
 
   connectExtruderNodes(): void {
-    if (!this.extruderPathNodes.length) {
-      this.extruderPathNodes = this.getDefaultPathNodes();
-    }
     this.setExtruderDrawingMode('path');
     this.syncExtruderContext();
-  }
-
-  private getDefaultPathNodes(): CreamPathNode[] {
-    return [
-      { angleDeg: 0, heightNorm: this.extruderHeightNorm, enabled: true },
-      { angleDeg: 180, heightNorm: this.extruderHeightNorm, enabled: true },
-    ];
   }
 
   private refreshDecorations(): void {
