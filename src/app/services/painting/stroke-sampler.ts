@@ -26,45 +26,14 @@ export class StrokeSampler {
     };
   }
 
-  public shouldSample(point: THREE.Vector3, normal: THREE.Vector3, config: SamplingConfig, now: number): boolean {
+  public shouldSample(point: THREE.Vector3, _normal: THREE.Vector3, config: SamplingConfig, now: number): boolean {
     const decision = this.samplingService.shouldRecordPoint(this.lastPoint, point, config, this.lastTimestamp, now);
-    if (!decision.accepted) {
-      return false;
-    }
-
-    if (this.lastPoint && config.minDistance !== undefined && config.minTimeMs !== undefined) {
-      const distance = point.distanceTo(this.lastPoint);
-      const timeDelta = now - this.lastTimestamp;
-      if (distance < config.minDistance && timeDelta < config.minTimeMs) {
-        return false;
-      }
-    }
-    return true;
+    return decision.accepted;
   }
 
   public commit(point: THREE.Vector3, normal: THREE.Vector3, now: number): void {
     this.lastPoint = point.clone();
     this.lastNormal = normal.clone();
     this.lastTimestamp = now;
-  }
-}
-
-/**
- * Lightweight distance gate for serialization sampling.
- */
-export class DistanceRecorder {
-  private lastPoint: THREE.Vector3 | null = null;
-
-  public reset(): void {
-    this.lastPoint = null;
-  }
-
-  public shouldRecord(point: THREE.Vector3, minDistanceSq: number): boolean {
-    if (this.lastPoint && this.lastPoint.distanceToSquared(point) < minDistanceSq) {
-      return false;
-    }
-    this.lastPoint = this.lastPoint ?? new THREE.Vector3();
-    this.lastPoint.copy(point);
-    return true;
   }
 }
