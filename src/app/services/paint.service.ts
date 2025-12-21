@@ -368,6 +368,10 @@ export class PaintService {
   }
 
   public setPaintTool(tool: PaintTool): void {
+    if (tool !== 'extruder' && this.extruderPathModeEnabled) {
+      this.setExtruderPathMode(false);
+    }
+
     this.paintTool = tool;
   }
 
@@ -960,6 +964,7 @@ export class PaintService {
     this.extruderPathPosition = positionHint;
 
     this.setExtruderPathNodes(nodes, config ?? undefined);
+    this.refreshExtruderPathMarkers(config ?? undefined);
   }
 
   private buildPathEditorConfig(nodes: CreamPathNode[], layerIndex: number): CreamRingPreset | null {
