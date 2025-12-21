@@ -3,6 +3,13 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { Subject } from 'rxjs';
 
+export class DecorationLoadError extends Error {
+  constructor(message: string, public readonly resourceUrl?: string) {
+    super(message);
+    this.name = 'DecorationLoadError';
+  }
+}
+
 export class DecorationFactory {
   private static readonly errorSubject = new Subject<unknown>();
   public static readonly errors$ = this.errorSubject.asObservable();
@@ -21,23 +28,24 @@ export class DecorationFactory {
     const loader = await this.getLoader(renderer);
     const resolvedUrl = this.resolveAssetUrl(url);
 
-    return new Promise((resolve, reject) => {
-      loader.load(
-        resolvedUrl,
-        gltf => {
-          const meshes = this.getAllMeshes(gltf.scene);
-          this.ensureLitMaterials(meshes);
-          this.prepareMeshesForClick(meshes);
-          gltf.scene.userData['clickableMeshes'] = meshes;
-          resolve(gltf.scene);
-        },
-        undefined,
-        err => {
-          this.emitError(err);
-          reject(err);
-        }
-      );
-    });
+    try {
+      const arrayBuffer = await this.preflightModelRequest(resolvedUrl);
+      const basePath = this.getBasePath(resolvedUrl);
+      const gltf = await loader.parseAsync(arrayBuffer, basePath);
+
+      const meshes = this.getAllMeshes(gltf.scene);
+      this.ensureLitMaterials(meshes);
+      this.prepareMeshesForClick(meshes);
+      gltf.scene.userData['clickableMeshes'] = meshes;
+      return gltf.scene;
+    } catch (error) {
+      const wrappedError =
+        error instanceof DecorationLoadError
+          ? error
+          : new DecorationLoadError('Nie udało się wczytać pliku dekoracji.', resolvedUrl);
+      this.emitError(wrappedError);
+      throw wrappedError;
+    }
   }
 
   private static async getLoader(renderer?: THREE.WebGLRenderer): Promise<GLTFLoader> {
@@ -106,6 +114,46 @@ export class DecorationFactory {
     }
 
     return `http://localhost:4200/${normalizedPath}`;
+  }
+
+  private static getBasePath(url: string): string {
+    const lastSlash = url.lastIndexOf('/') + 1;
+    return lastSlash > 0 ? url.slice(0, lastSlash) : url;
+  }
+
+  private static async preflightModelRequest(resolvedUrl: string): Promise<ArrayBuffer> {
+    let response: Response;
+
+    try {
+      response = await fetch(resolvedUrl);
+    } catch (error) {
+      throw new DecorationLoadError('Nie udało się pobrać dekoracji (błąd sieci).', resolvedUrl);
+    }
+
+    if (!response.ok) {
+      throw new DecorationLoadError(
+        `Dekoracja niedostępna (status ${response.status}).`,
+        resolvedUrl,
+      );
+    }
+
+    const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+    const isHtml = contentType.includes('text/html');
+    const isGltfType =
+      contentType.includes('model/gltf') ||
+      contentType.includes('model/gltf-binary') ||
+      contentType.includes('model/gltf+json') ||
+      contentType.includes('application/octet-stream') ||
+      contentType.includes('application/gltf-buffer');
+
+    if (contentType && !isGltfType && isHtml) {
+      throw new DecorationLoadError(
+        'Serwer zwrócił stronę HTML zamiast pliku dekoracji.',
+        resolvedUrl,
+      );
+    }
+
+    return response.arrayBuffer();
   }
 
   private static emitError(error: unknown): void {
