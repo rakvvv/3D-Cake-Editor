@@ -4,4 +4,5 @@ export type ExtruderVariantInfo = {
   modelFileName: string;
   scaleMultiplier?: number;
   thumbnailUrl?: string;
+  description?: string;
 };

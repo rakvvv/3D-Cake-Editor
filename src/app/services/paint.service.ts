@@ -28,6 +28,7 @@ type ExtruderVariantData = {
   sourceId: string;
   scaleMultiplier?: number;
   thumbnailUrl?: string;
+  description?: string;
 };
 
 type ExtruderInstanceState = {
@@ -99,7 +100,7 @@ export class PaintService {
   private penSegmentGeometryCache = new Map<number, THREE.CylinderGeometry>();
 
   private extruderBrushId = 'cream_dot.glb';
-  private extruderVariantSelection: number | 'random' = 'random';
+  private extruderVariantSelection = 0;
   private extruderVariants: ExtruderVariantData[] | null = null;
   private extruderVariantsPromise: Promise<ExtruderVariantData[]> | null = null;
   private extruderVariantThumbnails = new Map<string, string>();
@@ -662,11 +663,11 @@ export class PaintService {
     this.addDecorationInstances(this.currentBrush, variants, decorationGroup, matrix, selectedVariant);
   }
 
-  public setExtruderVariantSelection(selection: number | 'random'): void {
-    this.extruderVariantSelection = selection;
+  public setExtruderVariantSelection(selection: number): void {
+    this.extruderVariantSelection = Math.max(0, Math.floor(selection));
   }
 
-  public getExtruderVariantSelection(): number | 'random' {
+  public getExtruderVariantSelection(): number {
     return this.extruderVariantSelection;
   }
 
@@ -711,12 +712,53 @@ export class PaintService {
     }));
   }
 
-  public async getExtruderVariantPreviews(): Promise<{ id: number; name: string; thumbnail: string | null }[]> {
+  public getExtruderNodePreview(
+    config: CreamRingPreset,
+  ): { angleDeg: number; heightNorm: number; position: { x: number; y: number; z: number } }[] {
+    const metadata = this.snapService.getCakeMetadataSnapshot();
+    if (!metadata) {
+      return [];
+    }
+
+    const normalizedPreset = this.normalizePresetForMetadata(config, metadata);
+    if (!normalizedPreset || normalizedPreset.mode !== 'PATH') {
+      return [];
+    }
+
+    const layer = metadata.layerDimensions[normalizedPreset.layerIndex];
+    if (!layer) {
+      return [];
+    }
+
+    const nodes = this.normalizeNodes(normalizedPreset);
+    if (!nodes.length) {
+      return [];
+    }
+
+    const { radiusX, radiusZ } = this.getLayerRadii(layer, metadata);
+    const adjustedRadiusX = Math.max(0.01, radiusX + (normalizedPreset.radiusOffset ?? 0));
+    const adjustedRadiusZ = Math.max(0.01, radiusZ + (normalizedPreset.radiusOffset ?? 0));
+
+    return nodes.map((node) => {
+      const angle = THREE.MathUtils.degToRad(node.angleDeg);
+      const height = this.getCreamHeightForPreset(normalizedPreset, layer, metadata, node.heightNorm);
+      return {
+        angleDeg: node.angleDeg,
+        heightNorm: node.heightNorm ?? 0.5,
+        position: { x: adjustedRadiusX * Math.cos(angle), y: height, z: adjustedRadiusZ * Math.sin(angle) },
+      };
+    });
+  }
+
+  public async getExtruderVariantPreviews(): Promise<
+    { id: number; name: string; thumbnail: string | null; description?: string }[]
+  > {
     const variants = await this.getExtruderVariants();
     return variants.map((variant, index) => ({
       id: index,
       name: variant.name || `Wariant ${index + 1}`,
       thumbnail: this.getExtruderVariantThumbnail(index, variant),
+      description: variant.description,
     }));
   }
 
@@ -833,7 +875,7 @@ export class PaintService {
     const angleDeg = THREE.MathUtils.radToDeg(Math.atan2(localPoint.z, localPoint.x));
 
     const nodes = this.extruderPathNodesSubject.value.map((node) => ({ ...node }));
-    const newNode: CreamPathNode = { angleDeg, heightNorm };
+    const newNode: CreamPathNode = { angleDeg, heightNorm, enabled: true };
 
     if (
       this.pendingPathReplaceIndex !== null &&
@@ -1092,11 +1134,11 @@ export class PaintService {
   }
 
   private selectExtruderVariant(total: number): number {
-    if (this.extruderVariantSelection === 'random' || this.extruderVariantSelection < 0) {
-      return Math.floor(Math.random() * total);
+    if (total <= 0) {
+      return 0;
     }
 
-    return Math.min(total - 1, this.extruderVariantSelection);
+    return Math.min(total - 1, Math.max(0, this.extruderVariantSelection));
   }
 
   private addExtruderInstance(
@@ -1433,18 +1475,21 @@ export class PaintService {
     return points;
   }
 
-  private normalizeNodes(preset: CreamRingPreset): CreamPathNode[] {
-    const fallbackNodes: CreamPathNode[] = [
-      { angleDeg: preset.startAngleDeg ?? 0, heightNorm: preset.heightNorm },
-      { angleDeg: preset.endAngleDeg ?? (preset.startAngleDeg ?? 0) + 180, heightNorm: preset.heightNorm },
-    ];
-    const base = preset.nodes && preset.nodes.length >= 2 ? preset.nodes : fallbackNodes;
+    private normalizeNodes(preset: CreamRingPreset): CreamPathNode[] {
+      const fallbackNodes: CreamPathNode[] = [
+        { angleDeg: preset.startAngleDeg ?? 0, heightNorm: preset.heightNorm, enabled: true },
+        { angleDeg: preset.endAngleDeg ?? (preset.startAngleDeg ?? 0) + 180, heightNorm: preset.heightNorm, enabled: true },
+      ];
+      const base = preset.nodes && preset.nodes.length >= 2 ? preset.nodes : fallbackNodes;
 
-    return base.map((node) => ({
-      angleDeg: THREE.MathUtils.euclideanModulo(node.angleDeg, 360),
-      heightNorm: node.heightNorm ?? preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5),
-    }));
-  }
+      return base
+        .filter((node) => node.enabled !== false)
+        .map((node) => ({
+          angleDeg: THREE.MathUtils.euclideanModulo(node.angleDeg, 360),
+          heightNorm: node.heightNorm ?? preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5),
+          enabled: node.enabled !== false,
+        }));
+    }
 
   private getLayerRadii(layer: LayerMetadata, metadata: CakeMetadata): { radiusX: number; radiusZ: number } {
     const baseRadius = layer.radius ?? metadata.radius ?? metadata.maxRadius ?? 1;
@@ -1509,10 +1554,13 @@ export class PaintService {
   private normalizePresetForMetadata(preset: CreamRingPreset, metadata: CakeMetadata): CreamRingPreset | null {
     const normalized = normalizePresetAngles({ ...preset, mode: preset.mode ?? 'RING' });
     const clampedLayer = this.resolveLayerIndex(normalized.layerIndex, metadata);
-    const sanitizedNodes = normalized.nodes?.map((node) => ({
-      angleDeg: THREE.MathUtils.euclideanModulo(node.angleDeg, 360),
-      heightNorm: node.heightNorm,
-    }));
+    const sanitizedNodes = normalized.nodes
+      ?.filter((node) => node.enabled !== false)
+      .map((node) => ({
+        angleDeg: THREE.MathUtils.euclideanModulo(node.angleDeg, 360),
+        heightNorm: node.heightNorm,
+        enabled: node.enabled !== false,
+      }));
 
     return { ...normalized, layerIndex: clampedLayer, nodes: sanitizedNodes };
   }
@@ -1671,6 +1719,7 @@ export class PaintService {
       sourceId: modelId,
       scaleMultiplier: source.scaleMultiplier,
       thumbnailUrl: source.thumbnailUrl,
+      description: source.description,
     };
   }
 
