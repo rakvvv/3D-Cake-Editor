@@ -279,8 +279,8 @@ export class SurfacePaintingService {
 
         // Płaski zapis: 6 liczb na jeden punkt
         this.activeStroke.pathData.push(
-          this.round(p.x), this.round(p.y), this.round(p.z),
-          this.round(normal.x), this.round(normal.y), this.round(normal.z)
+          p.x, p.y, p.z,
+          normal.x, normal.y, normal.z,
         );
       }
     }
@@ -641,10 +641,6 @@ export class SurfacePaintingService {
     this.gradientTextureService.updateConfig({ enabled: true });
     this.applyPaintingShader();
     this.flagMaterialUpdate();
-  }
-
-  private round(val: number): number {
-    return Math.round(val * 10000) / 10000;
   }
 
   private applyPaintingShader(): void {
@@ -1192,8 +1188,8 @@ export class SurfacePaintingService {
 
     if (this.activeStroke?.mode === 'sprinkles' && !this.isReplayingSprinkles) {
       this.activeStroke.pathData.push(
-        this.round(anchorPointWorld.x), this.round(anchorPointWorld.y), this.round(anchorPointWorld.z),
-        this.round(worldNormal.x), this.round(worldNormal.y), this.round(worldNormal.z)
+        anchorPointWorld.x, anchorPointWorld.y, anchorPointWorld.z,
+        worldNormal.x, worldNormal.y, worldNormal.z,
       );
     }
 
