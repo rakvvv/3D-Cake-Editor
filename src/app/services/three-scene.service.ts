@@ -24,6 +24,11 @@ import { AnchorPoint, AnchorPreset } from '../models/anchors';
 import { DecoratedCakePreset, DecorationPresetEntry } from '../models/cake-preset';
 import { SceneInteractionController } from './three-scene/scene-interaction.controller';
 import { DecorationClipboardEntry, ThreeSceneState } from './three-scene/three-scene.state';
+import { PointerInputService } from './interaction/input/pointer-input.service';
+import { RaycastService } from './interaction/raycast/raycast.service';
+import { InteractionPolicyService } from './interaction/policy/interaction-policy.service';
+import { ProjectLifecycleService } from './project-lifecycle.service';
+import { readKind } from './painting/common/painting-metadata';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
@@ -47,6 +52,7 @@ export class ThreeSceneService {
   private readonly apiBaseUrl = environment.apiBaseUrl;
   private readonly endpoints = environment.endpoints;
   private options!: CakeOptions;
+  private currentProjectId: string | null = null;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private readonly outlineChanged = new Subject<void>();
@@ -198,6 +204,10 @@ export class ThreeSceneService {
     private exportService: ExportService,
     private snapService: SnapService,
     private anchorPresetsService: AnchorPresetsService,
+    private pointerInputService: PointerInputService,
+    private raycastService: RaycastService,
+    private policyService: InteractionPolicyService,
+    private readonly projectLifecycle: ProjectLifecycleService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.interactions = new SceneInteractionController({
@@ -208,7 +218,6 @@ export class ThreeSceneService {
       surfacePainting: this.surfacePainting,
       transformControlsService: this.transformControlsService,
       sceneInitService: this.sceneInitService,
-      pickPaintableHit: (intersects) => this.pickPaintableHit(intersects),
       isPaintable: (object) => this.isPaintable(object),
       onClickDown: (event) => this.onClickDown(event),
       stopPaintingStroke: () => this.stopPaintingStroke(),
@@ -217,12 +226,43 @@ export class ThreeSceneService {
       getCamera: () => this.camera,
       getRenderer: () => this.renderer,
       getScene: () => this.scene,
+      pointerInputService: this.pointerInputService,
+      raycastService: this.raycastService,
+      policyService: this.policyService,
     });
     this.paintService.sceneChanged$.subscribe(() => this.emitOutlineChanged());
     this.paintService.sceneChanged$.subscribe(() => this.requestRender());
     this.paintService.setRenderScheduler(() => this.requestRender());
     this.anchorPresetsService.setRenderScheduler(() => this.requestRender());
     ThreeObjectsFactory.setTextureLoadCallback(() => this.requestRender());
+  }
+
+  public startProjectSession(projectId?: string): string {
+    this.disposeProject();
+    const id = this.projectLifecycle.initializeProject(projectId);
+    this.currentProjectId = id;
+    this.paintService.resetProjectState(id);
+    this.surfacePainting.resetProjectState(id);
+    this.state.anchorOccupants.clear();
+    return id;
+  }
+
+  public disposeProject(): void {
+    const hadProject = !!this.currentProjectId;
+    this.paintService.disposeProjectState();
+    this.surfacePainting.disposeProjectState();
+    this.projectLifecycle.disposeProject();
+    this.currentProjectId = hadProject ? null : this.currentProjectId;
+    this.state.anchorOccupants.clear();
+    this.interactions.detach();
+    this.objects = [];
+    this.cakeBase = null;
+    this.cakeLayers = [];
+    this.cakeMetadata = null;
+    this.textMesh = null;
+    this.boxHelper = null;
+    this.boxHelperTarget = null;
+    this.clipboard = null;
   }
 
   private notifyStatus(message: string): void {
@@ -1193,8 +1233,11 @@ export class ThreeSceneService {
       return null;
     }
 
-    const candidate = this.findParentDecoration(intersects[0].object) ?? intersects[0].object;
-    const selected = candidate === this.cakeBase ? null : candidate;
+    const selectableRoot = this.findSelectableDecorationRoot(intersects[0].object);
+    const candidate = selectableRoot ?? this.findParentDecoration(intersects[0].object) ?? intersects[0].object;
+    const kind = readKind(candidate);
+    const isStrokeCandidate = kind === 'DECORATION_STAMP' || kind === 'PEN_STROKE' || candidate.userData['isPaintStroke'];
+    const selected = candidate === this.cakeBase || isStrokeCandidate ? null : candidate;
 
     if (!selected) {
       if (attach) {
@@ -2176,12 +2219,15 @@ export class ThreeSceneService {
     });
 
     if (preset.paintStrokes?.length) {
-      await this.paintService.restorePaintStrokes(preset.paintStrokes, this.scene);
+      await this.paintService.restorePaintStrokes(preset.paintStrokes, this.scene, {skipHistory: true});
     }
 
     if (preset.surfacePainting) {
-      this.surfacePainting.restorePaintingPreset(preset.surfacePainting);
+      this.surfacePainting.restorePaintingPreset(preset.surfacePainting, {skipHistory: true});
+      this.surfacePainting.seedHistoryFromExistingStrokes();
     }
+
+    this.paintService.seedHistoryFromExistingDecorations(this.collectDecorationRoots());
 
     this.updateBoxHelper();
     this.emitOutlineChanged();
@@ -2688,7 +2734,13 @@ export class ThreeSceneService {
 
     const traverse = (object: THREE.Object3D) => {
       for (const child of object.children) {
-        if (child.userData['decorationType'] || child.userData['isPaintStroke'] || child.userData['isPaintDecoration']) {
+        const kind = readKind(child);
+        if (
+          child.userData['decorationType'] ||
+          child.userData['isPaintDecoration'] ||
+          kind === 'DECORATION_STAMP' ||
+          kind === 'DECORATION_MANUAL'
+        ) {
           const root = this.resolveDecorationRoot(child);
           if (!visited.has(root)) {
             visited.add(root);
@@ -2725,13 +2777,31 @@ export class ThreeSceneService {
   }
 
   private isDecorationNode(object: THREE.Object3D): boolean {
+    const kind = readKind(object);
     return Boolean(
       object.userData['isDecorationGroup'] === true ||
-      object.userData['isDecoration'] === true ||
-      object.userData['decorationType'] ||
-      object.userData['isPaintStroke'] === true ||
-      object.userData['isPaintDecoration'] === true
+        object.userData['isDecoration'] === true ||
+        object.userData['decorationType'] ||
+        object.userData['isPaintDecoration'] === true ||
+        kind === 'DECORATION_STAMP' ||
+        kind === 'DECORATION_MANUAL'
     );
+  }
+
+  private findSelectableDecorationRoot(object: THREE.Object3D): THREE.Object3D | null {
+    let current: THREE.Object3D | null = object;
+    let candidate: THREE.Object3D | null = null;
+    while (current && current !== this.scene && current !== this.cakeBase) {
+      const kind = readKind(current);
+      if (kind === 'DECORATION_MANUAL') {
+        return current;
+      }
+      if (this.isDecorationNode(current)) {
+        candidate = current;
+      }
+      current = current.parent ?? null;
+    }
+    return candidate;
   }
 
   private findParentDecoration(object: THREE.Object3D): THREE.Object3D | null {
@@ -2807,18 +2877,16 @@ export class ThreeSceneService {
   }
 
   private describeDecoration(object: THREE.Object3D): string {
-    if (object.userData['isPaintStroke']) {
+    const kind = readKind(object);
+    if (kind === 'PEN_STROKE') {
       return object.userData['displayName'] || 'Ślad pisaka';
     }
 
-    if (object.userData['isPaintDecoration']) {
+    if (kind === 'DECORATION_STAMP') {
       return object.userData['displayName'] || 'Dekoracja malowana';
     }
 
-    const label =
-      object.userData['displayName'] ||
-      object.userData['modelFileName'] ||
-      object.name;
+    const label = object.userData['displayName'] || object.userData['modelFileName'] || object.name;
 
     return label || 'Dekoracja';
   }
@@ -3093,11 +3161,6 @@ export class ThreeSceneService {
     }
 
     return false;
-  }
-
-  private pickPaintableHit(intersects: THREE.Intersection[]): THREE.Intersection | null {
-    if (!intersects.length) return null;
-    return intersects.find((intersection) => !this.isPaintStroke(intersection.object)) ?? intersects[0];
   }
 
   private isPaintStroke(object: THREE.Object3D): boolean {

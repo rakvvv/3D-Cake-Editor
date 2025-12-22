@@ -131,6 +131,8 @@ export class TransformManagerService {
 
     this.state.lockedSelection.object = null;
     this.selectionService.deselectObject(this.state.transformControls, this.state.boxHelperCallback);
+    this.state.wasDragging = false;
+    this.state.transformControls.dragging = false;
   }
 
   public isDragging(): boolean {
@@ -226,6 +228,7 @@ export class TransformManagerService {
     this.state.transformControls.dispose();
     this.selectionService.clearSelection();
     this.state.resetCallbacks();
+    this.state.wasDragging = false;
   }
 
   public syncLockedSelectionSnapshot(): void {

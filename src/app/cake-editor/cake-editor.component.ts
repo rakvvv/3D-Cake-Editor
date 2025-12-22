@@ -650,6 +650,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    this.sceneService.startProjectSession(preset.id ?? `project-${Date.now()}`);
     this.sceneService.init(this.container.nativeElement, cloneCakeOptions(preset.options));
     this.sceneInitialized = true;
     this.options = cloneCakeOptions(preset.options);
@@ -667,6 +668,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       window.clearTimeout(this.statusTimeoutId);
       this.statusTimeoutId = null;
     }
+
+    this.sceneService.disposeProject();
 
     this.anchorClickSubscription?.unsubscribe();
     this.outlineSubscription?.unsubscribe();
