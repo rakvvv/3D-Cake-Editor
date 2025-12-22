@@ -15,6 +15,7 @@ import { TextFactory } from '../factories/text.factory';
 import { CakeMetadata } from '../factories/three-objects.factory';
 import { AnchorPresetsService } from './anchor-presets.service';
 import { AnchorPoint } from '../models/anchors';
+import { DecoratedCakePreset } from '../models/cake-preset';
 
 class TransformControlsServiceStub {
   private selected: THREE.Object3D | null = null;
@@ -151,6 +152,64 @@ describe('ThreeSceneService', () => {
     freeDecoration.userData['isSnapped'] = true;
     expect(service.isSelectedDecorationSnapped()).toBeTrue();
   });
+
+  it('re-registers loaded decorations for undo history', fakeAsync(async () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    assignScene(sceneInit);
+    (service as any).scene = sceneInit.scene;
+    service.cakeBase = new THREE.Group();
+
+    const paintService = TestBed.inject(PaintService);
+    const registerSpy = spyOn(paintService, 'registerDecorationAddition');
+
+    spyOn<any>(service, 'clearAllDecorations').and.callFake(() => {});
+    spyOn<any>(service, 'updateCakeOptions').and.callFake(() => {
+      (service as any).cakeMetadata = {} as CakeMetadata;
+    });
+
+    const decoration = new THREE.Object3D();
+    spyOn<any>(service, 'spawnDecorationFromPreset').and.returnValue(
+      Promise.resolve({ object: decoration, snapInfo: null })
+    );
+
+    const preset: DecoratedCakePreset = {
+      id: 'preset',
+      name: 'Preset test',
+      options: {
+        cake_size: 1,
+        cake_color: '#ffffff',
+        cake_text: false,
+        cake_text_value: '',
+        cake_text_position: 'top',
+        cake_text_offset: 0,
+        cake_text_font: 'font',
+        cake_text_depth: 0,
+        layers: 1,
+        shape: 'cylinder',
+        layerSizes: [1],
+        glaze_enabled: false,
+        glaze_color: '#ffffff',
+        glaze_thickness: 0,
+        glaze_drip_length: 0,
+        glaze_seed: 0,
+        glaze_top_enabled: false,
+        cake_textures: null,
+        glaze_textures: null,
+        wafer_texture_url: null,
+        wafer_scale: 1,
+        wafer_texture_zoom: 1,
+        wafer_texture_offset_x: 0,
+        wafer_texture_offset_y: 0,
+        wafer_mask: 'circle',
+        wafer_perspective: 0,
+      },
+      decorations: [{ modelFileName: 'deco.glb' }],
+    };
+
+    await service.applyDecoratedCakePreset(preset);
+
+    expect(registerSpy).toHaveBeenCalledWith(decoration);
+  }));
 
   it('delegates camera reset to scene init service', () => {
     const sceneInit = TestBed.inject(SceneInitService);

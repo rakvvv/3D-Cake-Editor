@@ -2249,6 +2249,8 @@ export class ThreeSceneService {
       if (anchorId) {
         this.registerAnchorOccupant(anchorId, object);
       }
+
+      this.paintService.registerDecorationAddition(object);
     });
 
     if (preset.paintStrokes?.length) {
