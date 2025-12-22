@@ -500,7 +500,8 @@ export class ThreeObjectsFactory {
   private static createGlaze(metadata: CakeMetadata, options: CakeOptions): THREE.Group | null {
     if (!options.glaze_enabled) return null;
 
-    const topLayer = metadata.layerDimensions[metadata.layerDimensions.length - 1];
+    const layersMetadata = metadata.layerDimensions;
+    const topLayer = layersMetadata[layersMetadata.length - 1];
     if (!topLayer) return null;
 
     // Parametry
@@ -522,92 +523,103 @@ export class ThreeObjectsFactory {
     group.userData['isCakeGlaze'] = true;
 
     if (metadata.shape === 'cuboid') {
-      const cuboidGlaze = this.buildCuboidGlaze(
-        topLayer,
-        metadata,
-        thickness,
-        dripLength,
-        glazeMaterial,
-        dripMaterial,
-        random,
-        hasWafer,
-        topEnabled,
-      );
-      if (!cuboidGlaze) return null;
+      let glazeTopOffset = 0;
 
-      group.add(cuboidGlaze);
+      for (const layer of layersMetadata) {
+        const isTop = layer.index === topLayer.index;
+        const cuboidGlaze = this.buildCuboidGlaze(
+          layer,
+          metadata,
+          thickness,
+          dripLength,
+          glazeMaterial,
+          dripMaterial,
+          random,
+          hasWafer,
+          isTop && topEnabled,
+        );
+
+        if (!cuboidGlaze) continue;
+
+        group.add(cuboidGlaze.group);
+
+        if (isTop && topEnabled && cuboidGlaze.topOffset) {
+          glazeTopOffset = cuboidGlaze.topOffset;
+        }
+      }
+
+      metadata.glazeTopOffset = glazeTopOffset;
       return group;
     }
 
-    const cakeRadius = topLayer.radius ?? metadata.radius ?? 2;
-
-    // 1. GÓRNA TAFLA (Czapa)
-    // Musi wystawać poza tort (overhang), żeby sople spadały z "półki"
-    const overhang = thickness * 0.1;
-    const poolRadius = cakeRadius + overhang;
-    const glazeVerticalOffset = hasWafer ? thickness * 0.2 : thickness * 0.35;
-
     let glazeTopOffset = 0;
 
-    if (!hasWafer && topEnabled) {
-      const topGeo = new THREE.CylinderGeometry(poolRadius, poolRadius, thickness * 0.7, 64);
-      const topMesh = new THREE.Mesh(topGeo, glazeMaterial);
-      topMesh.userData['isCakeGlaze'] = true;
-      topMesh.userData['isGlazeTop'] = true;
-      topMesh.position.y = topLayer.topY + glazeVerticalOffset;
-      group.add(topMesh);
+    for (const layer of layersMetadata) {
+      const cakeRadius = layer.radius ?? metadata.radius ?? 2;
+      const isTop = layer.index === topLayer.index;
 
-      glazeTopOffset = glazeVerticalOffset + (topGeo.parameters?.height ?? thickness * 0.7) / 2;
+      // 1. GÓRNA TAFLA (Czapa)
+      // Musi wystawać poza tort (overhang), żeby sople spadały z "półki"
+      const overhang = thickness * 0.1;
+      const poolRadius = cakeRadius + overhang;
+      const glazeVerticalOffset = hasWafer ? thickness * 0.2 : thickness * 0.35;
+
+      if (isTop && !hasWafer && topEnabled) {
+        const topGeo = new THREE.CylinderGeometry(poolRadius, poolRadius, thickness * 0.7, 64);
+        const topMesh = new THREE.Mesh(topGeo, glazeMaterial);
+        topMesh.userData['isCakeGlaze'] = true;
+        topMesh.userData['isGlazeTop'] = true;
+        topMesh.position.y = layer.topY + glazeVerticalOffset;
+        group.add(topMesh);
+
+        glazeTopOffset = glazeVerticalOffset + (topGeo.parameters?.height ?? thickness * 0.7) / 2;
+      }
+
+      // 2. RANT (Torus) - To on tworzy zaokrągloną krawędź
+      // Pogrubiamy go, żeby lepiej ukryć łączenia
+      const rimThickness = thickness * 0.6;
+      const rimGeo = new THREE.TorusGeometry(poolRadius - rimThickness * 0.4, rimThickness, 16, 100);
+
+      // Lekki szum na rancie (opcjonalnie)
+      const pos = rimGeo.attributes['position'];
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+        // Delikatne falowanie góra-dół
+        pos.setZ(i, z + Math.sin(Math.atan2(y, x) * 15) * 0.05 * thickness);
+      }
+      rimGeo.computeVertexNormals();
+
+      const rimMesh = new THREE.Mesh(rimGeo, glazeMaterial);
+      rimMesh.userData['isCakeGlaze'] = true;
+      rimMesh.rotateX(Math.PI / 2);
+      rimMesh.position.y = layer.topY + glazeVerticalOffset - 0.017;
+      group.add(rimMesh);
+
+      // 3. SOPLE
+      // Startujemy wysoko, prawie w połowie grubości rantu
+      const startY = layer.topY + glazeVerticalOffset - 0.017;
+
+      const dripsGroup = this.createRefinedDrips(
+        startY,
+        cakeRadius,
+        dripMaterial,
+        thickness,
+        dripLength,
+        random,
+      );
+
+      if (dripsGroup) {
+        dripsGroup.traverse((child) => {
+          child.userData['isCakeGlaze'] = true;
+          child.userData['isGlazeDrip'] = true;
+        });
+        group.add(dripsGroup);
+      }
     }
 
-    if (glazeTopOffset > 0 && topEnabled) {
-      metadata.glazeTopOffset = glazeTopOffset;
-    } else {
-      metadata.glazeTopOffset = 0;
-    }
-
-    // 2. RANT (Torus) - To on tworzy zaokrągloną krawędź
-    // Pogrubiamy go, żeby lepiej ukryć łączenia
-    const rimThickness = thickness * 0.6;
-    const rimGeo = new THREE.TorusGeometry(poolRadius - rimThickness*0.4, rimThickness, 16, 100);
-
-    // Lekki szum na rancie (opcjonalnie)
-    const pos = rimGeo.attributes['position'];
-    for(let i=0; i<pos.count; i++){
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      const z = pos.getZ(i);
-      // Delikatne falowanie góra-dół
-      pos.setZ(i, z + Math.sin(Math.atan2(y,x)*15)*0.05*thickness);
-    }
-    rimGeo.computeVertexNormals();
-
-    const rimMesh = new THREE.Mesh(rimGeo, glazeMaterial);
-    rimMesh.userData['isCakeGlaze'] = true;
-    rimMesh.rotateX(Math.PI / 2);
-    rimMesh.position.y = topLayer.topY + glazeVerticalOffset - 0.017;
-    group.add(rimMesh);
-
-    // 3. SOPLE
-    // Startujemy wysoko, prawie w połowie grubości rantu
-    const startY = topLayer.topY + glazeVerticalOffset - 0.017;
-
-    const dripsGroup = this.createRefinedDrips(
-      startY,
-      cakeRadius,
-      dripMaterial,
-      thickness,
-      dripLength,
-      random
-    );
-
-    if (dripsGroup) {
-      dripsGroup.traverse((child) => {
-        child.userData['isCakeGlaze'] = true;
-        child.userData['isGlazeDrip'] = true;
-      });
-      group.add(dripsGroup);
-    }
+    metadata.glazeTopOffset = topEnabled ? glazeTopOffset : 0;
 
     return group;
   }
@@ -878,12 +890,13 @@ export class ThreeObjectsFactory {
     random: () => number,
     hasWafer: boolean,
     topEnabled: boolean,
-  ): THREE.Group | null {
+  ): { group: THREE.Group; topOffset?: number } | null {
     const width = layer.width ?? metadata.width;
     const depth = layer.depth ?? metadata.depth;
     if (!width || !depth) return null;
 
     const group = new THREE.Group();
+    let glazeTopOffset: number | undefined;
     group.userData['glazeMaterial'] = surfaceMaterial;
     group.userData['isCakeGlaze'] = true;
 
@@ -931,7 +944,7 @@ export class ThreeObjectsFactory {
       group.add(topMesh);
 
       const topHeight = (topGeo.parameters?.options?.depth ?? thickness * 0.5) / 2;
-      metadata.glazeTopOffset = glazeVerticalOffset + topHeight;
+      glazeTopOffset = glazeVerticalOffset + topHeight;
     }
 
     // === 2. RANT ===
@@ -965,11 +978,7 @@ export class ThreeObjectsFactory {
     });
     group.add(dripsGroup);
 
-    if (!topEnabled) {
-      metadata.glazeTopOffset = 0;
-    }
-
-    return group;
+    return { group, topOffset: glazeTopOffset };
   }
 
   private static createCuboidDrips(
