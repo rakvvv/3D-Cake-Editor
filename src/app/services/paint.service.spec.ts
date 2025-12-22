@@ -57,8 +57,12 @@ describe('PaintService', () => {
     const transformManagerSpy = jasmine.createSpyObj<TransformManagerService>('TransformManagerService', [
       'removeDecorationObject',
     ]);
-    const snapServiceSpy = jasmine.createSpyObj<SnapService>('SnapService', ['snapDecorationToCake']);
+    const snapServiceSpy = jasmine.createSpyObj<SnapService>('SnapService', [
+      'snapDecorationToCake',
+      'getCakeMetadataSnapshot',
+    ]);
     snapServiceSpy.snapDecorationToCake.and.returnValue({ success: true, surfaceType: 'TOP', message: '' });
+    snapServiceSpy.getCakeMetadataSnapshot.and.returnValue(null);
     const decorationsServiceSpy = jasmine.createSpyObj<DecorationsService>('DecorationsService', [
       'getDecorationInfo',
     ]);
@@ -840,6 +844,52 @@ describe('PaintService', () => {
     expect(path[0].tangent).toEqual(new THREE.Vector3(0, 0, 1));
     expect(path[path.length - 1].normal).toEqual(new THREE.Vector3(0, 0, 1));
     expect(path[path.length - 1].tangent).toEqual(new THREE.Vector3(-1, 0, 0));
+  });
+
+  it('renders cuboid path markers along the rectangular perimeter', () => {
+    const preset: CreamRingPreset = {
+      id: 'cuboid-markers',
+      name: 'Cuboid Markers',
+      mode: 'PATH',
+      layerIndex: 0,
+      position: 'SIDE_ARC',
+      radiusOffset: 0.05,
+      nodes: [
+        { angleDeg: 0, heightNorm: 0.4 },
+        { angleDeg: 90, heightNorm: 0.6 },
+        { angleDeg: 135, heightNorm: 0.5 },
+      ],
+    };
+
+    const metadata: CakeMetadata = {
+      shape: 'cuboid',
+      layers: 1,
+      layerHeight: 1,
+      totalHeight: 1,
+      layerSizes: [1],
+      layerDimensions: [
+        { index: 0, size: 1, height: 1, topY: 1, bottomY: 0, width: 2, depth: 1 },
+      ],
+      width: 2,
+      depth: 1,
+    };
+
+    snapService.getCakeMetadataSnapshot.and.returnValue(metadata);
+
+    const scene = new THREE.Scene();
+    (service as any).stateStore.setScene(scene);
+    (service as any).stateStore.setCakeBase(new THREE.Object3D());
+
+    service.setExtruderPathNodes(preset.nodes ?? [], preset);
+
+    const markers = (service as any).extruderPathMarkers as THREE.Mesh[];
+    expect(markers.length).toBe(3);
+    expect(markers[0].position.x).toBeCloseTo(1.062, 3);
+    expect(markers[0].position.z).toBeCloseTo(0, 5);
+    expect(markers[1].position.z).toBeCloseTo(0.562, 3);
+    expect(markers[1].position.x).toBeCloseTo(0, 3);
+    expect(markers[2].position.x).toBeCloseTo(-0.55, 2);
+    expect(markers[2].position.z).toBeCloseTo(0.562, 3);
   });
 
 });

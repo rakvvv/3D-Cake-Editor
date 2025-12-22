@@ -1022,14 +1022,34 @@ export class PaintService {
     const adjustedRadiusX = Math.max(0.01, radiusX + (normalizedPreset.radiusOffset ?? 0));
     const adjustedRadiusZ = Math.max(0.01, radiusZ + (normalizedPreset.radiusOffset ?? 0));
 
-    const markerPositions = normalizedPreset.nodes.map((node) => {
+    const presetNodes = normalizedPreset.nodes ?? [];
+    const markerPositions = presetNodes.map((node, index) => {
       const angle = THREE.MathUtils.degToRad(node.angleDeg);
       const height = this.getCreamHeightForPreset(normalizedPreset, layer, metadata, node.heightNorm);
-      const basePosition = new THREE.Vector3(adjustedRadiusX * Math.cos(angle), height, adjustedRadiusZ * Math.sin(angle));
-      const radialNormal = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
+      const isCuboid = metadata.shape === 'cuboid';
+
+      let basePosition: THREE.Vector3;
+      let surfaceNormal: THREE.Vector3;
+
+      if (isCuboid) {
+        const direction = this.getNodeDirection(presetNodes, index);
+        const { position, normal } = this.getCuboidPerimeterPoint(
+          angle,
+          adjustedRadiusX,
+          adjustedRadiusZ,
+          height,
+          direction,
+        );
+        basePosition = position;
+        surfaceNormal = normal;
+      } else {
+        basePosition = new THREE.Vector3(adjustedRadiusX * Math.cos(angle), height, adjustedRadiusZ * Math.sin(angle));
+        surfaceNormal = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
+      }
+
       const nodeHeightNorm = node.heightNorm ?? 0;
       const isTopEdge = normalizedPreset.position === 'TOP_EDGE' || nodeHeightNorm >= 0.98;
-      const markerNormal = isTopEdge ? new THREE.Vector3(0, 1, 0) : radialNormal;
+      const markerNormal = isTopEdge ? new THREE.Vector3(0, 1, 0) : surfaceNormal;
       return basePosition.add(markerNormal.multiplyScalar(this.extruderPathMarkerOffset));
     });
 
@@ -1680,6 +1700,26 @@ export class PaintService {
     return points;
   }
 
+  private getNodeDirection(nodes: CreamPathNode[], index: number): number {
+    if (!nodes.length) {
+      return 1;
+    }
+
+    const current = nodes[index]?.angleDeg ?? nodes[0].angleDeg;
+    const next = nodes[index + 1]?.angleDeg;
+    const previous = nodes[index - 1]?.angleDeg;
+
+    if (next !== undefined) {
+      return Math.sign(this.shortestAngularDelta(current, next)) || 1;
+    }
+
+    if (previous !== undefined) {
+      return Math.sign(this.shortestAngularDelta(previous, current)) || 1;
+    }
+
+    return 1;
+  }
+
   private unwrapNodeAngles(nodes: CreamPathNode[]): number[] {
     if (!nodes.length) {
       return [];
@@ -1699,6 +1739,11 @@ export class PaintService {
     }
 
     return angles;
+  }
+
+  private shortestAngularDelta(fromDeg: number, toDeg: number): number {
+    const delta = THREE.MathUtils.euclideanModulo(toDeg - fromDeg + 540, 360) - 180;
+    return delta === -180 ? 180 : delta;
   }
 
   private normalizeNodes(preset: CreamRingPreset): CreamPathNode[] {
