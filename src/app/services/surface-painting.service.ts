@@ -663,7 +663,8 @@ export class SurfacePaintingService {
     this.cakeGroup.traverse((child) => {
       let current: THREE.Object3D | null = child;
       while (current) {
-        if (current.userData?.['isCakeGlaze'] || current.userData?.['isCakeWafer']) return;
+        if (current.userData?.['isCakeWafer']) return;
+        if (current.userData?.['isPaintAnchor']) return;
         current = current.parent ?? null;
       }
 
