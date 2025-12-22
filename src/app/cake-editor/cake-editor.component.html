@@ -19,7 +19,14 @@
         </button>
         <div class="workspace-toolbar__title">
           <span class="workspace-toolbar__label">Tort</span>
-          <span class="workspace-toolbar__name">{{ projectName || 'UNTITLED' }}</span>
+          <input
+            class="workspace-toolbar__name-input"
+            type="text"
+            [(ngModel)]="projectName"
+            (ngModelChange)="onProjectNameInput($event)"
+            placeholder="UNTITLED"
+            aria-label="Project name"
+          />
         </div>
       </div>
 

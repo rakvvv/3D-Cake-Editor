@@ -152,10 +152,21 @@
   color: #b5b5b5;
 }
 
-.workspace-toolbar__name {
+.workspace-toolbar__name-input {
   font-size: 16px;
   font-weight: 600;
   color: #fcfcfc;
+  background: #1f1f1f;
+  border: 1px solid #292929;
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-width: 220px;
+  outline: none;
+}
+
+.workspace-toolbar__name-input:focus {
+  border-color: #05acee;
+  box-shadow: 0 0 0 1px rgba(5, 172, 238, 0.3);
 }
 
 .editor-toolbar__right {
