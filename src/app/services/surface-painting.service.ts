@@ -34,6 +34,8 @@ export class SurfacePaintingService {
   public brushSize = 90;
   public brushOpacity = 1.0;
   public brushColor = '#ff6b6b';
+  private isReplayingBrush = false;
+  private replayBlobIndex = 0;
 
   private brushTexture: THREE.CanvasTexture | null = null;
   public get gradientEnabled(): boolean {
@@ -274,7 +276,11 @@ export class SurfacePaintingService {
       if (shouldRecord) {
         const normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
 
-        // Płaski zapis: 6 liczb na jeden punkt
+        if (hit.object) {
+          hit.object.updateMatrixWorld();
+          normal.transformDirection(hit.object.matrixWorld).normalize();
+        }
+
         this.activeStroke.pathData.push(
           p.x, p.y, p.z,
           normal.x, normal.y, normal.z,
@@ -449,36 +455,49 @@ export class SurfacePaintingService {
     this.brushColor = stroke.color;
     this.brushSize = stroke.brushSize;
 
-    this.startStroke();
+    // Ustawiamy flagę replay
+    this.isReplayingBrush = true;
 
-    if (this.activeStroke) {
-      this.activeStroke.id = stroke.id;
-      this.activeStroke.pathData = stroke.pathData;
+    // Resetujemy stan
+    this.painting = true;
+    this.activeStroke = null;
+    this.strokeCurrentLength = 0;
 
-      const parts = stroke.id.split('-');
-      const numericId = Number(parts[parts.length-1]);
-      if (!Number.isNaN(numericId)) {
-        this.nextStrokeId = Math.max(this.nextStrokeId, numericId + 1);
+    // Tworzymy/Pobieramy grupę dla pędzla (bez wywoływania startStroke w ciemno)
+    const isSameColor = this.lastUsedBrushColor === this.brushColor;
+    // Sprawdzamy czy grupa istnieje
+    if (!this.brushStrokeMesh || !isSameColor || !this.brushStrokeGroup || !this.brushStrokeGroup.parent) {
+      this.finalizePreviousBatch();
+      this.createBrushStroke(scene);
+      this.lastUsedBrushColor = this.brushColor;
+    }
+
+    // Przywracamy ID
+    if (this.brushStrokeGroup) {
+      const existingIds = (this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
+      if (!existingIds.includes(stroke.id)) {
+        existingIds.push(stroke.id);
+        this.brushStrokeGroup.userData['strokeIds'] = existingIds;
       }
     }
 
     const data = stroke.pathData;
-    // Iteracja po 6 liczb (x,y,z,nx,ny,nz)
+    const spacing = this.computeBrushWorldSpacing() * 0.25; // Gęstsze próbkowanie dla płynności
+
+    let prevPoint: THREE.Vector3 | null = null;
+    let prevNormal: THREE.Vector3 | null = null;
+
+    // Iterujemy po danych
     for (let i = 0; i < data.length; i += 6) {
       const x = data[i];
       const y = data[i + 1];
       const z = data[i + 2];
 
-      // --- FIX NA DUCHY I SEPARATOR ---
-      // Jeśli napotkamy separator lub punkt (0,0,0), przerywamy linię
-      if (Math.abs(x - STROKE_SEPARATOR) < 1) {
-        this.lastBrushPoint = null;
-        this.lastStrokeDir = null;
-        continue;
-      }
-      if (Math.abs(x) < 0.0001 && Math.abs(y) < 0.0001 && Math.abs(z) < 0.0001) {
-        this.lastBrushPoint = null;
-        this.lastStrokeDir = null;
+      // Obsługa separatora lub pustych danych
+      if (Math.abs(x - STROKE_SEPARATOR) < 1 || (Math.abs(x) < 0.0001 && Math.abs(y) < 0.0001)) {
+        prevPoint = null;
+        prevNormal = null;
+        this.strokeCurrentLength = 0; // Reset ciśnienia przy nowej linii!
         continue;
       }
 
@@ -486,15 +505,60 @@ export class SurfacePaintingService {
       const ny = data[i + 4];
       const nz = data[i + 5];
 
-      const hit = {
-        point: new THREE.Vector3(x, y, z),
-        face: { normal: new THREE.Vector3(nx, ny, nz) } as THREE.Face,
-        object: this.cakeGroup,
-      } as unknown as THREE.Intersection;
+      const currPoint = new THREE.Vector3(x, y, z);
+      const currNormal = new THREE.Vector3(nx, ny, nz);
 
-      this.paintBrush(hit, scene);
+      // Jeśli mamy poprzedni punkt, interpolujemy MIĘDZY nimi
+      if (prevPoint && prevNormal) {
+        const dist = prevPoint.distanceTo(currPoint);
+
+        // Obliczamy kierunek segmentu
+        const dir = new THREE.Vector3().subVectors(currPoint, prevPoint).normalize();
+
+        // Zabezpieczenie przed zerowym wektorem
+        if (dir.lengthSq() < 0.001) {
+          // Jeśli punkty są w tym samym miejscu, pomiń
+          continue;
+        }
+
+        const steps = Math.ceil(dist / spacing);
+
+        for (let s = 1; s <= steps; s++) {
+          const t = s / steps;
+
+          // Interpolacja pozycji i normalnej
+          const p = new THREE.Vector3().lerpVectors(prevPoint, currPoint, t);
+          const n = new THREE.Vector3().lerpVectors(prevNormal, currNormal, t).normalize();
+
+          // Aktualizacja długości smugi dla efektu ciśnienia (pressure)
+          // Dodajemy tylko fragment dystansu
+          const stepDist = dist / steps;
+          this.strokeCurrentLength += stepDist;
+
+          const rawProgress = this.strokeCurrentLength / this.RAMP_UP_DISTANCE;
+          const pressure = Math.min(1.0, Math.max(0.0, rawProgress));
+
+          this.addBrushBlob(p, n, dir, pressure);
+        }
+      } else {
+        // Pierwszy punkt (START) - rysujemy jeden blob startowy
+        // Kierunek domyślny (nie mamy jeszcze drugiego punktu)
+        const defaultDir = new THREE.Vector3(0, 1, 0).projectOnPlane(currNormal).normalize();
+        this.addBrushBlob(currPoint, currNormal, defaultDir, 0.0);
+      }
+
+      prevPoint = currPoint;
+      prevNormal = currNormal;
     }
-    this.endStroke();
+
+    if (this.brushStrokeMesh) {
+      this.brushStrokeMesh.count = this.brushStrokeIndex;
+      this.brushStrokeMesh.instanceMatrix.needsUpdate = true;
+      this.brushStrokeMesh.computeBoundingSphere();
+    }
+
+    this.painting = false;
+    this.isReplayingBrush = false;
   }
 
   private replaySprinkleStroke(stroke: SerializedSprinkleStroke): void {
@@ -568,13 +632,10 @@ export class SurfacePaintingService {
       }
       this.sprinkleStrokeMesh.computeBoundingSphere();
     }
-    // -------------------------------------------------
 
     this.endStroke();
     this.isReplayingSprinkles = false;
   }
-
-  // --- RESZTA LOGIKI (GRADIENTY, CZYSZCZENIE, UTILS) ---
 
   public applyGradientSettings(): void {
     this.gradientTextureService.updateConfig({ enabled: true });
@@ -1033,6 +1094,11 @@ export class SurfacePaintingService {
     this.paintEntries.push(this.brushStrokeGroup);
   }
 
+  private seededRandom(seed: number): number {
+    const x = Math.sin(seed * 9999.9) * 99999.9;
+    return x - Math.floor(x);
+  }
+
   private addBrushBlob(
     point: THREE.Vector3,
     normal: THREE.Vector3,
@@ -1044,7 +1110,6 @@ export class SurfacePaintingService {
 
     const anchorGroup = this.paintAnchor;
 
-    // Obliczamy inverse anchor
     if (anchorGroup) {
       anchorGroup.updateMatrixWorld(true);
       this.tempMatrixInverse.copy(anchorGroup.matrixWorld).invert();
@@ -1059,21 +1124,21 @@ export class SurfacePaintingService {
 
     const worldXAxis = this.tempVec3_6.crossVectors(worldYAxis, normal).normalize();
 
-    // Offset + Sortowanie (ważne dla unikania migotania Z-fighting wewnątrz pędzla)
+    // ✅ FIX: Liniowy offset zamiast modulo (% 100).
+    // Dzięki temu każdy kolejny blob jest ZAWSZE minimalnie wyżej niż poprzedni.
+    // Usuwa to efekt "ucięcia" lub "chowania się" fragmentów smugi.
     const baseOffset = 0.0005;
-    const sortingOffset = (this.brushStrokeIndex % 100) * 0.000005; // Nieco większy rozrzut
+    // Używamy bardzo małego kroku, ale ciągłego. Przy 10000 instancji to nadal tylko ~0.1mm
+    const sortingOffset = this.brushStrokeIndex * 0.0000001;
 
-    const positionWorld = this.tempVec3_7
-      .copy(point)
-      .add(this.tempVec3_4.copy(normal).multiplyScalar(baseOffset + sortingOffset));
+    const positionWorld = this.tempVec3_7.copy(point);
+    positionWorld.add(this.tempVec3_4.copy(normal).multiplyScalar(baseOffset + sortingOffset));
 
     // Tworzenie macierzy świata
-    // tempMatrix = World Matrix
     this.tempMatrix.identity().makeBasis(worldXAxis, worldYAxis, normal);
     this.tempMatrix.setPosition(positionWorld);
 
-    // Transformacja do local space (ParentInverse * World)
-    // tempMatrix2 = Local Matrix
+    // Transformacja do local space
     if (anchorGroup) {
       this.tempMatrix2.copy(this.tempMatrixInverse).multiply(this.tempMatrix);
     } else {
@@ -1085,21 +1150,23 @@ export class SurfacePaintingService {
     const lengthScale = THREE.MathUtils.lerp(1.2, 3.5, pressure);
     const scaleBase = radius * 2.5;
 
-    // Obrót losowy (Jitter) - robimy to na macierzy lokalnej
-    const jitter = (Math.random() - 0.5) * THREE.MathUtils.lerp(0.1, 0.3, pressure);
-    // Używamy tempQuat zamiast alokować nową macierz rotacji
+    // Deterministyczny jitter
+    const seed = this.brushStrokeIndex * 12.9898 + pressure * 78.233;
+    const deterministicRandom = this.seededRandom(seed);
+    const jitter = (deterministicRandom - 0.5) * THREE.MathUtils.lerp(0.1, 0.3, pressure);
+
     this.tempQuat.setFromAxisAngle(this.tempVec3_4.set(0, 0, 1), jitter);
-    // Mnożenie macierzy przez rotację (tempMatrix jako pomocnicza)
     const rotationMatrix = this.tempMatrix.makeRotationFromQuaternion(this.tempQuat);
     this.tempMatrix2.multiply(rotationMatrix);
 
-    // Skalowanie
-    this.tempMatrix2.scale(this.tempVec3_4.set(scaleBase * widthScale, scaleBase * lengthScale, 1));
+    this.tempMatrix2.scale(
+      this.tempVec3_4.set(scaleBase * widthScale, scaleBase * lengthScale, 1)
+    );
 
     this.brushStrokeMesh.setMatrixAt(this.brushStrokeIndex, this.tempMatrix2);
-    // Zwiększamy licznik, ale aktualizację GPU robimy w paintBrush na końcu (dla wydajności)
     this.brushStrokeIndex++;
   }
+
 
   private computeBrushRadius(): number {
     const min = 0.04;

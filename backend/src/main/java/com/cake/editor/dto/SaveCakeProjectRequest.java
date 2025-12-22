@@ -9,7 +9,7 @@ public class SaveCakeProjectRequest {
     private String name;
 
     @NotBlank
-    @Size(max = 500000)
+    @Size(max = 1000000)
     private String dataJson;
 
     public String getName() {
