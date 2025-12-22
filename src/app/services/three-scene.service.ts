@@ -3169,6 +3169,9 @@ export class ThreeSceneService {
       if (current.userData['isCakeWafer']) {
         return false;
       }
+      if (current.userData['isGlazeDrip']) {
+        return false;
+      }
       if (current.userData['isCakeGlaze']) {
         return true;
       }

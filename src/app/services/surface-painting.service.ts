@@ -665,6 +665,7 @@ export class SurfacePaintingService {
       while (current) {
         if (current.userData?.['isCakeWafer']) return;
         if (current.userData?.['isPaintAnchor']) return;
+        if (current.userData?.['isGlazeDrip']) return;
         current = current.parent ?? null;
       }
 

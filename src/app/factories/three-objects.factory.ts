@@ -602,7 +602,10 @@ export class ThreeObjectsFactory {
     );
 
     if (dripsGroup) {
-      dripsGroup.traverse((child) => (child.userData['isCakeGlaze'] = true));
+      dripsGroup.traverse((child) => {
+        child.userData['isCakeGlaze'] = true;
+        child.userData['isGlazeDrip'] = true;
+      });
       group.add(dripsGroup);
     }
 
@@ -956,7 +959,10 @@ export class ThreeObjectsFactory {
       dripLength,
       random,
     );
-    dripsGroup.traverse((child) => (child.userData['isCakeGlaze'] = true));
+    dripsGroup.traverse((child) => {
+      child.userData['isCakeGlaze'] = true;
+      child.userData['isGlazeDrip'] = true;
+    });
     group.add(dripsGroup);
 
     if (!topEnabled) {
