@@ -30,8 +30,8 @@ interface SprinklePlaceParams {
 
 @Injectable({ providedIn: 'root' })
 export class SprinkleStrokeBuilderService {
-  private lastSprinklePoint: THREE.Vector3 | null = null;
   private rng: (() => number) | null = null;
+  private lastRecordedAnchor: THREE.Vector3 | null = null;
   private readonly tempMatrix = new THREE.Matrix4();
   private readonly tempMatrixInverse = new THREE.Matrix4();
   private readonly tempMatrix2 = new THREE.Matrix4();
@@ -51,11 +51,12 @@ export class SprinkleStrokeBuilderService {
 
   private static readonly POS_SCALE = 4096; // ~0.00024 resolution up to ~8 units range
   private static readonly NORMAL_SCALE = 16384; // preserves unit normals with good fidelity
+  private static readonly RECORDING_DIST_SQ = 0.015 * 0.015;
 
   constructor(private readonly sprinkleRenderer: SprinkleRendererService) {}
 
   public resetStrokeState(): void {
-    this.lastSprinklePoint = null;
+    this.lastRecordedAnchor = null;
     this.rng = null;
   }
 
@@ -132,63 +133,51 @@ export class SprinkleStrokeBuilderService {
     if (anchorGroup) anchorGroup.worldToLocal(anchorPointLocal);
 
     const density01 = THREE.MathUtils.clamp(params.settings.density / 20, 0, 1);
-    const clusterSpacing = THREE.MathUtils.lerp(0.12, 0.05, density01);
-    const isFirstCluster = !this.lastSprinklePoint;
 
-    if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPointWorld) < clusterSpacing) {
+    if (!this.shouldRecordAnchor(anchorPointWorld)) {
       return;
     }
-
-    if (!params.isReplaying && !isFirstCluster) {
-      const skipChance = THREE.MathUtils.lerp(0, 0.1, params.settings.randomness);
-      if (rng() < skipChance) return;
-    }
-
-    this.lastSprinklePoint = this.lastSprinklePoint ?? new THREE.Vector3();
-    this.lastSprinklePoint.copy(anchorPointWorld);
 
     if (params.activeStroke?.mode === 'sprinkles' && !params.isReplaying) {
       const targetPath = params.activeStroke.pathData ?? (params.activeStroke.pathData = []);
       targetPath.push(
-        this.round(anchorPointWorld.x), this.round(anchorPointWorld.y), this.round(anchorPointWorld.z),
-        this.round(worldNormal.x), this.round(worldNormal.y), this.round(worldNormal.z)
+        this.round(anchorPointWorld.x),
+        this.round(anchorPointWorld.y),
+        this.round(anchorPointWorld.z),
+        this.round(worldNormal.x),
+        this.round(worldNormal.y),
+        this.round(worldNormal.z),
       );
     }
 
-    const count = Math.max(1, Math.round(THREE.MathUtils.lerp(10, 45, density01)));
+    const count = Math.max(1, Math.round(THREE.MathUtils.lerp(6, 24, density01)));
     const startUpdateIndex = this.sprinkleRenderer.getStrokeIndex();
 
     for (let i = 0; i < count; i++) {
       if (this.sprinkleRenderer.getStrokeIndex() >= this.sprinkleRenderer.getStrokeCapacity()) break;
 
-      const baseSpread = THREE.MathUtils.lerp(0.04, 0.12, density01);
-      const spread = THREE.MathUtils.lerp(baseSpread, baseSpread * 1.6, params.settings.randomness);
+      const spreadRadius = THREE.MathUtils.lerp(0.08, 0.18, params.settings.randomness);
       const tiltAmount = THREE.MathUtils.lerp(0.0, 0.35, params.settings.randomness);
-      const dirOffset = (rng() - 0.5) * 0.3;
       const s = THREE.MathUtils.lerp(params.settings.minScale, params.settings.maxScale, rng());
-      const randomOffsetTangent = (rng() - 0.5) * spread;
-      const randomOffsetBitangent = (rng() - 0.5) * spread;
 
-      const phi = rng() * Math.PI * 2;
-      const tangentDir = this.tempVec3_7
+      const angle = rng() * Math.PI * 2;
+      const r = Math.sqrt(rng()) * spreadRadius;
+      const offset = this.tempVec3_7
         .copy(tangent)
-        .multiplyScalar(Math.cos(phi))
-        .add(this.tempVec3_8.copy(bitangent).multiplyScalar(Math.sin(phi)))
-        .normalize();
-
-      const dir = this.tempVec3_8
-        .copy(tangentDir)
-        .addScaledVector(localNormal, (rng() - 0.5) * tiltAmount)
-        .normalize();
+        .multiplyScalar(Math.cos(angle) * r)
+        .add(this.tempVec3_8.copy(bitangent).multiplyScalar(Math.sin(angle) * r));
 
       this.tempVec3_7
         .copy(anchorPointLocal)
-        .addScaledVector(tangent, randomOffsetTangent)
-        .addScaledVector(bitangent, randomOffsetBitangent)
-        .addScaledVector(localNormal, dirOffset * 0.02);
+        .add(offset)
+        .addScaledVector(localNormal, rng() * 0.0005);
 
       if (params.settings.shape === 'stick' || params.settings.shape === 'star') {
-        this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), dir);
+        this.tempQuat.setFromUnitVectors(this.tempVec3_2.set(0, 1, 0), localNormal);
+        this.tempQuat2.setFromAxisAngle(localNormal, rng() * Math.PI * 2);
+        const tiltAxis = rng() > 0.5 ? tangent : bitangent;
+        this.tempQuat3.setFromAxisAngle(tiltAxis, (rng() - 0.5) * tiltAmount);
+        this.tempQuat.multiply(this.tempQuat2).multiply(this.tempQuat3);
       } else {
         this.tempQuat.identity();
       }
@@ -296,5 +285,17 @@ export class SprinkleStrokeBuilderService {
 
   private round(val: number): number {
     return SurfacePaintingService.roundValue(val);
+  }
+
+  private shouldRecordAnchor(point: THREE.Vector3): boolean {
+    if (!this.lastRecordedAnchor) {
+      this.lastRecordedAnchor = point.clone();
+      return true;
+    }
+    if (this.lastRecordedAnchor.distanceToSquared(point) >= SprinkleStrokeBuilderService.RECORDING_DIST_SQ) {
+      this.lastRecordedAnchor.copy(point);
+      return true;
+    }
+    return false;
   }
 }
