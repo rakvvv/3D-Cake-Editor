@@ -2415,15 +2415,15 @@ export class ThreeSceneService {
 
       const averageScale = (decoration.scale.x + decoration.scale.y + decoration.scale.z) / 3;
 
-      // ZMIANA 2: Usunięcie Math.round z rotationQuat.
-      // Kwaterniony muszą być precyzyjne, inaczej rotacja się psuje przy zapisie/odczycie.
+      // ZMIANA 2: Zachowanie pełnej precyzji rotacji (bez zaokrąglania) przy jednoczesnej normalizacji kwaternionu.
+      const normalizedRotation = relativeRotation.normalize();
       this.anchorPresetsService.upsertDecorationOverride(anchorId, decorationId, {
-        rotationDeg: Math.round((rotationDeg ?? anchor.defaultRotationDeg ?? 0) * 1000) / 1000,
+        rotationDeg: rotationDeg ?? anchor.defaultRotationDeg ?? 0,
         rotationQuat: [
-          relativeRotation.x,
-          relativeRotation.y,
-          relativeRotation.z,
-          relativeRotation.w
+          normalizedRotation.x,
+          normalizedRotation.y,
+          normalizedRotation.z,
+          normalizedRotation.w
         ],
         scale: Math.round(averageScale * 1000) / 1000,
         offset,
