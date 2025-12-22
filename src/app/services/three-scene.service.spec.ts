@@ -284,8 +284,8 @@ describe('ThreeSceneService', () => {
     expect(brushGroup.name).toBe('Malowanie pędzlem');
     expect(brushGroup.children[0].id).toBe(brushStroke.uuid);
 
-    const sprinklesGroup = nodes.get('paint-group-sprinkles-unattached');
-    expect(sprinklesGroup.parentId).toBe('unattached-root');
+    const sprinklesGroup = nodes.get('paint-group-sprinkles-attached');
+    expect(sprinklesGroup.parentId).toBe(outline.id);
     expect(sprinklesGroup.children[0].id).toBe(sprinkles.uuid);
 
     const figurineNode = nodes.get(figurine.uuid);
