@@ -754,7 +754,7 @@
       </button>
       <div class="scene-node__title" (click)="selectSceneNode(node)">
         <span class="scene-node__icon" aria-hidden="true">
-          {{ node.type === 'group' ? '🗂️' : node.type === 'decoration' ? '🧁' : '🎂' }}
+          {{ node.icon || (node.type === 'group' ? '🗂️' : node.type === 'decoration' ? '🧁' : '🎂') }}
         </span>
         <span class="scene-node__name">{{ node.name }}</span>
       </div>

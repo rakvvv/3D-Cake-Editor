@@ -1612,6 +1612,7 @@ export class ThreeSceneService {
     const root: SceneOutlineNode = {
       id: rootId,
       name: 'Tort',
+      icon: '🎂',
       type: 'cake',
       attached: true,
       visible: true,
@@ -1624,6 +1625,7 @@ export class ThreeSceneService {
     const unattachedRoot: SceneOutlineNode = {
       id: 'unattached-root',
       name: 'Nieprzyczepione',
+      icon: '📦',
       type: 'layer',
       attached: false,
       visible: true,
@@ -1637,11 +1639,77 @@ export class ThreeSceneService {
     nodes.set(rootId, root);
     nodes.set(unattachedRoot.id, unattachedRoot);
 
+    const paintGroups = new Map<string, SceneOutlineNode>();
+
+    const resolvePaintGroupMeta = (
+      object: THREE.Object3D
+    ): { key: string; name: string; icon: string } | null => {
+      const paintStrokeType = object.userData['paintStrokeType'] as string | undefined;
+      const displayName = (object.userData['displayName'] as string | undefined) ?? null;
+      const normalizedName = (displayName ?? '').toLowerCase();
+
+      if (paintStrokeType === 'pen') {
+        return { key: 'pen', name: displayName ?? 'Pisak', icon: '🖊️' };
+      }
+
+      if (paintStrokeType === 'extruder') {
+        return { key: 'extruder', name: displayName ?? 'Posypka/Ekstruder', icon: '🧁' };
+      }
+
+      if (paintStrokeType === 'decoration') {
+        return { key: 'decoration', name: displayName ?? 'Dekoracje malowane', icon: '🎨' };
+      }
+
+      if (object.userData['isPaintDecoration']) {
+        if (normalizedName.includes('posypka')) {
+          return { key: 'sprinkles', name: displayName ?? 'Posypka/Ekstruder', icon: '🧁' };
+        }
+
+        if (normalizedName.includes('pędzl') || normalizedName.includes('brush')) {
+          return { key: 'brush', name: displayName ?? 'Smugi pędzla', icon: '🖌️' };
+        }
+
+        return { key: 'manual', name: displayName ?? 'Malowanie ręczne', icon: '🎨' };
+      }
+
+      return null;
+    };
+
     const appendNode = (node: SceneOutlineNode, parentId: string | null) => {
       const parent = (parentId ? nodes.get(parentId) : null) ?? root;
       nodes.set(node.id, node);
       node.parentId = parent.id;
       parent.children.push(node);
+    };
+
+    const getPaintGroup = (parentId: string, object: THREE.Object3D, attached: boolean): SceneOutlineNode | null => {
+      const meta = resolvePaintGroupMeta(object);
+      if (!meta) {
+        return null;
+      }
+
+      const key = `${parentId}:${meta.key}`;
+      const existing = paintGroups.get(key);
+      if (existing) {
+        return existing;
+      }
+
+      const group: SceneOutlineNode = {
+        id: `paint-group-${meta.key}-${attached ? 'attached' : 'unattached'}`,
+        name: meta.name,
+        icon: meta.icon,
+        type: 'group',
+        attached,
+        visible: true,
+        parentId,
+        layerIndex: null,
+        surface: null,
+        children: [],
+      };
+
+      paintGroups.set(key, group);
+      appendNode(group, parentId);
+      return group;
     };
 
     const processDecoration = (object: THREE.Object3D) => {
@@ -1657,11 +1725,19 @@ export class ThreeSceneService {
       const attached = this.isAttachedToCake(object);
       const snapInfo = this.findSnapInfo(object);
       const surface = snapInfo?.surfaceType ?? null;
-      const parentId = attached ? rootId : unattachedRoot.id;
+      const fallbackParentId = attached ? rootId : unattachedRoot.id;
+
+      const paintGroup =
+        object.userData['isPaintStroke'] || object.userData['isPaintDecoration']
+          ? getPaintGroup(fallbackParentId, object, attached)
+          : null;
+
+      const parentId = paintGroup?.id ?? fallbackParentId;
 
       const node: SceneOutlineNode = {
         id: object.uuid,
         name: this.describeDecoration(object),
+        icon: paintGroup?.icon ?? null,
         type: this.resolveDecorationType(object),
         attached,
         visible: object.visible,

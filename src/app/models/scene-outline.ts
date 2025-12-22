@@ -3,6 +3,7 @@ export type SceneOutlineNodeType = 'cake' | 'layer' | 'group' | 'decoration';
 export interface SceneOutlineNode {
   id: string;
   name: string;
+  icon?: string | null;
   type: SceneOutlineNodeType;
   attached: boolean;
   visible: boolean;
