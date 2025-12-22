@@ -203,6 +203,28 @@
       </div>
 
       <div class="color-row">
+        <span class="color-row__label">Tryb koloru</span>
+        <div class="toggle-tab toggle-tab--compact">
+          <button
+            type="button"
+            class="toggle-tab__item"
+            [class.toggle-tab__item--active]="sprinkleColorMode === 'multi'"
+            (click)="onSprinkleColorModeChange('multi')"
+          >
+            Kolorowa
+          </button>
+          <button
+            type="button"
+            class="toggle-tab__item"
+            [class.toggle-tab__item--active]="sprinkleColorMode === 'mono'"
+            (click)="onSprinkleColorModeChange('mono')"
+          >
+            Jednolity
+          </button>
+        </div>
+      </div>
+
+      <div class="color-row" *ngIf="sprinkleColorMode === 'mono'">
         <span class="color-row__label">Kolor posypki</span>
         <div class="color-picker">
           <input
@@ -214,6 +236,16 @@
           />
           <span class="color-picker__value">{{ sprinkleColor }}</span>
         </div>
+      </div>
+
+      <div class="sprinkle-palette" *ngIf="sprinkleColorMode === 'multi'" aria-label="Gotowa paleta posypki">
+        <div
+          class="sprinkle-palette__swatch"
+          *ngFor="let color of sprinklePalette"
+          [style.background]="color"
+          [attr.aria-label]="'Kolor ' + color"
+          role="presentation"
+        ></div>
       </div>
 
       <div class="sprinkles-grid" role="list" aria-label="Rodzaj posypki">

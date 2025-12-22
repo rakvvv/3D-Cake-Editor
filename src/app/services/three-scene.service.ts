@@ -1618,22 +1618,8 @@ export class ThreeSceneService {
       children: [],
     };
 
-    const unattachedRoot: SceneOutlineNode = {
-      id: 'unattached-root',
-      name: 'Nieprzyczepione',
-      icon: '📦',
-      type: 'layer',
-      attached: false,
-      visible: true,
-      parentId: rootId,
-      layerIndex: null,
-      surface: null,
-      children: [],
-    };
-
     const nodes = new Map<string, SceneOutlineNode>();
     nodes.set(rootId, root);
-    nodes.set(unattachedRoot.id, unattachedRoot);
 
     const paintGroups = new Map<string, SceneOutlineNode>();
 
@@ -1678,7 +1664,7 @@ export class ThreeSceneService {
       parent.children.push(node);
     };
 
-    const getPaintGroup = (parentId: string, object: THREE.Object3D, attached: boolean): SceneOutlineNode | null => {
+    const getPaintGroup = (parentId: string, object: THREE.Object3D): SceneOutlineNode | null => {
       const meta = resolvePaintGroupMeta(object);
       if (!meta) {
         return null;
@@ -1691,11 +1677,11 @@ export class ThreeSceneService {
       }
 
       const group: SceneOutlineNode = {
-        id: `paint-group-${meta.key}-${attached ? 'attached' : 'unattached'}`,
+        id: `paint-group-${meta.key}-attached`,
         name: meta.name,
         icon: meta.icon,
         type: 'group',
-        attached,
+        attached: true,
         visible: true,
         parentId,
         layerIndex: null,
@@ -1718,14 +1704,14 @@ export class ThreeSceneService {
         return;
       }
 
-      const attached = this.isAttachedToCake(object);
+      const attached = true;
       const snapInfo = this.findSnapInfo(object);
       const surface = snapInfo?.surfaceType ?? null;
-      const fallbackParentId = attached ? rootId : unattachedRoot.id;
+      const fallbackParentId = rootId;
 
       const paintGroup =
         object.userData['isPaintStroke'] || object.userData['isPaintDecoration']
-          ? getPaintGroup(fallbackParentId, object, attached)
+          ? getPaintGroup(fallbackParentId, object)
           : null;
 
       const parentId = paintGroup?.id ?? fallbackParentId;
@@ -1752,8 +1738,6 @@ export class ThreeSceneService {
     paintGroups.forEach((group) => {
       group.visible = group.children.some((child) => child.visible);
     });
-
-    root.children.push(unattachedRoot);
 
     return root;
   }

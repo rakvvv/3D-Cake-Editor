@@ -16,8 +16,9 @@ import { DistanceRecorder } from './painting/stroke-sampler';
 
 export type PaintingMode = 'brush' | 'gradient' | 'sprinkles';
 export type SprinkleShape = 'stick' | 'ball' | 'star';
+export type SprinkleColorMode = 'multi' | 'mono';
 
-const SPRINKLE_PALETTE = ['#ff6b81', '#ffd66b', '#6bffb0', '#6bb8ff', '#ffffff'];
+export const SPRINKLE_PALETTE = ['#ff6b81', '#ffd66b', '#6bffb0', '#6bb8ff', '#ffffff'];
 const DEFAULT_SPRINKLE_COLOR = SPRINKLE_PALETTE[0];
 
 // --- SEPARATOR ---
@@ -70,7 +71,7 @@ export class SurfacePaintingService {
   public sprinkleShape: SprinkleShape = 'stick';
   public sprinkleMinScale = 0.7;
   public sprinkleMaxScale = 1.2;
-  public sprinkleUseRandomColors = true;
+  public sprinkleColorMode: SprinkleColorMode = 'multi';
   public sprinkleColor = DEFAULT_SPRINKLE_COLOR;
   public sprinkleRandomness = 0.3;
 
@@ -94,6 +95,7 @@ export class SurfacePaintingService {
   private lastUsedBrushColor: string | null = null;
   private lastUsedSprinkleShape: string | null = null;
   private lastUsedSprinkleColor: string | null = null;
+  private lastUsedSprinkleColorMode: SprinkleColorMode | null = null;
 
   // Optymalizacja zapisu (nie zapisujemy punktów gęściej niż co 1.5cm)
   private readonly RECORDING_DIST_SQ = 0.015 * 0.015;
@@ -210,8 +212,11 @@ export class SurfacePaintingService {
       };
     } else if (this.mode === 'sprinkles') {
       const isSameShape = this.lastUsedSprinkleShape === this.sprinkleShape;
+      const isSameMode = this.lastUsedSprinkleColorMode === this.sprinkleColorMode;
       const isSameColor =
-        this.lastUsedSprinkleColor === this.sprinkleColor || this.sprinkleUseRandomColors;
+        this.sprinkleColorMode === 'mono'
+          ? this.lastUsedSprinkleColor === this.sprinkleColor
+          : true;
       const hasCapacity =
         this.sprinkleStrokeMesh && this.sprinkleStrokeIndex < this.sprinkleStrokeCapacity - 20;
 
@@ -219,10 +224,11 @@ export class SurfacePaintingService {
       const isRemoved = !this.sprinkleStrokeGroup || !this.sprinkleStrokeGroup.parent;
 
       // Dodajemy || isRemoved do warunku
-      if (!this.sprinkleStrokeMesh || !isSameShape || !isSameColor || !hasCapacity || isRemoved) {
+      if (!this.sprinkleStrokeMesh || !isSameShape || !isSameMode || !isSameColor || !hasCapacity || isRemoved) {
         this.finalizePreviousBatch();
         this.lastUsedSprinkleShape = this.sprinkleShape;
         this.lastUsedSprinkleColor = this.sprinkleColor;
+        this.lastUsedSprinkleColorMode = this.sprinkleColorMode;
         this.prepareSprinkleStroke();
       }
 
@@ -231,7 +237,8 @@ export class SurfacePaintingService {
         mode: 'sprinkles',
         shape: this.sprinkleShape,
         density: this.sprinkleDensity,
-        useRandomColors: this.sprinkleUseRandomColors,
+        useRandomColors: this.sprinkleColorMode === 'multi',
+        colorMode: this.sprinkleColorMode,
         color: this.sprinkleColor,
         pathData: [],
       };
@@ -252,6 +259,7 @@ export class SurfacePaintingService {
     this.sprinkleStrokeCapacity = 0;
     this.lastUsedSprinkleShape = null;
     this.lastUsedSprinkleColor = null;
+    this.lastUsedSprinkleColorMode = null;
   }
 
   public async handlePointer(hit: THREE.Intersection, scene: THREE.Scene): Promise<void> {
@@ -393,14 +401,16 @@ export class SurfacePaintingService {
     const mergedSprinklesMap = new Map<string, SerializedSprinkleStroke>();
 
     validSprinkleStrokes.forEach((stroke) => {
-      const key = `${stroke.shape}|${stroke.color}|${stroke.useRandomColors}|${stroke.density}`;
+      const colorMode = stroke.colorMode ?? (stroke.useRandomColors !== false ? 'multi' : 'mono');
+      const key = `${stroke.shape}|${colorMode}|${stroke.color}|${stroke.density}`;
       if (!mergedSprinklesMap.has(key)) {
         mergedSprinklesMap.set(key, {
           id: `merged-sprinkles-${this.nextStrokeId++}`,
           mode: 'sprinkles',
           shape: stroke.shape,
+          colorMode: colorMode,
           color: stroke.color,
-          useRandomColors: stroke.useRandomColors,
+          useRandomColors: stroke.useRandomColors ?? colorMode === 'multi',
           density: stroke.density,
           pathData: [...stroke.pathData],
         });
@@ -498,8 +508,9 @@ export class SurfacePaintingService {
     this.mode = 'sprinkles';
     this.sprinkleShape = stroke.shape;
     this.sprinkleDensity = stroke.density;
-    this.sprinkleUseRandomColors = stroke.useRandomColors;
-    this.sprinkleColor = stroke.color;
+    const colorMode: SprinkleColorMode = stroke.colorMode ?? (stroke.useRandomColors !== false ? 'multi' : 'mono');
+    this.sprinkleColorMode = colorMode;
+    this.sprinkleColor = this.sanitizeHexColor(stroke.color, this.sprinkleColor);
 
     this.isReplayingSprinkles = true;
     this.lastSprinklePoint = null;
@@ -606,13 +617,15 @@ export class SurfacePaintingService {
     this.sprinkleShape = shape;
   }
 
-  public setSprinkleColorMode(useRandom: boolean): void {
-    this.sprinkleUseRandomColors = useRandom;
+  public setSprinkleColorMode(mode: SprinkleColorMode): void {
+    if (this.sprinkleColorMode === mode) return;
+    this.finalizePreviousBatch();
+    this.sprinkleColorMode = mode;
   }
 
   public setSprinkleColor(color: string): void {
     this.finalizePreviousBatch();
-    this.sprinkleUseRandomColors = false;
+    this.sprinkleColorMode = 'mono';
     this.sprinkleColor = this.sanitizeHexColor(color, this.sprinkleColor);
   }
 
@@ -1210,12 +1223,10 @@ export class SurfacePaintingService {
       this.tempMatrix.compose(this.tempVec3_7, this.tempQuat, this.tempScale);
       this.sprinkleStrokeMesh.setMatrixAt(this.sprinkleStrokeIndex, this.tempMatrix);
 
-      let colorHex: string;
-      if (this.sprinkleUseRandomColors) {
-        colorHex = SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)];
-      } else {
-        colorHex = this.sprinkleColor;
-      }
+      const colorHex =
+        this.sprinkleColorMode === 'multi'
+          ? SPRINKLE_PALETTE[Math.floor(Math.random() * SPRINKLE_PALETTE.length)]
+          : this.sprinkleColor;
       this.tempColor.set(colorHex).convertSRGBToLinear();
       this.sprinkleStrokeMesh.setColorAt(this.sprinkleStrokeIndex, this.tempColor);
 

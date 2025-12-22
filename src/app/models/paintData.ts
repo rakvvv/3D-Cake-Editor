@@ -1,4 +1,4 @@
-import {SprinkleShape} from '../services/surface-painting.service';
+import {SprinkleColorMode, SprinkleShape} from '../services/surface-painting.service';
 
 export interface PaintData {
   brushMatrices: Float32Array[]; // Tablica macierzy dla pędzla
@@ -6,4 +6,5 @@ export interface PaintData {
   sprinkleMatrices: Float32Array[];
   sprinkleColors: Float32Array[];
   sprinkleShape: SprinkleShape;
+  sprinkleColorMode?: SprinkleColorMode;
 }
