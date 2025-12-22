@@ -12,6 +12,7 @@ import { PaintService } from './paint.service';
 import { ExportService } from './export.service';
 import { SnapService } from './snap.service';
 import { TextFactory } from '../factories/text.factory';
+import { DecorationFactory } from '../factories/decoration.factory';
 import { CakeMetadata } from '../factories/three-objects.factory';
 import { AnchorPresetsService } from './anchor-presets.service';
 import { AnchorPoint } from '../models/anchors';
@@ -291,67 +292,29 @@ describe('ThreeSceneService', () => {
     expect(figurineNode.attached).toBeTrue();
   });
 
-  it('toggles visibility of paint groups and propagates to children', () => {
+  it('uses decoration names from metadata in the scene outline', async () => {
     const sceneInit = TestBed.inject(SceneInitService);
     assignScene(sceneInit);
 
-    const cakeBase = new THREE.Group();
-    sceneInit.scene.add(cakeBase);
-    service.cakeBase = cakeBase;
+    const decorationsService = TestBed.inject(DecorationsService);
+    decorationsService.setDecorations([
+      { id: 'cat', name: 'Kotek', modelFileName: 'cat.glb', type: 'BOTH' },
+    ]);
+
+    service.cakeBase = new THREE.Group();
+    sceneInit.scene.add(service.cakeBase);
     (service as any).scene = sceneInit.scene;
 
-    const penStroke = new THREE.Mesh();
-    penStroke.userData['isPaintStroke'] = true;
-    penStroke.userData['paintStrokeType'] = 'pen';
-    cakeBase.add(penStroke);
+    spyOn(DecorationFactory, 'loadDecorationModel').and.returnValue(Promise.resolve(new THREE.Group()));
 
-    const secondPenStroke = new THREE.Mesh();
-    secondPenStroke.userData['isPaintStroke'] = true;
-    secondPenStroke.userData['paintStrokeType'] = 'pen';
-    cakeBase.add(secondPenStroke);
+    const result = await (service as any).spawnDecorationFromPreset({ modelFileName: 'cat.glb' });
 
-    const outlineBefore = service.getSceneOutline();
-    const groupId = 'paint-group-pen-attached';
-    const penGroup = outlineBefore.children
-      .flatMap((node) => node.children)
-      .find((child) => child.id === groupId);
+    expect(result?.object.userData['displayName']).toBe('Kotek');
 
-    expect(penGroup?.visible).toBeTrue();
+    const outline = service.getSceneOutline();
+    const decorationNode = outline.children.find((child) => child.id === result?.object.uuid);
 
-    expect(service.setDecorationVisibility(groupId, false)).toBeTrue();
-
-    expect(penStroke.visible).toBeFalse();
-    expect(secondPenStroke.visible).toBeFalse();
-
-    const outlineAfter = service.getSceneOutline();
-    const updatedGroup = outlineAfter.children
-      .flatMap((node) => node.children)
-      .find((child) => child.id === groupId);
-
-    expect(updatedGroup?.visible).toBeFalse();
-  });
-
-  it('uses outline parent relationships as a fallback when toggling paint group visibility', () => {
-    const sceneInit = TestBed.inject(SceneInitService);
-    assignScene(sceneInit);
-
-    const cakeBase = new THREE.Group();
-    sceneInit.scene.add(cakeBase);
-    service.cakeBase = cakeBase;
-    (service as any).scene = sceneInit.scene;
-
-    const penStroke = new THREE.Mesh();
-    penStroke.userData['isPaintStroke'] = true;
-    penStroke.userData['paintStrokeType'] = 'pen';
-    cakeBase.add(penStroke);
-
-    const outlineSpy = spyOn<any>(service, 'findOutlineNodeById').and.returnValue(null);
-
-    const toggled = service.setDecorationVisibility('paint-group-pen-attached', false);
-
-    expect(toggled).toBeTrue();
-    expect(penStroke.visible).toBeFalse();
-    expect(outlineSpy).toHaveBeenCalled();
+    expect(decorationNode?.name).toBe('Kotek');
   });
 
   it('uses the configured font when creating cake text', fakeAsync(() => {

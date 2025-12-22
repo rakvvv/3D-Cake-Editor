@@ -1544,42 +1544,13 @@ export class ThreeSceneService {
 
   public setDecorationVisibility(id: string, visible: boolean): boolean {
     const target = this.findDecorationById(id);
-    if (target) {
-      this.applyVisibilityToDecoration(target, visible);
-      this.emitOutlineChanged();
-      return true;
+    if (!target) {
+      return false;
     }
 
-    const outline = this.getSceneOutline();
-    const groupNode = this.findOutlineNodeById(outline, id);
-
-    let changed = false;
-    const toggleChildren = (node: SceneOutlineNode) => {
-      if (node.type === 'decoration') {
-        const decoration = this.findDecorationById(node.id);
-        if (decoration) {
-          this.applyVisibilityToDecoration(decoration, visible);
-          changed = true;
-        }
-      }
-
-      node.children.forEach(toggleChildren);
-    };
-
-    if (groupNode?.type === 'group') {
-      groupNode.children.forEach(toggleChildren);
-    }
-
-    if (!changed) {
-      const fallbackChildren = this.findOutlineChildrenByParentId(outline, id);
-      fallbackChildren.forEach(toggleChildren);
-    }
-
-    if (changed) {
-      this.emitOutlineChanged();
-    }
-
-    return changed;
+    this.applyVisibilityToDecoration(target, visible);
+    this.emitOutlineChanged();
+    return true;
   }
 
   public removeDecorationById(id: string): boolean {
@@ -2846,20 +2817,6 @@ export class ThreeSceneService {
     return null;
   }
 
-  private findOutlineChildrenByParentId(node: SceneOutlineNode, parentId: string): SceneOutlineNode[] {
-    const matches: SceneOutlineNode[] = [];
-
-    node.children.forEach((child) => {
-      if (child.parentId === parentId) {
-        matches.push(child);
-      }
-
-      matches.push(...this.findOutlineChildrenByParentId(child, parentId));
-    });
-
-    return matches;
-  }
-
   private applyVisibilityToDecoration(target: THREE.Object3D, visible: boolean): void {
     target.visible = visible;
     target.traverse((child) => {
@@ -3126,6 +3083,7 @@ export class ThreeSceneService {
       decoration.userData['decorationType'] = info?.type ?? 'BOTH';
       decoration.userData['isDecoration'] = true;
       decoration.userData['modelFileName'] = modelFileName;
+      decoration.userData['displayName'] = info?.name;
 
       if (info?.initialRotation && !entry.rotation) {
         const [x, y, z] = info.initialRotation;
