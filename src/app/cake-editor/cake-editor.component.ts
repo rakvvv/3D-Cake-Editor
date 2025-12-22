@@ -1413,8 +1413,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private applyLayerSizing(layers: number, baseWidth: number): void {
-    const widenedBase = baseWidth + (layers - 1) * 0.2;
-    const sizes = Array.from({ length: layers }, (_, idx) => Math.max(0.6, widenedBase - idx * 0.2));
+    const widenedBase = baseWidth + (layers - 1) * 0.3;
+    const sizes = Array.from({ length: layers }, (_, idx) => Math.max(0.6, widenedBase - idx * 0.3));
     this.patchOptions({ layers, layerSizes: sizes, cake_size: 1 });
   }
 

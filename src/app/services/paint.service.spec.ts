@@ -6,6 +6,8 @@ import { DecorationFactory } from '../factories/decoration.factory';
 import { TransformManagerService } from './transform-manager.service';
 import { SnapService } from './snap.service';
 import { DecorationsService } from './decorations.service';
+import { CakeMetadata } from '../factories/three-objects.factory';
+import { CreamRingPreset } from '../models/cream-presets';
 
 if (typeof performance === 'undefined') {
   (globalThis as any).performance = {
@@ -55,8 +57,12 @@ describe('PaintService', () => {
     const transformManagerSpy = jasmine.createSpyObj<TransformManagerService>('TransformManagerService', [
       'removeDecorationObject',
     ]);
-    const snapServiceSpy = jasmine.createSpyObj<SnapService>('SnapService', ['snapDecorationToCake']);
+    const snapServiceSpy = jasmine.createSpyObj<SnapService>('SnapService', [
+      'snapDecorationToCake',
+      'getCakeMetadataSnapshot',
+    ]);
     snapServiceSpy.snapDecorationToCake.and.returnValue({ success: true, surfaceType: 'TOP', message: '' });
+    snapServiceSpy.getCakeMetadataSnapshot.and.returnValue(null);
     const decorationsServiceSpy = jasmine.createSpyObj<DecorationsService>('DecorationsService', [
       'getDecorationInfo',
     ]);
@@ -760,6 +766,130 @@ describe('PaintService', () => {
 
     service.redo();
     expect(scene.children.includes(decoration)).toBeTrue();
+  });
+
+  it('builds cuboid ring presets along the rectangular perimeter', () => {
+    const preset: CreamRingPreset = {
+      id: 'cuboid-ring',
+      name: 'Cuboid Ring',
+      mode: 'RING',
+      layerIndex: 0,
+      position: 'SIDE_ARC',
+      startAngleDeg: 0,
+      endAngleDeg: 360,
+      radiusOffset: 0.01,
+    };
+
+    const metadata: CakeMetadata = {
+      shape: 'cuboid',
+      layers: 1,
+      layerHeight: 1,
+      totalHeight: 1,
+      layerSizes: [1],
+      layerDimensions: [
+        { index: 0, size: 1, height: 1, topY: 1, bottomY: 0, width: 2, depth: 1 },
+      ],
+      width: 2,
+      depth: 1,
+    };
+
+    const path = (service as any).buildExtruderPath(preset, metadata);
+
+    expect(path.length).toBe(123);
+    expect(path[0].position.x).toBeCloseTo(1.01, 4);
+    expect(path[0].position.z).toBeCloseTo(0, 4);
+    expect(path[0].normal).toEqual(new THREE.Vector3(1, 0, 0));
+    expect(path[0].tangent).toEqual(new THREE.Vector3(0, 0, 1));
+
+    const quarter = path[Math.floor(path.length / 4)];
+    expect(quarter.normal).toEqual(new THREE.Vector3(0, 0, 1));
+    expect(quarter.tangent).toEqual(new THREE.Vector3(-1, 0, 0));
+
+    const halfway = path[Math.floor(path.length / 2)];
+    expect(halfway.position.x).toBeCloseTo(-1.01, 4);
+    expect(halfway.normal).toEqual(new THREE.Vector3(-1, 0, 0));
+    expect(halfway.tangent).toEqual(new THREE.Vector3(0, 0, -1));
+  });
+
+  it('maps cuboid path presets using perimeter-based spacing', () => {
+    const preset: CreamRingPreset = {
+      id: 'cuboid-path',
+      name: 'Cuboid Path',
+      mode: 'PATH',
+      layerIndex: 0,
+      position: 'SIDE_ARC',
+      nodes: [
+        { angleDeg: 0, heightNorm: 0.4 },
+        { angleDeg: 90, heightNorm: 0.6 },
+      ],
+    };
+
+    const metadata: CakeMetadata = {
+      shape: 'cuboid',
+      layers: 1,
+      layerHeight: 1,
+      totalHeight: 1,
+      layerSizes: [1],
+      layerDimensions: [
+        { index: 0, size: 1, height: 1, topY: 1, bottomY: 0, width: 2, depth: 1 },
+      ],
+      width: 2,
+      depth: 1,
+    };
+
+    const path = (service as any).buildExtruderPath(preset, metadata);
+
+    expect(path.length).toBe(31);
+    expect(path[0].normal).toEqual(new THREE.Vector3(1, 0, 0));
+    expect(path[0].tangent).toEqual(new THREE.Vector3(0, 0, 1));
+    expect(path[path.length - 1].normal).toEqual(new THREE.Vector3(0, 0, 1));
+    expect(path[path.length - 1].tangent).toEqual(new THREE.Vector3(-1, 0, 0));
+  });
+
+  it('renders cuboid path markers along the rectangular perimeter', () => {
+    const preset: CreamRingPreset = {
+      id: 'cuboid-markers',
+      name: 'Cuboid Markers',
+      mode: 'PATH',
+      layerIndex: 0,
+      position: 'SIDE_ARC',
+      radiusOffset: 0.05,
+      nodes: [
+        { angleDeg: 0, heightNorm: 0.4 },
+        { angleDeg: 90, heightNorm: 0.6 },
+        { angleDeg: 135, heightNorm: 0.5 },
+      ],
+    };
+
+    const metadata: CakeMetadata = {
+      shape: 'cuboid',
+      layers: 1,
+      layerHeight: 1,
+      totalHeight: 1,
+      layerSizes: [1],
+      layerDimensions: [
+        { index: 0, size: 1, height: 1, topY: 1, bottomY: 0, width: 2, depth: 1 },
+      ],
+      width: 2,
+      depth: 1,
+    };
+
+    snapService.getCakeMetadataSnapshot.and.returnValue(metadata);
+
+    const scene = new THREE.Scene();
+    (service as any).stateStore.setScene(scene);
+    (service as any).stateStore.setCakeBase(new THREE.Object3D());
+
+    service.setExtruderPathNodes(preset.nodes ?? [], preset);
+
+    const markers = (service as any).extruderPathMarkers as THREE.Mesh[];
+    expect(markers.length).toBe(3);
+    expect(markers[0].position.x).toBeCloseTo(1.062, 3);
+    expect(markers[0].position.z).toBeCloseTo(0, 5);
+    expect(markers[1].position.z).toBeCloseTo(0.562, 3);
+    expect(markers[1].position.x).toBeCloseTo(0, 3);
+    expect(markers[2].position.x).toBeCloseTo(-0.55, 2);
+    expect(markers[2].position.z).toBeCloseTo(0.562, 3);
   });
 
 });

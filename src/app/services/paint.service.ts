@@ -139,6 +139,7 @@ export class PaintService {
   });
   private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.03, 20, 16);
   private readonly extruderPathMarkerOffset = 0.012;
+  private readonly extruderPathTargetSegmentLength = 0.05;
 
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
@@ -1021,14 +1022,34 @@ export class PaintService {
     const adjustedRadiusX = Math.max(0.01, radiusX + (normalizedPreset.radiusOffset ?? 0));
     const adjustedRadiusZ = Math.max(0.01, radiusZ + (normalizedPreset.radiusOffset ?? 0));
 
-    const markerPositions = normalizedPreset.nodes.map((node) => {
+    const presetNodes = normalizedPreset.nodes ?? [];
+    const markerPositions = presetNodes.map((node, index) => {
       const angle = THREE.MathUtils.degToRad(node.angleDeg);
       const height = this.getCreamHeightForPreset(normalizedPreset, layer, metadata, node.heightNorm);
-      const basePosition = new THREE.Vector3(adjustedRadiusX * Math.cos(angle), height, adjustedRadiusZ * Math.sin(angle));
-      const radialNormal = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
+      const isCuboid = metadata.shape === 'cuboid';
+
+      let basePosition: THREE.Vector3;
+      let surfaceNormal: THREE.Vector3;
+
+      if (isCuboid) {
+        const direction = this.getNodeDirection(presetNodes, index);
+        const { position, normal } = this.getCuboidPerimeterPoint(
+          angle,
+          adjustedRadiusX,
+          adjustedRadiusZ,
+          height,
+          direction,
+        );
+        basePosition = position;
+        surfaceNormal = normal;
+      } else {
+        basePosition = new THREE.Vector3(adjustedRadiusX * Math.cos(angle), height, adjustedRadiusZ * Math.sin(angle));
+        surfaceNormal = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).normalize();
+      }
+
       const nodeHeightNorm = node.heightNorm ?? 0;
       const isTopEdge = normalizedPreset.position === 'TOP_EDGE' || nodeHeightNorm >= 0.98;
-      const markerNormal = isTopEdge ? new THREE.Vector3(0, 1, 0) : radialNormal;
+      const markerNormal = isTopEdge ? new THREE.Vector3(0, 1, 0) : surfaceNormal;
       return basePosition.add(markerNormal.multiplyScalar(this.extruderPathMarkerOffset));
     });
 
@@ -1452,6 +1473,10 @@ export class PaintService {
     const adjustedRadiusX = Math.max(0.01, radiusX + radiusOffset);
     const adjustedRadiusZ = Math.max(0.01, radiusZ + radiusOffset);
 
+    if (metadata.shape === 'cuboid') {
+      return this.buildCuboidExtruderPath(preset, layer, metadata, adjustedRadiusX, adjustedRadiusZ);
+    }
+
     switch (preset.mode) {
       case 'PATH':
         return this.buildPathFromNodes(preset, layer, metadata, adjustedRadiusX, adjustedRadiusZ);
@@ -1460,6 +1485,59 @@ export class PaintService {
       default:
         return this.buildCircularExtruderPath(preset, layer, metadata, adjustedRadiusX, adjustedRadiusZ);
     }
+  }
+
+  private buildCuboidExtruderPath(
+    preset: CreamRingPreset,
+    layer: LayerMetadata,
+    metadata: CakeMetadata,
+    halfWidth: number,
+    halfDepth: number,
+  ): { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] {
+    switch (preset.mode) {
+      case 'PATH':
+        return this.buildCuboidPathFromNodes(preset, layer, metadata, halfWidth, halfDepth);
+      case 'ARC':
+      case 'RING':
+      default:
+        return this.buildCuboidRingPath(preset, layer, metadata, halfWidth, halfDepth);
+    }
+  }
+
+  private buildCuboidRingPath(
+    preset: CreamRingPreset,
+    layer: LayerMetadata,
+    metadata: CakeMetadata,
+    halfWidth: number,
+    halfDepth: number,
+  ): { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] {
+    const height = this.getCreamHeightForPreset(preset, layer, metadata);
+    const angles = normalizePresetAngles(preset);
+    const start = THREE.MathUtils.degToRad(angles.startAngleDeg ?? 0);
+    const end = THREE.MathUtils.degToRad(angles.endAngleDeg ?? 360);
+    const span = Math.abs(end - start);
+    const perimeter = this.getCuboidPerimeter(halfWidth, halfDepth);
+    const baseSegments = preset.segments ?? this.estimateCuboidSegments(perimeter, span);
+    const segments = Math.max(2, baseSegments);
+    const direction = end === start ? 1 : Math.sign(end - start);
+
+    const points: { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] = [];
+
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const angle = start + (end - start) * t;
+      const { position, normal, tangent } = this.getCuboidPerimeterPoint(
+        angle,
+        halfWidth,
+        halfDepth,
+        height,
+        direction,
+      );
+
+      points.push({ position, normal, tangent });
+    }
+
+    return points;
   }
 
   private buildCircularExtruderPath(
@@ -1563,6 +1641,85 @@ export class PaintService {
     return points;
   }
 
+  private buildCuboidPathFromNodes(
+    preset: CreamRingPreset,
+    layer: LayerMetadata,
+    metadata: CakeMetadata,
+    halfWidth: number,
+    halfDepth: number,
+  ): { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] {
+    const nodes = this.normalizeNodes(preset);
+    if (nodes.length < 2) {
+      return [];
+    }
+
+    const unwrappedAngles = this.unwrapNodeAngles(nodes);
+    const totalSpan = this.getTotalAngleSpan(unwrappedAngles);
+    const perimeter = this.getCuboidPerimeter(halfWidth, halfDepth);
+    const baseSegments =
+      preset.segments ??
+      Math.max(
+        nodes.length * 4,
+        Math.ceil(((perimeter * Math.max(totalSpan, 1e-3)) / (Math.PI * 2)) / this.extruderPathTargetSegmentLength),
+      );
+    const totalSegments = Math.max(1, baseSegments);
+    const points: { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 }[] = [];
+    let segmentsLeft = totalSegments;
+
+    nodes.forEach((node, index) => {
+      if (index === nodes.length - 1) {
+        return;
+      }
+
+      const next = nodes[index + 1];
+      const steps = Math.max(1, Math.round(segmentsLeft / (nodes.length - 1 - index)));
+      const startAngle = THREE.MathUtils.degToRad(unwrappedAngles[index]);
+      const endAngle = THREE.MathUtils.degToRad(unwrappedAngles[index + 1]);
+      const startHeight = this.getCreamHeightForPreset(preset, layer, metadata, node.heightNorm);
+      const endHeight = this.getCreamHeightForPreset(preset, layer, metadata, next.heightNorm);
+      const direction = endAngle === startAngle ? 1 : Math.sign(endAngle - startAngle);
+
+      for (let i = 0; i <= steps; i++) {
+        const t = steps === 0 ? 0 : i / steps;
+        const angle = startAngle + (endAngle - startAngle) * t;
+        const height = THREE.MathUtils.lerp(startHeight, endHeight, t);
+        const { position, normal, tangent } = this.getCuboidPerimeterPoint(
+          angle,
+          halfWidth,
+          halfDepth,
+          height,
+          direction,
+        );
+
+        points.push({ position, normal, tangent });
+      }
+
+      segmentsLeft = Math.max(0, segmentsLeft - steps);
+    });
+
+    return points;
+  }
+
+  private getNodeDirection(nodes: CreamPathNode[], index: number): number {
+    if (!nodes.length) {
+      return 1;
+    }
+
+    const current = nodes[index]?.angleDeg ?? nodes[0].angleDeg;
+    const next = nodes[index + 1]?.angleDeg;
+    const previous = nodes[index - 1]?.angleDeg;
+
+    if (next !== undefined) {
+      return Math.sign(this.shortestAngularDelta(current, next)) || 1;
+    }
+
+    if (previous !== undefined) {
+      return Math.sign(this.shortestAngularDelta(previous, current)) || 1;
+    }
+
+    return 1;
+  }
+
   private unwrapNodeAngles(nodes: CreamPathNode[]): number[] {
     if (!nodes.length) {
       return [];
@@ -1584,21 +1741,92 @@ export class PaintService {
     return angles;
   }
 
-    private normalizeNodes(preset: CreamRingPreset): CreamPathNode[] {
-      const fallbackNodes: CreamPathNode[] = [
-        { angleDeg: preset.startAngleDeg ?? 0, heightNorm: preset.heightNorm, enabled: true },
-        { angleDeg: preset.endAngleDeg ?? (preset.startAngleDeg ?? 0) + 180, heightNorm: preset.heightNorm, enabled: true },
-      ];
-      const base = preset.nodes && preset.nodes.length >= 2 ? preset.nodes : fallbackNodes;
+  private shortestAngularDelta(fromDeg: number, toDeg: number): number {
+    const delta = THREE.MathUtils.euclideanModulo(toDeg - fromDeg + 540, 360) - 180;
+    return delta === -180 ? 180 : delta;
+  }
 
-      return base
-        .filter((node) => node.enabled !== false)
-        .map((node) => ({
-          angleDeg: THREE.MathUtils.euclideanModulo(node.angleDeg, 360),
-          heightNorm: node.heightNorm ?? preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5),
-          enabled: node.enabled !== false,
-        }));
+  private normalizeNodes(preset: CreamRingPreset): CreamPathNode[] {
+    const fallbackNodes: CreamPathNode[] = [
+      { angleDeg: preset.startAngleDeg ?? 0, heightNorm: preset.heightNorm, enabled: true },
+      { angleDeg: preset.endAngleDeg ?? (preset.startAngleDeg ?? 0) + 180, heightNorm: preset.heightNorm, enabled: true },
+    ];
+    const base = preset.nodes && preset.nodes.length >= 2 ? preset.nodes : fallbackNodes;
+
+    return base
+      .filter((node) => node.enabled !== false)
+      .map((node) => ({
+        angleDeg: THREE.MathUtils.euclideanModulo(node.angleDeg, 360),
+        heightNorm: node.heightNorm ?? preset.heightNorm ?? (preset.position === 'TOP_EDGE' ? 1 : preset.position === 'BOTTOM_EDGE' ? 0 : 0.5),
+        enabled: node.enabled !== false,
+      }));
+  }
+
+  private getCuboidPerimeterPoint(
+    angle: number,
+    halfWidth: number,
+    halfDepth: number,
+    height: number,
+    direction: number,
+  ): { position: THREE.Vector3; normal: THREE.Vector3; tangent: THREE.Vector3 } {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const safeDirection = direction === 0 ? 1 : Math.sign(direction);
+    const scaleX = Math.abs(cos) > 1e-6 ? halfWidth / Math.abs(cos) : Number.POSITIVE_INFINITY;
+    const scaleZ = Math.abs(sin) > 1e-6 ? halfDepth / Math.abs(sin) : Number.POSITIVE_INFINITY;
+    const useX = scaleX <= scaleZ;
+    const scale = useX ? scaleX : scaleZ;
+
+    const position = new THREE.Vector3(cos * scale, height, sin * scale);
+    const side = useX ? (cos >= 0 ? 'POS_X' : 'NEG_X') : sin >= 0 ? 'POS_Z' : 'NEG_Z';
+
+    let normal: THREE.Vector3;
+    let tangent: THREE.Vector3;
+
+    switch (side) {
+      case 'POS_X':
+        normal = new THREE.Vector3(1, 0, 0);
+        tangent = new THREE.Vector3(0, 0, safeDirection >= 0 ? 1 : -1);
+        break;
+      case 'NEG_X':
+        normal = new THREE.Vector3(-1, 0, 0);
+        tangent = new THREE.Vector3(0, 0, safeDirection >= 0 ? -1 : 1);
+        break;
+      case 'POS_Z':
+        normal = new THREE.Vector3(0, 0, 1);
+        tangent = new THREE.Vector3(safeDirection >= 0 ? -1 : 1, 0, 0);
+        break;
+      default:
+        normal = new THREE.Vector3(0, 0, -1);
+        tangent = new THREE.Vector3(safeDirection >= 0 ? 1 : -1, 0, 0);
+        break;
     }
+
+    return { position, normal, tangent };
+  }
+
+  private estimateCuboidSegments(perimeter: number, span: number): number {
+    const portion = Math.max(span / (Math.PI * 2), 1e-3);
+    const estimated = Math.ceil((perimeter * portion) / this.extruderPathTargetSegmentLength);
+    return Math.max(4, estimated);
+  }
+
+  private getCuboidPerimeter(halfWidth: number, halfDepth: number): number {
+    return 4 * (halfWidth + halfDepth);
+  }
+
+  private getTotalAngleSpan(angles: number[]): number {
+    if (angles.length < 2) {
+      return 0;
+    }
+
+    let span = 0;
+    for (let i = 0; i < angles.length - 1; i++) {
+      span += Math.abs(angles[i + 1] - angles[i]);
+    }
+
+    return span;
+  }
 
   private getLayerRadii(layer: LayerMetadata, metadata: CakeMetadata): { radiusX: number; radiusZ: number } {
     const baseRadius = layer.radius ?? metadata.radius ?? metadata.maxRadius ?? 1;
