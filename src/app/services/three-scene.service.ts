@@ -1552,9 +1552,6 @@ export class ThreeSceneService {
 
     const outline = this.getSceneOutline();
     const groupNode = this.findOutlineNodeById(outline, id);
-    if (!groupNode || groupNode.type !== 'group') {
-      return false;
-    }
 
     let changed = false;
     const toggleChildren = (node: SceneOutlineNode) => {
@@ -1569,7 +1566,14 @@ export class ThreeSceneService {
       node.children.forEach(toggleChildren);
     };
 
-    groupNode.children.forEach(toggleChildren);
+    if (groupNode?.type === 'group') {
+      groupNode.children.forEach(toggleChildren);
+    }
+
+    if (!changed) {
+      const fallbackChildren = this.findOutlineChildrenByParentId(outline, id);
+      fallbackChildren.forEach(toggleChildren);
+    }
 
     if (changed) {
       this.emitOutlineChanged();
@@ -2840,6 +2844,20 @@ export class ThreeSceneService {
     }
 
     return null;
+  }
+
+  private findOutlineChildrenByParentId(node: SceneOutlineNode, parentId: string): SceneOutlineNode[] {
+    const matches: SceneOutlineNode[] = [];
+
+    node.children.forEach((child) => {
+      if (child.parentId === parentId) {
+        matches.push(child);
+      }
+
+      matches.push(...this.findOutlineChildrenByParentId(child, parentId));
+    });
+
+    return matches;
   }
 
   private applyVisibilityToDecoration(target: THREE.Object3D, visible: boolean): void {

@@ -331,6 +331,29 @@ describe('ThreeSceneService', () => {
     expect(updatedGroup?.visible).toBeFalse();
   });
 
+  it('uses outline parent relationships as a fallback when toggling paint group visibility', () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    assignScene(sceneInit);
+
+    const cakeBase = new THREE.Group();
+    sceneInit.scene.add(cakeBase);
+    service.cakeBase = cakeBase;
+    (service as any).scene = sceneInit.scene;
+
+    const penStroke = new THREE.Mesh();
+    penStroke.userData['isPaintStroke'] = true;
+    penStroke.userData['paintStrokeType'] = 'pen';
+    cakeBase.add(penStroke);
+
+    const outlineSpy = spyOn<any>(service, 'findOutlineNodeById').and.returnValue(null);
+
+    const toggled = service.setDecorationVisibility('paint-group-pen-attached', false);
+
+    expect(toggled).toBeTrue();
+    expect(penStroke.visible).toBeFalse();
+    expect(outlineSpy).toHaveBeenCalled();
+  });
+
   it('uses the configured font when creating cake text', fakeAsync(() => {
     const sceneInit = TestBed.inject(SceneInitService);
     assignScene(sceneInit);
