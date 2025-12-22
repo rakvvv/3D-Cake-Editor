@@ -23,7 +23,9 @@ export class SidebarLayersPanelComponent {
   onLayerCountChange(value: number): void {
     if (!this.options) return;
     const layers = Math.min(Math.max(Math.round(value), 1), 4);
-    const baseWidth = this.getBaseWidth(this.sizePreset);
+    const preset = layers === 3 ? 'small' : this.sizePreset;
+    this.sizePreset = preset;
+    const baseWidth = this.getBaseWidth(preset);
     const layerSizes = this.buildLayerSizes(layers, baseWidth);
     this.emitOptions({ layers, layerSizes, cake_size: 1 });
   }
@@ -57,6 +59,11 @@ export class SidebarLayersPanelComponent {
 
   private syncFromOptions(): void {
     if (!this.options?.layerSizes?.length) {
+      return;
+    }
+
+    if (this.options.layers === 3) {
+      this.sizePreset = 'small';
       return;
     }
 
