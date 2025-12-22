@@ -2703,11 +2703,16 @@ export class PaintService {
 
     const matrix = new THREE.Matrix4();
     entry.instances.forEach((instance) => {
+      if (!Array.isArray(instance.matrix) || instance.matrix.length !== 16) {
+        return;
+      }
+
       matrix.fromArray(instance.matrix);
       const target = instance.penPart === 'joint' ? jointState
         : instance.penPart === 'cap' ? capState
           : segmentState;
-      if (target.count >= this.penMaxInstances) {
+      const capacity = target.mesh.instanceMatrix.count ?? this.penMaxInstances;
+      if (target.count >= capacity) {
         return;
       }
       target.mesh.setMatrixAt(target.count, matrix);
@@ -2715,6 +2720,8 @@ export class PaintService {
     });
 
     [segmentState, jointState, capState].forEach((state) => {
+      const capacity = state.mesh.instanceMatrix.count ?? this.penMaxInstances;
+      state.count = Math.min(state.count, capacity);
       state.mesh.count = state.count;
       state.mesh.instanceMatrix.needsUpdate = true;
     });
