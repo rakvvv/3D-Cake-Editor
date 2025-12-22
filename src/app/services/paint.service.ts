@@ -2140,7 +2140,7 @@ export class PaintService {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData['isPaintStroke'] = true;
-    mesh.userData['penPart'] = 'joint';
+    mesh.userData['penPart'] = 'segment';
     strokeGroup.add(mesh);
     this.penSegmentInstance = { mesh, count: 0 };
     return this.penSegmentInstance;
@@ -2159,6 +2159,7 @@ export class PaintService {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.userData['isPaintStroke'] = true;
+    mesh.userData['penPart'] = 'joint';
     strokeGroup.add(mesh);
     this.penJointInstance = { mesh, count: 0 };
     return this.penJointInstance;
