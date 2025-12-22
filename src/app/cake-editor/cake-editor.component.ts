@@ -901,8 +901,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.setupLocked) {
       return;
     }
-    this.selectedCakeSize = size;
-    this.applyLayerSizing(this.selectedLayers, this.getBaseWidth(size));
+    const enforcedSize = this.selectedLayers === 3 ? 'small' : size;
+    this.selectedCakeSize = enforcedSize;
+    this.applyLayerSizing(this.selectedLayers, this.getBaseWidth(enforcedSize));
     this.refreshAutoWaferScale(true);
   }
 
@@ -919,8 +920,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.setupLocked) {
       return;
     }
+    const enforcedSize = layers === 3 ? 'small' : this.selectedCakeSize;
+    this.selectedCakeSize = enforcedSize;
     this.selectedLayers = layers;
-    this.applyLayerSizing(layers, this.getBaseWidth());
+    this.applyLayerSizing(layers, this.getBaseWidth(enforcedSize));
     this.refreshAutoWaferScale(true);
   }
 
@@ -2072,7 +2075,14 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private syncSetupStateWithOptions(): void {
     const baseLayer = this.options.layerSizes?.[0] ?? 1;
-    this.selectedCakeSize = baseLayer < 0.95 ? 'small' : baseLayer > 1.05 ? 'large' : 'medium';
+    this.selectedCakeSize =
+      this.options.layers === 3
+        ? 'small'
+        : baseLayer < 0.95
+          ? 'small'
+          : baseLayer > 1.05
+            ? 'large'
+            : 'medium';
     this.selectedShape = this.options.shape;
     this.selectedLayers = this.options.layers;
     this.primaryColor = this.options.cake_color;
