@@ -131,7 +131,8 @@ export class SprinkleStrokeBuilderService {
       .add(this.tempVec3_7.copy(worldNormal).multiplyScalar(liftAmount));
     if (anchorGroup) anchorGroup.worldToLocal(anchorPointLocal);
 
-    const clusterSpacing = 0.16;
+    const density01 = THREE.MathUtils.clamp(params.settings.density / 20, 0, 1);
+    const clusterSpacing = THREE.MathUtils.lerp(0.12, 0.05, density01);
     const isFirstCluster = !this.lastSprinklePoint;
 
     if (this.lastSprinklePoint && this.lastSprinklePoint.distanceTo(anchorPointWorld) < clusterSpacing) {
@@ -139,7 +140,7 @@ export class SprinkleStrokeBuilderService {
     }
 
     if (!params.isReplaying && !isFirstCluster) {
-      const skipChance = THREE.MathUtils.lerp(0, 0.4, params.settings.randomness);
+      const skipChance = THREE.MathUtils.lerp(0, 0.1, params.settings.randomness);
       if (rng() < skipChance) return;
     }
 
@@ -154,13 +155,14 @@ export class SprinkleStrokeBuilderService {
       );
     }
 
-    const count = Math.max(2, Math.round(THREE.MathUtils.lerp(3, 7, params.settings.density / 20)));
+    const count = Math.max(1, Math.round(THREE.MathUtils.lerp(10, 45, density01)));
     const startUpdateIndex = this.sprinkleRenderer.getStrokeIndex();
 
     for (let i = 0; i < count; i++) {
       if (this.sprinkleRenderer.getStrokeIndex() >= this.sprinkleRenderer.getStrokeCapacity()) break;
 
-      const spread = THREE.MathUtils.lerp(0.05, 0.12, params.settings.randomness);
+      const baseSpread = THREE.MathUtils.lerp(0.04, 0.12, density01);
+      const spread = THREE.MathUtils.lerp(baseSpread, baseSpread * 1.6, params.settings.randomness);
       const tiltAmount = THREE.MathUtils.lerp(0.0, 0.35, params.settings.randomness);
       const dirOffset = (rng() - 0.5) * 0.3;
       const s = THREE.MathUtils.lerp(params.settings.minScale, params.settings.maxScale, rng());

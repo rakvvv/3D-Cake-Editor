@@ -308,7 +308,7 @@ export class SurfacePaintingService {
     if (!hit.point) return;
 
     // 1. ZAPIS DANYCH
-    if (this.activeStroke) {
+    if (this.activeStroke && this.mode === 'brush') {
       const p = hit.point;
       const decision = this.samplingService.shouldRecordPoint(
         this.lastRecordedPoint,
@@ -473,12 +473,12 @@ export class SurfacePaintingService {
           useRandomColors: stroke.useRandomColors,
           density: stroke.density,
           strokeSeed: stroke.strokeSeed,
-          pathData: [...pathData],
+          pathData: [...pathData, STROKE_SEPARATOR, 0, 0, 0, 0, 0],
         });
       } else {
         const existing = mergedSprinklesMap.get(key)!;
         const existingPath = existing.pathData ?? (existing.pathData = []);
-        existingPath.push(...pathData);
+        existingPath.push(...pathData, STROKE_SEPARATOR, 0, 0, 0, 0, 0);
       }
     });
 
