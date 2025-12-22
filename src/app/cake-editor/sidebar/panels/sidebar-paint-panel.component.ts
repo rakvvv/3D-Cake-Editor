@@ -227,19 +227,10 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.brushChange.emit({ size });
   }
 
-  onPenSizeChange(size: number): void {
-    this.penSize = size;
-    this.brushChange.emit({ size });
-  }
 
   onPenThicknessChange(value: number): void {
     this.penThickness = value;
     this.brushChange.emit({ thickness: value });
-  }
-
-  onPenOpacityChange(value: number): void {
-    this.penOpacity = value / 100;
-    this.brushChange.emit({ opacity: this.penOpacity });
   }
 
   onLayerChange(index: number): void {
