@@ -27,6 +27,7 @@ export type SprinkleShape = 'stick' | 'ball' | 'star';
 
 const SPRINKLE_PALETTE = ['#ff6b81', '#ffd66b', '#6bffb0', '#6bb8ff', '#ffffff'];
 const DEFAULT_SPRINKLE_COLOR = SPRINKLE_PALETTE[0];
+const DEBUG_SURFACE_RECORD_LOGS = false;
 
 // --- SEPARATOR ---
 // Służy do oddzielania pociągnięć w scalonym pliku JSON
@@ -331,6 +332,13 @@ export class SurfacePaintingService {
           this.round(p.x), this.round(p.y), this.round(p.z),
           this.round(normal.x), this.round(normal.y), this.round(normal.z)
         );
+        if (DEBUG_SURFACE_RECORD_LOGS) {
+          console.debug('[SURFACE_RECORD]', {
+            mode: this.mode,
+            len: brushPath.length,
+            point: { x: p.x, y: p.y, z: p.z },
+          });
+        }
       }
     }
 

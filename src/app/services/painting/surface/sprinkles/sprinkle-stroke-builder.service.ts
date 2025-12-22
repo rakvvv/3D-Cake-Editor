@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { SprinkleShape, SurfacePaintingService } from '../../../surface-painting.service';
 import { SprinkleRendererService } from './sprinkle-renderer.service';
 
+const DEBUG_SPRINKLE_LOGS = false;
+
 const SPRINKLE_PALETTE = ['#ff6b81', '#ffd66b', '#6bffb0', '#6bb8ff', '#ffffff'];
 
 export interface SprinkleSettings {
@@ -32,6 +34,8 @@ interface SprinklePlaceParams {
 export class SprinkleStrokeBuilderService {
   private rng: (() => number) | null = null;
   private lastRecordedAnchor: THREE.Vector3 | null = null;
+  private debugAnchorsRecorded = 0;
+  private debugInstancesAdded = 0;
   private readonly tempMatrix = new THREE.Matrix4();
   private readonly tempMatrixInverse = new THREE.Matrix4();
   private readonly tempMatrix2 = new THREE.Matrix4();
@@ -58,6 +62,8 @@ export class SprinkleStrokeBuilderService {
   public resetStrokeState(): void {
     this.lastRecordedAnchor = null;
     this.rng = null;
+    this.debugAnchorsRecorded = 0;
+    this.debugInstancesAdded = 0;
   }
 
   public placeSprinkles(params: SprinklePlaceParams): void {
@@ -148,6 +154,14 @@ export class SprinkleStrokeBuilderService {
         this.round(worldNormal.y),
         this.round(worldNormal.z),
       );
+      this.debugAnchorsRecorded++;
+      if (DEBUG_SPRINKLE_LOGS) {
+        console.debug('[SPRINKLE_BUILDER_RECORD]', {
+          len: targetPath.length,
+          anchorsRecorded: this.debugAnchorsRecorded,
+          projectId: params.projectId,
+        });
+      }
     }
 
     const count = Math.max(1, Math.round(THREE.MathUtils.lerp(6, 24, density01)));
@@ -195,10 +209,18 @@ export class SprinkleStrokeBuilderService {
       state.mesh.setColorAt(this.sprinkleRenderer.getStrokeIndex(), this.tempColor);
 
       this.sprinkleRenderer.incrementStrokeIndex();
+      this.debugInstancesAdded++;
     }
 
     const added = this.sprinkleRenderer.getStrokeIndex() - startUpdateIndex;
     this.sprinkleRenderer.updateAfterAdd(startUpdateIndex, added, params.isReplaying);
+    if (DEBUG_SPRINKLE_LOGS && added > 0) {
+      console.debug('[SPRINKLE_STATS]', {
+        anchorsRecorded: this.debugAnchorsRecorded,
+        instancesAdded: this.debugInstancesAdded,
+        pathLength: params.activeStroke?.pathData?.length ?? 0,
+      });
+    }
   }
 
   public packPathData(pathData: number[]): string {
