@@ -1544,17 +1544,38 @@ export class ThreeSceneService {
 
   public setDecorationVisibility(id: string, visible: boolean): boolean {
     const target = this.findDecorationById(id);
-    if (!target) {
+    if (target) {
+      this.applyVisibilityToDecoration(target, visible);
+      this.emitOutlineChanged();
+      return true;
+    }
+
+    const outline = this.getSceneOutline();
+    const groupNode = this.findOutlineNodeById(outline, id);
+    if (!groupNode || groupNode.type !== 'group') {
       return false;
     }
 
-    target.visible = visible;
-    target.traverse((child) => {
-      child.visible = visible;
-    });
+    let changed = false;
+    const toggleChildren = (node: SceneOutlineNode) => {
+      if (node.type === 'decoration') {
+        const decoration = this.findDecorationById(node.id);
+        if (decoration) {
+          this.applyVisibilityToDecoration(decoration, visible);
+          changed = true;
+        }
+      }
 
-    this.emitOutlineChanged();
-    return true;
+      node.children.forEach(toggleChildren);
+    };
+
+    groupNode.children.forEach(toggleChildren);
+
+    if (changed) {
+      this.emitOutlineChanged();
+    }
+
+    return changed;
   }
 
   public removeDecorationById(id: string): boolean {
@@ -1752,6 +1773,10 @@ export class ThreeSceneService {
 
     const sceneChildren = this.sceneInitService.scene?.children ?? [];
     sceneChildren.forEach(processDecoration);
+
+    paintGroups.forEach((group) => {
+      group.visible = group.children.some((child) => child.visible);
+    });
 
     root.children.push(unattachedRoot);
 
@@ -2800,6 +2825,28 @@ export class ThreeSceneService {
 
     search(this.scene);
     return found;
+  }
+
+  private findOutlineNodeById(node: SceneOutlineNode, id: string): SceneOutlineNode | null {
+    if (node.id === id) {
+      return node;
+    }
+
+    for (const child of node.children) {
+      const result = this.findOutlineNodeById(child, id);
+      if (result) {
+        return result;
+      }
+    }
+
+    return null;
+  }
+
+  private applyVisibilityToDecoration(target: THREE.Object3D, visible: boolean): void {
+    target.visible = visible;
+    target.traverse((child) => {
+      child.visible = visible;
+    });
   }
 
   private isDecorationNode(object: THREE.Object3D): boolean {

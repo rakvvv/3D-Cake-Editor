@@ -291,6 +291,46 @@ describe('ThreeSceneService', () => {
     expect(figurineNode.attached).toBeTrue();
   });
 
+  it('toggles visibility of paint groups and propagates to children', () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    assignScene(sceneInit);
+
+    const cakeBase = new THREE.Group();
+    sceneInit.scene.add(cakeBase);
+    service.cakeBase = cakeBase;
+    (service as any).scene = sceneInit.scene;
+
+    const penStroke = new THREE.Mesh();
+    penStroke.userData['isPaintStroke'] = true;
+    penStroke.userData['paintStrokeType'] = 'pen';
+    cakeBase.add(penStroke);
+
+    const secondPenStroke = new THREE.Mesh();
+    secondPenStroke.userData['isPaintStroke'] = true;
+    secondPenStroke.userData['paintStrokeType'] = 'pen';
+    cakeBase.add(secondPenStroke);
+
+    const outlineBefore = service.getSceneOutline();
+    const groupId = 'paint-group-pen-attached';
+    const penGroup = outlineBefore.children
+      .flatMap((node) => node.children)
+      .find((child) => child.id === groupId);
+
+    expect(penGroup?.visible).toBeTrue();
+
+    expect(service.setDecorationVisibility(groupId, false)).toBeTrue();
+
+    expect(penStroke.visible).toBeFalse();
+    expect(secondPenStroke.visible).toBeFalse();
+
+    const outlineAfter = service.getSceneOutline();
+    const updatedGroup = outlineAfter.children
+      .flatMap((node) => node.children)
+      .find((child) => child.id === groupId);
+
+    expect(updatedGroup?.visible).toBeFalse();
+  });
+
   it('uses the configured font when creating cake text', fakeAsync(() => {
     const sceneInit = TestBed.inject(SceneInitService);
     assignScene(sceneInit);
