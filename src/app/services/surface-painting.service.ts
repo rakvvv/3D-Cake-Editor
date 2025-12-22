@@ -272,10 +272,7 @@ export class SurfacePaintingService {
       const shouldRecord = this.strokeRecorder.shouldRecord(p, this.RECORDING_DIST_SQ);
 
       if (shouldRecord) {
-        let normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
-        if (hit.object) {
-          normal.transformDirection(hit.object.matrixWorld).normalize();
-        }
+        const normal = hit.face?.normal?.clone() ?? new THREE.Vector3(0, 1, 0);
 
         // Płaski zapis: 6 liczb na jeden punkt
         this.activeStroke.pathData.push(
