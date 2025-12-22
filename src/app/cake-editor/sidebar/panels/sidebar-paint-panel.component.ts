@@ -7,7 +7,12 @@ import { BrushSettings, SidebarPaintMode } from '../sidebar.types';
 import { DecorationsService } from '../../../services/decorations.service';
 import { AnchorPresetsService } from '../../../services/anchor-presets.service';
 import { PaintService } from '../../../services/paint.service';
-import { SurfacePaintingService, SprinkleShape } from '../../../services/surface-painting.service';
+import {
+  SPRINKLE_PALETTE,
+  SprinkleColorMode,
+  SurfacePaintingService,
+  SprinkleShape,
+} from '../../../services/surface-painting.service';
 import { CreamPathNode, CreamPosition, CreamRingPreset, ExtruderStrokeMode } from '../../../models/cream-presets';
 import { DecorationSurfaceTarget } from '../../../models/add-decoration-request';
 
@@ -76,6 +81,8 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   sprinkleRandomness = 30;
   sprinkleColor = '#ffffff';
   sprinkleShape: SprinkleShape = 'stick';
+  sprinkleColorMode: SprinkleColorMode = 'multi';
+  sprinklePalette = SPRINKLE_PALETTE;
 
   sprinkleShapes: { id: SprinkleShape; label: string }[] = [
     { id: 'stick', label: 'Patyczki' },
@@ -131,6 +138,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.sprinkleDensity = this.surfacePaintingService.sprinkleDensity * 10;
     this.sprinkleRandomness = Math.round(this.surfacePaintingService.sprinkleRandomness * 100);
     this.sprinkleColor = this.surfacePaintingService.sprinkleColor;
+    this.sprinkleColorMode = this.surfacePaintingService.sprinkleColorMode;
     this.sprinkleShape = this.surfacePaintingService.sprinkleShape;
     this.validateAngles();
     this.validateSegments();
@@ -283,10 +291,15 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.surfacePaintingService.sprinkleRandomness = value / 100;
   }
 
+  onSprinkleColorModeChange(mode: SprinkleColorMode): void {
+    this.sprinkleColorMode = mode;
+    this.surfacePaintingService.setSprinkleColorMode(mode);
+  }
+
   onSprinkleColorChange(color: string): void {
     this.sprinkleColor = color;
-    this.surfacePaintingService.sprinkleUseRandomColors = false;
-    this.surfacePaintingService.sprinkleColor = color;
+    this.sprinkleColorMode = 'mono';
+    this.surfacePaintingService.setSprinkleColor(color);
   }
 
   onSprinkleShapeSelect(shape: SprinkleShape): void {

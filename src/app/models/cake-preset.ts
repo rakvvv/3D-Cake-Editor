@@ -65,8 +65,9 @@ export interface SerializedSprinkleStroke {
   id: string;
   mode: 'sprinkles';
   shape: 'stick' | 'ball' | 'star';
+  colorMode?: 'multi' | 'mono';
   density: number;
-  useRandomColors: boolean;
+  useRandomColors?: boolean;
   color: string;
   /**
    * Flattened array of position + normal tuples:

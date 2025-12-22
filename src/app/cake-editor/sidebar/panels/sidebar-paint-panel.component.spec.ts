@@ -39,8 +39,11 @@ class SurfacePaintingServiceMock {
   sprinkleRandomness = 0.3;
   sprinkleColor = '#ffffff';
   sprinkleShape: SprinkleShape = 'stick';
+  sprinkleColorMode: 'multi' | 'mono' = 'multi';
   setEnabled(): void {}
   setSprinkleShape(): void {}
+  setSprinkleColorMode(): void {}
+  setSprinkleColor(): void {}
   setExtruderPathMode(): void {}
   setExtruderPathContext(): void {}
 }
