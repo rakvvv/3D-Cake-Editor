@@ -276,6 +276,7 @@ describe('ThreeSceneService', () => {
     expect(penGroup.name).toBe('Pisak neonowy');
     const penNode = nodes.get(penStroke.uuid);
     expect(penNode.parentId).toBe(penGroup.id);
+    expect(penNode.type).toBe('decoration');
     expect(penNode.visible).toBeFalse();
     expect(penNode.surface).toBe('SIDE');
 

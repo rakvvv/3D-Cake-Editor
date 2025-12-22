@@ -2876,8 +2876,11 @@ export class ThreeSceneService {
   }
 
   private resolveDecorationType(object: THREE.Object3D): 'group' | 'decoration' {
-    const isGroup = object instanceof THREE.Group || object.userData['isDecorationGroup'] === true;
-    return isGroup ? 'group' : 'decoration';
+    if (object.userData['isDecorationGroup'] === true) {
+      return 'group';
+    }
+
+    return 'decoration';
   }
 
   private layerNodeId(index: number): string {
