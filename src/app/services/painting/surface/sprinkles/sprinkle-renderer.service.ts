@@ -8,6 +8,7 @@ interface SprinkleStrokeState {
   mesh: THREE.InstancedMesh | null;
   capacity: number;
   shape: SprinkleShape | null;
+  strokeSeed?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -58,19 +59,21 @@ export class SprinkleRendererService {
       useRandomColors: boolean;
       projectId: string | null;
       getRenderOrder: () => number;
+      strokeSeed?: number;
     },
-  ): { state: SprinkleStrokeState; created: boolean } {
+  ): { state: SprinkleStrokeState; created: boolean; strokeSeed?: number } {
     this.ensureSprinkleResources();
 
     if (anchor && this.sprinkleStrokeMesh && this.sprinkleStrokeShape === options.shape && this.sprinkleStrokeGroup?.parent) {
       return {
         state: this.currentState(),
         created: false,
+        strokeSeed: this.sprinkleStrokeGroup?.userData?.['strokeSeed'],
       };
     }
 
     if (!anchor || !this.sprinkleGeometryCache || !this.sprinkleMaterial) {
-      return { state: this.currentState(), created: false };
+      return { state: this.currentState(), created: false, strokeSeed: undefined };
     }
 
     const capacity = 3000;
@@ -90,6 +93,8 @@ export class SprinkleRendererService {
       options.useRandomColors ? options.color : options.color,
       options.projectId,
     );
+    const strokeSeed = options.strokeSeed ?? this.generateSeed();
+    group.userData['strokeSeed'] = strokeSeed;
     group.add(mesh);
     anchor.add(group);
 
@@ -100,7 +105,7 @@ export class SprinkleRendererService {
     this.sprinkleStrokeShape = options.shape;
     this.markLastUsed(options.shape, options.color);
 
-    return { state: this.currentState(), created: true };
+    return { state: this.currentState(), created: true, strokeSeed };
   }
 
   public getStrokeIndex(): number {
@@ -121,6 +126,10 @@ export class SprinkleRendererService {
 
   public getStrokeGroup(): THREE.Group | null {
     return this.sprinkleStrokeGroup;
+  }
+
+  public getStrokeSeed(): number | undefined {
+    return this.sprinkleStrokeGroup?.userData?.['strokeSeed'];
   }
 
   public updateAfterAdd(startUpdateIndex: number, added: number, isReplaying: boolean): void {
@@ -152,7 +161,7 @@ export class SprinkleRendererService {
   }
 
   public finalizeStroke(
-    finishedStroke: { id: string; pathData: number[]; mode: string } | null,
+    finishedStroke: { id: string; pathData?: number[]; mode: string; strokeSeed?: number } | null,
     projectId: string | null,
   ): { accepted: boolean } {
     const group = this.sprinkleStrokeGroup;
@@ -169,11 +178,16 @@ export class SprinkleRendererService {
     let accepted = false;
     const existingIds = (group.userData['strokeIds'] as string[] | undefined) ?? [];
     if (this.sprinkleStrokeIndex > 0) {
-      if (finishedStroke?.mode === 'sprinkles' && finishedStroke.pathData.length >= 6) {
+      const hasPathData = finishedStroke?.pathData && finishedStroke.pathData.length >= 6;
+      const hasPacked = !!(finishedStroke as any)?.pathPacked;
+      if (finishedStroke?.mode === 'sprinkles' && (hasPathData || hasPacked)) {
         existingIds.push(finishedStroke.id);
         group.userData['strokeIds'] = existingIds;
         group.userData['strokeId'] = finishedStroke.id;
         group.userData['projectId'] = projectId ?? undefined;
+        if (finishedStroke?.strokeSeed) {
+          group.userData['strokeSeed'] = finishedStroke.strokeSeed;
+        }
         accepted = true;
       } else if (existingIds.length === 0) {
         group.parent?.remove(group);
@@ -223,7 +237,15 @@ export class SprinkleRendererService {
       mesh: this.sprinkleStrokeMesh,
       capacity: this.sprinkleStrokeCapacity,
       shape: this.sprinkleStrokeShape,
+      strokeSeed: this.sprinkleStrokeGroup?.userData?.['strokeSeed'],
     };
+  }
+
+  private generateSeed(): number {
+    const timeSeed = Date.now() & 0xffffffff;
+    const randSeed = Math.floor(Math.random() * 0xffffffff);
+    const seed = timeSeed ^ randSeed;
+    return seed === 0 ? 1 : seed;
   }
 
   private ensureSprinkleResources(): void {

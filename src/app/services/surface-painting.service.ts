@@ -326,7 +326,8 @@ export class SurfacePaintingService {
         this.lastRecordedPoint.copy(p);
 
         // Płaski zapis: 6 liczb na jeden punkt
-        this.activeStroke.pathData.push(
+        const brushPath = this.activeStroke.pathData ?? (this.activeStroke.pathData = []);
+        brushPath.push(
           this.round(p.x), this.round(p.y), this.round(p.z),
           this.round(normal.x), this.round(normal.y), this.round(normal.z)
         );
@@ -401,12 +402,25 @@ export class SurfacePaintingService {
     }
 
     if (finishedStroke?.mode === 'sprinkles') {
+      const strokeSeed = (finishedStroke as SerializedSprinkleStroke | null)?.strokeSeed
+        ?? this.sprinkleRenderer.getStrokeSeed();
+      const pathData = finishedStroke.pathData ?? [];
+      const pathPacked = pathData.length > 0 ? this.sprinkleBuilder.packPathData(pathData) : undefined;
+      const finalizedStroke: SerializedSprinkleStroke = {
+        ...(finishedStroke as SerializedSprinkleStroke),
+        strokeSeed: strokeSeed ?? (finishedStroke as SerializedSprinkleStroke).strokeSeed,
+        pathPacked,
+        pathData,
+      };
       const result = this.sprinkleRenderer.finalizeStroke(
-        finishedStroke,
+        finalizedStroke,
         this.currentProjectId,
       );
       if (result.accepted) {
-        this.sprinkleStrokes.push(finishedStroke);
+        if (pathPacked) {
+          finalizedStroke.pathData = [];
+        }
+        this.sprinkleStrokes.push(finalizedStroke);
       }
     } else {
       this.sprinkleRenderer.finalizeStroke(null, this.currentProjectId);
@@ -449,6 +463,7 @@ export class SurfacePaintingService {
 
     validSprinkleStrokes.forEach((stroke) => {
       const key = `${stroke.shape}|${stroke.color}|${stroke.useRandomColors}|${stroke.density}`;
+      const pathData = this.getSprinklePathData(stroke);
       if (!mergedSprinklesMap.has(key)) {
         mergedSprinklesMap.set(key, {
           id: `merged-sprinkles-${this.nextStrokeId++}`,
@@ -457,18 +472,25 @@ export class SurfacePaintingService {
           color: stroke.color,
           useRandomColors: stroke.useRandomColors,
           density: stroke.density,
-          pathData: [...stroke.pathData],
+          strokeSeed: stroke.strokeSeed,
+          pathData: [...pathData],
         });
       } else {
         const existing = mergedSprinklesMap.get(key)!;
-        existing.pathData.push(...stroke.pathData);
+        const existingPath = existing.pathData ?? (existing.pathData = []);
+        existingPath.push(...pathData);
       }
+    });
+
+    const mergedSprinkles = Array.from(mergedSprinklesMap.values()).map((stroke) => {
+      const packed = this.sprinkleBuilder.packPathData(stroke.pathData ?? []);
+      return { ...stroke, pathPacked: packed, pathData: [] } as SerializedSprinkleStroke;
     });
 
     const preset: SurfacePaintingPreset = {
       brushColor: this.brushColor,
       brushStrokes: Array.from(mergedBrushMap.values()),
-      sprinkleStrokes: Array.from(mergedSprinklesMap.values()),
+      sprinkleStrokes: mergedSprinkles,
     };
 
     return this.presetService.exportPreset(preset).data;
@@ -592,8 +614,11 @@ export class SurfacePaintingService {
 
     if (this.activeStroke) {
       this.activeStroke.id = stroke.id;
+      const replayPath = this.getSprinklePathData(stroke);
       // WAŻNE: Kopiujemy dane, żeby endStroke nie uznał grupy za pustą
-      this.activeStroke.pathData = [...stroke.pathData];
+      this.activeStroke.pathData = [...replayPath];
+      (this.activeStroke as SerializedSprinkleStroke).strokeSeed = stroke.strokeSeed;
+      (this.activeStroke as SerializedSprinkleStroke).pathPacked = stroke.pathPacked;
 
       const parts = stroke.id.split('-');
       const numericId = Number(parts[parts.length - 1]);
@@ -602,7 +627,7 @@ export class SurfacePaintingService {
       }
     }
 
-    const data = stroke.pathData;
+    const data = this.getSprinklePathData(stroke);
     for (let i = 0; i < data.length; i += 6) {
       const x = data[i];
       const y = data[i + 1];
@@ -660,6 +685,10 @@ export class SurfacePaintingService {
 
     this.endStroke();
     this.isReplayingSprinkles = false;
+  }
+
+  private getSprinklePathData(stroke: SerializedSprinkleStroke): number[] {
+    return this.sprinkleBuilder.unpackPathData(stroke.pathPacked, stroke.pathData ?? []);
   }
 
   // --- RESZTA LOGIKI (GRADIENTY, CZYSZCZENIE, UTILS) ---

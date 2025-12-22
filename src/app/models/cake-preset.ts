@@ -68,9 +68,13 @@ export interface SerializedSprinkleStroke {
   density: number;
   useRandomColors: boolean;
   color: string;
+  /** Optional packed representation (base64) of quantized path data for compact storage. */
+  pathPacked?: string;
+  /** Optional deterministic seed for sprinkle randomness; falls back to legacy behavior if absent. */
+  strokeSeed?: number;
   /**
    * Flattened array of position + normal tuples:
    * [x, y, z, nx, ny, nz, x, y, z, nx, ny, nz, ...]
    */
-  pathData: number[];
+  pathData?: number[];
 }
