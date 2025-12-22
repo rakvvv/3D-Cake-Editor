@@ -23,7 +23,7 @@ import {AnchorPresetsService} from '../services/anchor-presets.service';
 import { SurfacePaintingService } from '../services/surface-painting.service';
 import {Subscription, lastValueFrom} from 'rxjs';
 import { environment } from '../../environments/environment';
-import { DecoratedCakePreset } from '../models/cake-preset';
+import { DecoratedCakePreset, SurfacePaintingPreset } from '../models/cake-preset';
 import { ProjectsService } from '../services/projects.service';
 import { AuthService } from '../services/auth.service';
 import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-options';
@@ -653,6 +653,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneService.init(this.container.nativeElement, cloneCakeOptions(preset.options));
     this.sceneInitialized = true;
     this.options = cloneCakeOptions(preset.options);
+    this.syncGradientControlsFromPreset(preset.surfacePainting);
     this.sceneBackground = this.sceneService.getBackgroundMode();
     this.applyHelperSettings();
     this.sceneService.setCameraMode(this.cameraMode);
@@ -692,6 +693,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   async onApplyCakePreset(preset: DecoratedCakePreset): Promise<void> {
     await this.sceneService.applyDecoratedCakePreset(preset);
     this.options = JSON.parse(JSON.stringify(preset.options));
+    this.syncGradientControlsFromPreset(preset.surfacePainting);
     this.validationIssues = [];
     this.validationSummary = null;
   }
@@ -901,8 +903,9 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.setupLocked) {
       return;
     }
-    this.selectedCakeSize = size;
-    this.applyLayerSizing(this.selectedLayers, this.getBaseWidth(size));
+    const enforcedSize = this.selectedLayers === 3 ? 'small' : size;
+    this.selectedCakeSize = enforcedSize;
+    this.applyLayerSizing(this.selectedLayers, this.getBaseWidth(enforcedSize));
     this.refreshAutoWaferScale(true);
   }
 
@@ -919,8 +922,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.setupLocked) {
       return;
     }
+    const enforcedSize = layers === 3 ? 'small' : this.selectedCakeSize;
+    this.selectedCakeSize = enforcedSize;
     this.selectedLayers = layers;
-    this.applyLayerSizing(layers, this.getBaseWidth());
+    this.applyLayerSizing(layers, this.getBaseWidth(enforcedSize));
     this.refreshAutoWaferScale(true);
   }
 
@@ -2070,9 +2075,39 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private syncGradientControlsFromPreset(preset: SurfacePaintingPreset | undefined): void {
+    if (!preset || !preset.gradient) {
+      this.gradientEnabled = false;
+      this.gradientDirection = 'top-bottom';
+      this.surfacePaintingService.updateGradientTexture({ enabled: false });
+      return;
+    }
+
+    const { enabled, flip, startColor, endColor } = preset.gradient;
+    this.gradientEnabled = !!enabled;
+    this.gradientDirection = flip ? 'bottom-top' : 'top-bottom';
+    this.gradientFirst = startColor ?? this.options.cake_color;
+    this.gradientSecond = endColor ?? (this.gradientSecond || '#ffffff');
+    this.textureBeforeGradient = this.options.cake_textures ?? null;
+
+    this.surfacePaintingService.updateGradientTexture({
+      enabled: this.gradientEnabled,
+      startColor: this.gradientFirst,
+      endColor: this.gradientSecond,
+      flip: this.gradientDirection === 'bottom-top',
+    });
+  }
+
   private syncSetupStateWithOptions(): void {
     const baseLayer = this.options.layerSizes?.[0] ?? 1;
-    this.selectedCakeSize = baseLayer < 0.95 ? 'small' : baseLayer > 1.05 ? 'large' : 'medium';
+    this.selectedCakeSize =
+      this.options.layers === 3
+        ? 'small'
+        : baseLayer < 0.95
+          ? 'small'
+          : baseLayer > 1.05
+            ? 'large'
+            : 'medium';
     this.selectedShape = this.options.shape;
     this.selectedLayers = this.options.layers;
     this.primaryColor = this.options.cake_color;

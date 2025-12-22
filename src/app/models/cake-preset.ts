@@ -48,6 +48,14 @@ export interface SurfacePaintingPreset {
   brushColor?: string;
   brushStrokes?: SerializedBrushStroke[];
   sprinkleStrokes?: SerializedSprinkleStroke[];
+  gradient?: SurfacePaintingGradientConfig;
+}
+
+export interface SurfacePaintingGradientConfig {
+  enabled?: boolean;
+  startColor?: string;
+  endColor?: string;
+  flip?: boolean;
 }
 
 export interface SerializedBrushStroke {

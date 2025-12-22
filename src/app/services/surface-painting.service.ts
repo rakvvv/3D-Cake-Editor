@@ -5,6 +5,7 @@ import { PaintService } from './paint.service';
 import {
   SerializedBrushStroke,
   SerializedSprinkleStroke,
+  SurfacePaintingGradientConfig,
   SurfacePaintingPreset,
 } from '../models/cake-preset';
 import {
@@ -427,11 +428,15 @@ export class SurfacePaintingService {
       brushColor: this.brushColor,
       brushStrokes: Array.from(mergedBrushMap.values()),
       sprinkleStrokes: Array.from(mergedSprinklesMap.values()),
+      gradient: this.exportGradientConfig(),
     };
   }
 
   public restorePaintingPreset(preset: SurfacePaintingPreset | undefined | null): void {
-    if (!preset) return;
+    if (!preset) {
+      this.applyGradientConfig({ enabled: false });
+      return;
+    }
 
     this.clearPaint();
     this.brushStrokes = [];
@@ -442,8 +447,28 @@ export class SurfacePaintingService {
     this.attachCake(this.cakeGroup, false);
     this.brushColor = preset.brushColor ?? this.brushColor;
 
+    this.applyGradientConfig(preset.gradient ?? { enabled: false });
+
     preset.brushStrokes?.forEach((stroke) => this.replayBrushStroke(stroke));
     preset.sprinkleStrokes?.forEach((stroke) => this.replaySprinkleStroke(stroke));
+  }
+
+  private exportGradientConfig(): SurfacePaintingGradientConfig {
+    return {
+      enabled: this.gradientEnabled,
+      startColor: this.gradientStart,
+      endColor: this.gradientEnd,
+      flip: this.gradientFlip,
+    };
+  }
+
+  private applyGradientConfig(config: SurfacePaintingGradientConfig): void {
+    this.updateGradientTexture({
+      enabled: !!config.enabled,
+      startColor: config.startColor ?? this.gradientStart,
+      endColor: config.endColor ?? this.gradientEnd,
+      flip: !!config.flip,
+    });
   }
 
   private replayBrushStroke(stroke: SerializedBrushStroke): void {
@@ -716,12 +741,16 @@ export class SurfacePaintingService {
 
     this.cakeGroup.traverse((child) => {
       let current: THREE.Object3D | null = child;
+      let belongsToCakeLayer = false;
       while (current) {
         if (current.userData?.['isCakeWafer']) return;
         if (current.userData?.['isPaintAnchor']) return;
         if (current.userData?.['isGlazeDrip']) return;
+        if (current.userData?.['isCakeLayer']) belongsToCakeLayer = true;
         current = current.parent ?? null;
       }
+
+      if (!belongsToCakeLayer) return;
 
       const mesh = child as THREE.Mesh;
       if (!(mesh as any).isMesh || !mesh.material) return;
@@ -861,7 +890,7 @@ export class SurfacePaintingService {
     this.paintedMaterials.push(typed);
   }
 
-  public updateGradientTexture(config: GradientTextureConfig): string | null {
+  public updateGradientTexture(config: Partial<GradientTextureConfig>): string | null {
     this.gradientTextureService.updateConfig(config);
     this.applyPaintingShader();
     this.flagMaterialUpdate();
