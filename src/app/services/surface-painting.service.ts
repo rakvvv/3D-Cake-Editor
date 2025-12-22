@@ -716,12 +716,16 @@ export class SurfacePaintingService {
 
     this.cakeGroup.traverse((child) => {
       let current: THREE.Object3D | null = child;
+      let belongsToCakeLayer = false;
       while (current) {
         if (current.userData?.['isCakeWafer']) return;
         if (current.userData?.['isPaintAnchor']) return;
         if (current.userData?.['isGlazeDrip']) return;
+        if (current.userData?.['isCakeLayer']) belongsToCakeLayer = true;
         current = current.parent ?? null;
       }
+
+      if (!belongsToCakeLayer) return;
 
       const mesh = child as THREE.Mesh;
       if (!(mesh as any).isMesh || !mesh.material) return;
