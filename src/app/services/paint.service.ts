@@ -299,7 +299,12 @@ export class PaintService {
     this.isPainting = false;
     this.strokeSampler.reset();
     this.paintCanvasRect = null;
+
     if (this.activePenStrokeGroup) {
+      if (this.activePenStrokePoints.length > 0) {
+        this.activePenStrokeGroup.userData['penPoints'] = this.activePenStrokePoints.map(p => p.toArray());
+      }
+
       if (this.activePenStrokeGroup.children.length) {
         this.finalizePaintRoot(this.activePenStrokeGroup);
         this.trackPaintAddition(this.activePenStrokeGroup);
@@ -307,6 +312,7 @@ export class PaintService {
         this.sceneRef.remove(this.activePenStrokeGroup);
       }
     }
+
     this.activePenStrokeGroup = null;
     this.activePenStrokePoints = [];
     this.activePenSegments = [];
@@ -317,6 +323,7 @@ export class PaintService {
     this.activePenStartCapIndex = null;
     this.activePenEndCapIndex = null;
     this.lastPenDirection = null;
+
     if (this.activeDecorationGroup) {
       if (this.activeDecorationGroup.children.length) {
         this.finalizePaintRoot(this.activeDecorationGroup);
@@ -330,6 +337,7 @@ export class PaintService {
       }
     }
     this.activeDecorationGroup = null;
+
     if (this.activeExtruderStrokeGroup) {
       const hasInstances = Array.from(this.extruderStrokeInstances.values()).some((state) => state.count > 0);
       if (this.activeExtruderStrokeGroup.children.length && hasInstances) {
@@ -2033,8 +2041,8 @@ export class PaintService {
     const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(this.penColor) });
     material.roughness = 0.85;
     material.metalness = 0.02;
-    material.opacity = this.penOpacity;
-    material.transparent = this.penOpacity < 1;
+    material.opacity = 1.0;
+    material.transparent = false;
     material.depthWrite = this.penOpacity >= 1;
     material.needsUpdate = true;
     this.penMaterialCache.set(this.penColor, material);
@@ -2119,12 +2127,7 @@ export class PaintService {
   }
 
   private getPenCapScale(): number {
-    const capRadius = this.getPenCapRadius() + this.getPenStrokeOffset() * 0.5;
-    return capRadius * 2;
-  }
-
-  private getPenCapRadius(): number {
-    return Math.max(this.penSize * 0.5, this.getPenTubeRadius());
+    return this.getPenTubeRadius() * 2;
   }
 
   private ensurePenSegmentInstanceMesh(strokeGroup: THREE.Group): PenInstanceState {
@@ -2323,9 +2326,7 @@ export class PaintService {
   }
 
   private getPenJointScale(): number {
-    const radius = this.getPenTubeRadius();
-    const padding = Math.min(radius * 0.1, 0.001);
-    return radius * 2 + padding;
+    return this.getPenTubeRadius() * 2;
   }
 
   private getPenSegmentGeometry(): THREE.CylinderGeometry {
@@ -2433,6 +2434,10 @@ export class PaintService {
     root.updateMatrixWorld(true);
 
     const paintType = (root.userData['paintStrokeType'] as PaintStrokePreset['type'] | undefined) ?? 'extruder';
+
+    // Pobierz punkty, jeśli istnieją (zapisane w endStroke)
+    const penPoints = paintType === 'pen' ? (root.userData['penPoints'] as number[][] | undefined) : undefined;
+
     const base: PaintStrokePreset = {
       type: paintType,
       color: root.userData['penColor'] as string | undefined,
@@ -2445,7 +2450,12 @@ export class PaintService {
       instances: [],
       snapPoints: root.userData['snapPoints'] as number[][] | undefined,
       name: root.userData['displayName'] as string | undefined,
+      points: penPoints,
     };
+
+    if (paintType === 'pen' && penPoints && penPoints.length > 0) {
+      return base;
+    }
 
     const instancedMeshes: THREE.InstancedMesh[] = [];
     root.traverse((child) => {
@@ -2489,7 +2499,7 @@ export class PaintService {
       base.instances.push(...entries);
     });
 
-    if (!base.instances.length) {
+    if (!base.instances.length && (!base.points || base.points.length === 0)) {
       return null;
     }
 
@@ -2682,6 +2692,7 @@ export class PaintService {
     const previousSize = this.penSize;
     const previousThickness = this.penThickness;
     const previousOpacity = this.penOpacity;
+
     this.penColor = entry.color ?? this.penColor;
     this.penSize = entry.penSize ?? this.penSize;
     this.penThickness = entry.penThickness ?? this.penThickness;
@@ -2694,31 +2705,101 @@ export class PaintService {
     group.userData['penSize'] = this.penSize;
     group.userData['penThickness'] = this.penThickness;
     group.userData['penOpacity'] = this.penOpacity;
-    this.applyPresetGroupTransform(entry, group);
+
+    // Przywróć punkty do userData (dla kolejnych zapisów)
+    if (entry.points) {
+      group.userData['penPoints'] = entry.points;
+    }
+
+    // Czy mamy tryb zoptymalizowany (punkty)?
+    const isOptimized = entry.points && entry.points.length > 0;
+
+    if (!isOptimized) {
+      this.applyPresetGroupTransform(entry, group);
+    }
+
     scene.add(group);
 
     const segmentState = this.ensurePenSegmentInstanceMesh(group);
     const jointState = this.ensurePenJointInstanceMesh(group);
     const capState = this.ensurePenCapInstanceMesh(group);
 
-    const matrix = new THREE.Matrix4();
-    entry.instances.forEach((instance) => {
-      if (!Array.isArray(instance.matrix) || instance.matrix.length !== 16) {
-        return;
+    // --- RYSOWANIE Z PUNKTÓW ---
+    if (isOptimized) {
+      const points = entry.points!.map(p => new THREE.Vector3().fromArray(p));
+
+      // 1. Start Cap
+      if (points.length > 0) {
+        const matrix = new THREE.Matrix4();
+        const scale = new THREE.Vector3(1, 1, 1).multiplyScalar(this.getPenCapScale());
+        matrix.compose(points[0], new THREE.Quaternion(), scale);
+        capState.mesh.setMatrixAt(capState.count++, matrix);
       }
 
-      matrix.fromArray(instance.matrix);
-      const target = instance.penPart === 'joint' ? jointState
-        : instance.penPart === 'cap' ? capState
-          : segmentState;
-      const capacity = target.mesh.instanceMatrix.count ?? this.penMaxInstances;
-      if (target.count >= capacity) {
-        return;
-      }
-      target.mesh.setMatrixAt(target.count, matrix);
-      target.count += 1;
-    });
+      // 2. Segmenty
+      let lastDirection: THREE.Vector3 | null = null;
+      for (let i = 0; i < points.length - 1; i++) {
+        const start = points[i];
+        const end = points[i+1];
 
+        const subPoints = this.getInterpolatedPenPoints(start, end);
+        let subStart = start.clone();
+
+        for (const subEnd of subPoints) {
+          const direction = subEnd.clone().sub(subStart).normalize();
+
+          // Joint
+          if (lastDirection && lastDirection.angleTo(direction) > 0.25) {
+            const jMatrix = this.getPenJointMatrix(subStart);
+            if (jMatrix && jointState.count < this.penMaxInstances) {
+              jointState.mesh.setMatrixAt(jointState.count++, jMatrix);
+            }
+          }
+
+          // Segment
+          const len = subStart.distanceTo(subEnd);
+          if (len > 1e-5 && segmentState.count < this.penMaxInstances) {
+            const radius = this.getPenTubeRadius();
+            const overlap = Math.min(radius * 0.75, len * 0.49);
+            const adjStart = subStart.clone().sub(direction.clone().multiplyScalar(overlap));
+            const adjEnd = subEnd.clone().add(direction.clone().multiplyScalar(overlap));
+
+            const mat = this.getPenSegmentMatrix(adjStart, adjEnd);
+            if (mat) {
+              segmentState.mesh.setMatrixAt(segmentState.count++, mat);
+            }
+          }
+
+          lastDirection = direction;
+          subStart = subEnd.clone();
+        }
+      }
+
+      // 3. End Cap
+      if (points.length > 1) {
+        const matrix = new THREE.Matrix4();
+        const scale = new THREE.Vector3(1, 1, 1).multiplyScalar(this.getPenCapScale());
+        matrix.compose(points[points.length - 1], new THREE.Quaternion(), scale);
+        capState.mesh.setMatrixAt(capState.count++, matrix);
+      }
+    }
+    else if (entry.instances && entry.instances.length > 0) {
+      const matrix = new THREE.Matrix4();
+      entry.instances.forEach((instance) => {
+        if (!Array.isArray(instance.matrix) || instance.matrix.length !== 16) return;
+        matrix.fromArray(instance.matrix);
+        const target = instance.penPart === 'joint' ? jointState
+          : instance.penPart === 'cap' ? capState
+            : segmentState;
+
+        const capacity = target.mesh.instanceMatrix.count ?? this.penMaxInstances;
+        if (target.count >= capacity) return;
+        target.mesh.setMatrixAt(target.count, matrix);
+        target.count += 1;
+      });
+    }
+
+    // Aktualizacja GPU
     [segmentState, jointState, capState].forEach((state) => {
       const capacity = state.mesh.instanceMatrix.count ?? this.penMaxInstances;
       state.count = Math.min(state.count, capacity);
@@ -2726,7 +2807,8 @@ export class PaintService {
       state.mesh.instanceMatrix.needsUpdate = true;
     });
 
-    this.finalizePaintRoot(group, { recenterPivot: false });
+    this.finalizePaintRoot(group, { recenterPivot: !isOptimized });
+
     this.trackPaintAddition(group);
 
     this.penColor = previousColor;

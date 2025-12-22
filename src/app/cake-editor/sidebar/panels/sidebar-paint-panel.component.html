@@ -159,38 +159,12 @@
         <input
           type="range"
           min="1"
-          max="100"
+          max="10"
           [ngModel]="penThickness * 100"
           (ngModelChange)="onPenThicknessChange($event / 100)"
           class="slider-row__range"
         />
         <div class="slider-row__value">{{ penThickness | number: '1.0-2' }}</div>
-      </div>
-
-      <div class="slider-row">
-        <span class="slider-row__label">Rozmiar</span>
-        <input
-          type="range"
-          min="1"
-          max="100"
-          [ngModel]="penSize * 100"
-          (ngModelChange)="onPenSizeChange($event / 100)"
-          class="slider-row__range"
-        />
-        <div class="slider-row__value">{{ penSize | number: '1.0-2' }}</div>
-      </div>
-
-      <div class="slider-row">
-        <span class="slider-row__label">Krycie</span>
-        <input
-          type="range"
-          min="0"
-          max="100"
-          [ngModel]="penOpacity * 100"
-          (ngModelChange)="onPenOpacityChange($event)"
-          class="slider-row__range"
-        />
-        <div class="slider-row__value">{{ penOpacity * 100 | number: '1.0-0' }}%</div>
       </div>
     </div>
   </div>
