@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 import { CakeEditorComponent } from './cake-editor/cake-editor.component';
-import { LoginComponent } from './auth/login.component';
-import { RegisterComponent } from './auth/register.component';
+import { LoginComponent } from './cake-editor/auth/login.component';
+import { RegisterComponent } from './cake-editor/auth/register.component';
 import { ProjectListComponent } from './project-list/project-list.component';
 import { authGuard } from './services/auth.guard';
 import { AdminDashboardComponent } from './project-list/admin-dashboard.component';
