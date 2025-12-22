@@ -2087,7 +2087,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.gradientEnabled = !!enabled;
     this.gradientDirection = flip ? 'bottom-top' : 'top-bottom';
     this.gradientFirst = startColor ?? this.options.cake_color;
-    this.gradientSecond = endColor ?? this.gradientSecond || '#ffffff';
+    this.gradientSecond = endColor ?? (this.gradientSecond || '#ffffff');
     this.textureBeforeGradient = this.options.cake_textures ?? null;
 
     this.surfacePaintingService.updateGradientTexture({

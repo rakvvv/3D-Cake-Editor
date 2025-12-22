@@ -890,7 +890,7 @@ export class SurfacePaintingService {
     this.paintedMaterials.push(typed);
   }
 
-  public updateGradientTexture(config: GradientTextureConfig): string | null {
+  public updateGradientTexture(config: Partial<GradientTextureConfig>): string | null {
     this.gradientTextureService.updateConfig(config);
     this.applyPaintingShader();
     this.flagMaterialUpdate();
