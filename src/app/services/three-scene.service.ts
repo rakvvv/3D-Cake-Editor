@@ -3166,8 +3166,14 @@ export class ThreeSceneService {
     let current: THREE.Object3D | null = object;
 
     while (current) {
-      if (current.userData['isCakeGlaze'] || current.userData['isCakeWafer']) {
+      if (current.userData['isCakeWafer']) {
         return false;
+      }
+      if (current.userData['isGlazeDrip']) {
+        return false;
+      }
+      if (current.userData['isCakeGlaze']) {
+        return true;
       }
       if (current.userData['isCakeLayer']) {
         return true;
