@@ -106,6 +106,7 @@ export class DecorationsService {
       decoration.userData['decorationType'] = decoInfo.type;
       decoration.userData['isDecoration'] = true;
       decoration.userData['modelFileName'] = decoInfo.modelFileName;
+      decoration.userData['displayName'] = decoInfo.name;
       decoration.userData['isSnapped'] = false;
 
       const metadata = cakeBase.userData['metadata'] as CakeMetadata | undefined;

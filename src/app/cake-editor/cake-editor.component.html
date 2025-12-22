@@ -754,14 +754,14 @@
       </button>
       <div class="scene-node__title" (click)="selectSceneNode(node)">
         <span class="scene-node__icon" aria-hidden="true">
-          {{ node.type === 'group' ? '🗂️' : node.type === 'decoration' ? '🧁' : '🎂' }}
+          {{ node.icon || (node.type === 'group' ? '🗂️' : node.type === 'decoration' ? '🧁' : '🎂') }}
         </span>
         <span class="scene-node__name">{{ node.name }}</span>
       </div>
       <button
         type="button"
         class="scene-node__visibility"
-        *ngIf="node.type === 'decoration' || node.type === 'group'"
+        *ngIf="node.type === 'decoration'"
         (click)="toggleSceneNodeVisibility(node)"
         [attr.aria-pressed]="node.visible"
         [title]="node.visible ? 'Ukryj' : 'Pokaż'"

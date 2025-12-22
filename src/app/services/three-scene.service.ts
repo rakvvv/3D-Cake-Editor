@@ -1548,11 +1548,7 @@ export class ThreeSceneService {
       return false;
     }
 
-    target.visible = visible;
-    target.traverse((child) => {
-      child.visible = visible;
-    });
-
+    this.applyVisibilityToDecoration(target, visible);
     this.emitOutlineChanged();
     return true;
   }
@@ -1612,6 +1608,7 @@ export class ThreeSceneService {
     const root: SceneOutlineNode = {
       id: rootId,
       name: 'Tort',
+      icon: '🎂',
       type: 'cake',
       attached: true,
       visible: true,
@@ -1624,6 +1621,7 @@ export class ThreeSceneService {
     const unattachedRoot: SceneOutlineNode = {
       id: 'unattached-root',
       name: 'Nieprzyczepione',
+      icon: '📦',
       type: 'layer',
       attached: false,
       visible: true,
@@ -1637,11 +1635,77 @@ export class ThreeSceneService {
     nodes.set(rootId, root);
     nodes.set(unattachedRoot.id, unattachedRoot);
 
+    const paintGroups = new Map<string, SceneOutlineNode>();
+
+    const resolvePaintGroupMeta = (
+      object: THREE.Object3D
+    ): { key: string; name: string; icon: string } | null => {
+      const paintStrokeType = object.userData['paintStrokeType'] as string | undefined;
+      const displayName = (object.userData['displayName'] as string | undefined) ?? null;
+      const normalizedName = (displayName ?? '').toLowerCase();
+
+      if (paintStrokeType === 'pen') {
+        return { key: 'pen', name: displayName ?? 'Pisak', icon: '🖊️' };
+      }
+
+      if (paintStrokeType === 'extruder') {
+        return { key: 'extruder', name: displayName ?? 'Posypka/Ekstruder', icon: '🧁' };
+      }
+
+      if (paintStrokeType === 'decoration') {
+        return { key: 'decoration', name: displayName ?? 'Dekoracje malowane', icon: '🎨' };
+      }
+
+      if (object.userData['isPaintDecoration']) {
+        if (normalizedName.includes('posypka')) {
+          return { key: 'sprinkles', name: displayName ?? 'Posypka/Ekstruder', icon: '🧁' };
+        }
+
+        if (normalizedName.includes('pędzl') || normalizedName.includes('brush')) {
+          return { key: 'brush', name: displayName ?? 'Smugi pędzla', icon: '🖌️' };
+        }
+
+        return { key: 'manual', name: displayName ?? 'Malowanie ręczne', icon: '🎨' };
+      }
+
+      return null;
+    };
+
     const appendNode = (node: SceneOutlineNode, parentId: string | null) => {
       const parent = (parentId ? nodes.get(parentId) : null) ?? root;
       nodes.set(node.id, node);
       node.parentId = parent.id;
       parent.children.push(node);
+    };
+
+    const getPaintGroup = (parentId: string, object: THREE.Object3D, attached: boolean): SceneOutlineNode | null => {
+      const meta = resolvePaintGroupMeta(object);
+      if (!meta) {
+        return null;
+      }
+
+      const key = `${parentId}:${meta.key}`;
+      const existing = paintGroups.get(key);
+      if (existing) {
+        return existing;
+      }
+
+      const group: SceneOutlineNode = {
+        id: `paint-group-${meta.key}-${attached ? 'attached' : 'unattached'}`,
+        name: meta.name,
+        icon: meta.icon,
+        type: 'group',
+        attached,
+        visible: true,
+        parentId,
+        layerIndex: null,
+        surface: null,
+        children: [],
+      };
+
+      paintGroups.set(key, group);
+      appendNode(group, parentId);
+      return group;
     };
 
     const processDecoration = (object: THREE.Object3D) => {
@@ -1657,11 +1721,19 @@ export class ThreeSceneService {
       const attached = this.isAttachedToCake(object);
       const snapInfo = this.findSnapInfo(object);
       const surface = snapInfo?.surfaceType ?? null;
-      const parentId = attached ? rootId : unattachedRoot.id;
+      const fallbackParentId = attached ? rootId : unattachedRoot.id;
+
+      const paintGroup =
+        object.userData['isPaintStroke'] || object.userData['isPaintDecoration']
+          ? getPaintGroup(fallbackParentId, object, attached)
+          : null;
+
+      const parentId = paintGroup?.id ?? fallbackParentId;
 
       const node: SceneOutlineNode = {
         id: object.uuid,
         name: this.describeDecoration(object),
+        icon: paintGroup?.icon ?? null,
         type: this.resolveDecorationType(object),
         attached,
         visible: object.visible,
@@ -1676,6 +1748,10 @@ export class ThreeSceneService {
 
     const sceneChildren = this.sceneInitService.scene?.children ?? [];
     sceneChildren.forEach(processDecoration);
+
+    paintGroups.forEach((group) => {
+      group.visible = group.children.some((child) => child.visible);
+    });
 
     root.children.push(unattachedRoot);
 
@@ -2173,6 +2249,8 @@ export class ThreeSceneService {
       if (anchorId) {
         this.registerAnchorOccupant(anchorId, object);
       }
+
+      this.paintService.registerDecorationAddition(object);
     });
 
     if (preset.paintStrokes?.length) {
@@ -2724,6 +2802,28 @@ export class ThreeSceneService {
     return found;
   }
 
+  private findOutlineNodeById(node: SceneOutlineNode, id: string): SceneOutlineNode | null {
+    if (node.id === id) {
+      return node;
+    }
+
+    for (const child of node.children) {
+      const result = this.findOutlineNodeById(child, id);
+      if (result) {
+        return result;
+      }
+    }
+
+    return null;
+  }
+
+  private applyVisibilityToDecoration(target: THREE.Object3D, visible: boolean): void {
+    target.visible = visible;
+    target.traverse((child) => {
+      child.visible = visible;
+    });
+  }
+
   private isDecorationNode(object: THREE.Object3D): boolean {
     return Boolean(
       object.userData['isDecorationGroup'] === true ||
@@ -2776,8 +2876,11 @@ export class ThreeSceneService {
   }
 
   private resolveDecorationType(object: THREE.Object3D): 'group' | 'decoration' {
-    const isGroup = object instanceof THREE.Group || object.userData['isDecorationGroup'] === true;
-    return isGroup ? 'group' : 'decoration';
+    if (object.userData['isDecorationGroup'] === true) {
+      return 'group';
+    }
+
+    return 'decoration';
   }
 
   private layerNodeId(index: number): string {
@@ -2983,6 +3086,7 @@ export class ThreeSceneService {
       decoration.userData['decorationType'] = info?.type ?? 'BOTH';
       decoration.userData['isDecoration'] = true;
       decoration.userData['modelFileName'] = modelFileName;
+      decoration.userData['displayName'] = info?.name;
 
       if (info?.initialRotation && !entry.rotation) {
         const [x, y, z] = info.initialRotation;

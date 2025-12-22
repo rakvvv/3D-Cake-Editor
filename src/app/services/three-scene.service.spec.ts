@@ -12,9 +12,11 @@ import { PaintService } from './paint.service';
 import { ExportService } from './export.service';
 import { SnapService } from './snap.service';
 import { TextFactory } from '../factories/text.factory';
+import { DecorationFactory } from '../factories/decoration.factory';
 import { CakeMetadata } from '../factories/three-objects.factory';
 import { AnchorPresetsService } from './anchor-presets.service';
 import { AnchorPoint } from '../models/anchors';
+import { DecoratedCakePreset } from '../models/cake-preset';
 
 class TransformControlsServiceStub {
   private selected: THREE.Object3D | null = null;
@@ -152,6 +154,64 @@ describe('ThreeSceneService', () => {
     expect(service.isSelectedDecorationSnapped()).toBeTrue();
   });
 
+  it('re-registers loaded decorations for undo history', fakeAsync(async () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    assignScene(sceneInit);
+    (service as any).scene = sceneInit.scene;
+    service.cakeBase = new THREE.Group();
+
+    const paintService = TestBed.inject(PaintService);
+    const registerSpy = spyOn(paintService, 'registerDecorationAddition');
+
+    spyOn<any>(service, 'clearAllDecorations').and.callFake(() => {});
+    spyOn<any>(service, 'updateCakeOptions').and.callFake(() => {
+      (service as any).cakeMetadata = {} as CakeMetadata;
+    });
+
+    const decoration = new THREE.Object3D();
+    spyOn<any>(service, 'spawnDecorationFromPreset').and.returnValue(
+      Promise.resolve({ object: decoration, snapInfo: null })
+    );
+
+    const preset: DecoratedCakePreset = {
+      id: 'preset',
+      name: 'Preset test',
+      options: {
+        cake_size: 1,
+        cake_color: '#ffffff',
+        cake_text: false,
+        cake_text_value: '',
+        cake_text_position: 'top',
+        cake_text_offset: 0,
+        cake_text_font: 'font',
+        cake_text_depth: 0,
+        layers: 1,
+        shape: 'cylinder',
+        layerSizes: [1],
+        glaze_enabled: false,
+        glaze_color: '#ffffff',
+        glaze_thickness: 0,
+        glaze_drip_length: 0,
+        glaze_seed: 0,
+        glaze_top_enabled: false,
+        cake_textures: null,
+        glaze_textures: null,
+        wafer_texture_url: null,
+        wafer_scale: 1,
+        wafer_texture_zoom: 1,
+        wafer_texture_offset_x: 0,
+        wafer_texture_offset_y: 0,
+        wafer_mask: 'circle',
+        wafer_perspective: 0,
+      },
+      decorations: [{ modelFileName: 'deco.glb' }],
+    };
+
+    await service.applyDecoratedCakePreset(preset);
+
+    expect(registerSpy).toHaveBeenCalledWith(decoration);
+  }));
+
   it('delegates camera reset to scene init service', () => {
     const sceneInit = TestBed.inject(SceneInitService);
     spyOn(sceneInit, 'resetCameraView');
@@ -159,6 +219,103 @@ describe('ThreeSceneService', () => {
     service.resetCameraView();
 
     expect(sceneInit.resetCameraView).toHaveBeenCalled();
+  });
+
+  it('groups paint decorations by type in scene outline', () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    assignScene(sceneInit);
+
+    const cakeBase = new THREE.Group();
+    sceneInit.scene.add(cakeBase);
+    service.cakeBase = cakeBase;
+
+    const extruderStroke = new THREE.Group();
+    extruderStroke.userData['isPaintStroke'] = true;
+    extruderStroke.userData['paintStrokeType'] = 'extruder';
+    extruderStroke.userData['displayName'] = 'Ekstruder Wanilia';
+    extruderStroke.userData['snapInfo'] = { surfaceType: 'TOP' } as any;
+    cakeBase.add(extruderStroke);
+
+    const penStroke = new THREE.Group();
+    penStroke.userData['isPaintStroke'] = true;
+    penStroke.userData['paintStrokeType'] = 'pen';
+    penStroke.userData['displayName'] = 'Pisak neonowy';
+    penStroke.userData['snapInfo'] = { surfaceType: 'SIDE' } as any;
+    penStroke.visible = false;
+    cakeBase.add(penStroke);
+
+    const brushStroke = new THREE.Group();
+    brushStroke.userData['isPaintDecoration'] = true;
+    brushStroke.userData['displayName'] = 'Malowanie pędzlem';
+    brushStroke.userData['isSurfaceStroke'] = true;
+    cakeBase.add(brushStroke);
+
+    const sprinkles = new THREE.Group();
+    sprinkles.userData['isPaintDecoration'] = true;
+    sprinkles.userData['displayName'] = 'Posypka';
+    sceneInit.scene.add(sprinkles);
+
+    const figurine = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial());
+    figurine.userData['decorationType'] = 'figurine';
+    cakeBase.add(figurine);
+
+    const outline = service.getSceneOutline();
+
+    const nodes = new Map<string, any>();
+    const collectNodes = (node: any) => {
+      nodes.set(node.id, node);
+      node.children.forEach((child: any) => collectNodes(child));
+    };
+    collectNodes(outline);
+
+    const extruderGroup = nodes.get('paint-group-extruder-attached');
+    expect(extruderGroup.name).toBe('Ekstruder Wanilia');
+    expect(extruderGroup.children.some((child: any) => child.id === extruderStroke.uuid)).toBeTrue();
+
+    const penGroup = nodes.get('paint-group-pen-attached');
+    expect(penGroup.name).toBe('Pisak neonowy');
+    const penNode = nodes.get(penStroke.uuid);
+    expect(penNode.parentId).toBe(penGroup.id);
+    expect(penNode.type).toBe('decoration');
+    expect(penNode.visible).toBeFalse();
+    expect(penNode.surface).toBe('SIDE');
+
+    const brushGroup = nodes.get('paint-group-brush-attached');
+    expect(brushGroup.name).toBe('Malowanie pędzlem');
+    expect(brushGroup.children[0].id).toBe(brushStroke.uuid);
+
+    const sprinklesGroup = nodes.get('paint-group-sprinkles-unattached');
+    expect(sprinklesGroup.parentId).toBe('unattached-root');
+    expect(sprinklesGroup.children[0].id).toBe(sprinkles.uuid);
+
+    const figurineNode = nodes.get(figurine.uuid);
+    expect(figurineNode.parentId).toBe(outline.id);
+    expect(figurineNode.attached).toBeTrue();
+  });
+
+  it('uses decoration names from metadata in the scene outline', async () => {
+    const sceneInit = TestBed.inject(SceneInitService);
+    assignScene(sceneInit);
+
+    const decorationsService = TestBed.inject(DecorationsService);
+    decorationsService.setDecorations([
+      { id: 'cat', name: 'Kotek', modelFileName: 'cat.glb', type: 'BOTH' },
+    ]);
+
+    service.cakeBase = new THREE.Group();
+    sceneInit.scene.add(service.cakeBase);
+    (service as any).scene = sceneInit.scene;
+
+    spyOn(DecorationFactory, 'loadDecorationModel').and.returnValue(Promise.resolve(new THREE.Group()));
+
+    const result = await (service as any).spawnDecorationFromPreset({ modelFileName: 'cat.glb' });
+
+    expect(result?.object.userData['displayName']).toBe('Kotek');
+
+    const outline = service.getSceneOutline();
+    const decorationNode = outline.children.find((child) => child.id === result?.object.uuid);
+
+    expect(decorationNode?.name).toBe('Kotek');
   });
 
   it('uses the configured font when creating cake text', fakeAsync(() => {
