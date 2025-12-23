@@ -395,6 +395,10 @@ export class SnapService {
     const decorationType = object.userData['decorationType'] as DecorationPlacementType | undefined;
     const expectedSurfaces = this.mapPlacementTypeToSurfaces(decorationType);
 
+    if (object.userData['isPaintDecoration'] || object.userData['isPaintStroke']) {
+      return null;
+    }
+
     if (!this.cakeBase) {
       return {
         object,

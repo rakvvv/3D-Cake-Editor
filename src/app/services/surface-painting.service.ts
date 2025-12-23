@@ -686,6 +686,63 @@ export class SurfacePaintingService {
     this.globalRenderOrder = 100;
   }
 
+  public unregisterPaintDecoration(object: THREE.Object3D): void {
+    const strokeIds = new Set<string>();
+
+    object.traverse((child) => {
+      const id = child.userData?.['strokeId'] as string | undefined;
+      const ids = child.userData?.['strokeIds'] as string[] | undefined;
+      if (id) strokeIds.add(id);
+      ids?.forEach((value) => strokeIds.add(value));
+    });
+
+    if (strokeIds.size === 0) {
+      return;
+    }
+
+    const isRelated = (entry: THREE.Object3D): boolean => {
+      const id = entry.userData?.['strokeId'] as string | undefined;
+      const ids = entry.userData?.['strokeIds'] as string[] | undefined;
+      return (id && strokeIds.has(id)) || ids?.some((value) => strokeIds.has(value)) === true;
+    };
+
+    this.paintEntries = this.paintEntries.filter((entry) => {
+      if (isRelated(entry)) {
+        entry.userData['removedByUndo'] = true;
+        entry.parent?.remove(entry);
+        return false;
+      }
+      return true;
+    });
+
+    this.sprinkleEntries = this.sprinkleEntries.filter((entry) => {
+      if (isRelated(entry)) {
+        entry.userData['removedByUndo'] = true;
+        entry.parent?.remove(entry);
+        return false;
+      }
+      return true;
+    });
+
+    if (this.brushStrokeGroup && isRelated(this.brushStrokeGroup)) {
+      this.brushStrokeGroup = null;
+      this.brushStrokeMesh = null;
+      this.brushStrokeIndex = 0;
+      this.brushStrokeCapacity = 0;
+    }
+
+    if (this.sprinkleStrokeGroup && isRelated(this.sprinkleStrokeGroup)) {
+      this.sprinkleStrokeGroup = null;
+      this.sprinkleStrokeMesh = null;
+      this.sprinkleStrokeIndex = 0;
+      this.sprinkleStrokeCapacity = 0;
+      this.sprinkleStrokeShape = null;
+    }
+
+    this.brushStrokes = this.brushStrokes.filter((stroke) => !strokeIds.has(stroke.id));
+    this.sprinkleStrokes = this.sprinkleStrokes.filter((stroke) => !strokeIds.has(stroke.id));
+  }
+
   public clearSprinkles(): void {
     this.lastSprinklePoint = null;
     this.strokeRecorder.reset();

@@ -1467,6 +1467,8 @@ export class ThreeSceneService {
       return;
     }
 
+    this.surfacePaintingService.unregisterPaintDecoration(object);
+
     const parent = object.parent;
     if (parent) {
       parent.remove(object);
