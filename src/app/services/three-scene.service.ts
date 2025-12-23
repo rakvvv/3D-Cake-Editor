@@ -1159,7 +1159,21 @@ export class ThreeSceneService {
   }
 
   private cloneForExport(source: THREE.Object3D): THREE.Object3D {
+    const sanitizedUserData: Array<{ node: THREE.Object3D; original: any }> = [];
+
+    const snapshotUserData = (node: THREE.Object3D) => {
+      sanitizedUserData.push({ node, original: node.userData });
+      node.userData = this.cloneUserData(node.userData);
+      node.children.forEach(snapshotUserData);
+    };
+
+    snapshotUserData(source);
+
     const clone = source.clone(true);
+
+    sanitizedUserData.forEach(({ node, original }) => {
+      node.userData = original;
+    });
 
     const sanitizeUserData = (object: THREE.Object3D) => {
       object.userData = {};
