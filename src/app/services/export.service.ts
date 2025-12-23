@@ -18,10 +18,15 @@ export class ExportService {
 
   exportGLTF(scene: THREE.Scene, callback: (gltf: object) => void): void {
     const exporter = new GLTFExporter();
-    exporter.parse(scene, callback, () => {});
-  }
-
-  screenshot(renderer: THREE.WebGLRenderer): string {
-    return renderer.domElement.toDataURL('image/png');
+    exporter.parse(
+      scene,
+      callback,
+      () => {},
+      {
+        binary: false,
+        embedImages: true,
+        onlyVisible: true,
+      },
+    );
   }
 }

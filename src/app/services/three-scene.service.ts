@@ -1135,7 +1135,78 @@ export class ThreeSceneService {
   }
 
   public takeScreenshot(): string {
-    return this.exportService.screenshot(this.renderer);
+    const size = this.renderer.getSize(new THREE.Vector2());
+    const pixelRatio = this.renderer.getPixelRatio();
+    const width = Math.max(1, Math.floor(size.x * pixelRatio));
+    const height = Math.max(1, Math.floor(size.y * pixelRatio));
+
+    const renderTarget = new THREE.WebGLRenderTarget(width, height, {
+      samples: this.renderer.capabilities.isWebGL2 ? 4 : 0,
+    });
+
+    const previousTarget = this.renderer.getRenderTarget();
+    const previousSize = size.clone();
+    const previousPixelRatio = pixelRatio;
+    const previousClearColor = this.renderer.getClearColor(new THREE.Color());
+    const previousClearAlpha = this.renderer.getClearAlpha();
+    const previousBackground = this.scene.background;
+    const gridVisible = this.gridHelper?.visible ?? false;
+    const axesVisible = this.axesHelper?.visible ?? false;
+
+    if (this.gridHelper) {
+      this.gridHelper.visible = false;
+    }
+
+    if (this.axesHelper) {
+      this.axesHelper.visible = false;
+    }
+
+    try {
+      this.renderer.setRenderTarget(renderTarget);
+      this.renderer.setPixelRatio(1);
+      this.renderer.setSize(width, height, false);
+      this.renderer.setClearColor(previousBackground ?? new THREE.Color(0xffffff), 1);
+      this.renderer.render(this.scene, this.sceneInitService.camera);
+
+      const buffer = new Uint8Array(width * height * 4);
+      this.renderer.readRenderTargetPixels(renderTarget, 0, 0, width, height, buffer);
+
+      const flipped = new Uint8ClampedArray(buffer.length);
+      const stride = width * 4;
+      for (let y = 0; y < height; y++) {
+        const srcStart = (height - 1 - y) * stride;
+        const destStart = y * stride;
+        flipped.set(buffer.subarray(srcStart, srcStart + stride), destStart);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Could not create canvas context');
+      }
+
+      const imageData = new ImageData(flipped, width, height);
+      ctx.putImageData(imageData, 0, 0);
+      return canvas.toDataURL('image/png');
+    } finally {
+      this.renderer.setRenderTarget(previousTarget);
+      this.renderer.setPixelRatio(previousPixelRatio);
+      this.renderer.setSize(previousSize.x, previousSize.y, false);
+      this.renderer.setClearColor(previousClearColor, previousClearAlpha);
+      this.scene.background = previousBackground;
+
+      if (this.gridHelper) {
+        this.gridHelper.visible = gridVisible;
+      }
+
+      if (this.axesHelper) {
+        this.axesHelper.visible = axesVisible;
+      }
+
+      renderTarget.dispose();
+    }
   }
 
   private prepareExportScene(): THREE.Scene {
