@@ -1165,7 +1165,9 @@ export class ThreeSceneService {
       this.renderer.setRenderTarget(renderTarget);
       this.renderer.setPixelRatio(1);
       this.renderer.setSize(width, height, false);
-      this.renderer.setClearColor(previousBackground ?? new THREE.Color(0xffffff), 1);
+
+      const clearColor = previousBackground instanceof THREE.Color ? previousBackground : previousClearColor;
+      this.renderer.setClearColor(clearColor ?? new THREE.Color(0xffffff), 1);
       this.renderer.render(this.scene, this.sceneInitService.camera);
 
       const buffer = new Uint8Array(width * height * 4);
@@ -1467,7 +1469,7 @@ export class ThreeSceneService {
       return;
     }
 
-    this.surfacePaintingService.unregisterPaintDecoration(object);
+    this.surfacePainting.unregisterPaintDecoration(object);
 
     const parent = object.parent;
     if (parent) {
