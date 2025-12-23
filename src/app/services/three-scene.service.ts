@@ -1010,15 +1010,18 @@ export class ThreeSceneService {
   }
 
   public exportOBJ(): string {
-    return this.exportService.exportOBJ(this.scene);
+    const exportScene = this.prepareExportScene();
+    return this.exportService.exportOBJ(exportScene);
   }
 
   public exportSTL(): string {
-    return this.exportService.exportSTL(this.scene);
+    const exportScene = this.prepareExportScene();
+    return this.exportService.exportSTL(exportScene);
   }
 
   public exportGLTF(callback: (gltf: object) => void): void {
-    this.exportService.exportGLTF(this.scene, callback);
+    const exportScene = this.prepareExportScene();
+    this.exportService.exportGLTF(exportScene, callback);
   }
 
   public async generateCakeThumbnailBlob(): Promise<Blob> {
@@ -1133,6 +1136,47 @@ export class ThreeSceneService {
 
   public takeScreenshot(): string {
     return this.exportService.screenshot(this.renderer);
+  }
+
+  private prepareExportScene(): THREE.Scene {
+    const exportScene = new THREE.Scene();
+
+    const objectsToExport: THREE.Object3D[] = [];
+    if (this.cakeBase) {
+      objectsToExport.push(this.cakeBase);
+    }
+
+    objectsToExport.push(...this.collectDecorationRoots());
+
+    this.scene.updateMatrixWorld(true);
+
+    objectsToExport.forEach((object) => {
+      const cloned = this.cloneForExport(object);
+      exportScene.add(cloned);
+    });
+
+    return exportScene;
+  }
+
+  private cloneForExport(source: THREE.Object3D): THREE.Object3D {
+    const clone = source.clone(true);
+
+    const applyWorldMatrix = (src: THREE.Object3D, dst: THREE.Object3D) => {
+      src.updateMatrixWorld(true);
+      dst.matrix.copy(src.matrixWorld);
+      dst.matrix.decompose(dst.position, dst.quaternion, dst.scale);
+      dst.matrixAutoUpdate = false;
+
+      src.children.forEach((child, index) => {
+        const dstChild = dst.children[index];
+        if (dstChild) {
+          applyWorldMatrix(child, dstChild);
+        }
+      });
+    };
+
+    applyWorldMatrix(source, clone);
+    return clone;
   }
   private onClickDown(event: MouseEvent): void {
     this.handleInteraction(event.clientX, event.clientY, true);
