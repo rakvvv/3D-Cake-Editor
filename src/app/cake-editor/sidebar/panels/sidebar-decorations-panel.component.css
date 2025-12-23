@@ -11,19 +11,25 @@
   max-height: 260px;
   overflow-y: auto;
 }
+.select-style {
+  width: 100%;
+  background: #0e0e0e;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
 
 .select-row__input--native {
   position: relative;
 }
 
 .select-row__input--native select {
-  width: 100%;
-  background: transparent;
   border: none;
   color: var(--color-text);
   padding: 6px 8px;
   appearance: none;
 }
+
 
 .select-row__input--native::after {
   content: '▾';

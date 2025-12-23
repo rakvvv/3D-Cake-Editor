@@ -19,7 +19,14 @@
         </button>
         <div class="workspace-toolbar__title">
           <span class="workspace-toolbar__label">Tort</span>
-          <span class="workspace-toolbar__name">{{ projectName || 'UNTITLED' }}</span>
+          <input
+            class="workspace-toolbar__name-input"
+            type="text"
+            [(ngModel)]="projectName"
+            (ngModelChange)="onProjectNameInput($event)"
+            placeholder="UNTITLED"
+            aria-label="Project name"
+          />
         </div>
       </div>
 
@@ -484,17 +491,6 @@
             <div class="section-header">
               <span class="section-header__icon" aria-hidden="true">📂</span>
               <h2 class="section-header__title">Scene</h2>
-            </div>
-            <div class="workspace-sidebar__actions">
-              <button class="btn btn--ghost icon-only" type="button" (click)="changeSceneTreeScale(-0.1)" title="Zmniejsz">
-                <span aria-hidden="true">−</span>
-              </button>
-              <button class="btn btn--ghost icon-only" type="button" (click)="changeSceneTreeScale(0.1)" title="Powiększ">
-                <span aria-hidden="true">＋</span>
-              </button>
-              <button class="btn btn--ghost icon-only" type="button" (click)="onSaveScene()" title="Zapisz">
-                <span class="icon-16" aria-hidden="true">💾</span>
-              </button>
             </div>
           </div>
           <div class="scene-tree" *ngIf="sceneOutline; else sceneEmpty">

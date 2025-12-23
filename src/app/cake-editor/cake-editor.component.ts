@@ -21,7 +21,7 @@ import {DecorationValidationIssue} from '../models/decoration-validation';
 import {AddDecorationRequest} from '../models/add-decoration-request';
 import {AnchorPresetsService} from '../services/anchor-presets.service';
 import { SurfacePaintingService } from '../services/surface-painting.service';
-import {Subscription, lastValueFrom} from 'rxjs';
+import {Subscription, lastValueFrom, Subject, debounceTime, distinctUntilChanged, filter, map} from 'rxjs';
 import { environment } from '../../environments/environment';
 import { DecoratedCakePreset, SurfacePaintingPreset } from '../models/cake-preset';
 import { ProjectsService } from '../services/projects.service';
@@ -139,6 +139,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private pendingPreset: DecoratedCakePreset | null = null;
   private sceneInitialized = false;
   private viewReady = false;
+  private projectNameChanges$ = new Subject<string>();
 
   public validationSummary: string | null = null;
   public validationIssues: DecorationValidationIssue[] = [];
@@ -188,6 +189,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private sceneStatusSubscription?: Subscription;
   private userSubscription?: Subscription;
   private texturesSubscription?: Subscription;
+  private projectNameChangeSubscription?: Subscription;
   private readonly customCakeTextureIds = new Set(['frosting', 'chocolate-cake-03']);
   private readonly customGlazeTextureIds = new Set(['polewa']);
   private canvasListenerTarget?: HTMLElement;
@@ -307,6 +309,15 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.isAdmin = user?.role === 'ADMIN';
     });
 
+    this.projectNameChangeSubscription = this.projectNameChanges$
+      .pipe(
+        map((name) => name?.trim() || 'Projekt tortu'),
+        debounceTime(500),
+        distinctUntilChanged(),
+        filter(() => this.currentProjectId !== null),
+      )
+      .subscribe((name) => this.persistProjectName(name));
+
     this.paintBrushId = this.paintService.currentBrush;
     this.paintColor = this.paintService.penColor;
     this.penSize = this.paintService.penSize;
@@ -380,6 +391,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private loadTextureSets(): void {
     this.texturesSubscription?.unsubscribe();
+    this.projectNameChangeSubscription?.unsubscribe();
     this.texturesSubscription = this.texturesService.loadTextureSets().subscribe({
       next: (sets: TextureSet[]) => {
         this.textureLoadError = null;
@@ -889,10 +901,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.sceneExpandedNodes.add(node.id);
       node.children.forEach((child) => this.sceneExpandedNodes.add(child.id));
     }
-  }
-
-  changeSceneTreeScale(delta: number): void {
-    this.sceneTreeScale = Math.min(1.3, Math.max(0.9, this.sceneTreeScale + delta));
   }
 
   selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze' | 'wafer'): void {
@@ -1626,6 +1634,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  onProjectNameInput(value: string): void {
+    this.projectName = value;
+    this.projectNameChanges$.next(value);
+  }
+
   onBrushChanged(brushId: string): void {
     this.paintService.currentBrush = brushId;
   }
@@ -1636,11 +1649,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const preset = this.sceneService.buildDecoratedCakePreset(this.projectName || 'Projekt tortu');
-    const payload = {
-      name: this.projectName || 'Projekt tortu',
-      dataJson: JSON.stringify(preset),
-    };
+    const payload = this.buildProjectPayload();
+    this.projectName = payload.name;
 
     this.projectsService.updateProject(this.currentProjectId, payload).subscribe({
       next: () => {
@@ -1648,6 +1658,30 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         void this.refreshProjectThumbnail(this.currentProjectId!);
       },
       error: () => this.showStatus('Nie udało się zapisać projektu.'),
+    });
+  }
+
+  private buildProjectPayload(nameOverride?: string): { name: string; dataJson: string } {
+    const safeName = (nameOverride ?? this.projectName)?.trim() || 'Projekt tortu';
+    const preset = this.sceneService.buildDecoratedCakePreset(safeName);
+
+    return {
+      name: safeName,
+      dataJson: JSON.stringify(preset),
+    };
+  }
+
+  private persistProjectName(name: string): void {
+    if (!this.currentProjectId) {
+      return;
+    }
+
+    const payload = this.buildProjectPayload(name);
+    this.projectName = payload.name;
+
+    this.projectsService.updateProject(this.currentProjectId, payload).subscribe({
+      next: () => this.showStatus('Nazwa projektu zapisana.'),
+      error: () => this.showStatus('Nie udało się zaktualizować nazwy projektu.'),
     });
   }
 

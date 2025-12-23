@@ -75,10 +75,19 @@
           <span class="icon-16" aria-hidden="true">⟳</span>
         </button>
 
-        <button class="btn btn--primary" type="button" (click)="createProject()">
-          <span class="icon-16" aria-hidden="true">＋</span>
-          <span>New</span>
-        </button>
+        <div class="projects-toolbar__create">
+          <input
+            class="projects-toolbar__new-input"
+            type="text"
+            [(ngModel)]="newProjectName"
+            placeholder="Nazwa projektu"
+            aria-label="New project name"
+          />
+          <button class="btn btn--primary" type="button" (click)="createProject()">
+            <span class="icon-16" aria-hidden="true">＋</span>
+            <span>New</span>
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -142,26 +151,6 @@
       <ng-template #noResultsTpl>
         <div class="projects-empty">Brak wyników dla "{{ searchQuery }}"</div>
       </ng-template>
-
-      <article class="project-card project-card--new" [class.project-card--list]="viewMode === 'list'">
-        <div class="project-card__new">
-          <div class="icon-24" aria-hidden="true">＋</div>
-          <div class="project-card__meta">
-            <h3 class="project-card__title">Nowy projekt</h3>
-            <p class="project-card__subtitle">Podaj nazwę i zacznij edytować</p>
-          </div>
-        </div>
-        <div class="project-card__new-form">
-          <input
-            class="project-card__new-input"
-            type="text"
-            [(ngModel)]="newProjectName"
-            placeholder="Nazwa projektu"
-            aria-label="New project name"
-          />
-          <button class="btn btn--primary" type="button" (click)="createProject()">Utwórz</button>
-        </div>
-      </article>
     </div>
   </main>
 

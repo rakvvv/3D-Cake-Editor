@@ -85,8 +85,16 @@
   box-shadow: var(--shadow-soft);
 }
 
+.select-style {
+  width: 100%;
+  background: #0e0e0e;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
 .editor-panel--painting .decorations-list {
-  max-height: 220px;
+  max-height: 550px;
   overflow-y: auto;
 }
 
