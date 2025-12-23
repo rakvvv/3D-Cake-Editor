@@ -406,7 +406,36 @@ export class SnapService {
       };
     }
 
-    const closestPointInfo = this.getClosestPointOnCake(object.getWorldPosition(new THREE.Vector3()));
+    const bounds = this.computeWorldBoundingBox(object);
+
+    const candidatePoints: THREE.Vector3[] = [];
+
+    if (!bounds.isEmpty()) {
+      const center = bounds.getCenter(new THREE.Vector3());
+      const { min, max } = bounds;
+      candidatePoints.push(
+        center,
+        new THREE.Vector3(min.x, min.y, min.z),
+        new THREE.Vector3(min.x, min.y, max.z),
+        new THREE.Vector3(min.x, max.y, min.z),
+        new THREE.Vector3(min.x, max.y, max.z),
+        new THREE.Vector3(max.x, min.y, min.z),
+        new THREE.Vector3(max.x, min.y, max.z),
+        new THREE.Vector3(max.x, max.y, min.z),
+        new THREE.Vector3(max.x, max.y, max.z),
+      );
+    } else {
+      candidatePoints.push(object.getWorldPosition(new THREE.Vector3()));
+    }
+
+    let closestPointInfo = this.getClosestPointOnCake(candidatePoints[0]);
+
+    for (let i = 1; i < candidatePoints.length; i++) {
+      const info = this.getClosestPointOnCake(candidatePoints[i]);
+      if (info.distance < closestPointInfo.distance) {
+        closestPointInfo = info;
+      }
+    }
 
     if (closestPointInfo.surfaceType === 'NONE' || !isFinite(closestPointInfo.distance)) {
       return {
