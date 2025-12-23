@@ -1161,6 +1161,11 @@ export class ThreeSceneService {
   private cloneForExport(source: THREE.Object3D): THREE.Object3D {
     const clone = source.clone(true);
 
+    const sanitizeUserData = (object: THREE.Object3D) => {
+      object.userData = {};
+      object.children.forEach(sanitizeUserData);
+    };
+
     const applyWorldMatrix = (src: THREE.Object3D, dst: THREE.Object3D) => {
       src.updateMatrixWorld(true);
       dst.matrix.copy(src.matrixWorld);
@@ -1175,6 +1180,7 @@ export class ThreeSceneService {
       });
     };
 
+    sanitizeUserData(clone);
     applyWorldMatrix(source, clone);
     return clone;
   }
