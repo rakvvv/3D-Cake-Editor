@@ -2245,6 +2245,11 @@ export class ThreeSceneService {
   }
 
   public buildDecoratedCakePreset(name = 'Preset tortu'): DecoratedCakePreset {
+    // Upewnij się, że wszystkie trwające pociągnięcia malowania są domknięte,
+    // aby dane malowania (smugi/posypka) trafiły do presetów.
+    this.paintService.endStroke();
+    this.surfacePainting.endStroke();
+
     const decorations = this.collectDecorationRoots();
     const payload: DecoratedCakePreset = {
       id: `cake-${Date.now()}`,
