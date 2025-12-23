@@ -20,4 +20,5 @@ export class SidebarExportPanelComponent {
   @Output() exportObj = new EventEmitter<void>();
   @Output() exportStl = new EventEmitter<void>();
   @Output() exportGltf = new EventEmitter<void>();
+  @Output() exportScreenshot = new EventEmitter<void>();
 }
