@@ -53,7 +53,7 @@
     <div class="select-row">
       <span class="select-row__label">Powierzchnia</span>
       <div class="select-row__input select-row__input--native">
-        <select [(ngModel)]="preferredSurface" aria-label="Powierzchnia docelowa">
+        <select class="select-style"  [(ngModel)]="preferredSurface" aria-label="Powierzchnia docelowa">
           <option value="AUTO">Automatycznie</option>
           <option value="TOP">Góra</option>
           <option value="SIDE">Boki</option>
@@ -64,7 +64,7 @@
     <div class="select-row">
       <span class="select-row__label">Warstwa</span>
       <div class="select-row__input select-row__input--native">
-        <select [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Docelowa warstwa">
+        <select class="select-style"  [(ngModel)]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Docelowa warstwa">
           <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
         </select>
       </div>
@@ -82,7 +82,7 @@
     <div class="select-row">
       <span class="select-row__label">Preset</span>
       <div class="select-row__input select-row__input--native">
-        <select [ngModel]="activePresetId" (ngModelChange)="onPresetChange($event)" aria-label="Wybierz preset">
+        <select class="select-style" [ngModel]="activePresetId" (ngModelChange)="onPresetChange($event)" aria-label="Wybierz preset">
           <option *ngFor="let preset of presets" [value]="preset.id">{{ preset.name }}</option>
         </select>
       </div>

@@ -903,10 +903,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  changeSceneTreeScale(delta: number): void {
-    this.sceneTreeScale = Math.min(1.3, Math.max(0.9, this.sceneTreeScale + delta));
-  }
-
   selectSetupTab(tab: 'cake' | 'texture' | 'color' | 'glaze' | 'wafer'): void {
     this.setupTab = tab;
   }
