@@ -362,23 +362,17 @@ export class SurfacePaintingService {
 
   // --- EKSPORT I ODTWARZANIE (Z OPTYMALIZACJĄ) ---
 
-  public exportPaintingPreset(): SurfacePaintingPreset {
-    // 1. Filtrujemy (usuwamy undo)
-    const validBrushStrokes = this.brushStrokes.filter((stroke) => {
-      const group = this.paintEntries.find((g) => {
-        const strokeIds = g.userData?.['strokeIds'] as string[] | undefined;
-        return strokeIds?.includes(stroke.id) || g.userData?.['strokeId'] === stroke.id;
-      });
-      return group && !group.userData?.['removedByUndo'];
-    });
+  public finalizePainting(): void {
+    // Domknij ewentualne niedokończone serie instancji (np. po malowaniu pędzlem lub posypką).
+    this.finalizePreviousBatch();
+  }
 
-    const validSprinkleStrokes = this.sprinkleStrokes.filter((stroke) => {
-      const group = this.sprinkleEntries.find((g) => {
-        const strokeIds = g.userData?.['strokeIds'] as string[] | undefined;
-        return strokeIds?.includes(stroke.id) || g.userData?.['strokeId'] === stroke.id;
-      });
-      return group && !group.userData?.['removedByUndo'];
-    });
+  public exportPaintingPreset(): SurfacePaintingPreset {
+    // 1. Wykorzystujemy utrzymane listy pociągnięć – są czyszczone przy undo/usunięciu dekoracji,
+    //    więc nie musimy weryfikować obecności grup w scenie (co mogło gubić odtworzone smugi).
+    const validBrushStrokes = [...this.brushStrokes];
+
+    const validSprinkleStrokes = [...this.sprinkleStrokes];
 
     // 2. SCALANIE PĘDZLI
     const mergedBrushMap = new Map<string, SerializedBrushStroke>();
