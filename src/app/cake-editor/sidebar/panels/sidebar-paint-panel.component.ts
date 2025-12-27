@@ -198,6 +198,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       this.paintService.setExtruderPathMode(false);
       this.refreshPathMarkers();
     }
+    this.updateExtruderPathEditActive();
     this.refreshDecorations();
   }
 
@@ -235,6 +236,8 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
 
   onLayerChange(index: number): void {
     this.targetLayerIndex = Math.min(Math.max(Math.round(index), 0), Math.max(this.layerCount - 1, 0));
+    this.paintService.setExtruderPathLayer(this.targetLayerIndex);
+    this.syncExtruderContext();
   }
 
   onExtruderSelectionChange(selection: number): void {
@@ -314,6 +317,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       this.setExtruderDrawingMode('free');
     }
     this.refreshPathMarkers();
+    this.updateExtruderPathEditActive();
   }
 
   togglePathConnection(): void {
@@ -334,6 +338,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.paintService.setExtruderPathMode(this.extruderPathModeEnabled);
     this.syncExtruderContext();
     this.refreshPathMarkers();
+    this.updateExtruderPathEditActive();
   }
 
   onExtruderSegmentsChange(value: number): void {
@@ -490,6 +495,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.validateNodes();
     this.refreshNodePreview();
     this.refreshPathMarkers();
+    this.updateExtruderPathEditActive();
     this.cdr.detectChanges();
   }
 
@@ -499,6 +505,10 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     }
 
     this.paintService.refreshExtruderPathMarkers();
+  }
+
+  private updateExtruderPathEditActive(): void {
+    this.paintService.setExtruderPathEditActive(this.showPresetPoints && this.extruderPathModeEnabled);
   }
 
   @HostListener('document:keydown', ['$event'])
@@ -511,9 +521,13 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     const isUndo = (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z';
 
     if (isUndo) {
+      event.stopImmediatePropagation();
+      event.stopPropagation();
       event.preventDefault();
       this.undoExtruderNodes();
     } else if (isRedo) {
+      event.stopImmediatePropagation();
+      event.stopPropagation();
       event.preventDefault();
       this.redoExtruderNodes();
     }
@@ -655,6 +669,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     this.extruderPathRedo = [];
     this.validateNodes();
     this.refreshNodePreview();
+    this.updateExtruderPathEditActive();
   }
 
   private getPresetConfigFromSelection(): CreamRingPreset | null {

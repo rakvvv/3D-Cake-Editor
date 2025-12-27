@@ -453,6 +453,14 @@
             <span class="icon-16" aria-hidden="true">{{ extruderPathModeEnabled ? '⏽' : '⭘' }}</span>
           </button>
         </div>
+        <div class="select-row select-row--compact" *ngIf="layerCount > 1">
+          <span class="select-row__label">Warstwa punktów</span>
+          <div class="select-row__input select-row__input--native">
+            <select class="select-style" [ngModel]="targetLayerIndex" (ngModelChange)="onLayerChange($event)" aria-label="Warstwa punktów">
+              <option *ngFor="let idx of layerIndices" [value]="idx">{{ idx + 1 }}</option>
+            </select>
+          </div>
+        </div>
         <div class="points-panel__actions">
           <button type="button" class="sidebar-panel__button sidebar-panel__button--primary" (click)="connectExtruderNodes()">
             Dodaj / połącz punkty
