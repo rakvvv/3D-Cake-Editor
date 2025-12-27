@@ -25,6 +25,7 @@ const DEFAULT_SPRINKLE_COLOR = SPRINKLE_PALETTE[0];
 // --- SEPARATOR ---
 // Służy do oddzielania pociągnięć w scalonym pliku JSON
 const STROKE_SEPARATOR = 99999;
+const RO_PAINT = 10;
 
 @Injectable({ providedIn: 'root' })
 export class SurfacePaintingService {
@@ -33,43 +34,28 @@ export class SurfacePaintingService {
 
   // Parametry pędzla
   public brushSize = 90;
-  public brushOpacity = 1.0;
   public brushColor = '#ff6b6b';
   private isReplayingBrush = false;
-  private replayBlobIndex = 0;
+
 
   private brushTexture: THREE.CanvasTexture | null = null;
   public get gradientEnabled(): boolean {
     return this.gradientTextureService.gradientEnabled;
   }
 
-  public set gradientEnabled(enabled: boolean) {
-    this.gradientTextureService.gradientEnabled = enabled;
-  }
-
   public get gradientFlip(): boolean {
     return this.gradientTextureService.gradientFlip;
   }
 
-  public set gradientFlip(flip: boolean) {
-    this.gradientTextureService.gradientFlip = flip;
-  }
 
   public get gradientStart(): string {
     return this.gradientTextureService.gradientStart;
-  }
-
-  public set gradientStart(color: string) {
-    this.gradientTextureService.gradientStart = color;
   }
 
   public get gradientEnd(): string {
     return this.gradientTextureService.gradientEnd;
   }
 
-  public set gradientEnd(color: string) {
-    this.gradientTextureService.gradientEnd = color;
-  }
   public sprinkleDensity = 6;
   public sprinkleShape: SprinkleShape = 'stick';
   public sprinkleMinScale = 0.7;
@@ -362,23 +348,56 @@ export class SurfacePaintingService {
 
   // --- EKSPORT I ODTWARZANIE (Z OPTYMALIZACJĄ) ---
 
+  public finalizePainting(): void {
+    // Domknij ewentualne niedokończone serie instancji (np. po malowaniu pędzlem lub posypką).
+    this.finalizePreviousBatch();
+  }
+
   public exportPaintingPreset(): SurfacePaintingPreset {
-    // 1. Filtrujemy (usuwamy undo)
-    const validBrushStrokes = this.brushStrokes.filter((stroke) => {
-      const group = this.paintEntries.find((g) => {
-        const strokeIds = g.userData?.['strokeIds'] as string[] | undefined;
-        return strokeIds?.includes(stroke.id) || g.userData?.['strokeId'] === stroke.id;
-      });
-      return group && !group.userData?.['removedByUndo'];
+    const existingStrokeIds = new Set<string>();
+
+    // Zbierz ID z paintEntries (smugi pędzla)
+    this.paintEntries.forEach(entry => {
+      if (entry.userData['removedByUndo']) return;
+      if (!entry.parent) return; // Nie ma rodzica = usunięte ze sceny
+
+      const ids = entry.userData['strokeIds'] as string[] | undefined;
+      ids?.forEach(id => existingStrokeIds.add(id));
     });
 
-    const validSprinkleStrokes = this.sprinkleStrokes.filter((stroke) => {
-      const group = this.sprinkleEntries.find((g) => {
-        const strokeIds = g.userData?.['strokeIds'] as string[] | undefined;
-        return strokeIds?.includes(stroke.id) || g.userData?.['strokeId'] === stroke.id;
-      });
-      return group && !group.userData?.['removedByUndo'];
+    // Zbierz ID z sprinkleEntries (posypka)
+    this.sprinkleEntries.forEach(entry => {
+      if (entry.userData['removedByUndo']) return;
+      if (!entry.parent) return;
+
+      const ids = entry.userData['strokeIds'] as string[] | undefined;
+      ids?.forEach(id => existingStrokeIds.add(id));
     });
+
+    // Sprawdź też aktywne grupy (jeśli nie są w entries)
+    if (this.brushStrokeGroup?.parent && !this.brushStrokeGroup.userData['removedByUndo']) {
+      const ids = this.brushStrokeGroup.userData['strokeIds'] as string[] | undefined;
+      ids?.forEach(id => existingStrokeIds.add(id));
+    }
+    if (this.sprinkleStrokeGroup?.parent && !this.sprinkleStrokeGroup.userData['removedByUndo']) {
+      const ids = this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined;
+      ids?.forEach(id => existingStrokeIds.add(id));
+    }
+
+    console.log('[exportPaintingPreset] Existing stroke IDs in scene:', Array.from(existingStrokeIds));
+    console.log('[exportPaintingPreset] brushStrokes before filter:', this.brushStrokes.map(s => s.id));
+    console.log('[exportPaintingPreset] sprinkleStrokes before filter:', this.sprinkleStrokes.map(s => s.id));
+
+    // ✅ Filtruj listy - zostaw tylko te, które mają odpowiadające grupy w scenie
+    const validBrushStrokes = this.brushStrokes.filter(s => existingStrokeIds.has(s.id));
+    const validSprinkleStrokes = this.sprinkleStrokes.filter(s => existingStrokeIds.has(s.id));
+
+    console.log('[exportPaintingPreset] validBrushStrokes after filter:', validBrushStrokes.map(s => s.id));
+    console.log('[exportPaintingPreset] validSprinkleStrokes after filter:', validSprinkleStrokes.map(s => s.id));
+
+    // ✅ Zaktualizuj wewnętrzne listy (synchronizacja)
+    this.brushStrokes = validBrushStrokes;
+    this.sprinkleStrokes = validSprinkleStrokes;
 
     // 2. SCALANIE PĘDZLI
     const mergedBrushMap = new Map<string, SerializedBrushStroke>();
@@ -387,7 +406,7 @@ export class SurfacePaintingService {
       const key = `${stroke.color}|${stroke.brushSize}`;
       if (!mergedBrushMap.has(key)) {
         mergedBrushMap.set(key, {
-          id: `merged-brush-${this.nextStrokeId++}`,
+          id: stroke.id,
           mode: 'brush',
           color: stroke.color,
           brushSize: stroke.brushSize,
@@ -395,7 +414,6 @@ export class SurfacePaintingService {
         });
       } else {
         const existing = mergedBrushMap.get(key)!;
-        // Wstawiamy SEPARATOR i 5 zer, żeby oddzielić linie
         existing.pathData.push(STROKE_SEPARATOR, 0, 0, 0, 0, 0);
         existing.pathData.push(...stroke.pathData);
       }
@@ -409,7 +427,7 @@ export class SurfacePaintingService {
       const key = `${stroke.shape}|${colorMode}|${stroke.color}|${stroke.density}`;
       if (!mergedSprinklesMap.has(key)) {
         mergedSprinklesMap.set(key, {
-          id: `merged-sprinkles-${this.nextStrokeId++}`,
+          id: stroke.id,
           mode: 'sprinkles',
           shape: stroke.shape,
           colorMode: colorMode,
@@ -438,11 +456,33 @@ export class SurfacePaintingService {
       return;
     }
 
-    this.clearPaint();
-    this.brushStrokes = [];
-    this.sprinkleStrokes = [];
+    // Wyczyść wizualne elementy
+    this.finalizePreviousBatch();
+    this.disposeSprinkles();
+    this.disposePaintStrokes();
+
+    // Reset stanu
     this.activeStroke = null;
-    this.nextStrokeId = 1;
+    this.strokeRecorder.reset();
+
+    this.brushStrokes = (preset.brushStrokes ?? []).map(s => ({
+      ...s,
+      pathData: [...s.pathData],
+    }));
+    this.sprinkleStrokes = (preset.sprinkleStrokes ?? []).map(s => ({
+      ...s,
+      pathData: [...s.pathData],
+    }));
+
+    let maxId = 0;
+    [...this.brushStrokes, ...this.sprinkleStrokes].forEach(stroke => {
+      const parts = stroke.id.split('-');
+      const numericId = Number(parts[parts.length - 1]);
+      if (!Number.isNaN(numericId) && numericId > maxId) {
+        maxId = numericId;
+      }
+    });
+    this.nextStrokeId = maxId + 1;
 
     this.attachCake(this.cakeGroup, false);
     this.brushColor = preset.brushColor ?? this.brushColor;
@@ -600,18 +640,33 @@ export class SurfacePaintingService {
 
     this.isReplayingSprinkles = true;
     this.lastSprinklePoint = null;
-    this.startStroke();
 
-    if (this.activeStroke) {
-      this.activeStroke.id = stroke.id;
-      // WAŻNE: Kopiujemy dane, żeby endStroke nie uznał grupy za pustą
-      this.activeStroke.pathData = [...stroke.pathData];
+    // ✅ ZMIANA: Nie używaj startStroke() - ręcznie przygotuj grupę
+    this.painting = true;
 
-      const parts = stroke.id.split('-');
-      const numericId = Number(parts[parts.length - 1]);
-      if (!Number.isNaN(numericId)) {
-        this.nextStrokeId = Math.max(this.nextStrokeId, numericId + 1);
+    // Sprawdź czy potrzebujemy nowej grupy
+    const isSameShape = this.lastUsedSprinkleShape === this.sprinkleShape;
+    const isSameMode = this.lastUsedSprinkleColorMode === this.sprinkleColorMode;
+    const isSameColor = this.sprinkleColorMode === 'mono' ? this.lastUsedSprinkleColor === this.sprinkleColor : true;
+    const hasCapacity = this.sprinkleStrokeMesh && this.sprinkleStrokeIndex < this.sprinkleStrokeCapacity - 500;
+    const isRemoved = !this.sprinkleStrokeGroup || !this.sprinkleStrokeGroup.parent;
+
+    if (!this.sprinkleStrokeMesh || !isSameShape || !isSameMode || !isSameColor || !hasCapacity || isRemoved) {
+      this.finalizePreviousBatch();
+      this.lastUsedSprinkleShape = this.sprinkleShape;
+      this.lastUsedSprinkleColor = this.sprinkleColor;
+      this.lastUsedSprinkleColorMode = this.sprinkleColorMode;
+      this.prepareSprinkleStroke(scene);
+    }
+
+    // Przywracamy ID stroke'a na grupie (dla outline/undo)
+    if (this.sprinkleStrokeGroup) {
+      const existingIds = (this.sprinkleStrokeGroup.userData['strokeIds'] as string[] | undefined) ?? [];
+      if (!existingIds.includes(stroke.id)) {
+        existingIds.push(stroke.id);
+        this.sprinkleStrokeGroup.userData['strokeIds'] = existingIds;
       }
+      this.sprinkleStrokeGroup.userData['strokeId'] = stroke.id;
     }
 
     const data = stroke.pathData;
@@ -629,7 +684,7 @@ export class SurfacePaintingService {
         continue;
       }
 
-      // Filtr duchów pod spodem (mniej agresywny niż 0.05, ale skuteczny na 0.000)
+      // Filtr duchów pod spodem
       if (y < 0.001) {
         this.lastSprinklePoint = null;
         continue;
@@ -648,7 +703,7 @@ export class SurfacePaintingService {
       this.placeSprinkles(hit, scene);
     }
 
-    // --- KLUCZOWE: Wymuszenie aktualizacji po pętli ---
+    // Finalizacja wizualna
     if (this.sprinkleStrokeMesh) {
       this.sprinkleStrokeMesh.count = this.sprinkleStrokeIndex;
       this.sprinkleStrokeMesh.instanceMatrix.needsUpdate = true;
@@ -658,7 +713,8 @@ export class SurfacePaintingService {
       this.sprinkleStrokeMesh.computeBoundingSphere();
     }
 
-    this.endStroke();
+    this.painting = false;
+    this.lastSprinklePoint = null;
     this.isReplayingSprinkles = false;
   }
 
@@ -684,6 +740,72 @@ export class SurfacePaintingService {
 
     // Reset kolejności rysowania warstw
     this.globalRenderOrder = 100;
+  }
+
+  public unregisterPaintDecoration(object: THREE.Object3D): void {
+    const strokeIds = new Set<string>();
+
+    // Zbierz wszystkie ID stroke'ów z usuwanego obiektu
+    object.traverse((child) => {
+      const id = child.userData?.['strokeId'] as string | undefined;
+      const ids = child.userData?.['strokeIds'] as string[] | undefined;
+      if (id) strokeIds.add(id);
+      ids?.forEach((value) => strokeIds.add(value));
+    });
+
+    if (strokeIds.size === 0) {
+      return;
+    }
+
+    const isRelated = (entry: THREE.Object3D): boolean => {
+      const id = entry.userData?.['strokeId'] as string | undefined;
+      const ids = entry.userData?.['strokeIds'] as string[] | undefined;
+      return (id && strokeIds.has(id)) || ids?.some((value) => strokeIds.has(value)) === true;
+    };
+
+    // Usuń z paintEntries
+    this.paintEntries = this.paintEntries.filter((entry) => {
+      if (isRelated(entry)) {
+        entry.userData['removedByUndo'] = true;
+        entry.parent?.remove(entry);
+        return false;
+      }
+      return true;
+    });
+
+    // Usuń z sprinkleEntries
+    this.sprinkleEntries = this.sprinkleEntries.filter((entry) => {
+      if (isRelated(entry)) {
+        entry.userData['removedByUndo'] = true;
+        entry.parent?.remove(entry);
+        return false;
+      }
+      return true;
+    });
+
+    // Reset aktywnej grupy pędzla jeśli usunięta
+    if (this.brushStrokeGroup && isRelated(this.brushStrokeGroup)) {
+      this.brushStrokeGroup = null;
+      this.brushStrokeMesh = null;
+      this.brushStrokeIndex = 0;
+      this.brushStrokeCapacity = 0;
+      this.lastUsedBrushColor = null;
+    }
+
+    // Reset aktywnej grupy posypki jeśli usunięta
+    if (this.sprinkleStrokeGroup && isRelated(this.sprinkleStrokeGroup)) {
+      this.sprinkleStrokeGroup = null;
+      this.sprinkleStrokeMesh = null;
+      this.sprinkleStrokeIndex = 0;
+      this.sprinkleStrokeCapacity = 0;
+      this.sprinkleStrokeShape = null;
+      this.lastUsedSprinkleShape = null;
+      this.lastUsedSprinkleColor = null;
+      this.lastUsedSprinkleColorMode = null;
+    }
+
+    this.brushStrokes = this.brushStrokes.filter((stroke) => !strokeIds.has(stroke.id));
+    this.sprinkleStrokes = this.sprinkleStrokes.filter((stroke) => !strokeIds.has(stroke.id));
   }
 
   public clearSprinkles(): void {
@@ -1103,13 +1225,14 @@ export class SurfacePaintingService {
     mesh.name = 'Malowanie pędzlem';
     mesh.count = 0;
     mesh.frustumCulled = false;
-    mesh.renderOrder = this.globalRenderOrder++;
+    mesh.renderOrder = RO_PAINT;
 
     const group = new THREE.Group();
     group.name = 'Malowanie pędzlem';
     group.userData['displayName'] = 'Malowanie pędzlem';
     group.userData['isPaintDecoration'] = true;
     group.userData['isSurfaceStroke'] = true;
+    group.userData['isSnapped'] = true;
     group.userData['strokeIds'] = [] as string[];
     group.add(mesh);
     anchor.add(group);
@@ -1412,6 +1535,7 @@ export class SurfacePaintingService {
     group.userData['displayName'] = 'Posypka';
     group.userData['isPaintDecoration'] = true;
     group.userData['isSurfaceStroke'] = true;
+    group.userData['isSnapped'] = true;
     group.userData['strokeIds'] = [] as string[];
     group.add(mesh);
     anchor.add(group);
