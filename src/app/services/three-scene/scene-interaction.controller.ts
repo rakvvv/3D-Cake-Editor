@@ -240,6 +240,10 @@ export class SceneInteractionController {
     const wantsUndo = key === 'z' && !event.shiftKey;
     const wantsRedo = key === 'y' || (key === 'z' && event.shiftKey);
 
+    if ((wantsUndo || wantsRedo) && this.paintService.isExtruderPathEditActive()) {
+      return;
+    }
+
     if (wantsUndo) {
       if (this.paintService.canUndo()) {
         if (this.lastUndoEventStamp === event.timeStamp) {

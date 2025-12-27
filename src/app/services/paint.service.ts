@@ -140,6 +140,7 @@ export class PaintService {
   private extruderPathMarkerGeometry = new THREE.SphereGeometry(0.03, 20, 16);
   private readonly extruderPathMarkerOffset = 0.012;
   private readonly extruderPathTargetSegmentLength = 0.05;
+  private extruderPathEditActive = false;
 
   private readonly isBrowser: boolean;
   private readonly apiBaseUrl = environment.apiBaseUrl;
@@ -838,6 +839,14 @@ export class PaintService {
   public setExtruderPathLayer(layerIndex: number): void {
     const metadata = this.snapService.getCakeMetadataSnapshot();
     this.extruderPathLayerIndex = metadata ? this.resolveLayerIndex(layerIndex, metadata) : Math.max(0, layerIndex);
+  }
+
+  public setExtruderPathEditActive(active: boolean): void {
+    this.extruderPathEditActive = active;
+  }
+
+  public isExtruderPathEditActive(): boolean {
+    return this.extruderPathEditActive;
   }
 
   public setExtruderPathContext(config: CreamRingPreset): void {
