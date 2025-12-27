@@ -20,7 +20,6 @@ export class ProjectListComponent implements OnInit {
   searchQuery = '';
   renameProjectId: number | null = null;
   renameValue = '';
-  viewMode: 'grid' | 'list' = 'grid';
   userMenuOpen = false;
   defaultThumbnail = '/assets/projects/thumbnail-placeholder.svg';
 
@@ -75,10 +74,6 @@ export class ProjectListComponent implements OnInit {
 
   openProject(id: number): void {
     void this.router.navigate(['/editor', id]);
-  }
-
-  setViewMode(mode: 'grid' | 'list'): void {
-    this.viewMode = mode;
   }
 
   startRename(project: CakeProjectSummaryDto): void {

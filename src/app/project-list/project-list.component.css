@@ -241,31 +241,6 @@
   justify-content: center;
 }
 
-.toggle-view {
-  background: #303030;
-  border-radius: var(--radius-md);
-  padding: 2px;
-  display: inline-flex;
-  gap: 2px;
-}
-
-.toggle-view__btn {
-  border-radius: 6px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--color-text);
-}
-
-.toggle-view__btn--active {
-  background: #1c1c1c;
-  box-shadow: var(--shadow-soft);
-}
 
 .projects-content {
   background: #1c1c1c;

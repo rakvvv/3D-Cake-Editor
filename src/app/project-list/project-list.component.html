@@ -47,29 +47,6 @@
       </div>
 
       <div class="projects-toolbar__actions">
-        <div class="toggle-view">
-          <button
-            class="toggle-view__btn"
-            type="button"
-            [class.toggle-view__btn--active]="viewMode === 'grid'"
-            [attr.aria-pressed]="viewMode === 'grid'"
-            (click)="setViewMode('grid')"
-            title="Widok siatki"
-          >
-            ▥
-          </button>
-          <button
-            class="toggle-view__btn"
-            type="button"
-            [class.toggle-view__btn--active]="viewMode === 'list'"
-            [attr.aria-pressed]="viewMode === 'list'"
-            (click)="setViewMode('list')"
-            title="Widok listy"
-          >
-            ☰
-          </button>
-        </div>
-
         <button class="btn btn--ghost" type="button" (click)="loadProjects()">
           <span>Refresh</span>
           <span class="icon-16" aria-hidden="true">⟳</span>
@@ -93,11 +70,10 @@
   </section>
 
   <main class="projects-content">
-    <div class="projects-grid" [class.projects-grid--list]="viewMode === 'list'" *ngIf="!loading; else loadingTpl">
+    <div class="projects-grid" *ngIf="!loading; else loadingTpl">
       <ng-container *ngIf="filteredProjects.length; else noResultsTpl">
         <article
           class="project-card"
-          [class.project-card--list]="viewMode === 'list'"
           *ngFor="let project of filteredProjects"
         >
           <header class="project-card__header">
