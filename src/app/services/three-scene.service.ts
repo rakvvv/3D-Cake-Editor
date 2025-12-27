@@ -957,22 +957,6 @@ export class ThreeSceneService {
     const seed = seedText.split('').reduce((acc, char, index) => acc + char.charCodeAt(0) * (index + 1), 0);
     return Math.abs(seed) % this.candyPalette.length;
   }
-  // TODO zapisanie sceny lokalnie
-  // public getSceneConfiguration(): any {
-  //   return this.objects.map((obj, index) => ({
-  //     id: index,
-  //     position: obj.position.toArray()
-  //   }));
-  // }
-
-  // TODO zrobic zapisywanie modelu
-  public saveSceneConfiguration(data: any): Observable<any> {
-    return this.http.post(`${this.apiBaseUrl}/${this.endpoints.saveScene}`, data);
-  }
-
-  public getSceneConfiguration(sceneId: string): Observable<any> {
-    return this.http.get(`${this.apiBaseUrl}/${this.endpoints.scene}/${sceneId}`);
-  }
 
   public async loadDecorationsData(): Promise<void> {
     try {
@@ -1009,21 +993,32 @@ export class ThreeSceneService {
     }
   }
 
-  public exportOBJ(): string {
+  public exportOBJ(filename = 'cake.obj'): void {
     const exportScene = this.prepareExportScene();
-    return this.exportService.exportOBJ(exportScene);
+    this.exportService.downloadOBJ(exportScene, filename);
   }
 
-  public exportSTL(): string {
+  public exportSTL(filename = 'cake.stl'): void {
     const exportScene = this.prepareExportScene();
-    return this.exportService.exportSTL(exportScene);
+    this.exportService.downloadSTL(exportScene, filename);
   }
 
-  public exportGLTF(callback: (gltf: object) => void): void {
+  public exportGLTF(filename = 'cake.glb'): void {
     const exportScene = this.prepareExportScene();
-    this.exportService.exportGLTF(exportScene, callback);
+    this.exportService.downloadGLB(exportScene, filename);
   }
-
+  public downloadScreenshot(filename = 'cake-screenshot.png'): void {
+    this.exportService.downloadScreenshot(
+        this.renderer,
+        this.scene,
+        this.camera,
+        filename,
+        {
+          hideHelpers: true,
+          backgroundColor: new THREE.Color(0xf8f8f8),
+        }
+    );
+  }
   public async generateCakeThumbnailBlob(): Promise<Blob> {
     if (!isPlatformBrowser(this.platformId)) {
       throw new Error('Thumbnail generation is only available in the browser');
@@ -1214,82 +1209,470 @@ export class ThreeSceneService {
   private prepareExportScene(): THREE.Scene {
     const exportScene = new THREE.Scene();
 
-    const objectsToExport: THREE.Object3D[] = [];
-    if (this.cakeBase) {
-      objectsToExport.push(this.cakeBase);
-    }
+    // Dodaj oświetlenie do eksportu
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    exportScene.add(ambientLight);
 
-    objectsToExport.push(...this.collectDecorationRoots());
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 7);
+    exportScene.add(directionalLight);
 
+    console.log('=== EXPORT DEBUG ===');
+
+    // Aktualizuj macierze przed eksportem
     this.scene.updateMatrixWorld(true);
 
-    objectsToExport.forEach((object) => {
-      const cloned = this.cloneForExport(object);
-      exportScene.add(cloned);
+    // Eksportuj cały tort
+    if (this.cakeBase) {
+      const clonedCake = this.cloneForExport(this.cakeBase);
+      this.removeUnwantedExportObjects(clonedCake);
+      exportScene.add(clonedCake);
+    }
+
+    // Zbierz dekoracje które NIE są dziećmi cakeBase
+    const decorations = this.collectDecorationRoots();
+    decorations.forEach((dec) => {
+      if (!this.isDescendantOf(dec, this.cakeBase)) {
+        const cloned = this.cloneForExport(dec);
+        exportScene.add(cloned);
+      }
     });
+
+    // Konwertuj InstancedMesh na zwykłe Mesh
+    this.convertInstancedMeshesForExport(exportScene);
+
+    // ✅ NOWE: Napraw problematyczne tekstury przed eksportem GLTF
+    this.fixTexturesForExport(exportScene);
+
+    // Policz meshe
+    let totalMeshes = 0;
+    exportScene.traverse((node) => {
+      if ((node as THREE.Mesh).isMesh && !(node as THREE.InstancedMesh).isInstancedMesh) {
+        totalMeshes++;
+      }
+    });
+    console.log(`Final export scene: ${totalMeshes} meshes (after processing)`);
+    console.log('=== END DEBUG ===');
 
     return exportScene;
   }
 
-  private cloneForExport(source: THREE.Object3D): THREE.Object3D {
-    const sanitizedUserData: Array<{ node: THREE.Object3D; original: any }> = [];
+  /**
+   * Naprawia tekstury które mogą powodować problemy z GLTFExporter
+   * - Konwertuje ImageBitmap na canvas
+   * - Usuwa tekstury bez prawidłowego image
+   * - Obsługuje CanvasTexture i DataTexture
+   */
+  private fixTexturesForExport(scene: THREE.Scene): void {
+    const processedTextures = new Map<THREE.Texture, THREE.Texture | null>();
 
-    const snapshotUserData = (node: THREE.Object3D) => {
-      sanitizedUserData.push({ node, original: node.userData });
-      node.userData = this.cloneUserData(node.userData);
-      node.children.forEach(snapshotUserData);
-    };
+    scene.traverse((node) => {
+      if (!(node as THREE.Mesh).isMesh) return;
 
-    snapshotUserData(source);
+      const mesh = node as THREE.Mesh;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 
-    const clone = source.clone(true);
+      materials.forEach((material, matIndex) => {
+        if (!material) return;
 
-    sanitizedUserData.forEach(({ node, original }) => {
-      node.userData = original;
+        // Lista wszystkich możliwych map tekstur w materiale
+        const textureProperties = [
+          'map', 'normalMap', 'bumpMap', 'roughnessMap', 'metalnessMap',
+          'emissiveMap', 'alphaMap', 'aoMap', 'displacementMap', 'envMap',
+          'lightMap', 'specularMap', 'gradientMap'
+        ];
+
+        textureProperties.forEach((prop) => {
+          const texture = (material as any)[prop] as THREE.Texture | null;
+          if (!texture) return;
+
+          // Sprawdź czy już przetwarzaliśmy tę teksturę
+          if (processedTextures.has(texture)) {
+            const fixed = processedTextures.get(texture);
+            (material as any)[prop] = fixed;
+            return;
+          }
+
+          // Sprawdź i napraw teksturę
+          const fixed = this.fixTextureForGLTFExport(texture, `${mesh.name || mesh.uuid.slice(0,8)}.${prop}`);
+          processedTextures.set(texture, fixed);
+          (material as any)[prop] = fixed;
+        });
+      });
     });
 
-    const sanitizeUserData = (object: THREE.Object3D) => {
-      object.userData = {};
-      object.children.forEach(sanitizeUserData);
-    };
+    console.log(`Fixed ${processedTextures.size} textures for GLTF export`);
+  }
 
-    const applyWorldMatrix = (src: THREE.Object3D, dst: THREE.Object3D) => {
-      src.updateMatrixWorld(true);
-      dst.matrix.copy(src.matrixWorld);
-      dst.matrix.decompose(dst.position, dst.quaternion, dst.scale);
-      dst.matrixAutoUpdate = false;
+  /**
+   * Naprawia pojedynczą teksturę dla eksportu GLTF
+   */
+  private fixTextureForGLTFExport(texture: THREE.Texture, debugName: string): THREE.Texture | null {
+    const image = texture.image;
 
-      src.children.forEach((child, index) => {
-        const dstChild = dst.children[index];
-        if (dstChild) {
-          applyWorldMatrix(child, dstChild);
+    // Brak obrazu - usuń teksturę
+    if (!image) {
+      console.warn(`Texture ${debugName}: no image, removing`);
+      return null;
+    }
+
+    // HTMLImageElement lub HTMLCanvasElement - OK
+    if (image instanceof HTMLImageElement || image instanceof HTMLCanvasElement) {
+      // Sprawdź czy obraz jest załadowany
+      if (image instanceof HTMLImageElement && !image.complete) {
+        console.warn(`Texture ${debugName}: image not loaded, removing`);
+        return null;
+      }
+      return texture;
+    }
+
+    // SVGImageElement - OK (rzadko używane)
+    if (typeof SVGImageElement !== 'undefined' && image instanceof SVGImageElement) {
+      return texture;
+    }
+
+    // HTMLVideoElement - OK (rzadko używane w eksporcie)
+    if (image instanceof HTMLVideoElement) {
+      return texture;
+    }
+
+    // ImageBitmap - musimy skonwertować na canvas
+    if (typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap) {
+      console.log(`Texture ${debugName}: converting ImageBitmap to canvas`);
+      return this.convertImageBitmapTextureToCanvas(texture, image);
+    }
+
+    // OffscreenCanvas - skonwertuj na zwykły canvas
+    if (typeof OffscreenCanvas !== 'undefined' && image instanceof OffscreenCanvas) {
+      console.log(`Texture ${debugName}: converting OffscreenCanvas to canvas`);
+      return this.convertOffscreenCanvasTextureToCanvas(texture, image);
+    }
+
+    // DataTexture lub inny typ z danymi tablicowymi
+    if (image.data && (image.width || image.height)) {
+      console.log(`Texture ${debugName}: converting data texture to canvas`);
+      return this.convertDataTextureToCanvas(texture, image);
+    }
+
+    // Nieznany typ - próbuj usunąć
+    console.warn(`Texture ${debugName}: unknown image type (${image.constructor?.name}), removing`);
+    return null;
+  }
+
+  /**
+   * Konwertuje teksturę z ImageBitmap na CanvasTexture
+   */
+  private convertImageBitmapTextureToCanvas(texture: THREE.Texture, imageBitmap: ImageBitmap): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = imageBitmap.width;
+    canvas.height = imageBitmap.height;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(imageBitmap, 0, 0);
+    }
+
+    const canvasTexture = new THREE.CanvasTexture(canvas);
+    this.copyTextureProperties(texture, canvasTexture);
+    return canvasTexture;
+  }
+
+  /**
+   * Konwertuje teksturę z OffscreenCanvas na CanvasTexture
+   */
+  private convertOffscreenCanvasTextureToCanvas(texture: THREE.Texture, offscreen: OffscreenCanvas): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = offscreen.width;
+    canvas.height = offscreen.height;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // Konwertuj OffscreenCanvas na ImageBitmap i narysuj
+      const bitmap = offscreen.transferToImageBitmap();
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+    }
+
+    const canvasTexture = new THREE.CanvasTexture(canvas);
+    this.copyTextureProperties(texture, canvasTexture);
+    return canvasTexture;
+  }
+
+  /**
+   * Konwertuje DataTexture na CanvasTexture
+   */
+  private convertDataTextureToCanvas(texture: THREE.Texture, imageData: { data: Uint8Array | Uint8ClampedArray | Float32Array; width: number; height: number }): THREE.CanvasTexture | null {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = imageData.width;
+      canvas.height = imageData.height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Konwertuj dane na ImageData
+      let pixelData: Uint8ClampedArray;
+
+      if (imageData.data instanceof Uint8ClampedArray) {
+        pixelData = imageData.data;
+      } else if (imageData.data instanceof Uint8Array) {
+        pixelData = new Uint8ClampedArray(imageData.data);
+      } else if (imageData.data instanceof Float32Array) {
+        // Konwertuj float [0-1] na uint8 [0-255]
+        pixelData = new Uint8ClampedArray(imageData.data.length);
+        for (let i = 0; i < imageData.data.length; i++) {
+          pixelData[i] = Math.round(Math.min(1, Math.max(0, imageData.data[i])) * 255);
         }
-      });
-    };
+      } else {
+        console.warn('Unknown data type in DataTexture');
+        return null;
+      }
 
-    sanitizeUserData(clone);
-    applyWorldMatrix(source, clone);
+      // Sprawdź czy mamy odpowiednią ilość danych (RGBA = 4 bajty na pixel)
+      const expectedLength = imageData.width * imageData.height * 4;
+      if (pixelData.length !== expectedLength) {
+        // Może to być RGB zamiast RGBA
+        if (pixelData.length === imageData.width * imageData.height * 3) {
+          // Konwertuj RGB na RGBA
+          const rgbaData = new Uint8ClampedArray(expectedLength);
+          for (let i = 0, j = 0; i < pixelData.length; i += 3, j += 4) {
+            rgbaData[j] = pixelData[i];
+            rgbaData[j + 1] = pixelData[i + 1];
+            rgbaData[j + 2] = pixelData[i + 2];
+            rgbaData[j + 3] = 255;
+          }
+          pixelData = rgbaData;
+        } else {
+          console.warn(`DataTexture data length mismatch: ${pixelData.length} vs expected ${expectedLength}`);
+          return null;
+        }
+      }
+
+      const canvasImageData = new ImageData(pixelData, imageData.width, imageData.height);
+      ctx.putImageData(canvasImageData, 0, 0);
+
+      const canvasTexture = new THREE.CanvasTexture(canvas);
+      this.copyTextureProperties(texture, canvasTexture);
+      return canvasTexture;
+    } catch (e) {
+      console.error('Failed to convert DataTexture:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Kopiuje właściwości tekstury do nowej tekstury
+   */
+  private copyTextureProperties(source: THREE.Texture, target: THREE.Texture): void {
+    target.wrapS = source.wrapS;
+    target.wrapT = source.wrapT;
+    target.magFilter = source.magFilter;
+    target.minFilter = source.minFilter;
+    target.offset.copy(source.offset);
+    target.repeat.copy(source.repeat);
+    target.rotation = source.rotation;
+    target.center.copy(source.center);
+    target.flipY = source.flipY;
+    target.colorSpace = source.colorSpace;
+    target.needsUpdate = true;
+  }
+
+  /**
+   * Usuwa niechciane obiekty z eksportu (helpery, debug objects, itp.)
+   */
+  private removeUnwantedExportObjects(object: THREE.Object3D): void {
+    const toRemove: THREE.Object3D[] = [];
+
+    object.traverse((child) => {
+      // Usuń helpery
+      if (child instanceof THREE.GridHelper ||
+        child instanceof THREE.AxesHelper ||
+        child instanceof THREE.BoxHelper) {
+        toRemove.push(child);
+        return;
+      }
+
+      // Usuń obiekty oznaczone jako debug/helper
+      if (child.userData['isHelper'] ||
+        child.userData['isDebug'] ||
+        child.userData['excludeFromExport']) {
+        toRemove.push(child);
+        return;
+      }
+
+      // Usuń puste grupy oznaczone jako anchor (ale nie ich dzieci)
+      if (child.userData['isPaintAnchor'] && child.children.length === 0) {
+        toRemove.push(child);
+        return;
+      }
+    });
+
+    // Usuń zebrane obiekty
+    toRemove.forEach((obj) => {
+      if (obj.parent) {
+        console.log(`Removing from export: ${obj.name || obj.type} (${obj.uuid.slice(0,8)})`);
+        obj.parent.remove(obj);
+      }
+    });
+  }
+
+  private isDescendantOf(object: THREE.Object3D, potentialAncestor: THREE.Object3D | null): boolean {
+    if (!potentialAncestor) return false;
+
+    let current: THREE.Object3D | null = object.parent;
+    while (current) {
+      if (current === potentialAncestor) {
+        return true;
+      }
+      current = current.parent;
+    }
+    return false;
+  }
+
+
+  private convertInstancedMeshesForExport(scene: THREE.Scene): void {
+    const instancedMeshes: THREE.InstancedMesh[] = [];
+
+    // Znajdź wszystkie InstancedMesh
+    scene.traverse((node) => {
+      if ((node as THREE.InstancedMesh).isInstancedMesh) {
+        instancedMeshes.push(node as THREE.InstancedMesh);
+      }
+    });
+
+    console.log(`Converting ${instancedMeshes.length} InstancedMesh objects for export`);
+
+    // Zamień każdy InstancedMesh na grupę zwykłych Mesh-y
+    instancedMeshes.forEach((instancedMesh) => {
+      const parent = instancedMesh.parent;
+      if (!parent) return;
+
+      const count = instancedMesh.count;
+      const geometry = instancedMesh.geometry;
+      const material = instancedMesh.material;
+
+      console.log(`  Converting "${instancedMesh.name || 'unnamed'}" with ${count} instances`);
+
+      // Stwórz grupę na zamienione meshe
+      const group = new THREE.Group();
+      group.name = instancedMesh.name || 'ConvertedInstances';
+      group.position.copy(instancedMesh.position);
+      group.quaternion.copy(instancedMesh.quaternion);
+      group.scale.copy(instancedMesh.scale);
+
+      // Dla każdej instancji stwórz osobny Mesh
+      const matrix = new THREE.Matrix4();
+      const position = new THREE.Vector3();
+      const quaternion = new THREE.Quaternion();
+      const scale = new THREE.Vector3();
+
+      for (let i = 0; i < count; i++) {
+        instancedMesh.getMatrixAt(i, matrix);
+        matrix.decompose(position, quaternion, scale);
+
+        // Klonuj geometrię i materiał dla każdej instancji
+        const mesh = new THREE.Mesh(
+            geometry.clone(),
+            Array.isArray(material)
+                ? material.map(m => m.clone())
+                : material.clone()
+        );
+
+        mesh.position.copy(position);
+        mesh.quaternion.copy(quaternion);
+        mesh.scale.copy(scale);
+        mesh.name = `${instancedMesh.name || 'instance'}_${i}`;
+
+        // Kopiuj kolory instancji jeśli istnieją
+        if (instancedMesh.instanceColor) {
+          const color = new THREE.Color();
+          instancedMesh.getColorAt(i, color);
+
+          const mat = mesh.material as THREE.MeshStandardMaterial;
+          if (mat && 'color' in mat) {
+            mat.color.copy(color);
+          }
+        }
+
+        group.add(mesh);
+      }
+
+      // Zamień InstancedMesh na grupę w hierarchii
+      const index = parent.children.indexOf(instancedMesh);
+      parent.children[index] = group;
+      group.parent = parent;
+
+      // Wyczyść oryginalny InstancedMesh
+      instancedMesh.parent = null;
+    });
+  }
+
+  private cloneForExport(source: THREE.Object3D): THREE.Object3D {
+    // 1. Zaktualizuj macierze świata oryginału
+    source.updateMatrixWorld(true);
+
+    // 2. Tymczasowo zamień userData na wersje bez cykli PRZED klonowaniem
+    const originalUserData = new Map<THREE.Object3D, any>();
+    source.traverse((node) => {
+      originalUserData.set(node, node.userData);
+      node.userData = this.sanitizeUserData(node.userData);
+    });
+
+    // 3. Sklonuj obiekt z dziećmi (recursive = true jest domyślne)
+    let clone: THREE.Object3D;
+    try {
+      clone = source.clone(true);  // true = recursive, klonuje dzieci
+    } finally {
+      // 4. ZAWSZE przywróć oryginalne userData na źródłowych obiektach
+      originalUserData.forEach((data, node) => {
+        node.userData = data;
+      });
+    }
+
+    // DEBUG
+    console.log(`Cloning ${source.name || source.type}: ${source.children.length} children -> ${clone.children.length} cloned children`);
+
+    // 5. Aplikuj transformacje świata dla głównego obiektu
+    clone.matrix.copy(source.matrixWorld);
+    clone.matrix.decompose(clone.position, clone.quaternion, clone.scale);
+    clone.matrixAutoUpdate = true;
+    clone.updateMatrix();
+
+    // 6. Przetwórz klon - klonuj geometrię i materiały
+    clone.traverse((node) => {
+      if ((node as THREE.Mesh).isMesh) {
+        const mesh = node as THREE.Mesh;
+
+        // Klonuj geometrię
+        if (mesh.geometry) {
+          mesh.geometry = mesh.geometry.clone();
+        }
+
+        // Klonuj materiały
+        if (Array.isArray(mesh.material)) {
+          mesh.material = mesh.material.map((mat) => mat.clone());
+        } else if (mesh.material) {
+          mesh.material = mesh.material.clone();
+        }
+      }
+
+      // Fix dla InstancedMesh
+      if ((node as THREE.InstancedMesh).isInstancedMesh) {
+        const instanced = node as THREE.InstancedMesh;
+        instanced.count = instanced.count;
+        instanced.instanceMatrix.needsUpdate = true;
+        if (instanced.instanceColor) {
+          instanced.instanceColor.needsUpdate = true;
+        }
+      }
+    });
+
     return clone;
   }
+
   private onClickDown(event: MouseEvent): void {
     this.handleInteraction(event.clientX, event.clientY, true);
   }
-
-  // public attachSelectedToCake(): void {
-  //   const selected = this.transformControlsService.getSelectedObject();
-  //   console.log("Wywołano attachSelectedToCake. Zaznaczony obiekt:", selected);
-  //   if (!selected) {
-  //     console.warn('Brak zaznaczonego obiektu!');
-  //     return;
-  //   }
-  //
-  //   if (selected.parent === this.cakeBase) {
-  //     console.log('Obiekt już jest przypięty do tortu.');
-  //     return;
-  //   }
-  //
-  //   this.cakeBase.attach(selected);
-  // }
 
   private handleInteraction(clientX: number, clientY: number, attach = false): THREE.Object3D | null {
     if (this.transformControlsService.isDragging()) {
@@ -1763,7 +2146,7 @@ export class ThreeSceneService {
     const paintGroups = new Map<string, SceneOutlineNode>();
 
     const resolvePaintGroupMeta = (
-      object: THREE.Object3D
+        object: THREE.Object3D
     ): { key: string; name: string; icon: string } | null => {
       const paintStrokeType = object.userData['paintStrokeType'] as string | undefined;
       const displayName = (object.userData['displayName'] as string | undefined) ?? null;
@@ -1774,7 +2157,7 @@ export class ThreeSceneService {
       }
 
       if (paintStrokeType === 'extruder') {
-        return { key: 'extruder', name: displayName ?? 'Posypka/Ekstruder', icon: '🧁' };
+        return { key: 'extruder', name: displayName ?? 'Ekstruder', icon: '🧁' };
       }
 
       if (paintStrokeType === 'decoration') {
@@ -1783,10 +2166,13 @@ export class ThreeSceneService {
 
       if (object.userData['isPaintDecoration']) {
         if (normalizedName.includes('posypka')) {
-          return { key: 'sprinkles', name: displayName ?? 'Posypka/Ekstruder', icon: '🧁' };
+          return { key: 'sprinkles', name: displayName ?? 'Posypka', icon: '🧁' };
         }
 
-        if (normalizedName.includes('pędzl') || normalizedName.includes('brush')) {
+        // ✅ FIX: Sprawdzaj więcej wariantów polskich odmian
+        if (normalizedName.includes('pędz') ||
+            normalizedName.includes('malow') ||
+            normalizedName.includes('brush')) {
           return { key: 'brush', name: displayName ?? 'Smugi pędzla', icon: '🖌️' };
         }
 
@@ -1843,15 +2229,20 @@ export class ThreeSceneService {
         return;
       }
 
-      const attached = true;
+      const isPaintDecoration = object.userData['isPaintDecoration'] === true ||
+          object.userData['isSurfaceStroke'] === true ||
+          object.userData['isPaintStroke'] === true;
+      const isSnapped = object.userData['isSnapped'] === true;
+      const attached = isSnapped || isPaintDecoration || this.isAttachedToCake(object);
+
       const snapInfo = this.findSnapInfo(object);
       const surface = snapInfo?.surfaceType ?? null;
       const fallbackParentId = rootId;
 
       const paintGroup =
-        object.userData['isPaintStroke'] || object.userData['isPaintDecoration']
-          ? getPaintGroup(fallbackParentId, object)
-          : null;
+          object.userData['isPaintStroke'] || object.userData['isPaintDecoration']
+              ? getPaintGroup(fallbackParentId, object)
+              : null;
 
       const parentId = paintGroup?.id ?? fallbackParentId;
 
@@ -2893,9 +3284,29 @@ export class ThreeSceneService {
     const result: THREE.Object3D[] = [];
     const visited = new Set<THREE.Object3D>();
 
+    const isExcludedCakeChild = (obj: THREE.Object3D): boolean => {
+      return Boolean(
+          obj.userData['isCakeLayer'] ||
+          obj.userData['isCakeGlaze'] ||
+          obj.userData['isCakeWafer'] ||
+          obj.userData['isPaintAnchor']
+      );
+    };
+
+    const isDecorationLike = (object: THREE.Object3D): boolean => {
+      return Boolean(
+          object.userData['decorationType'] ||
+          object.userData['isPaintStroke'] ||
+          object.userData['isPaintDecoration'] ||
+          object.userData['isDecoration'] ||
+          object.userData['isDecorationGroup'] ||
+          object.userData['isSurfaceStroke']
+      );
+    };
+
     const traverse = (object: THREE.Object3D) => {
       for (const child of object.children) {
-        if (child.userData['decorationType'] || child.userData['isPaintStroke'] || child.userData['isPaintDecoration']) {
+        if (isDecorationLike(child)) {
           const root = this.resolveDecorationRoot(child);
           if (!visited.has(root)) {
             visited.add(root);
@@ -2907,6 +3318,33 @@ export class ThreeSceneService {
     };
 
     traverse(this.scene);
+
+    // ✅ Dodaj dzieci cakeBase które są dekoracjami (np. modele GLB)
+    if (this.cakeBase) {
+      this.cakeBase.children.forEach(child => {
+        // Pomiń elementy tortu
+        if (isExcludedCakeChild(child)) {
+          return;
+        }
+
+        // Jeśli to jest paintAnchor - przejdź przez jego dzieci
+        if (child.userData['isPaintAnchor']) {
+          child.children.forEach(paintChild => {
+            if (!visited.has(paintChild)) {
+              visited.add(paintChild);
+              result.push(paintChild);
+            }
+          });
+          return;
+        }
+
+        // Dodaj jako dekorację
+        if (!visited.has(child)) {
+          visited.add(child);
+          result.push(child);
+        }
+      });
+    }
 
     return result;
   }
@@ -3129,49 +3567,49 @@ export class ThreeSceneService {
     return (this.sanitizeUserData(source, new WeakSet()) as Record<string, unknown>) ?? {};
   }
 
-  private sanitizeUserData(value: any, seen: WeakSet<object>): unknown {
-    if (value === null || value === undefined) {
+
+  private sanitizeUserData(source: any, seen = new WeakSet<any>()): any {
+    if (source === null || source === undefined) return source;
+
+    // Zwróć typy proste bez zmian
+    if (typeof source !== 'object') return source;
+
+    // Obsługa specjalnych typów Three.js (bezpieczne do skopiowania)
+    if (source.isVector3 || source.isEuler || source.isQuaternion || source.isColor || source.isMatrix4) {
+      return source.clone ? source.clone() : source;
+    }
+
+    // Ignoruj ciężkie obiekty Three.js, które mogą powodować błędy przy eksporcie
+    if (source.isObject3D || source.isTexture || source.isMaterial || source.isGeometry) {
       return undefined;
     }
 
-    if (typeof value !== 'object') {
-      return value;
+    // Wykrywanie cykli
+    if (seen.has(source)) return undefined;
+    seen.add(source);
+
+    // Obsługa tablic
+    if (Array.isArray(source)) {
+      return source.map((item) => this.sanitizeUserData(item, seen));
     }
 
-    if (value instanceof THREE.Object3D) {
-      return undefined;
-    }
+    // Obsługa obiektów
+    const target: Record<string, any> = {};
+    // Lista kluczy, które powodują cykle i błędy
+    const ignoredKeys = ['paintParent', 'parent', 'children', 'geometry', 'material', 'source'];
 
-    if (seen.has(value)) {
-      return undefined;
-    }
+    for (const key in source) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        if (ignoredKeys.includes(key)) continue;
 
-    seen.add(value);
-
-    if (Array.isArray(value)) {
-      const arr: unknown[] = [];
-      value.forEach((entry) => {
-        const sanitized = this.sanitizeUserData(entry, seen);
-        if (sanitized !== undefined) {
-          arr.push(sanitized);
+        const value = this.sanitizeUserData(source[key], seen);
+        if (value !== undefined) {
+          target[key] = value;
         }
-      });
-      return arr;
+      }
     }
 
-    const result: Record<string, unknown> = {};
-    Object.entries(value).forEach(([key, entry]) => {
-      if (key === 'paintParent') {
-        return;
-      }
-
-      const sanitized = this.sanitizeUserData(entry, seen);
-      if (sanitized !== undefined) {
-        result[key] = sanitized;
-      }
-    });
-
-    return result;
+    return target;
   }
 
   private cloneSnapInfo(info: SnapInfoSnapshot): SnapInfoSnapshot {

@@ -1708,39 +1708,34 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onExportObj(): void {
     this.runWithValidation(
-      () => {
-        const data = this.sceneService.exportOBJ();
-        const blob = new Blob([data], { type: 'text/plain' });
-        this.triggerDownload(blob, 'cake-scene.obj');
-      },
-      'Eksport OBJ zakończony.',
-      'Eksport OBJ',
+        () => {
+          // ✅ ZMIANA: użyj nowej metody downloadOBJ
+          this.sceneService.exportOBJ('cake-scene.obj');
+        },
+        'Eksport OBJ zakończony.',
+        'Eksport OBJ',
     );
   }
 
   onExportStl(): void {
     this.runWithValidation(
-      () => {
-        const data = this.sceneService.exportSTL();
-        const blob = new Blob([data], { type: 'application/sla' });
-        this.triggerDownload(blob, 'cake-scene.stl');
-      },
-      'Eksport STL zakończony.',
-      'Eksport STL',
+        () => {
+          // ✅ ZMIANA: użyj nowej metody downloadSTL
+          this.sceneService.exportSTL('cake-scene.stl');
+        },
+        'Eksport STL zakończony.',
+        'Eksport STL',
     );
   }
 
   onExportGltf(): void {
     this.runWithValidation(
-      () => {
-        this.sceneService.exportGLTF((gltf) => {
-          const serialized = JSON.stringify(gltf, null, 2);
-          const blob = new Blob([serialized], { type: 'model/gltf+json' });
-          this.triggerDownload(blob, 'cake-scene.gltf');
-        });
-      },
-      'Eksport GLTF zakończony.',
-      'Eksport GLTF',
+        () => {
+          // ✅ ZMIANA: użyj nowej metody downloadGLB
+          this.sceneService.exportGLTF('cake-scene.glb');
+        },
+        'Eksport GLTF zakończony.',
+        'Eksport GLTF',
     );
   }
 
@@ -1748,11 +1743,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!isPlatformBrowser(this.platformId)) {
       return;
     }
-    const dataUrl = this.sceneService.takeScreenshot();
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = 'cake-screenshot.png';
-    link.click();
+    this.sceneService.downloadScreenshot('cake-screenshot.png');
   }
 
   onProceedDespiteWarnings(): void {
