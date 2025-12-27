@@ -346,6 +346,10 @@ export class ThreeSceneService {
     return 'medium';
   }
 
+  public getCakeSizeLabel(): 'small' | 'medium' | 'large' {
+    return this.resolveCakeSizeLabel();
+  }
+
   public setGridVisible(visible: boolean): void {
     if (!this.gridHelper) {
       this.gridHelper = new THREE.GridHelper(50, 50);

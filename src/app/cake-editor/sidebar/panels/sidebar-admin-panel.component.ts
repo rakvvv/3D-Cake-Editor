@@ -160,7 +160,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
         name: preset.name,
         description: preset.description,
         cakeShape: this.cakeShape,
-        cakeSize: this.cakeSize,
+        cakeSize: this.sceneService.getCakeSizeLabel(),
         tiers: this.tiers,
         dataJson: JSON.stringify(preset),
       };
@@ -208,7 +208,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
         presetId,
         name,
         cakeShape: this.cakeShape,
-        cakeSize: this.cakeSize,
+        cakeSize: this.sceneService.getCakeSizeLabel(),
         tiers: this.tiers,
         dataJson: JSON.stringify({ ...anchorPreset, id: presetId, name }),
       };
@@ -383,7 +383,7 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
         presetId: updatedPreset.id,
         name: updatedPreset.name,
         cakeShape: updatedPreset.cakeShape ?? this.cakeShape,
-        cakeSize: updatedPreset.cakeSize ?? this.cakeSize,
+        cakeSize: updatedPreset.cakeSize ?? this.sceneService.getCakeSizeLabel(),
         tiers: updatedPreset.tiers ?? this.tiers,
         dataJson: JSON.stringify(updatedPreset),
       };
