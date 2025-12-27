@@ -44,7 +44,9 @@ export class SidebarDecorationsPanelComponent implements OnInit, OnDestroy {
       this.decorationsService.decorations$.subscribe((decorations) => (this.decorations = decorations)),
     );
 
-    this.subscriptions.add(this.anchorPresetsService.presets$.subscribe((presets) => (this.presets = presets)));
+    this.subscriptions.add(
+      this.anchorPresetsService.filteredPresets$.subscribe((presets) => (this.presets = presets)),
+    );
     this.subscriptions.add(
       this.anchorPresetsService.activePresetId$.subscribe((id) => (this.activePresetId = id)),
     );

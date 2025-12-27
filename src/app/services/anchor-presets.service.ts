@@ -13,6 +13,7 @@ import { environment } from '../../environments/environment';
 })
 export class AnchorPresetsService {
   private readonly presetsSubject = new BehaviorSubject<AnchorPreset[]>([]);
+  private readonly filteredPresetsSubject = new BehaviorSubject<AnchorPreset[]>([]);
   private readonly activePresetIdSubject = new BehaviorSubject<string | null>(null);
   private readonly markersVisibleSubject = new BehaviorSubject<boolean>(false);
   private readonly focusedAnchorIdSubject = new BehaviorSubject<string | null>(null);
@@ -29,6 +30,7 @@ export class AnchorPresetsService {
   private highlightDecorationId: string | null = null;
 
   public readonly presets$ = this.presetsSubject.asObservable();
+  public readonly filteredPresets$ = this.filteredPresetsSubject.asObservable();
   public readonly activePresetId$ = this.activePresetIdSubject.asObservable();
   public readonly markersVisible$ = this.markersVisibleSubject.asObservable();
   public readonly focusedAnchorId$ = this.focusedAnchorIdSubject.asObservable();
@@ -88,6 +90,7 @@ export class AnchorPresetsService {
 
   public setPresets(presets: AnchorPreset[]): void {
     this.presetsSubject.next(presets);
+    this.updateFilteredPresets();
     this.ensureActivePresetForContext();
     this.rebuildMarkers();
   }
@@ -104,6 +107,7 @@ export class AnchorPresetsService {
     this.cakeContext = metadata
       ? { shape: metadata.shape, tiers: metadata.layers, cakeSize: context?.cakeSize }
       : null;
+    this.updateFilteredPresets();
     this.ensureActivePresetForContext();
     this.rebuildMarkers();
   }
@@ -129,7 +133,7 @@ export class AnchorPresetsService {
         return active;
       }
     }
-    return presets[0] ?? null;
+    return null;
   }
 
   private ensureActivePresetForContext(): void {
@@ -146,7 +150,7 @@ export class AnchorPresetsService {
     }
 
     const match = presets.find((preset) => this.matchesContext(preset));
-    this.activePresetIdSubject.next(match?.id ?? presets[0].id);
+    this.activePresetIdSubject.next(match?.id ?? null);
   }
 
   private matchesContext(preset: AnchorPreset): boolean {
@@ -165,6 +169,12 @@ export class AnchorPresetsService {
     }
 
     return true;
+  }
+
+  private updateFilteredPresets(): void {
+    const presets = this.presetsSubject.value;
+    const filtered = presets.filter((preset) => this.matchesContext(preset));
+    this.filteredPresetsSubject.next(filtered);
   }
 
   public getAnchor(anchorId: string): AnchorPoint | null {

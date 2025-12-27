@@ -66,10 +66,17 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     this.anchorPresetsService.setPendingDecoration(null);
 
     this.subscriptions.add(
-      this.anchorPresetsService.presets$.subscribe((presets) => {
+      this.anchorPresetsService.filteredPresets$.subscribe((presets) => {
         this.anchorPresets = presets ?? [];
-        if (!this.selectedPresetId && presets.length) {
-          this.selectedPresetId = presets[0].id;
+        if (!this.anchorPresets.length) {
+          this.selectedPresetId = null;
+        } else {
+          const stillSelected = this.selectedPresetId
+            ? this.anchorPresets.some((preset) => preset.id === this.selectedPresetId)
+            : false;
+          if (!stillSelected) {
+            this.selectedPresetId = this.anchorPresets[0].id;
+          }
         }
         this.syncAnchorPresetName();
       }),
