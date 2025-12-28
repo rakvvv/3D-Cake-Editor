@@ -10,6 +10,8 @@ import { environment } from '../../environments/environment';
 type DecorationStatus = 'DRAFT' | 'ACTIVE' | 'HIDDEN' | 'DEPRECATED';
 
 type DecorationTag = 'top' | 'side' | 'paintable' | 'premium' | 'seasonal' | 'deprecated';
+type AdminTab = 'moderation' | 'users' | 'analytics';
+type SortOption = 'name-asc' | 'name-desc' | 'status-asc' | 'status-desc';
 
 interface ModeratedDecoration extends DecorationInfo {
   status: DecorationStatus;
@@ -25,8 +27,19 @@ interface ModeratedDecoration extends DecorationInfo {
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   readonly axisOptions: Array<'X' | 'Y' | 'Z'> = ['X', 'Y', 'Z'];
+  readonly statusOptions: DecorationStatus[] = ['DRAFT', 'ACTIVE', 'HIDDEN', 'DEPRECATED'];
+  readonly tagOptions: DecorationTag[] = ['top', 'side', 'paintable', 'premium', 'seasonal', 'deprecated'];
+  readonly placementOptions: Array<DecorationInfo['type']> = ['TOP', 'SIDE', 'BOTH'];
 
   decorations: ModeratedDecoration[] = [];
+  activeTab: AdminTab = 'moderation';
+  searchTerm = '';
+  selectedStatus: DecorationStatus | 'ALL' = 'ALL';
+  selectedTag: DecorationTag | 'ALL' = 'ALL';
+  selectedPlacement: DecorationInfo['type'] | 'ALL' = 'ALL';
+  sortOption: SortOption = 'name-asc';
+  pageSize = 6;
+  currentPage = 1;
   loading = false;
   errorMessage = '';
   noticeMessage = '';
@@ -46,6 +59,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((decorations) => {
         this.decorations = decorations.map((decoration) => this.buildModeratedDecoration(decoration));
+        this.currentPage = 1;
       });
   }
 
@@ -78,6 +92,70 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   publishLabel(status: DecorationStatus): string {
     return status === 'ACTIVE' ? 'Ukryj' : 'Publikuj';
+  }
+
+  setActiveTab(tab: AdminTab): void {
+    this.activeTab = tab;
+  }
+
+  onFiltersChanged(): void {
+    this.currentPage = 1;
+  }
+
+  totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredDecorations().length / this.pageSize));
+  }
+
+  pagedDecorations(): ModeratedDecoration[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.filteredDecorations().slice(start, start + this.pageSize);
+  }
+
+  goToPage(page: number): void {
+    const total = this.totalPages();
+    this.currentPage = Math.min(Math.max(page, 1), total);
+  }
+
+  pageLabel(): string {
+    return `${this.currentPage} / ${this.totalPages()}`;
+  }
+
+  filteredDecorations(): ModeratedDecoration[] {
+    const term = this.searchTerm.trim().toLowerCase();
+
+    const filtered = this.decorations.filter((decoration) => {
+      if (this.selectedStatus !== 'ALL' && decoration.status !== this.selectedStatus) {
+        return false;
+      }
+
+      if (this.selectedTag !== 'ALL' && !decoration.tags.includes(this.selectedTag)) {
+        return false;
+      }
+
+      if (this.selectedPlacement !== 'ALL' && decoration.type !== this.selectedPlacement) {
+        return false;
+      }
+
+      if (!term) {
+        return true;
+      }
+
+      const haystack = `${decoration.name} ${decoration.id}`.toLowerCase();
+      return haystack.includes(term);
+    });
+
+    return filtered.sort((a, b) => {
+      switch (this.sortOption) {
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'status-asc':
+          return a.status.localeCompare(b.status);
+        case 'status-desc':
+          return b.status.localeCompare(a.status);
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
   }
 
   rotationValue(decoration: ModeratedDecoration): number {
