@@ -173,7 +173,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public contextMenuX = 0;
   public contextMenuY = 0;
   public contextMenuHasSelection = false;
-  public contextMenuCanSnap = false;
   public contextMenuIsLocked = false;
   public sceneTreeScale = 0.95;
   public exportPopupOpen = false;
@@ -2040,7 +2039,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const selected = this.sceneService.getSelectedDecoration();
     const isSnapped = this.sceneService.isSelectedDecorationSnapped();
     this.contextMenuHasSelection = !!selected;
-    this.contextMenuCanSnap = !!selected && !isSnapped;
     this.contextMenuIsLocked = !!selected && this.sceneService.isSelectedDecorationLocked();
 
     this.contextMenuVisible = true;
@@ -2063,7 +2061,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private hideContextMenu(): void {
     this.contextMenuVisible = false;
     this.contextMenuHasSelection = false;
-    this.contextMenuCanSnap = false;
     this.contextMenuIsLocked = false;
     this.rightClickDrag = undefined;
   }
