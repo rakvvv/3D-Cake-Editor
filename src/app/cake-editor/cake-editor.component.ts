@@ -127,6 +127,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
   @ViewChild(EditorSidebarComponent) sidebar?: EditorSidebarComponent;
   @ViewChild('waferCanvas') waferCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('contextMenu') contextMenuRef?: ElementRef<HTMLDivElement>;
 
   readonly authorModeEnabled = environment.authorMode;
 
@@ -2037,25 +2038,56 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private openContextMenuAt(x: number, y: number): void {
     const selected = this.sceneService.getSelectedDecoration();
-    const isSnapped = this.sceneService.isSelectedDecorationSnapped();
     this.contextMenuHasSelection = !!selected;
     this.contextMenuIsLocked = !!selected && this.sceneService.isSelectedDecorationLocked();
 
     this.contextMenuVisible = true;
     if (isPlatformBrowser(this.platformId)) {
-      const viewportWidth = window.innerWidth || 0;
-      const viewportHeight = window.innerHeight || 0;
-      const menuWidth = 240;
-      const menuHeight = 420;
       const margin = 8;
-      const safeX = Math.max(margin, Math.min(x, viewportWidth - menuWidth - margin));
-      const safeY = Math.max(margin, Math.min(y, viewportHeight - menuHeight - margin));
-      this.contextMenuX = safeX;
-      this.contextMenuY = safeY;
+      this.contextMenuX = Math.max(margin, x);
+      this.contextMenuY = Math.max(margin, y);
+      window.setTimeout(() => this.adjustContextMenuPosition(), 0);
     } else {
       this.contextMenuX = x;
       this.contextMenuY = y;
     }
+  }
+
+  private adjustContextMenuPosition(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    const menu = this.contextMenuRef?.nativeElement;
+    if (!menu) {
+      return;
+    }
+
+    const margin = 8;
+    const viewportWidth = window.innerWidth || 0;
+    const viewportHeight = window.innerHeight || 0;
+    const rect = menu.getBoundingClientRect();
+    let nextX = this.contextMenuX;
+    let nextY = this.contextMenuY;
+
+    if (rect.right > viewportWidth - margin) {
+      nextX = Math.max(margin, viewportWidth - rect.width - margin);
+    }
+
+    if (rect.left < margin) {
+      nextX = margin;
+    }
+
+    if (rect.bottom > viewportHeight - margin) {
+      nextY = Math.max(margin, viewportHeight - rect.height - margin);
+    }
+
+    if (rect.top < margin) {
+      nextY = margin;
+    }
+
+    this.contextMenuX = nextX;
+    this.contextMenuY = nextY;
   }
 
   private hideContextMenu(): void {
