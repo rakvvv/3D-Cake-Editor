@@ -26,6 +26,17 @@
   color: #1f2933;
 }
 
+.admin-card p {
+  margin: 0;
+}
+
+.admin-card ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
 .admin-card label {
   display: flex;
   flex-direction: column;
