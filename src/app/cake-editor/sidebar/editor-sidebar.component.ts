@@ -79,10 +79,6 @@ export class EditorSidebarComponent implements OnInit, OnDestroy {
     this.panelChange.emit(panel);
   }
 
-  onOptionsChange(options: CakeOptions): void {
-    this.optionsChange.emit(options);
-  }
-
   onAddDecoration(request: AddDecorationRequest): void {
     this.addDecoration.emit(request);
   }

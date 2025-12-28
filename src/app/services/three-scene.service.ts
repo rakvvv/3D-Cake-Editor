@@ -1,29 +1,29 @@
-import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
+import {Inject, Injectable, PLATFORM_ID} from '@angular/core';
 import * as THREE from 'three';
-import { HttpClient } from '@angular/common/http';
-import { Observable, Subject, lastValueFrom } from 'rxjs';
-import { isPlatformBrowser } from '@angular/common';
-import { FontLoader, Font } from 'three/examples/jsm/loaders/FontLoader.js';
-import { TransformControlsService } from './transform-controls-service';
-import { CakeOptions } from '../models/cake.options';
-import { SceneInitService } from './scene-init.service';
-import { DecorationsService } from './decorations.service';
-import { PaintService } from './paint.service';
-import { SurfacePaintingService } from './surface-painting.service';
-import { ExportService } from './export.service';
-import { ThreeObjectsFactory, CakeMetadata } from '../factories/three-objects.factory';
-import { TextFactory } from '../factories/text.factory';
-import { SnapService, SnappedDecorationState, SnapInfoSnapshot } from './snap.service';
-import { DecorationValidationIssue } from '../models/decoration-validation';
-import { DecorationInfo, DecorationPlacementType } from '../models/decorationInfo';
-import { environment } from '../../environments/environment';
-import { SceneOutlineNode } from '../models/scene-outline';
-import { DecorationFactory, DecorationLoadError } from '../factories/decoration.factory';
-import { AnchorPresetsService } from './anchor-presets.service';
-import { AnchorPoint, AnchorPreset } from '../models/anchors';
-import { DecoratedCakePreset, DecorationPresetEntry } from '../models/cake-preset';
-import { SceneInteractionController } from './three-scene/scene-interaction.controller';
-import { DecorationClipboardEntry, ThreeSceneState } from './three-scene/three-scene.state';
+import {HttpClient} from '@angular/common/http';
+import {lastValueFrom, Subject} from 'rxjs';
+import {isPlatformBrowser} from '@angular/common';
+import {Font, FontLoader} from 'three/examples/jsm/loaders/FontLoader.js';
+import {TransformControlsService} from './transform-controls-service';
+import {CakeOptions} from '../models/cake.options';
+import {SceneInitService} from './scene-init.service';
+import {DecorationsService} from './decorations.service';
+import {PaintService} from './paint.service';
+import {SurfacePaintingService} from './surface-painting.service';
+import {ExportService} from './export.service';
+import {CakeMetadata, ThreeObjectsFactory} from '../factories/three-objects.factory';
+import {TextFactory} from '../factories/text.factory';
+import {SnapInfoSnapshot, SnappedDecorationState, SnapService} from './snap.service';
+import {DecorationValidationIssue} from '../models/decoration-validation';
+import {DecorationInfo, DecorationPlacementType} from '../models/decorationInfo';
+import {environment} from '../../environments/environment';
+import {SceneOutlineNode} from '../models/scene-outline';
+import {DecorationFactory, DecorationLoadError} from '../factories/decoration.factory';
+import {AnchorPresetsService} from './anchor-presets.service';
+import {AnchorPoint, AnchorPreset} from '../models/anchors';
+import {DecoratedCakePreset, DecorationPresetEntry} from '../models/cake-preset';
+import {SceneInteractionController} from './three-scene/scene-interaction.controller';
+import {DecorationClipboardEntry, ThreeSceneState} from './three-scene/three-scene.state';
 
 @Injectable({
   providedIn: 'root' // singleton (serwis dostępny przez całą aplikacje)
@@ -150,28 +150,12 @@ export class ThreeSceneService {
     this.state.boundingBoxesEnabled = value;
   }
 
-  private get highQualityMode(): boolean {
-    return this.state.highQualityMode;
-  }
-
   private set highQualityMode(value: boolean) {
     this.state.highQualityMode = value;
   }
 
   private get container(): HTMLElement | undefined {
     return this.state.container;
-  }
-
-  private set container(value: HTMLElement | undefined) {
-    this.state.container = value;
-  }
-
-  private get ownerDocument(): Document | undefined {
-    return this.state.ownerDocument;
-  }
-
-  private set ownerDocument(value: Document | undefined) {
-    this.state.ownerDocument = value;
   }
 
   private get anchorOccupants(): Map<string, Set<THREE.Object3D>> {
@@ -369,25 +353,6 @@ export class ThreeSceneService {
     this.requestRender();
   }
 
-  public setCakeOutlineVisible(visible: boolean): void {
-    if (!visible) {
-      this.disposeCakeOutline();
-      return;
-    }
-
-    if (!this.cakeBase) {
-      return;
-    }
-
-    if (!this.cakeOutlineHelper) {
-      this.cakeOutlineHelper = new THREE.BoxHelper(this.cakeBase, 0x3b82f6);
-      this.scene.add(this.cakeOutlineHelper);
-    }
-
-    this.cakeOutlineHelper.visible = true;
-    this.cakeOutlineHelper.update();
-    this.requestRender();
-  }
 
   public setBoundingBoxesVisible(visible: boolean): void {
     this.boundingBoxesEnabled = visible;
@@ -403,14 +368,6 @@ export class ThreeSceneService {
     this.requestRender();
   }
 
-  public setAnchorMarkersVisible(visible: boolean): void {
-    this.anchorPresetsService.setMarkersVisible(visible);
-    this.requestRender();
-  }
-
-  public areAnchorMarkersVisible(): boolean {
-    return this.anchorPresetsService.areMarkersVisible();
-  }
 
   public setHighQualityMode(enabled: boolean): void {
     this.highQualityMode = enabled;
@@ -428,9 +385,6 @@ export class ThreeSceneService {
     this.requestRender();
   }
 
-  public isHighQualityMode(): boolean {
-    return this.highQualityMode;
-  }
 
   public setCameraMode(mode: 'perspective' | 'orthographic'): void {
     this.sceneInitService.setCameraMode(mode);
@@ -852,9 +806,7 @@ export class ThreeSceneService {
       const spacing = index < letters.length - 1 ? letterSpacing : 0;
       return length + letter.width + spacing;
     }, 0);
-    const startArc = -totalArcLength / 2;
-
-    let cursor = startArc;
+    let cursor = -totalArcLength / 2;
     letters.forEach((letter, index) => {
       const centerArc = cursor + letter.width / 2;
       const angle = radiusSafe > 0 ? centerArc / radiusSafe : 0;
@@ -883,10 +835,6 @@ export class ThreeSceneService {
       endIndex--;
     }
     return rawLines.slice(0, endIndex + 1);
-  }
-
-  private getLineHeight(size: number): number {
-    return size * 1.25;
   }
 
   private computeGlyphAdvance(font: Font, character: string, size: number): number {
@@ -1103,7 +1051,7 @@ export class ThreeSceneService {
 
       const imageData = new ImageData(flipped, targetSize, targetSize);
       ctx.putImageData(imageData, 0, 0);
-      const blob = await new Promise<Blob>((resolve, reject) => {
+      return await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((result) => {
           if (result) {
             resolve(result);
@@ -1112,8 +1060,6 @@ export class ThreeSceneService {
           }
         }, 'image/png');
       });
-
-      return blob;
     } finally {
       this.renderer.setRenderTarget(previousTarget);
       this.renderer.setPixelRatio(previousPixelRatio);
@@ -1245,7 +1191,6 @@ export class ThreeSceneService {
     // Konwertuj InstancedMesh na zwykłe Mesh
     this.convertInstancedMeshesForExport(exportScene);
 
-    // ✅ NOWE: Napraw problematyczne tekstury przed eksportem GLTF
     this.fixTexturesForExport(exportScene);
 
     // Policz meshe
@@ -1292,8 +1237,7 @@ export class ThreeSceneService {
 
           // Sprawdź czy już przetwarzaliśmy tę teksturę
           if (processedTextures.has(texture)) {
-            const fixed = processedTextures.get(texture);
-            (material as any)[prop] = fixed;
+            (material as any)[prop] = processedTextures.get(texture);
             return;
           }
 
@@ -1421,15 +1365,15 @@ export class ThreeSceneService {
         pixelData = imageData.data;
       } else if (imageData.data instanceof Uint8Array) {
         pixelData = new Uint8ClampedArray(imageData.data);
-      } else if (imageData.data instanceof Float32Array) {
-        // Konwertuj float [0-1] na uint8 [0-255]
-        pixelData = new Uint8ClampedArray(imageData.data.length);
-        for (let i = 0; i < imageData.data.length; i++) {
-          pixelData[i] = Math.round(Math.min(1, Math.max(0, imageData.data[i])) * 255);
-        }
       } else {
-        console.warn('Unknown data type in DataTexture');
-        return null;
+        { // Konwertuj float [0-1] na uint8 [0-255]
+          {
+            pixelData = new Uint8ClampedArray(imageData.data.length);
+            for (let i = 0; i < imageData.data.length; i++) {
+              pixelData[i] = Math.round(Math.min(1, Math.max(0, imageData.data[i])) * 255);
+            }
+          }
+        }
       }
 
       // Sprawdź czy mamy odpowiednią ilość danych (RGBA = 4 bajty na pixel)
@@ -1663,7 +1607,6 @@ export class ThreeSceneService {
       // Fix dla InstancedMesh
       if ((node as THREE.InstancedMesh).isInstancedMesh) {
         const instanced = node as THREE.InstancedMesh;
-        instanced.count = instanced.count;
         instanced.instanceMatrix.needsUpdate = true;
         if (instanced.instanceColor) {
           instanced.instanceColor.needsUpdate = true;
@@ -1752,13 +1695,6 @@ export class ThreeSceneService {
     }
 
     return selected;
-  }
-
-
-  private onTouchStart(event: TouchEvent): void {
-    if (event.touches.length > 0) {
-      this.handleInteraction(event.touches[0].clientX, event.touches[0].clientY, true);
-    }
   }
 
   // --- Funkcje pomocnicze dla BoxHelper ---
@@ -2079,56 +2015,6 @@ export class ThreeSceneService {
     return true;
   }
 
-  public removeDecorationById(id: string): boolean {
-    const target = this.findDecorationById(id);
-    if (!target) {
-      return false;
-    }
-
-    if (this.transformControlsService.getSelectedObject()?.uuid === id) {
-      this.transformControlsService.deselectObject();
-      this.hideBoxHelper();
-    }
-
-    this.removeDecoration(target);
-    return true;
-  }
-
-  public groupDecorationsByIds(ids: string[], groupName?: string): { success: boolean; message: string; groupId?: string } {
-    const uniqueIds = Array.from(new Set(ids));
-    const decorations = uniqueIds
-      .map((id) => this.findDecorationById(id))
-      .filter((object): object is THREE.Object3D => Boolean(object));
-
-    if (decorations.length < 2) {
-      return { success: false, message: 'Wybierz co najmniej dwie dekoracje do zgrupowania.' };
-    }
-
-    const parent = decorations[0]?.parent ?? this.scene;
-    const incompatibleParent = decorations.some((object) => object.parent !== parent);
-    if (incompatibleParent) {
-      return { success: false, message: 'Wszystkie dekoracje muszą mieć tego samego rodzica, aby utworzyć grupę.' };
-    }
-
-    const group = new THREE.Group();
-    group.name = groupName?.trim() || 'Grupa dekoracji';
-    group.userData['isDecoration'] = true;
-    group.userData['isDecorationGroup'] = true;
-    group.userData['displayName'] = group.name;
-
-    parent?.add(group);
-    decorations.forEach((object) => {
-      group.add(object);
-      this.objects = this.objects.filter((entry) => entry !== object);
-    });
-
-    this.objects.push(group);
-    this.transformControlsService.attachObject(group);
-    this.emitOutlineChanged();
-
-    return { success: true, message: 'Utworzono nową grupę dekoracji.', groupId: group.uuid };
-  }
-
   public getSceneOutline(): SceneOutlineNode {
     const rootId = this.cakeBase?.uuid ?? 'cake-root';
     const root: SceneOutlineNode = {
@@ -2172,8 +2058,6 @@ export class ThreeSceneService {
         if (normalizedName.includes('posypka')) {
           return { key: 'sprinkles', name: displayName ?? 'Posypka', icon: '🧁' };
         }
-
-        // ✅ FIX: Sprawdzaj więcej wariantów polskich odmian
         if (normalizedName.includes('pędz') ||
             normalizedName.includes('malow') ||
             normalizedName.includes('brush')) {
@@ -2276,21 +2160,6 @@ export class ThreeSceneService {
     return root;
   }
 
-  public listDecorationsWithMetadata(): SceneOutlineNode[] {
-    const outline = this.getSceneOutline();
-    const flattened: SceneOutlineNode[] = [];
-
-    const collect = (node: SceneOutlineNode) => {
-      if (node.type !== 'cake' && node.type !== 'layer') {
-        flattened.push(node);
-      }
-
-      node.children.forEach(collect);
-    };
-
-    outline.children.forEach(collect);
-    return flattened;
-  }
 
   public deselectDecoration(): boolean {
     const selected = this.transformControlsService.getSelectedObject();
@@ -2438,25 +2307,6 @@ export class ThreeSceneService {
     return { success: true, message: 'Dekoracja gotowa do edycji na kotwicy.' };
   }
 
-  public exportAnchorsFromSelection(): AnchorPoint[] {
-    if (!this.cakeMetadata) {
-      return [];
-    }
-
-    const selected = this.transformControlsService.getSelectedObject();
-    if (!selected) {
-      return [];
-    }
-
-    const anchor = this.snapService.buildAnchorFromDecoration(
-      selected,
-      this.cakeMetadata,
-      (selected.userData['anchorId'] as string | undefined) ?? selected.uuid,
-      (selected.userData['displayName'] as string | undefined) ?? selected.name,
-    );
-
-    return anchor ? [anchor] : [];
-  }
 
   public exportAllAnchors(options?: { preserveUnusedFromActive?: boolean }): AnchorPreset | null {
     if (!this.cakeMetadata) {
@@ -2531,11 +2381,17 @@ export class ThreeSceneService {
           : candidate.getWorldPosition(new THREE.Vector3());
         const offset = currentPosition.clone().sub(basePosition).toArray() as [number, number, number];
 
-        const axis = projection?.normal
+        let axis = projection?.normal
           ? projection.normal.clone().normalize()
           : anchorBase.surface === 'SIDE'
             ? new THREE.Vector3(0, 0, 1)
             : new THREE.Vector3(0, 1, 0);
+
+        if (this.cakeBase) {
+          this.cakeBase.updateMatrixWorld(true);
+          const normalMatrix = new THREE.Matrix3().getNormalMatrix(this.cakeBase.matrixWorld);
+          axis.applyMatrix3(normalMatrix).normalize();
+        }
 
         const baseOrientation = this.snapService.getAnchorBaseOrientation(anchorBase, axis.clone());
         const worldQuaternion = candidate
@@ -2564,11 +2420,11 @@ export class ThreeSceneService {
 
         const rotationDeg = reference.lengthSq() > 1e-6 && basis.lengthSq() > 1e-6
           ? THREE.MathUtils.radToDeg(
-              Math.atan2(
-                axis.dot(reference.clone().cross(basis)),
-                reference.clone().normalize().dot(basis.clone().normalize()),
-              ),
-            )
+            Math.atan2(
+              axis.dot(reference.clone().cross(basis)),
+              reference.clone().normalize().dot(basis.clone().normalize()),
+            ),
+          )
           : 0;
 
         const averageScale = (candidate.scale.x + candidate.scale.y + candidate.scale.z) / 3;
@@ -2576,10 +2432,10 @@ export class ThreeSceneService {
         return {
           rotationDeg: Math.round(rotationDeg * 1000) / 1000,
           rotationQuat: [
-            Math.round(relativeRotation.x * 1000) / 1000,
-            Math.round(relativeRotation.y * 1000) / 1000,
-            Math.round(relativeRotation.z * 1000) / 1000,
-            Math.round(relativeRotation.w * 1000) / 1000,
+            Math.round(relativeRotation.x * 100000) / 100000,
+            Math.round(relativeRotation.y * 100000) / 100000,
+            Math.round(relativeRotation.z * 100000) / 100000,
+            Math.round(relativeRotation.w * 100000) / 100000,
           ],
           scale: Math.round(averageScale * 1000) / 1000,
           offset,
@@ -2632,16 +2488,8 @@ export class ThreeSceneService {
     };
   }
 
-  public buildCakePresetPayload(): { options: CakeOptions; metadata: CakeMetadata | null } {
-    return {
-      options: this.options,
-      metadata: this.cakeMetadata,
-    };
-  }
 
   public buildDecoratedCakePreset(name = 'Preset tortu'): DecoratedCakePreset {
-    // Upewnij się, że wszystkie trwające pociągnięcia malowania są domknięte,
-    // aby dane malowania (smugi/posypka) trafiły do presetów.
     this.paintService.endStroke();
     this.surfacePainting.endStroke();
     this.surfacePainting.finalizePainting();
@@ -2694,34 +2542,6 @@ export class ThreeSceneService {
     return payload;
   }
 
-  public buildAnchorPresetFromSelection(): AnchorPreset | null {
-    if (!this.cakeMetadata) {
-      return null;
-    }
-
-    const selected = this.transformControlsService.getSelectedObject();
-    if (!selected) {
-      return null;
-    }
-
-    const displayName = (selected.userData['displayName'] as string | undefined) ?? selected.name;
-    const anchor = this.snapService.buildAnchorFromDecoration(
-      selected,
-      this.cakeMetadata,
-      (selected.userData['anchorId'] as string | undefined) ?? selected.uuid,
-      displayName,
-    );
-
-    if (!anchor) {
-      return null;
-    }
-
-    return {
-      id: `preset-${selected.uuid}`,
-      name: `Sloty: ${displayName}`,
-      anchors: [anchor],
-    };
-  }
 
   public async applyDecoratedCakePreset(preset: DecoratedCakePreset): Promise<void> {
     if (!preset?.options) {
@@ -2763,11 +2583,7 @@ export class ThreeSceneService {
         }
 
         // 3. Zamiast wymuszać pozycję ze starego SnapInfo (enforceSnappedPosition),
-        //    generujemy NOWE, poprawne SnapInfo na podstawie aktualnej (dobrej) pozycji wizualnej.
         this.snapService.updateSnapFromObjectPosition(object);
-
-        // Opcjonalnie: Jeśli chcemy zachować metadane warstwy/powierzchni z JSON, możemy je scalić,
-        // ale recalculate (linia wyżej) jest bezpieczniejsze dla naprawy błędów rotacji.
       }
 
       if (anchorId) {
@@ -3232,26 +3048,6 @@ export class ThreeSceneService {
     };
   }
 
-  public detachSelectedDecorationFromCake(): { success: boolean; message: string } {
-    const selected = this.transformControlsService.getSelectedObject();
-    if (!selected) {
-      return { success: false, message: 'Najpierw zaznacz dekorację.' };
-    }
-
-    if (!selected.parent) {
-      this.scene.add(selected);
-    } else if (selected.parent !== this.scene) {
-      this.scene.attach(selected);
-    }
-
-    this.snapService.clearSnapInfo(selected);
-    this.updateBoxHelper();
-
-    return {
-      success: true,
-      message: 'Dekoracja została odczepiona od tortu.',
-    };
-  }
 
   public buildValidationSummary(issues: DecorationValidationIssue[]): string {
     if (!issues.length) {
@@ -3323,7 +3119,6 @@ export class ThreeSceneService {
 
     traverse(this.scene);
 
-    // ✅ Dodaj dzieci cakeBase które są dekoracjami (np. modele GLB)
     if (this.cakeBase) {
       this.cakeBase.children.forEach(child => {
         // Pomiń elementy tortu
@@ -3373,20 +3168,6 @@ export class ThreeSceneService {
     return found;
   }
 
-  private findOutlineNodeById(node: SceneOutlineNode, id: string): SceneOutlineNode | null {
-    if (node.id === id) {
-      return node;
-    }
-
-    for (const child of node.children) {
-      const result = this.findOutlineNodeById(child, id);
-      if (result) {
-        return result;
-      }
-    }
-
-    return null;
-  }
 
   private applyVisibilityToDecoration(target: THREE.Object3D, visible: boolean): void {
     target.visible = visible;
@@ -3452,22 +3233,6 @@ export class ThreeSceneService {
     }
 
     return 'decoration';
-  }
-
-  private layerNodeId(index: number): string {
-    return `cake-layer-${index}`;
-  }
-
-  private describeLayer(index: number): string {
-    const layerLabel = `Warstwa ${index + 1}`;
-    const dimension = this.cakeMetadata?.layerDimensions[index];
-    if (!dimension) {
-      return layerLabel;
-    }
-
-    const size = dimension.size ?? 1;
-    const formatted = size.toFixed(2);
-    return `${layerLabel} (×${formatted})`;
   }
 
   private resolveDecorationRoot(object: THREE.Object3D): THREE.Object3D {

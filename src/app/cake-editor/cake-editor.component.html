@@ -5,7 +5,7 @@
       <div class="app-topbar__spacer"></div>
       <button class="btn btn--ghost" type="button" (click)="goToProjects()">
         <span class="icon-16" aria-hidden="true">←</span>
-        <span>My projects</span>
+        <span>Projekty</span>
       </button>
     </div>
   </header>
@@ -15,7 +15,7 @@
       <div class="editor-toolbar__left">
         <button class="icon-button" type="button" (click)="onBack()">
           <span class="icon-16" aria-hidden="true">←</span>
-          <span>Back</span>
+          <span>Powrót</span>
         </button>
         <div class="workspace-toolbar__title">
           <span class="workspace-toolbar__label">Tort</span>
@@ -490,7 +490,7 @@
           <div class="workspace-sidebar__header">
             <div class="section-header">
               <span class="section-header__icon" aria-hidden="true">📂</span>
-              <h2 class="section-header__title">Scene</h2>
+              <h2 class="section-header__title">Scena</h2>
             </div>
           </div>
           <div class="scene-tree" *ngIf="sceneOutline; else sceneEmpty">
@@ -523,13 +523,28 @@
                 <span aria-hidden="true">🛠️</span>
               </button>
               <div class="workspace-toolbar__divider"></div>
-              <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('translate')">
+              <button
+                class="workspace-toolbar__btn"
+                type="button"
+                [class.workspace-toolbar__btn--active]="activeTransformMode === 'translate'"
+                (click)="onTransformModeChange('translate')"
+              >
                 <span aria-hidden="true">↕</span>
               </button>
-              <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('rotate')">
+              <button
+                class="workspace-toolbar__btn"
+                type="button"
+                [class.workspace-toolbar__btn--active]="activeTransformMode === 'rotate'"
+                (click)="onTransformModeChange('rotate')"
+              >
                 <span aria-hidden="true">⟳</span>
               </button>
-              <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('scale')">
+              <button
+                class="workspace-toolbar__btn"
+                type="button"
+                [class.workspace-toolbar__btn--active]="activeTransformMode === 'scale'"
+                (click)="onTransformModeChange('scale')"
+              >
                 <span aria-hidden="true">↔</span>
               </button>
             </div>
@@ -648,6 +663,7 @@
 
       <div
         class="context-menu"
+        #contextMenu
         *ngIf="contextMenuVisible"
         [style.left.px]="contextMenuX"
         [style.top.px]="contextMenuY"
@@ -657,10 +673,6 @@
         <button type="button" (click)="onContextDeselectDecoration()" [disabled]="!contextMenuHasSelection">
           Odznacz dekorację
         </button>
-        <div class="context-menu__separator" aria-hidden="true"></div>
-        <button type="button" (click)="onContextSnapToCake()" [disabled]="!contextMenuCanSnap">Przyczep do tortu</button>
-        <button type="button" (click)="onContextSnapToTop()" [disabled]="!contextMenuCanSnap">Przyczep do góry tortu</button>
-        <button type="button" (click)="onContextSnapToSide()" [disabled]="!contextMenuCanSnap">Przyczep do boku tortu</button>
         <button
           type="button"
           (click)="onContextLockDecoration()"

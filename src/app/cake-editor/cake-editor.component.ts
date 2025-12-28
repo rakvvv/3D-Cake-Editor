@@ -70,6 +70,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   setupTab: 'cake' | 'texture' | 'color' | 'glaze' | 'wafer' = 'cake';
   paintingMode: SidebarPaintMode = 'decor3d';
   activeSidebarPanel: SidebarPanelKey = 'decorations';
+  activeTransformMode: 'translate' | 'rotate' | 'scale' = 'translate';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
   selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
   selectedLayers = 1;
@@ -126,6 +127,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
   @ViewChild(EditorSidebarComponent) sidebar?: EditorSidebarComponent;
   @ViewChild('waferCanvas') waferCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('contextMenu') contextMenuRef?: ElementRef<HTMLDivElement>;
 
   readonly authorModeEnabled = environment.authorMode;
 
@@ -172,7 +174,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public contextMenuX = 0;
   public contextMenuY = 0;
   public contextMenuHasSelection = false;
-  public contextMenuCanSnap = false;
   public contextMenuIsLocked = false;
   public sceneTreeScale = 0.95;
   public exportPopupOpen = false;
@@ -1095,20 +1096,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.scheduleWaferPreviewRender();
   }
 
-  setWaferColor(color: string): void {
-    if (this.waferEnabled) {
-      this.patchOptions({ glaze_color: color });
-    }
-  }
-
-  setWaferScale(scale: number): void {
-    if (this.setupLocked) {
-      return;
-    }
-    this.waferScale = scale;
-    this.waferPreviewDirty = true;
-    this.scheduleWaferPreviewRender();
-  }
 
   setWaferZoom(zoom: number): void {
     if (this.setupLocked) {
@@ -1135,31 +1122,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.waferPreviewDirty = true;
     this.scheduleWaferPreviewRender();
-  }
-
-  setWaferMask(_mask: 'circle' | 'square'): void {
-    if (this.setupLocked) {
-      return;
-    }
-    this.syncWaferMaskToShape(true);
-    this.scheduleWaferPreviewRender();
-  }
-
-  setWaferPerspective(value: number): void {
-    if (this.setupLocked) {
-      return;
-    }
-    this.waferPerspective = value;
-    this.waferPreviewDirty = true;
-    this.scheduleWaferPreviewRender();
-  }
-
-  resetWaferTransform(): void {
-    this.setWaferZoom(1);
-    this.setWaferOffset('x', 0);
-    this.setWaferOffset('y', 0);
-    this.setWaferPerspective(0);
-    this.syncWaferMaskToShape(true);
   }
 
   get waferHasPendingChanges(): boolean {
@@ -1567,6 +1529,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (isPlatformBrowser(this.platformId)) {
       this.transformService.setTransformMode(mode as 'translate' | 'rotate' | 'scale');
     }
+
+    this.activeTransformMode = mode as 'translate' | 'rotate' | 'scale';
   }
 
   onTogglePaintMode(enabled: boolean): void {
@@ -1639,9 +1603,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.projectNameChanges$.next(value);
   }
 
-  onBrushChanged(brushId: string): void {
-    this.paintService.currentBrush = brushId;
-  }
 
   onSaveScene(): void {
     if (!this.currentProjectId) {
@@ -1697,11 +1658,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  onLogout(): void {
-    this.authService.logout();
-    void this.router.navigate(['/login']);
-  }
-
   goToProjects(): void {
     void this.router.navigate(['/projects']);
   }
@@ -1709,8 +1665,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   onExportObj(): void {
     this.runWithValidation(
         () => {
-          // ✅ ZMIANA: użyj nowej metody downloadOBJ
-          this.sceneService.exportOBJ('cake-scene.obj');
+           this.sceneService.exportOBJ('cake-scene.obj');
         },
         'Eksport OBJ zakończony.',
         'Eksport OBJ',
@@ -1720,7 +1675,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   onExportStl(): void {
     this.runWithValidation(
         () => {
-          // ✅ ZMIANA: użyj nowej metody downloadSTL
           this.sceneService.exportSTL('cake-scene.stl');
         },
         'Eksport STL zakończony.',
@@ -1731,7 +1685,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   onExportGltf(): void {
     this.runWithValidation(
         () => {
-          // ✅ ZMIANA: użyj nowej metody downloadGLB
           this.sceneService.exportGLTF('cake-scene.glb');
         },
         'Eksport GLTF zakończony.',
@@ -1754,24 +1707,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const action = this.pendingValidationAction;
     this.clearPendingValidationAction();
     action();
-  }
-
-  onContextSnapToCake(): void {
-    this.hideContextMenu();
-    const result = this.sceneService.snapSelectedDecorationToCake();
-    this.showStatus(result.message);
-  }
-
-  onContextSnapToTop(): void {
-    this.hideContextMenu();
-    const result = this.sceneService.snapSelectedDecorationToSurface('TOP');
-    this.showStatus(result.message);
-  }
-
-  onContextSnapToSide(): void {
-    this.hideContextMenu();
-    const result = this.sceneService.snapSelectedDecorationToSurface('SIDE');
-    this.showStatus(result.message);
   }
 
   onContextAlignToSurface(): void {
@@ -1936,15 +1871,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showStatus(result.message);
   }
 
-  private triggerDownload(blob: Blob, filename: string): void {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
   private runWithValidation(action: () => void, successMessage: string, actionLabel: string): void {
     if (!isPlatformBrowser(this.platformId)) {
       return;
@@ -2035,32 +1961,61 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private openContextMenuAt(x: number, y: number): void {
     const selected = this.sceneService.getSelectedDecoration();
-    const isSnapped = this.sceneService.isSelectedDecorationSnapped();
     this.contextMenuHasSelection = !!selected;
-    this.contextMenuCanSnap = !!selected && !isSnapped;
     this.contextMenuIsLocked = !!selected && this.sceneService.isSelectedDecorationLocked();
 
     this.contextMenuVisible = true;
     if (isPlatformBrowser(this.platformId)) {
-      const viewportWidth = window.innerWidth || 0;
-      const viewportHeight = window.innerHeight || 0;
-      const menuWidth = 240;
-      const menuHeight = 420;
       const margin = 8;
-      const safeX = Math.max(margin, Math.min(x, viewportWidth - menuWidth - margin));
-      const safeY = Math.max(margin, Math.min(y, viewportHeight - menuHeight - margin));
-      this.contextMenuX = safeX;
-      this.contextMenuY = safeY;
+      this.contextMenuX = Math.max(margin, x);
+      this.contextMenuY = Math.max(margin, y);
+      window.setTimeout(() => this.adjustContextMenuPosition(), 0);
     } else {
       this.contextMenuX = x;
       this.contextMenuY = y;
     }
   }
 
+  private adjustContextMenuPosition(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    const menu = this.contextMenuRef?.nativeElement;
+    if (!menu) {
+      return;
+    }
+
+    const margin = 8;
+    const viewportWidth = window.innerWidth || 0;
+    const viewportHeight = window.innerHeight || 0;
+    const rect = menu.getBoundingClientRect();
+    let nextX = this.contextMenuX;
+    let nextY = this.contextMenuY;
+
+    if (rect.right > viewportWidth - margin) {
+      nextX = Math.max(margin, viewportWidth - rect.width - margin);
+    }
+
+    if (rect.left < margin) {
+      nextX = margin;
+    }
+
+    if (rect.bottom > viewportHeight - margin) {
+      nextY = Math.max(margin, viewportHeight - rect.height - margin);
+    }
+
+    if (rect.top < margin) {
+      nextY = margin;
+    }
+
+    this.contextMenuX = nextX;
+    this.contextMenuY = nextY;
+  }
+
   private hideContextMenu(): void {
     this.contextMenuVisible = false;
     this.contextMenuHasSelection = false;
-    this.contextMenuCanSnap = false;
     this.contextMenuIsLocked = false;
     this.rightClickDrag = undefined;
   }

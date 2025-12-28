@@ -77,7 +77,4 @@ export class TransformControlsService {
     this.transformManager.syncLockedSelectionSnapshot();
   }
 
-  public dispose(): void {
-    this.transformManager.dispose();
-  }
 }
