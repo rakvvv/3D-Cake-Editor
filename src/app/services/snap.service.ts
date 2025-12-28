@@ -245,28 +245,33 @@ export class SnapService {
     let finalRelativeRotation = new THREE.Quaternion();
 
     if (!skipOrientation) {
-      // Określ roll (dla kompatybilności z override)
-      if (override?.rotationDeg !== undefined) {
-        finalRoll = THREE.MathUtils.degToRad(override.rotationDeg);
-      } else if (anchor.defaultRotationDeg !== undefined) {
-        finalRoll = THREE.MathUtils.degToRad(anchor.defaultRotationDeg);
-      }
-
-      // Ustal finalną relatywną rotację
       if (override?.rotationQuat) {
         finalRelativeRotation = new THREE.Quaternion(...override.rotationQuat).normalize();
+        finalRoll = override.rotationDeg !== undefined
+          ? THREE.MathUtils.degToRad(override.rotationDeg)
+          : 0;
       } else if (savedRelativeRotation) {
         finalRelativeRotation = savedRelativeRotation;
-      } else if (Math.abs(finalRoll) > 1e-6) {
-        // Konwertuj legacy roll na relatywną rotację (obrót wokół Z bazy)
+      } else if (anchor.defaultRotationDeg !== undefined) {
+        finalRoll = THREE.MathUtils.degToRad(anchor.defaultRotationDeg);
         finalRelativeRotation.setFromAxisAngle(new THREE.Vector3(0, 0, 1), finalRoll);
       }
 
-      // Aplikuj orientację
       if (!this.isPaintStroke(object)) {
         const worldNormal = this.getWorldNormal(localNormal.clone());
         const baseQuaternion = this.buildOrientationQuaternion(worldNormal, anchor.surface);
-        const finalWorldQuaternion = baseQuaternion.clone().multiply(finalRelativeRotation).normalize();
+        let effectiveRelative = finalRelativeRotation.clone();
+
+        if (override?.rotationQuat && anchor.defaultRotationDeg) {
+          const defaultRollQuat = new THREE.Quaternion().setFromAxisAngle(
+            anchor.surface === 'SIDE' ? worldNormal.clone().normalize() : new THREE.Vector3(0, 1, 0),
+            THREE.MathUtils.degToRad(anchor.defaultRotationDeg)
+          );
+
+          effectiveRelative = defaultRollQuat.clone().multiply(finalRelativeRotation).normalize();
+        }
+
+        const finalWorldQuaternion = baseQuaternion.clone().multiply(effectiveRelative).normalize();
 
         const parentWorldQuaternion = this.cakeBase.getWorldQuaternion(new THREE.Quaternion());
         const localQuaternion = parentWorldQuaternion.clone().invert().multiply(finalWorldQuaternion);

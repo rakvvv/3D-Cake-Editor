@@ -2531,11 +2531,17 @@ export class ThreeSceneService {
           : candidate.getWorldPosition(new THREE.Vector3());
         const offset = currentPosition.clone().sub(basePosition).toArray() as [number, number, number];
 
-        const axis = projection?.normal
+        let axis = projection?.normal
           ? projection.normal.clone().normalize()
           : anchorBase.surface === 'SIDE'
             ? new THREE.Vector3(0, 0, 1)
             : new THREE.Vector3(0, 1, 0);
+
+        if (this.cakeBase) {
+          this.cakeBase.updateMatrixWorld(true);
+          const normalMatrix = new THREE.Matrix3().getNormalMatrix(this.cakeBase.matrixWorld);
+          axis.applyMatrix3(normalMatrix).normalize();
+        }
 
         const baseOrientation = this.snapService.getAnchorBaseOrientation(anchorBase, axis.clone());
         const worldQuaternion = candidate
@@ -2564,11 +2570,11 @@ export class ThreeSceneService {
 
         const rotationDeg = reference.lengthSq() > 1e-6 && basis.lengthSq() > 1e-6
           ? THREE.MathUtils.radToDeg(
-              Math.atan2(
-                axis.dot(reference.clone().cross(basis)),
-                reference.clone().normalize().dot(basis.clone().normalize()),
-              ),
-            )
+            Math.atan2(
+              axis.dot(reference.clone().cross(basis)),
+              reference.clone().normalize().dot(basis.clone().normalize()),
+            ),
+          )
           : 0;
 
         const averageScale = (candidate.scale.x + candidate.scale.y + candidate.scale.z) / 3;
@@ -2576,10 +2582,10 @@ export class ThreeSceneService {
         return {
           rotationDeg: Math.round(rotationDeg * 1000) / 1000,
           rotationQuat: [
-            Math.round(relativeRotation.x * 1000) / 1000,
-            Math.round(relativeRotation.y * 1000) / 1000,
-            Math.round(relativeRotation.z * 1000) / 1000,
-            Math.round(relativeRotation.w * 1000) / 1000,
+            Math.round(relativeRotation.x * 100000) / 100000,
+            Math.round(relativeRotation.y * 100000) / 100000,
+            Math.round(relativeRotation.z * 100000) / 100000,
+            Math.round(relativeRotation.w * 100000) / 100000,
           ],
           scale: Math.round(averageScale * 1000) / 1000,
           offset,
