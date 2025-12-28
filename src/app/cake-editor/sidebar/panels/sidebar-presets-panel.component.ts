@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { DecoratedCakePreset } from '../../../models/cake-preset';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-sidebar-presets-panel',
@@ -14,13 +15,14 @@ export class SidebarPresetsPanelComponent {
   @Output() applyCakePreset = new EventEmitter<DecoratedCakePreset>();
 
   private readonly presetPlaceholder = '/assets/presets/placeholder.svg';
+  private readonly apiBaseUrl = environment.apiBaseUrl;
 
   onApplyPreset(preset: DecoratedCakePreset): void {
     this.applyCakePreset.emit(preset);
   }
 
   getPresetThumbnail(preset: DecoratedCakePreset): string {
-    return preset.thumbnailUrl || this.presetPlaceholder;
+    return this.normalizePresetThumbnail(preset.thumbnailUrl) || this.presetPlaceholder;
   }
 
   onPresetThumbnailError(event: Event): void {
@@ -31,5 +33,25 @@ export class SidebarPresetsPanelComponent {
 
     img.dataset['fallback'] = 'true';
     img.src = new URL(this.presetPlaceholder, img.baseURI).toString();
+  }
+
+  private normalizePresetThumbnail(url?: string): string | null {
+    if (!url) {
+      return null;
+    }
+
+    if (/^(https?:|data:|blob:)/i.test(url)) {
+      return url;
+    }
+
+    if (url.startsWith('/api/') && this.apiBaseUrl && !this.apiBaseUrl.startsWith('/')) {
+      try {
+        return new URL(url, this.apiBaseUrl).toString();
+      } catch {
+        return url;
+      }
+    }
+
+    return url;
   }
 }
