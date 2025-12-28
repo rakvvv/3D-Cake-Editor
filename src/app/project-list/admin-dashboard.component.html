@@ -1,79 +1,36 @@
 <section class="admin">
   <h1>Panel administratora</h1>
-  <p>Dodawaj gotowe torty z miniaturami oraz zapisuj presety kotwic dla różnych kształtów.</p>
+  <p>Zarządzaj treściami, użytkownikami i analityką w jednym, spójnym miejscu.</p>
 
   <div class="admin__grid">
-    <form class="admin-card" (ngSubmit)="saveCakePreset()">
-      <h2>Nowy gotowy tort</h2>
-      <label>
-        Id presetu
-        <input type="text" [(ngModel)]="cakePreset.presetId" name="cakePresetId" placeholder="np. classic-vanilla" />
-      </label>
-      <label>
-        Nazwa
-        <input type="text" [(ngModel)]="cakePreset.name" name="cakePresetName" required />
-      </label>
-      <label>
-        Opis
-        <input type="text" [(ngModel)]="cakePreset.description" name="cakePresetDescription" />
-      </label>
-      <label>
-        Miniaturka (URL)
-        <input type="url" [(ngModel)]="cakePreset.thumbnailUrl" name="cakePresetThumb" placeholder="https://..." />
-      </label>
-      <div class="admin-card__grid admin-card__grid--3">
-        <label>
-          Kształt
-          <input type="text" [(ngModel)]="cakePreset.cakeShape" name="cakePresetShape" placeholder="okrągły" />
-        </label>
-        <label>
-          Rozmiar
-          <input type="text" [(ngModel)]="cakePreset.cakeSize" name="cakePresetSize" placeholder="20 cm" />
-        </label>
-        <label>
-          Piętra
-          <input type="number" min="1" [(ngModel)]="cakePreset.tiers" name="cakePresetTiers" />
-        </label>
-      </div>
-      <label>
-        JSON presetu tortu
-        <textarea [(ngModel)]="cakePreset.dataJson" name="cakePresetJson" rows="8" required></textarea>
-      </label>
-      <button type="submit">Zapisz gotowy tort</button>
-    </form>
+    <article class="admin-card">
+      <h2>Moderacja zasobów</h2>
+      <p>Kontroluj publikowane treści i ich widoczność w katalogu.</p>
+      <ul>
+        <li>Weryfikuj nowe projekty i zgłoszone materiały.</li>
+        <li>Aktualizuj statusy publikacji i wyróżnienia.</li>
+        <li>Ustalaj priorytety dla contentu sezonowego.</li>
+      </ul>
+    </article>
 
-    <form class="admin-card" (ngSubmit)="saveAnchorPreset()">
-      <h2>Presety kotwic</h2>
-      <label>
-        Id presetu
-        <input type="text" [(ngModel)]="anchorPreset.presetId" name="anchorPresetId" placeholder="np. round-2tier" />
-      </label>
-      <label>
-        Nazwa
-        <input type="text" [(ngModel)]="anchorPreset.name" name="anchorPresetName" required />
-      </label>
-      <div class="admin-card__grid admin-card__grid--3">
-        <label>
-          Kształt
-          <input type="text" [(ngModel)]="anchorPreset.cakeShape" name="anchorPresetShape" placeholder="okrągły" />
-        </label>
-        <label>
-          Rozmiar
-          <input type="text" [(ngModel)]="anchorPreset.cakeSize" name="anchorPresetSize" placeholder="20 cm" />
-        </label>
-        <label>
-          Piętra
-          <input type="number" min="1" [(ngModel)]="anchorPreset.tiers" name="anchorPresetTiers" />
-        </label>
-      </div>
-      <label>
-        JSON presetów kotwic
-        <textarea [(ngModel)]="anchorPreset.dataJson" name="anchorPresetJson" rows="8" required></textarea>
-      </label>
-      <button type="submit">Zapisz presety kotwic</button>
-    </form>
+    <article class="admin-card">
+      <h2>Użytkownicy i uprawnienia</h2>
+      <p>Dbaj o spójne role oraz dostęp do narzędzi administracyjnych.</p>
+      <ul>
+        <li>Nadawaj i odbieraj role moderacyjne.</li>
+        <li>Monitoruj aktywność i bezpieczeństwo kont.</li>
+        <li>Zarządzaj prośbami o dostęp do panelu.</li>
+      </ul>
+    </article>
+
+    <article class="admin-card">
+      <h2>Analityka</h2>
+      <p>Śledź kluczowe wskaźniki i wpływ zmian w ofercie.</p>
+      <ul>
+        <li>Porównuj wyniki kampanii i trendów sprzedażowych.</li>
+        <li>Analizuj popularność wzorów i kategorii.</li>
+        <li>Eksportuj raporty do dalszej pracy zespołu.</li>
+      </ul>
+    </article>
   </div>
-
-  <p class="admin__status" *ngIf="statusMessage()">{{ statusMessage() }}</p>
-  <p class="admin__status admin__status--error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
 </section>
