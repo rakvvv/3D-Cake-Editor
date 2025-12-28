@@ -1016,8 +1016,8 @@
 
 .context-menu__submenu {
   position: absolute;
-  bottom: 0;
-  left: calc(100% + 6px);
+  top: 0;
+  left: calc(100% + 4px);
   z-index: 40;
   background: #111214;
   border: 1px solid #1f1f1f;
@@ -1028,6 +1028,15 @@
   max-height: 70vh;
   overflow: auto;
   display: none;
+}
+
+.context-menu__submenu::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -10px;
+  width: 10px;
+  height: 100%;
 }
 
 .context-menu__item--submenu:hover .context-menu__submenu,
