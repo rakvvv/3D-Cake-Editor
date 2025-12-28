@@ -1,18 +1,206 @@
 <section class="admin">
-  <h1>Panel administratora</h1>
-  <p>Zarządzaj treściami, użytkownikami i analityką w jednym, spójnym miejscu.</p>
+  <header class="admin__header">
+    <div>
+      <h1>Panel administratora</h1>
+      <p>Zarządzaj treściami, użytkownikami i analityką w jednym, spójnym miejscu.</p>
+    </div>
+  </header>
 
-  <div class="admin__grid">
-    <article class="admin-card">
-      <h2>Moderacja zasobów</h2>
-      <p>Kontroluj publikowane treści i ich widoczność w katalogu.</p>
-      <ul>
-        <li>Weryfikuj nowe projekty i zgłoszone materiały.</li>
-        <li>Aktualizuj statusy publikacji i wyróżnienia.</li>
-        <li>Ustalaj priorytety dla contentu sezonowego.</li>
-      </ul>
-    </article>
+  <nav class="admin-tabs" aria-label="Sekcje panelu">
+    <button
+      class="admin-tab"
+      type="button"
+      [class.admin-tab--active]="activeTab === 'moderation'"
+      (click)="setActiveTab('moderation')"
+    >
+      Moderacja zasobów
+    </button>
+    <button
+      class="admin-tab"
+      type="button"
+      [class.admin-tab--active]="activeTab === 'users'"
+      (click)="setActiveTab('users')"
+    >
+      Użytkownicy i uprawnienia
+    </button>
+    <button
+      class="admin-tab"
+      type="button"
+      [class.admin-tab--active]="activeTab === 'analytics'"
+      (click)="setActiveTab('analytics')"
+    >
+      Analityka
+    </button>
+  </nav>
 
+  <section class="admin__section admin__section--moderation" *ngIf="activeTab === 'moderation'">
+    <div class="admin__section-head">
+      <div>
+        <h2>Moderacja zasobów</h2>
+        <p>Kontroluj publikowane dekoracje, statusy i podstawowe parametry ekspozycji.</p>
+      </div>
+      <div class="admin__section-actions">
+        <button class="btn btn--primary" type="button" (click)="addDecoration()">Dodaj dekorację</button>
+      </div>
+    </div>
+
+    <div class="admin__status" *ngIf="loading">Ładowanie dekoracji…</div>
+    <div class="admin__status" *ngIf="noticeMessage">{{ noticeMessage }}</div>
+    <div class="admin__status admin__status--error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+    <div class="moderation-filters">
+      <label class="admin-panel__field">
+        <span>Szukaj</span>
+        <div class="input--with-icon">
+          <input
+            type="text"
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="onFiltersChanged()"
+            placeholder="Nazwa lub ID"
+            aria-label="Szukaj dekoracji"
+          />
+          <span class="icon-16" aria-hidden="true">🔍</span>
+        </div>
+      </label>
+      <label class="admin-panel__field">
+        <span>Status</span>
+        <select [(ngModel)]="selectedStatus" (ngModelChange)="onFiltersChanged()">
+          <option value="ALL">Wszystkie</option>
+          <option *ngFor="let status of statusOptions" [value]="status">{{ status }}</option>
+        </select>
+      </label>
+      <label class="admin-panel__field">
+        <span>Tag</span>
+        <select [(ngModel)]="selectedTag" (ngModelChange)="onFiltersChanged()">
+          <option value="ALL">Wszystkie</option>
+          <option *ngFor="let tag of tagOptions" [value]="tag">{{ tag }}</option>
+        </select>
+      </label>
+      <label class="admin-panel__field">
+        <span>Powierzchnia</span>
+        <select [(ngModel)]="selectedPlacement" (ngModelChange)="onFiltersChanged()">
+          <option value="ALL">Wszystkie</option>
+          <option *ngFor="let placement of placementOptions" [value]="placement">{{ placement }}</option>
+        </select>
+      </label>
+      <label class="admin-panel__field">
+        <span>Sortowanie</span>
+        <select [(ngModel)]="sortOption">
+          <option value="name-asc">Nazwa A-Z</option>
+          <option value="name-desc">Nazwa Z-A</option>
+          <option value="status-asc">Status rosnąco</option>
+          <option value="status-desc">Status malejąco</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="moderation-list" *ngIf="!loading">
+      <article class="moderation-card" *ngFor="let decoration of pagedDecorations()">
+        <div class="moderation-card__header">
+          <img
+            class="moderation-card__thumb"
+            [src]="resolveThumbnail(decoration)"
+            [alt]="decoration.name"
+            (error)="onThumbnailError($event)"
+          />
+          <div class="moderation-card__meta">
+            <div class="moderation-card__title-row">
+              <h3>{{ decoration.name }}</h3>
+              <span
+                class="status-badge"
+                [ngClass]="'status-badge--' + decoration.status.toLowerCase()"
+              >
+                {{ decoration.status }}
+              </span>
+            </div>
+            <div class="moderation-card__tags">
+              <span class="tag" [ngClass]="'tag--' + tag" *ngFor="let tag of decoration.tags">{{ tag }}</span>
+            </div>
+          </div>
+          <div class="moderation-card__actions">
+            <button class="btn btn--ghost btn--small" type="button" (click)="deactivateDecoration(decoration)">
+              Dezaktywuj
+            </button>
+            <button class="btn btn--primary btn--small" type="button" (click)="togglePublish(decoration)">
+              {{ publishLabel(decoration.status) }}
+            </button>
+          </div>
+        </div>
+
+        <div class="moderation-card__quick-edit">
+          <div class="quick-edit__title">Szybka edycja</div>
+          <div class="quick-edit__grid">
+            <label class="admin-panel__field">
+              <span>Domyślna skala</span>
+              <input
+                class="admin-panel__input"
+                type="number"
+                step="0.01"
+                [(ngModel)]="decoration.initialScale"
+              />
+            </label>
+            <label class="admin-panel__field">
+              <span>Rotacja</span>
+              <input
+                class="admin-panel__input"
+                type="number"
+                step="1"
+                [ngModel]="rotationValue(decoration)"
+                (ngModelChange)="setRotation(decoration, $event)"
+              />
+            </label>
+            <label class="admin-panel__field">
+              <span>modelUpAxis</span>
+              <select class="admin-panel__input" [(ngModel)]="decoration.modelUpAxis">
+                <option *ngFor="let axis of axisOptions" [value]="axis">{{ axis }}</option>
+              </select>
+            </label>
+            <label class="admin-panel__field">
+              <span>forwardAxis</span>
+              <select class="admin-panel__input" [(ngModel)]="decoration.modelForwardAxis">
+                <option *ngFor="let axis of axisOptions" [value]="axis">{{ axis }}</option>
+              </select>
+            </label>
+            <div class="admin-panel__field admin-panel__field--inline">
+              <span>faceOutwardOnSides</span>
+              <label class="switch">
+                <input type="checkbox" [(ngModel)]="decoration.faceOutwardOnSides" />
+                <span class="switch__slider" aria-hidden="true"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </article>
+      <div class="admin__status" *ngIf="!filteredDecorations().length && !errorMessage">
+        Brak dekoracji do moderacji.
+      </div>
+    </div>
+
+    <div class="moderation-pagination" *ngIf="filteredDecorations().length">
+      <div class="moderation-pagination__summary">Wyniki: {{ filteredDecorations().length }}</div>
+      <div class="moderation-pagination__controls">
+        <button
+          class="btn btn--ghost btn--small"
+          type="button"
+          [disabled]="currentPage === 1"
+          (click)="goToPage(currentPage - 1)"
+        >
+          Poprzednia
+        </button>
+        <span class="moderation-pagination__label">{{ pageLabel() }}</span>
+        <button
+          class="btn btn--ghost btn--small"
+          type="button"
+          [disabled]="currentPage === totalPages()"
+          (click)="goToPage(currentPage + 1)"
+        >
+          Następna
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <div class="admin__grid" *ngIf="activeTab === 'users'">
     <article class="admin-card">
       <h2>Użytkownicy i uprawnienia</h2>
       <p>Dbaj o spójne role oraz dostęp do narzędzi administracyjnych.</p>
@@ -22,7 +210,9 @@
         <li>Zarządzaj prośbami o dostęp do panelu.</li>
       </ul>
     </article>
+  </div>
 
+  <div class="admin__grid" *ngIf="activeTab === 'analytics'">
     <article class="admin-card">
       <h2>Analityka</h2>
       <p>Śledź kluczowe wskaźniki i wpływ zmian w ofercie.</p>
