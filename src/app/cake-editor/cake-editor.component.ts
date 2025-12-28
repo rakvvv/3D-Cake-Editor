@@ -1096,20 +1096,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.scheduleWaferPreviewRender();
   }
 
-  setWaferColor(color: string): void {
-    if (this.waferEnabled) {
-      this.patchOptions({ glaze_color: color });
-    }
-  }
-
-  setWaferScale(scale: number): void {
-    if (this.setupLocked) {
-      return;
-    }
-    this.waferScale = scale;
-    this.waferPreviewDirty = true;
-    this.scheduleWaferPreviewRender();
-  }
 
   setWaferZoom(zoom: number): void {
     if (this.setupLocked) {
@@ -1136,31 +1122,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.waferPreviewDirty = true;
     this.scheduleWaferPreviewRender();
-  }
-
-  setWaferMask(_mask: 'circle' | 'square'): void {
-    if (this.setupLocked) {
-      return;
-    }
-    this.syncWaferMaskToShape(true);
-    this.scheduleWaferPreviewRender();
-  }
-
-  setWaferPerspective(value: number): void {
-    if (this.setupLocked) {
-      return;
-    }
-    this.waferPerspective = value;
-    this.waferPreviewDirty = true;
-    this.scheduleWaferPreviewRender();
-  }
-
-  resetWaferTransform(): void {
-    this.setWaferZoom(1);
-    this.setWaferOffset('x', 0);
-    this.setWaferOffset('y', 0);
-    this.setWaferPerspective(0);
-    this.syncWaferMaskToShape(true);
   }
 
   get waferHasPendingChanges(): boolean {
@@ -1642,9 +1603,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.projectNameChanges$.next(value);
   }
 
-  onBrushChanged(brushId: string): void {
-    this.paintService.currentBrush = brushId;
-  }
 
   onSaveScene(): void {
     if (!this.currentProjectId) {
@@ -1700,11 +1658,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  onLogout(): void {
-    this.authService.logout();
-    void this.router.navigate(['/login']);
-  }
-
   goToProjects(): void {
     void this.router.navigate(['/projects']);
   }
@@ -1712,8 +1665,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   onExportObj(): void {
     this.runWithValidation(
         () => {
-          // ✅ ZMIANA: użyj nowej metody downloadOBJ
-          this.sceneService.exportOBJ('cake-scene.obj');
+           this.sceneService.exportOBJ('cake-scene.obj');
         },
         'Eksport OBJ zakończony.',
         'Eksport OBJ',
@@ -1723,7 +1675,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   onExportStl(): void {
     this.runWithValidation(
         () => {
-          // ✅ ZMIANA: użyj nowej metody downloadSTL
           this.sceneService.exportSTL('cake-scene.stl');
         },
         'Eksport STL zakończony.',
@@ -1734,7 +1685,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   onExportGltf(): void {
     this.runWithValidation(
         () => {
-          // ✅ ZMIANA: użyj nowej metody downloadGLB
           this.sceneService.exportGLTF('cake-scene.glb');
         },
         'Eksport GLTF zakończony.',
@@ -1757,24 +1707,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const action = this.pendingValidationAction;
     this.clearPendingValidationAction();
     action();
-  }
-
-  onContextSnapToCake(): void {
-    this.hideContextMenu();
-    const result = this.sceneService.snapSelectedDecorationToCake();
-    this.showStatus(result.message);
-  }
-
-  onContextSnapToTop(): void {
-    this.hideContextMenu();
-    const result = this.sceneService.snapSelectedDecorationToSurface('TOP');
-    this.showStatus(result.message);
-  }
-
-  onContextSnapToSide(): void {
-    this.hideContextMenu();
-    const result = this.sceneService.snapSelectedDecorationToSurface('SIDE');
-    this.showStatus(result.message);
   }
 
   onContextAlignToSurface(): void {
@@ -1937,15 +1869,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.anchorPresetsService.setFocusedAnchor(null);
     }
     this.showStatus(result.message);
-  }
-
-  private triggerDownload(blob: Blob, filename: string): void {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
   }
 
   private runWithValidation(action: () => void, successMessage: string, actionLabel: string): void {

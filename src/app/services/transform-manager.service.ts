@@ -137,14 +137,6 @@ export class TransformManagerService {
     return this.state.transformControls?.dragging === true;
   }
 
-  public getSelectedObject(): THREE.Object3D | null {
-    return this.selectionService.getSelectedObject();
-  }
-
-  public getTransformControls(): TransformControls | null {
-    return this.state.transformControls || null;
-  }
-
   public lockSelectedObject(): { success: boolean; message: string } {
     const selected = this.selectionService.getSelectedObject();
     if (!selected || !this.state.transformControls) {

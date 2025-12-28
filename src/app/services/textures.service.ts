@@ -19,8 +19,4 @@ export class TexturesService {
       tap((sets) => this.setsSubject.next(sets)),
     );
   }
-
-  get currentSets(): TextureSet[] {
-    return this.setsSubject.value;
-  }
 }

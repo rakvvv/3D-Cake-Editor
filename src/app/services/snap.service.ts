@@ -1243,7 +1243,6 @@ export class SnapService {
         return ['TOP', 'SIDE'];
     }
 
-    return ['TOP', 'SIDE'];
   }
 
   private writeSnapInfo(object: THREE.Object3D, info: SnapUserData): void {
@@ -1611,36 +1610,6 @@ export class SnapService {
     const position = basePoint.add(normal.clone().multiplyScalar(offset));
     return { position, normal };
   }
-
-  private applyOrientationForSurface(
-    object: THREE.Object3D,
-    surfaceWorldNormal: THREE.Vector3,
-    surfaceType: 'TOP' | 'SIDE' | 'NONE',
-    roll = 0,
-    relativeRotation?: THREE.Quaternion,
-  ): void {
-    if (surfaceType === 'NONE') {
-      return;
-    }
-
-    const baseQuaternion = this.buildOrientationQuaternion(surfaceWorldNormal.clone(), surfaceType);
-    const rollAxis = surfaceType === 'SIDE'
-      ? surfaceWorldNormal.clone().normalize()
-      : new THREE.Vector3(0, 1, 0);
-    const rollQuat = Math.abs(roll) > 1e-6
-      ? new THREE.Quaternion().setFromAxisAngle(rollAxis, roll)
-      : undefined;
-    const baseWithRoll = rollQuat ? baseQuaternion.clone().multiply(rollQuat) : baseQuaternion;
-
-    if (relativeRotation) {
-      const combined = baseWithRoll.clone().multiply(relativeRotation.clone().normalize());
-      object.quaternion.copy(combined);
-      return;
-    }
-
-    object.quaternion.copy(baseWithRoll);
-  }
-
   private computeWorldBoundingBox(object: THREE.Object3D): THREE.Box3 {
     object.updateMatrixWorld(true);
     const box = new THREE.Box3();

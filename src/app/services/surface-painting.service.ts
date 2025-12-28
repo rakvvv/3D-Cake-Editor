@@ -25,7 +25,6 @@ const DEFAULT_SPRINKLE_COLOR = SPRINKLE_PALETTE[0];
 // --- SEPARATOR ---
 // Służy do oddzielania pociągnięć w scalonym pliku JSON
 const STROKE_SEPARATOR = 99999;
-const RO_PAINT = 10;
 
 @Injectable({ providedIn: 'root' })
 export class SurfacePaintingService {
@@ -388,14 +387,12 @@ export class SurfacePaintingService {
     console.log('[exportPaintingPreset] brushStrokes before filter:', this.brushStrokes.map(s => s.id));
     console.log('[exportPaintingPreset] sprinkleStrokes before filter:', this.sprinkleStrokes.map(s => s.id));
 
-    // ✅ Filtruj listy - zostaw tylko te, które mają odpowiadające grupy w scenie
     const validBrushStrokes = this.brushStrokes.filter(s => existingStrokeIds.has(s.id));
     const validSprinkleStrokes = this.sprinkleStrokes.filter(s => existingStrokeIds.has(s.id));
 
     console.log('[exportPaintingPreset] validBrushStrokes after filter:', validBrushStrokes.map(s => s.id));
     console.log('[exportPaintingPreset] validSprinkleStrokes after filter:', validSprinkleStrokes.map(s => s.id));
 
-    // ✅ Zaktualizuj wewnętrzne listy (synchronizacja)
     this.brushStrokes = validBrushStrokes;
     this.sprinkleStrokes = validSprinkleStrokes;
 
@@ -641,7 +638,6 @@ export class SurfacePaintingService {
     this.isReplayingSprinkles = true;
     this.lastSprinklePoint = null;
 
-    // ✅ ZMIANA: Nie używaj startStroke() - ręcznie przygotuj grupę
     this.painting = true;
 
     // Sprawdź czy potrzebujemy nowej grupy
@@ -1207,7 +1203,7 @@ export class SurfacePaintingService {
       alphaMap: alphaMask,
       transparent: true,
       opacity: 1.0,
-      alphaTest: 0.05,
+      alphaTest: 0.12,
       depthWrite: false,
       depthTest: true,
       normalMap: normalMap,
@@ -1215,8 +1211,8 @@ export class SurfacePaintingService {
       roughness: 0.6,
       side: THREE.DoubleSide,
       polygonOffset: true,
-      polygonOffsetFactor: -2,
-      polygonOffsetUnits: -2,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     });
 
     const mesh = new THREE.InstancedMesh(geometry, material, maxInstances);
@@ -1225,7 +1221,8 @@ export class SurfacePaintingService {
     mesh.name = 'Malowanie pędzlem';
     mesh.count = 0;
     mesh.frustumCulled = false;
-    mesh.renderOrder = RO_PAINT;
+
+    mesh.renderOrder = this.globalRenderOrder++;
 
     const group = new THREE.Group();
     group.name = 'Malowanie pędzlem';
@@ -1276,8 +1273,6 @@ export class SurfacePaintingService {
 
     const worldXAxis = this.tempVec3_6.crossVectors(worldYAxis, normal).normalize();
 
-    // ✅ FIX: Liniowy offset zamiast modulo (% 100).
-    // Dzięki temu każdy kolejny blob jest ZAWSZE minimalnie wyżej niż poprzedni.
     // Usuwa to efekt "ucięcia" lub "chowania się" fragmentów smugi.
     const baseOffset = 0.0005;
     // Używamy bardzo małego kroku, ale ciągłego. Przy 10000 instancji to nadal tylko ~0.1mm
