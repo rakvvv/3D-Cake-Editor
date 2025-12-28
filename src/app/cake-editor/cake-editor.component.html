@@ -523,13 +523,28 @@
                 <span aria-hidden="true">🛠️</span>
               </button>
               <div class="workspace-toolbar__divider"></div>
-              <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('translate')">
+              <button
+                class="workspace-toolbar__btn"
+                type="button"
+                [class.workspace-toolbar__btn--active]="activeTransformMode === 'translate'"
+                (click)="onTransformModeChange('translate')"
+              >
                 <span aria-hidden="true">↕</span>
               </button>
-              <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('rotate')">
+              <button
+                class="workspace-toolbar__btn"
+                type="button"
+                [class.workspace-toolbar__btn--active]="activeTransformMode === 'rotate'"
+                (click)="onTransformModeChange('rotate')"
+              >
                 <span aria-hidden="true">⟳</span>
               </button>
-              <button class="workspace-toolbar__btn" type="button" (click)="onTransformModeChange('scale')">
+              <button
+                class="workspace-toolbar__btn"
+                type="button"
+                [class.workspace-toolbar__btn--active]="activeTransformMode === 'scale'"
+                (click)="onTransformModeChange('scale')"
+              >
                 <span aria-hidden="true">↔</span>
               </button>
             </div>

@@ -70,6 +70,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   setupTab: 'cake' | 'texture' | 'color' | 'glaze' | 'wafer' = 'cake';
   paintingMode: SidebarPaintMode = 'decor3d';
   activeSidebarPanel: SidebarPanelKey = 'decorations';
+  activeTransformMode: 'translate' | 'rotate' | 'scale' = 'translate';
   selectedCakeSize: 'small' | 'medium' | 'large' = 'medium';
   selectedShape: 'cylinder' | 'cuboid' = 'cylinder';
   selectedLayers = 1;
@@ -1567,6 +1568,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (isPlatformBrowser(this.platformId)) {
       this.transformService.setTransformMode(mode as 'translate' | 'rotate' | 'scale');
     }
+
+    this.activeTransformMode = mode as 'translate' | 'rotate' | 'scale';
   }
 
   onTogglePaintMode(enabled: boolean): void {
