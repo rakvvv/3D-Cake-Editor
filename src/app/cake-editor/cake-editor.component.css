@@ -1016,7 +1016,7 @@
 
 .context-menu__submenu {
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: calc(100% + 6px);
   z-index: 40;
   background: #111214;
@@ -1025,11 +1025,14 @@
   padding: 8px;
   min-width: 220px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  max-height: 70vh;
+  overflow: auto;
   display: none;
 }
 
 .context-menu__item--submenu:hover .context-menu__submenu,
-.context-menu__item--submenu:focus-within .context-menu__submenu {
+.context-menu__item--submenu:focus-within .context-menu__submenu,
+.context-menu__submenu:hover {
   display: block;
 }
 
