@@ -15,9 +15,6 @@
         </button>
         <div class="user-menu" *ngIf="userMenuOpen">
           <div class="user-menu__email">{{ (user$ | async)?.email }}</div>
-          <button class="user-menu__item" type="button" *ngIf="(user$ | async)?.role === 'ADMIN'" (click)="goToAdmin()">
-            Panel administratora
-          </button>
           <button class="user-menu__item" type="button" (click)="logout()">Wyloguj</button>
         </div>
       </div>
@@ -135,9 +132,6 @@
       <div class="projects-footer__brand">
       </div>
       <div class="projects-footer__links" aria-label="Nawigacja pomocnicza">
-        <a href="#" class="projects-footer__link">Pomoc</a>
-        <a href="#" class="projects-footer__link">Aktualizacje</a>
-        <a href="#" class="projects-footer__link">Polityka prywatności</a>
       </div>
       <div class="projects-footer__meta">© 2025 Three Cake Editor</div>
     </div>
