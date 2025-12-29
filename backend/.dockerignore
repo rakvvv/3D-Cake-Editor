@@ -1,0 +1,11 @@
+.git
+.gitignore
+.idea
+.mvn
+node_modules
+npm-debug.log
+Dockerfile
+README.md
+*.iml
+*.log
+target
