@@ -10,7 +10,7 @@ spring:
       auto-commit: false
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
@@ -21,6 +21,15 @@ spring:
     console:
       enabled: true
       path: /h2-console
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
 
 server:
   port: 8080
