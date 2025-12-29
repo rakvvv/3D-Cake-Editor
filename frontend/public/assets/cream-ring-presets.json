@@ -20,48 +20,5 @@
     "heightNorm": 0,
     "radiusOffset": -0.03,
     "scale": 1.05
-  },
-  {
-    "id": "front-arc",
-    "name": "Półłuk z przodu",
-    "mode": "ARC",
-    "layerIndex": -1,
-    "position": "SIDE_ARC",
-    "segments": 64,
-    "startAngleDeg": -120,
-    "endAngleDeg": 120,
-    "heightNorm": 0.55,
-    "radiusOffset": 0.03,
-    "color": "#ffe8ef"
-  },
-  {
-    "id": "top-wave-path",
-    "name": "Fala na górze (punkty)",
-    "mode": "PATH",
-    "layerIndex": -1,
-    "position": "TOP_EDGE",
-    "segments": 64,
-    "heightNorm": 1,
-    "radiusOffset": 0.015,
-    "nodes": [
-      { "angleDeg": -150, "heightNorm": 1 },
-      { "angleDeg": 0, "heightNorm": 1 },
-      { "angleDeg": 130, "heightNorm": 1 }
-    ]
-  },
-  {
-    "id": "wave-path",
-    "name": "Ścieżka łącząca punkty",
-    "mode": "PATH",
-    "layerIndex": 0,
-    "position": "SIDE_ARC",
-    "segments": 48,
-    "heightNorm": 0.6,
-    "radiusOffset": 0.02,
-    "nodes": [
-      { "angleDeg": -150, "heightNorm": 0.55 },
-      { "angleDeg": 0, "heightNorm": 0.65 },
-      { "angleDeg": 160, "heightNorm": 0.5 }
-    ]
   }
 ]
