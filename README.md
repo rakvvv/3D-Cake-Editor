@@ -2,6 +2,35 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.1.
 
+## Docker quickstart
+
+### Prerequisites
+
+- Docker Desktop or Docker Engine with the Compose plugin installed.
+
+### Start the app
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Once the containers are healthy, open `http://localhost:8080`.
+
+## Resetting data
+
+- To wipe the database and uploaded assets: `docker compose down -v`.
+- If you only need to clear uploads, remove the uploads volume (for example,
+  `docker volume rm <project>_uploads_data`).
+
+## Seeded data
+
+The app ships with demo presets that are bundled into the frontend and used as
+fallback data if the API does not return presets:
+
+- Decorated cake presets: `frontend/public/assets/cake-presets.json`
+- Anchor presets: `frontend/public/assets/anchor-presets.json`
+
 ## Development server
 
 To start a local development server, run:
