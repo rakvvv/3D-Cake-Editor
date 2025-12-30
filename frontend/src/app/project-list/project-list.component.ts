@@ -145,26 +145,42 @@ export class ProjectListComponent implements OnInit {
       return url;
     }
 
-    if (this.apiBaseUrl && !this.apiBaseUrl.startsWith('/')) {
-      try {
-        const apiBase = new URL(this.apiBaseUrl);
+    const apiBase = this.getAbsoluteApiBaseUrl();
+    if (!apiBase) {
+      return url;
+    }
 
-        if (url.startsWith('/api/')) {
-          return new URL(url, apiBase).toString();
-        }
-
-        if (/^https?:/i.test(url)) {
-          const parsed = new URL(url);
-          if (parsed.pathname.startsWith('/api/') && parsed.origin !== apiBase.origin) {
-            return new URL(`${parsed.pathname}${parsed.search}${parsed.hash}`, apiBase).toString();
-          }
-        }
-      } catch {
-        return url;
+    try {
+      if (url.startsWith('/api/')) {
+        return new URL(url, apiBase).toString();
       }
+
+      if (/^https?:/i.test(url)) {
+        const parsed = new URL(url);
+        if (parsed.pathname.startsWith('/api/') && parsed.origin !== apiBase.origin) {
+          return new URL(`${parsed.pathname}${parsed.search}${parsed.hash}`, apiBase).toString();
+        }
+      }
+    } catch {
+      return url;
     }
 
     return url;
+  }
+
+  private getAbsoluteApiBaseUrl(): URL | null {
+    if (!this.apiBaseUrl) {
+      return null;
+    }
+
+    try {
+      if (this.apiBaseUrl.startsWith('/')) {
+        return new URL(this.apiBaseUrl, window.location.origin);
+      }
+      return new URL(this.apiBaseUrl);
+    } catch {
+      return null;
+    }
   }
 
   private refreshAfterMutation(): void {
