@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
 
-/app/init-seed-thumbnails.sh
+/usr/local/bin/init-seed-thumbnails
 
 exec java -jar /app/app.jar
