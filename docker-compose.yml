@@ -16,15 +16,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  backend-init:
-    build:
-      context: backend
-      dockerfile: Dockerfile
-    entrypoint: ["/usr/local/bin/init-seed-thumbnails"]
-    volumes:
-      - uploads_data:/app/data
-    restart: "no"
-
   backend:
     build:
       context: backend
@@ -32,8 +23,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      backend-init:
-        condition: service_completed_successfully
     env_file: .env
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
