@@ -85,7 +85,7 @@
 
           <div class="project-card__preview" aria-hidden="true">
             <img
-              [src]="project.thumbnailUrl || defaultThumbnail"
+              [src]="getProjectThumbnail(project)"
               [alt]="'Podgląd projektu ' + project.name"
               (error)="onProjectThumbnailError($event)"
             />
