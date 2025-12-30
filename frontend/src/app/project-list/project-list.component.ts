@@ -5,6 +5,7 @@ import { ProjectsService } from '../services/projects.service';
 import { CakeProjectSummaryDto } from '../models/project.models';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../services/auth.service';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-project-list',
@@ -22,6 +23,7 @@ export class ProjectListComponent implements OnInit {
   renameValue = '';
   userMenuOpen = false;
   defaultThumbnail = '/assets/projects/thumbnail-placeholder.svg';
+  private readonly apiBaseUrl = environment.apiBaseUrl;
 
   get filteredProjects(): CakeProjectSummaryDto[] {
     const term = this.searchQuery.trim().toLowerCase();
@@ -128,6 +130,57 @@ export class ProjectListComponent implements OnInit {
       return;
     }
     img.src = this.defaultThumbnail;
+  }
+
+  getProjectThumbnail(project: CakeProjectSummaryDto): string {
+    return this.normalizeProjectThumbnail(project.thumbnailUrl) || this.defaultThumbnail;
+  }
+
+  private normalizeProjectThumbnail(url?: string | null): string | null {
+    if (!url) {
+      return null;
+    }
+
+    if (/^(data:|blob:)/i.test(url)) {
+      return url;
+    }
+
+    const apiBase = this.getAbsoluteApiBaseUrl();
+    if (!apiBase) {
+      return url;
+    }
+
+    try {
+      if (url.startsWith('/api/')) {
+        return new URL(url, apiBase).toString();
+      }
+
+      if (/^https?:/i.test(url)) {
+        const parsed = new URL(url);
+        if (parsed.pathname.startsWith('/api/') && parsed.origin !== apiBase.origin) {
+          return new URL(`${parsed.pathname}${parsed.search}${parsed.hash}`, apiBase).toString();
+        }
+      }
+    } catch {
+      return url;
+    }
+
+    return url;
+  }
+
+  private getAbsoluteApiBaseUrl(): URL | null {
+    if (!this.apiBaseUrl) {
+      return null;
+    }
+
+    try {
+      if (this.apiBaseUrl.startsWith('/')) {
+        return new URL(this.apiBaseUrl, window.location.origin);
+      }
+      return new URL(this.apiBaseUrl);
+    } catch {
+      return null;
+    }
   }
 
   private refreshAfterMutation(): void {
