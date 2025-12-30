@@ -460,8 +460,15 @@ export class AnchorPresetsService {
 
   private createMarker(anchor: AnchorPoint, normal: THREE.Vector3): THREE.Mesh {
     const geometry = new THREE.SphereGeometry(0.08, 16, 16);
-    const material = new THREE.MeshBasicMaterial({ color: this.resolveMarkerColor(anchor) });
+    const material = new THREE.MeshBasicMaterial({
+      color: this.resolveMarkerColor(anchor),
+      depthTest: false,
+      depthWrite: false,
+      transparent: true,
+      opacity: 0.9,
+    });
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.renderOrder = 999;
     mesh.userData['anchorId'] = anchor.id;
     mesh.userData['anchorLabel'] = anchor.label;
     mesh.lookAt(mesh.position.clone().add(normal));
