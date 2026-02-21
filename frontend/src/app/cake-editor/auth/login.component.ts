@@ -25,8 +25,13 @@ export class LoginComponent {
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
         void this.router.navigate([returnUrl || '/projects']);
       },
-      error: () => {
-        this.error = 'Nieprawidłowy email lub hasło.';
+      error: (err) => {
+        const status = err?.status;
+        if (status === 403) {
+          this.error = 'Email nie został potwierdzony. Sprawdź swoją skrzynkę pocztową.';
+        } else {
+          this.error = 'Nieprawidłowy email lub hasło.';
+        }
       },
     });
   }

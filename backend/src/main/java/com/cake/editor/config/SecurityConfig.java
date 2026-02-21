@@ -44,7 +44,8 @@ public class SecurityConfig {
                                 "/api/presets/**",
                                 "/api/saveScene",
                                 "/api/scene/**",
-                                "/h2-console/**"
+                                "/h2-console/**",
+                                "/error"
                         ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/projects/*/thumbnail").permitAll()

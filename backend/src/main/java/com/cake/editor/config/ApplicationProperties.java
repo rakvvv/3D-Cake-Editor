@@ -15,6 +15,7 @@ public class ApplicationProperties {
     private final Cors cors = new Cors();
     private final Jwt jwt = new Jwt();
     private final Admin admin = new Admin();
+    private final Mail mail = new Mail();
 
     public Storage getStorage() {
         return storage;
@@ -30,6 +31,10 @@ public class ApplicationProperties {
 
     public Admin getAdmin() {
         return admin;
+    }
+
+    public Mail getMail() {
+        return mail;
     }
 
     public static class Storage {
@@ -131,5 +136,19 @@ public class ApplicationProperties {
         public void setPassword(String password) {
             this.password = password;
         }
+    }
+
+    public static class Mail {
+        @NotBlank
+        private String from = "noreply@cake-editor.local";
+
+        @NotBlank
+        private String baseUrl = "http://localhost:8080";
+
+        public String getFrom() { return from; }
+        public void setFrom(String from) { this.from = from; }
+
+        public String getBaseUrl() { return baseUrl; }
+        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
     }
 }

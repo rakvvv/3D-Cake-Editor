@@ -24,8 +24,8 @@
             type="text"
             [(ngModel)]="projectName"
             (ngModelChange)="onProjectNameInput($event)"
-            placeholder="UNTITLED"
-            aria-label="Project name"
+            placeholder="BEZ NAZWY"
+            aria-label="Nazwa projektu"
           />
         </div>
       </div>
@@ -570,7 +570,7 @@
                     <div class="helper-dropdown__divider"></div>
                     <label class="helper-dropdown__item helper-dropdown__item--check">
                       <input type="checkbox" [checked]="helperSettings.grid && helpersMasterVisible" (change)="toggleHelperFlag('grid')" />
-                      <span>Grid</span>
+                      <span>Siatka</span>
                     </label>
                     <label class="helper-dropdown__item helper-dropdown__item--check">
                       <input type="checkbox" [checked]="helperSettings.axes && helpersMasterVisible" (change)="toggleHelperFlag('axes')" />
@@ -578,7 +578,7 @@
                     </label>
                     <label class="helper-dropdown__item helper-dropdown__item--check">
                       <input type="checkbox" [checked]="helperSettings.bounding && helpersMasterVisible" (change)="toggleHelperFlag('bounding')" />
-                      <span>Bounding boxy</span>
+                      <span>Obramowania</span>
                     </label>
                     <label class="helper-dropdown__item helper-dropdown__item--check">
                       <input type="checkbox" [checked]="helperSettings.highQuality" (change)="toggleHelperFlag('highQuality')" />
@@ -602,17 +602,17 @@
                   <span class="icon-12" aria-hidden="true">▾</span>
                 </button>
                 <div class="helper-dropdown__menu helper-dropdown__menu--right" *ngIf="cameraDropdownOpen" (click)="$event.stopPropagation()">
-                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('perspective')">Perspective</button>
-                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('orthographic')">Orthographic</button>
-                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('isometric')">Isometric</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('perspective')">Perspektywa</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('orthographic')">Ortograficzna</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('isometric')">Izometryczna</button>
                   <div class="helper-dropdown__divider"></div>
-                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('top')">Top</button>
-                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('front')">Front</button>
-                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('right')">Right</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('top')">Góra</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('front')">Przód</button>
+                  <button class="helper-dropdown__item" type="button" (click)="selectCameraOption('right')">Prawo</button>
                   <div class="helper-dropdown__divider"></div>
                   <label class="helper-dropdown__item helper-dropdown__item--check">
                     <input type="checkbox" [checked]="horizontalOrbitLock" (change)="toggleHorizontalOrbitLock()" />
-                    <span>Lock orbit to horizontal</span>
+                    <span>Zablokuj obrót do poziomu</span>
                   </label>
                 </div>
               </div>

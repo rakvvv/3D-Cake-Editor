@@ -808,17 +808,17 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private resolveCameraLabel(option: CameraOption): string {
     switch (option) {
       case 'orthographic':
-        return 'Orthographic';
+        return 'Ortograficzna';
       case 'isometric':
-        return 'Isometric';
+        return 'Izometryczna';
       case 'top':
-        return 'Top';
+        return 'Góra';
       case 'front':
-        return 'Front';
+        return 'Przód';
       case 'right':
-        return 'Right';
+        return 'Prawo';
       default:
-        return 'Perspective';
+        return 'Perspektywa';
     }
   }
 

@@ -13,3 +13,7 @@ export interface AuthResponse {
   token: string;
   user: UserDto;
 }
+
+export interface MessageResponse {
+  message: string;
+}

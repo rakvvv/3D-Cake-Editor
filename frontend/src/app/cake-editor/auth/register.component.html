@@ -1,16 +1,31 @@
 <div class="auth-layout">
   <div class="auth-card">
     <h2 class="auth-title">Rejestracja</h2>
-    <form (ngSubmit)="onSubmit()" class="auth-form">
+
+    <div *ngIf="success" class="auth-success">
+      <p>{{ success }}</p>
+      <p class="auth-link"><a routerLink="/login">Przejdź do logowania</a></p>
+    </div>
+
+    <form *ngIf="!success" (ngSubmit)="onSubmit()" class="auth-form">
       <label>
         Email
         <input type="email" name="email" [(ngModel)]="email" required />
       </label>
       <label>
         Hasło
-        <input type="password" name="password" [(ngModel)]="password" required />
+        <input type="password" name="password" [(ngModel)]="password" required minlength="8" />
       </label>
-      <button type="submit">Zarejestruj</button>
+      <label>
+        Powtórz hasło
+        <input type="password" name="confirmPassword" [(ngModel)]="confirmPassword" required minlength="8" />
+      </label>
+      <p *ngIf="password && confirmPassword && password !== confirmPassword" class="auth-field-error">
+        Hasła nie są identyczne
+      </p>
+      <button type="submit" [disabled]="!email || !password || !confirmPassword || password !== confirmPassword">
+        Zarejestruj
+      </button>
       <p class="auth-link">Masz już konto? <a routerLink="/login">Zaloguj się</a></p>
       <p *ngIf="error" class="auth-error">{{ error }}</p>
     </form>

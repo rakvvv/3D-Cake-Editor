@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { AuthRequest, AuthResponse, UserDto } from '../models/auth.models';
+import { AuthRequest, AuthResponse, MessageResponse, UserDto } from '../models/auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -18,11 +18,21 @@ export class AuthService {
     return this.http.post<AuthResponse>(`${this.baseUrl}/login`, payload).pipe(tap((response) => this.persistSession(response)));
   }
 
-  register(email: string, password: string): Observable<AuthResponse> {
+  register(email: string, password: string): Observable<MessageResponse> {
     const payload: AuthRequest = { email, password };
-    return this.http
-      .post<AuthResponse>(`${this.baseUrl}/register`, payload)
-      .pipe(tap((response) => this.persistSession(response)));
+    return this.http.post<MessageResponse>(`${this.baseUrl}/register`, payload);
+  }
+
+  verifyEmail(token: string): Observable<MessageResponse> {
+    return this.http.get<MessageResponse>(`${this.baseUrl}/verify`, { params: { token } });
+  }
+
+  forgotPassword(email: string): Observable<MessageResponse> {
+    return this.http.post<MessageResponse>(`${this.baseUrl}/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, password: string): Observable<MessageResponse> {
+    return this.http.post<MessageResponse>(`${this.baseUrl}/reset-password`, { token, password });
   }
 
   me(): Observable<UserDto> {

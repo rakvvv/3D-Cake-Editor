@@ -18,8 +18,11 @@ for file in "$SOURCE_DIR"/*.png; do
   found_files=1
   basename=$(basename "$file")
   target="$TARGET_DIR/$basename"
-  if [ ! -f "$target" ]; then
+  src_size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo 0)
+  tgt_size=$(stat -c%s "$target" 2>/dev/null || stat -f%z "$target" 2>/dev/null || echo -1)
+  if [ "$src_size" != "$tgt_size" ]; then
     cp "$file" "$target"
+    echo "Copied seed thumbnail: $basename"
   fi
 done
 

@@ -24,16 +24,25 @@ public class AdminUserInitializer {
             String adminPassword = properties.getAdmin().getPassword();
 
             userRepository.findByEmailIgnoreCase(adminEmail).ifPresentOrElse(existing -> {
+                boolean changed = false;
                 if (existing.getRole() != UserRole.ADMIN) {
                     existing.setRole(UserRole.ADMIN);
+                    changed = true;
+                }
+                if (!existing.isEmailVerified()) {
+                    existing.setEmailVerified(true);
+                    changed = true;
+                }
+                if (changed) {
                     userRepository.save(existing);
-                    log.info("Promoted existing user {} to ADMIN role", adminEmail);
+                    log.info("Updated admin user {} (role/verification)", adminEmail);
                 }
             }, () -> {
                 User admin = new User();
                 admin.setEmail(adminEmail);
                 admin.setPasswordHash(passwordEncoder.encode(adminPassword));
                 admin.setRole(UserRole.ADMIN);
+                admin.setEmailVerified(true);
                 userRepository.save(admin);
                 log.info("Created default admin user {}", adminEmail);
             });

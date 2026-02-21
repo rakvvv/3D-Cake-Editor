@@ -13,6 +13,7 @@ COPY --from=build /app/target/backend-0.0.1-SNAPSHOT.jar /app/app.jar
 COPY src/main/resources/seed-thumbnails /app/seed-thumbnails
 COPY init-seed-thumbnails.sh /usr/local/bin/init-seed-thumbnails
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint
-RUN chmod +x /usr/local/bin/init-seed-thumbnails /usr/local/bin/docker-entrypoint
+RUN sed -i 's/\r$//' /usr/local/bin/init-seed-thumbnails /usr/local/bin/docker-entrypoint \
+    && chmod +x /usr/local/bin/init-seed-thumbnails /usr/local/bin/docker-entrypoint
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint"]

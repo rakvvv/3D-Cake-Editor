@@ -40,6 +40,10 @@ backend/target/
 backend/data/**
 !backend/data/.gitkeep
 
+# Environment / secrets
+.env
+.env.*
+
 # System files
 .DS_Store
 Thumbs.db
