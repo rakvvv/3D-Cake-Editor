@@ -1,11 +1,11 @@
 .workspace-panel {
-  background: #141414;
-  border-left: 1px solid #1f1f1f;
+  background: var(--bg-app, #141414);
+  border-left: 1px solid var(--border, #1f1f1f);
   display: flex;
   flex-direction: column;
   padding: 16px;
   gap: 12px;
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
   height: 100%;
   flex: 1 1 auto;
   min-height: 0;
@@ -28,10 +28,10 @@
 }
 
 .workspace-panel__placeholder {
-  color: #b5b5b5;
+  color: var(--text-secondary, #b5b5b5);
   font-size: 14px;
-  background: #1a1a1a;
-  border: 1px dashed #2a2a2a;
+  background: var(--bg-card, #1a1a1a);
+  border: 1px dashed var(--border-node, #2a2a2a);
   border-radius: 10px;
   padding: 14px;
 }

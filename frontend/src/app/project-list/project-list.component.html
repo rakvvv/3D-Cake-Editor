@@ -3,6 +3,16 @@
     <div class="app-topbar__inner">
       <div class="app-topbar__logo" aria-label="3D Cake Editor logo">🍰</div>
       <div class="app-topbar__spacer"></div>
+      <div class="app-topbar__theme">
+        <button
+          class="theme-btn"
+          type="button"
+          (click)="toggleTheme()"
+          [title]="isLightTheme ? 'Tryb ciemny' : 'Tryb jasny'"
+        >
+          <span aria-hidden="true">{{ isLightTheme ? '🌙' : '☀️' }}</span>
+        </button>
+      </div>
       <div class="app-topbar__user" *ngIf="isAuthenticated; else loginCta">
         <button
           class="user-avatar"

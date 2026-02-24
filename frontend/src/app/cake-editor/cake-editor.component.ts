@@ -26,6 +26,7 @@ import { environment } from '../../environments/environment';
 import { DecoratedCakePreset, SurfacePaintingPreset } from '../models/cake-preset';
 import { ProjectsService } from '../services/projects.service';
 import { AuthService } from '../services/auth.service';
+import { AppThemeService } from '../services/app-theme.service';
 import { DEFAULT_CAKE_OPTIONS, cloneCakeOptions } from '../models/default-cake-options';
 import { SceneOutlineNode } from '../models/scene-outline';
 import { EditorSidebarComponent } from './sidebar/editor-sidebar.component';
@@ -182,6 +183,10 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public sceneSelectedNodeId: string | null = null;
   public sceneExpandedNodes = new Set<string>();
 
+  get isLightTheme(): boolean {
+    return this.appTheme.isLight();
+  }
+
   private pendingValidationAction: (() => void) | null = null;
   private statusTimeoutId: number | null = null;
   private anchorClickSubscription?: Subscription;
@@ -191,6 +196,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private userSubscription?: Subscription;
   private texturesSubscription?: Subscription;
   private projectNameChangeSubscription?: Subscription;
+  private themeSubscription?: Subscription;
   private readonly customCakeTextureIds = new Set(['frosting', 'chocolate-cake-03']);
   private readonly customGlazeTextureIds = new Set(['polewa']);
   private canvasListenerTarget?: HTMLElement;
@@ -275,7 +281,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private changeDetectorRef: ChangeDetectorRef,
-    @Inject(PLATFORM_ID) private platformId: Object
+    @Inject(PLATFORM_ID) private platformId: Object,
+    private appTheme: AppThemeService,
   ) {}
 
   ngOnInit(): void {
@@ -319,6 +326,12 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe((name) => this.persistProjectName(name));
 
+    this.themeSubscription = this.appTheme.theme$.subscribe(() => {
+      if (this.sceneInitialized) {
+        this.sceneService.setBackgroundMode(this.appTheme.getSceneBackground());
+      }
+    });
+
     this.paintBrushId = this.paintService.currentBrush;
     this.paintColor = this.paintService.penColor;
     this.penSize = this.paintService.penSize;
@@ -361,7 +374,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
         this.options = cloneCakeOptions(preset.options);
         this.loadingProject = false;
         this.syncSetupStateWithOptions();
-        this.maybeInitializeScene();
+        void this.maybeInitializeScene().then(() => {
+          if (this.currentProjectId != null) {
+            void this.refreshProjectThumbnail(this.currentProjectId);
+          }
+        });
       },
       error: () => {
         this.loadingProject = false;
@@ -650,21 +667,21 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private maybeInitializeScene(): void {
+  private maybeInitializeScene(): Promise<void> {
     if (this.sceneInitialized || !this.viewReady || !this.pendingPreset) {
-      return;
+      return Promise.resolve();
     }
-
-    this.initializeSceneWithPreset(this.pendingPreset);
+    return this.initializeSceneWithPreset(this.pendingPreset);
   }
 
-  private initializeSceneWithPreset(preset: DecoratedCakePreset): void {
+  private async initializeSceneWithPreset(preset: DecoratedCakePreset): Promise<void> {
     if (!isPlatformBrowser(this.platformId) || !this.container?.nativeElement) {
       return;
     }
 
     this.sceneService.init(this.container.nativeElement, cloneCakeOptions(preset.options));
     this.sceneInitialized = true;
+    this.sceneService.setBackgroundMode(this.appTheme.getSceneBackground());
     this.options = cloneCakeOptions(preset.options);
     this.syncGradientControlsFromPreset(preset.surfacePainting);
     this.sceneBackground = this.sceneService.getBackgroundMode();
@@ -672,7 +689,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneService.setCameraMode(this.cameraMode);
     this.sceneService.setCameraPreset(this.cameraPreset);
     this.sceneService.setHorizontalOrbitLock(this.horizontalOrbitLock);
-    void this.sceneService.applyDecoratedCakePreset(preset);
+    await this.sceneService.applyDecoratedCakePreset(preset);
     this.updateSetupLockState();
   }
 
@@ -688,6 +705,7 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sceneStatusSubscription?.unsubscribe();
     this.userSubscription?.unsubscribe();
     this.texturesSubscription?.unsubscribe();
+    this.themeSubscription?.unsubscribe();
 
     if (isPlatformBrowser(this.platformId)) {
       this.teardownCanvasListeners();
@@ -1648,7 +1666,8 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private async refreshProjectThumbnail(projectId: number): Promise<void> {
     try {
-      const blob = await this.sceneService.generateCakeThumbnailBlob();
+      const mode = this.appTheme.getSceneBackground();
+      const blob = await this.sceneService.generateCakeThumbnailBlob(mode);
       const response = await lastValueFrom(this.projectsService.uploadThumbnail(projectId, blob));
       if (response?.thumbnailUrl) {
         this.currentProjectThumbnailUrl = response.thumbnailUrl;
@@ -1790,9 +1809,6 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showStatus('Środek obrotu ustawiony na tort.');
   }
 
-  onToggleSceneBackground(): void {
-    this.sceneBackground = this.sceneService.toggleBackgroundMode();
-  }
 
   onBack(): void {
     if (this.mode === 'workspace') {
@@ -1823,6 +1839,11 @@ export class CakeEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.paintService.redo();
     this.refreshUndoRedoAvailability();
+  }
+
+  toggleEditorTheme(): void {
+    this.appTheme.toggleTheme();
+    this.changeDetectorRef.detectChanges();
   }
 
   private refreshUndoRedoAvailability(): void {

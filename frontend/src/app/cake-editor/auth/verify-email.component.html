@@ -1,0 +1,19 @@
+<div class="auth-layout">
+  <div class="auth-card">
+    <h2 class="auth-title">Weryfikacja email</h2>
+
+    <div *ngIf="loading" class="auth-form">
+      <p>Trwa weryfikacja...</p>
+    </div>
+
+    <div *ngIf="message" class="auth-success">
+      <p>{{ message }}</p>
+      <p class="auth-link"><a routerLink="/login">Przejdź do logowania</a></p>
+    </div>
+
+    <div *ngIf="error" class="auth-form">
+      <p class="auth-error">{{ error }}</p>
+      <p class="auth-link"><a routerLink="/register">Spróbuj ponownie</a></p>
+    </div>
+  </div>
+</div>

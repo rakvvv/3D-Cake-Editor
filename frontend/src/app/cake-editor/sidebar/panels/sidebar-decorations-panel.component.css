@@ -13,7 +13,7 @@
 }
 .select-style {
   width: 100%;
-  background: #0e0e0e;
+  background: var(--bg-input);
   text-align: left;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;

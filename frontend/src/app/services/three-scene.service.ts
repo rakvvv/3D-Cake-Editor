@@ -238,6 +238,10 @@ export class ThreeSceneService {
     return this.sceneInitService.getBackgroundMode();
   }
 
+  public setBackgroundMode(mode: 'light' | 'dark'): void {
+    this.sceneInitService.setBackgroundMode(mode);
+  }
+
   public toggleBackgroundMode(): 'light' | 'dark' {
     return this.sceneInitService.toggleBackgroundMode();
   }
@@ -971,7 +975,8 @@ export class ThreeSceneService {
         }
     );
   }
-  public async generateCakeThumbnailBlob(): Promise<Blob> {
+  /** Generuje miniaturkę tortu. mode: tło jasne (light) lub ciemne (dark) – zgodne z motywem. */
+  public async generateCakeThumbnailBlob(mode: 'light' | 'dark' = 'light'): Promise<Blob> {
     if (!isPlatformBrowser(this.platformId)) {
       throw new Error('Thumbnail generation is only available in the browser');
     }
@@ -1012,7 +1017,7 @@ export class ThreeSceneService {
     const previousBackground = this.scene.background;
     const gridVisible = this.gridHelper?.visible ?? false;
     const axesVisible = this.axesHelper?.visible ?? false;
-    const neutralBackground = new THREE.Color(0xf8f8f8);
+    const thumbnailBackground = new THREE.Color(mode === 'light' ? 0xf8f8f8 : 0x2d2d2d);
 
     if (this.gridHelper) {
       this.gridHelper.visible = false;
@@ -1023,11 +1028,11 @@ export class ThreeSceneService {
     }
 
     try {
-      this.scene.background = neutralBackground;
+      this.scene.background = thumbnailBackground;
       this.renderer.setPixelRatio(1);
       this.renderer.setRenderTarget(renderTarget);
       this.renderer.setSize(targetSize, targetSize, false);
-      this.renderer.setClearColor(neutralBackground, 1);
+      this.renderer.setClearColor(thumbnailBackground, 1);
       this.renderer.render(this.scene, thumbnailCamera);
 
       const buffer = new Uint8Array(targetSize * targetSize * 4);
@@ -3403,9 +3408,6 @@ export class ThreeSceneService {
     const modelFileName = info?.modelFileName ?? entry.modelFileName;
 
     if (!info && this.isPaintAnchorPlaceholder(modelFileName)) {
-      this.notifyStatus(
-        'Pominięto zapisany element "Cake Paint Anchor" – to techniczny znacznik malowania, nie plik GLB.',
-      );
       return null;
     }
 

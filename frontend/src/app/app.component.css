@@ -1,0 +1,141 @@
+/* Theme variables – cascade to dashboard and editor */
+:host {
+  --bg-deep: #0b0b0b;
+  --bg-base: #0f0f0f;
+  --bg-app: #141414;
+  --bg-panel: #151515;
+  --bg-card: #191919;
+  --bg-elevated: #1c1c1c;
+  --bg-active: #1d1d1d;
+  --bg-overlay: rgba(24, 24, 24, 0.96);
+  --bg-toggle: #202020;
+  --bg-input: #111;
+  --bg-chip: #161616;
+
+  --border: #1f1f1f;
+  --border-subtle: #292929;
+  --border-node: #2a2a2a;
+  --border-hover: #303030;
+  --border-active: #323232;
+  --border-tree: #242424;
+
+  --text-primary: #fcfcfc;
+  --text-heading: #f0f0f0;
+  --text-body: #d0d0d0;
+  --text-label: #d8d8d8;
+  --text-secondary: #b5b5b5;
+  --text-muted: #8a8a8a;
+  --text-subtle: #9ca3af;
+  --text-node: #f5f5f5;
+  --text-dropdown: #f3f4f6;
+  --text-meta: #c0c0c0;
+
+  --accent: #05acee;
+  --accent-text: #43bff0;
+  --accent-hover: rgba(5, 172, 238, 0.1);
+  --accent-orange: #f97316;
+
+  --color-bg: #181818;
+  --color-surface: #242424;
+  --color-surface-alt: #1c1c1c;
+  --color-border: #303030;
+  --color-text: #fcfcfc;
+  --color-text-muted: #b5b5b5;
+  --color-accent: #05acee;
+  --color-accent-soft: #43bff0;
+
+  --color-background: #0f0f0f;
+  --color-stage: #1c1c1c;
+
+  --shadow-soft: 0 2px 4px rgba(0, 0, 0, 0.32), 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.35);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.3);
+  --error-text: #f0b45b;
+  --error-bg: #2a1c0a;
+  --error-border: #3c2a0e;
+  --error-page: #ffb4b4;
+  --toast-bg: rgba(30, 30, 30, 0.85);
+  --toast-border: rgba(255, 255, 255, 0.08);
+  --toast-text: #e0e0e0;
+  --wafer-bg: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.4));
+  --wafer-hint-bg: rgba(0, 0, 0, 0.65);
+  --context-bg: #0f1012;
+  --context-btn: #121419;
+  --context-sub-bg: #111214;
+  --export-bg: #0f1116;
+  --export-border: #1b1f27;
+  --slider-track: #1c1c1c;
+  --slider-thumb: #d0d0d0;
+}
+
+:host.light-theme {
+  color-scheme: light;
+  --bg-deep: #e8e8e8;
+  --bg-base: #f0f0f0;
+  --bg-app: #ffffff;
+  --bg-panel: #fafafa;
+  --bg-card: #ffffff;
+  --bg-elevated: #f0f0f0;
+  --bg-active: #e0f2fe;
+  --bg-overlay: rgba(255, 255, 255, 0.96);
+  --bg-toggle: #e8e8e8;
+  --bg-input: #ffffff;
+  --bg-chip: #f0f0f0;
+
+  --border: #d8d8d8;
+  --border-subtle: #ccc;
+  --border-node: #d0d0d0;
+  --border-hover: #bbb;
+  --border-active: #aaa;
+  --border-tree: #ddd;
+
+  --text-primary: #1a1a1a;
+  --text-heading: #1f1f1f;
+  --text-body: #444;
+  --text-label: #333;
+  --text-secondary: #666;
+  --text-muted: #999;
+  --text-subtle: #888;
+  --text-node: #222;
+  --text-dropdown: #333;
+  --text-meta: #777;
+
+  --accent: #0088cc;
+  --accent-text: #0077b6;
+  --accent-hover: rgba(0, 136, 204, 0.08);
+  --accent-orange: #e86b10;
+
+  --color-bg: #f0f0f0;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f5f5f5;
+  --color-border: #ddd;
+  --color-text: #1a1a1a;
+  --color-text-muted: #666;
+  --color-accent: #0088cc;
+  --color-accent-soft: #0077b6;
+
+  --color-background: #f0f0f0;
+  --color-stage: #e8e8e8;
+
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.1);
+  --shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --error-text: #b45309;
+  --error-bg: #fef3c7;
+  --error-border: #fde68a;
+  --error-page: #dc2626;
+  --toast-bg: rgba(255, 255, 255, 0.92);
+  --toast-border: rgba(0, 0, 0, 0.1);
+  --toast-text: #333;
+  --wafer-bg: radial-gradient(circle at 30% 30%, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.08));
+  --wafer-hint-bg: rgba(255, 255, 255, 0.85);
+  --context-bg: #ffffff;
+  --context-btn: #f8f8f8;
+  --context-sub-bg: #ffffff;
+  --export-bg: #ffffff;
+  --export-border: #d8d8d8;
+  --slider-track: #ddd;
+  --slider-thumb: #555;
+}

@@ -1,6 +1,6 @@
 .panel-hint {
   font-size: 12px;
-  color: #9a9a9a;
+  color: var(--text-muted, #9a9a9a);
   margin: 4px 0;
 }
 
@@ -20,8 +20,8 @@
   display: inline-flex;
   padding: 4px 8px;
   border-radius: 999px;
-  background: #1f1f1f;
-  border: 1px solid #292929;
-  color: #dcdcdc;
+  background: var(--bg-elevated, #1f1f1f);
+  border: 1px solid var(--border-subtle, #292929);
+  color: var(--text-body, #dcdcdc);
   font-size: 12px;
 }

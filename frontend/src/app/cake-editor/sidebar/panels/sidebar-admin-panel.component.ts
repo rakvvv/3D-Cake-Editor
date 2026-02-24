@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnDestroy, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AppThemeService } from '../../../services/app-theme.service';
 import { AnchorPresetsService } from '../../../services/anchor-presets.service';
 import { AdminPresetService } from '../../../services/admin-preset.service';
 import { CakePresetsService } from '../../../services/cake-presets.service';
@@ -56,6 +57,8 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
     private readonly anchorPresetsService: AnchorPresetsService,
     private readonly decorationsService: DecorationsService,
     private readonly authService: AuthService,
+    private readonly appTheme: AppThemeService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -106,6 +109,10 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
       this.decorationsService.decorations$.subscribe((decorations) => {
         this.availableDecorations = decorations ?? [];
       }),
+    );
+
+    this.subscriptions.add(
+      this.appTheme.theme$.subscribe(() => this.cdr.markForCheck()),
     );
 
     this.availableDecorations = this.decorationsService.getDecorations();
@@ -492,14 +499,8 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
   }
 
   getDecorationThumbnail(decoration: DecorationInfo): string {
-    if (decoration.thumbnailUrl) {
-      return decoration.thumbnailUrl;
-    }
-    if (decoration.modelFileName?.endsWith('.glb')) {
-      const guess = `/assets/decorations/thumbnails/${decoration.modelFileName.replace('.glb', '.png')}`;
-      return guess;
-    }
-    return '/assets/decorations/thumbnails/placeholder.svg';
+    const theme = this.appTheme.isLight() ? 'light' : 'dark';
+    return `/assets/decorations/thumbnails/${theme}/${decoration.id}.png`;
   }
 
   onDecorationThumbnailError(event: Event, decoration: DecorationInfo): void {
@@ -515,7 +516,11 @@ export class SidebarAdminPanelComponent implements OnInit, OnDestroy {
 
   resolveDecorationThumbnail(identifier: string): string {
     const decoration = this.decorationsService.getDecorationInfo(identifier);
-    return decoration?.thumbnailUrl ?? '/assets/decorations/thumbnails/placeholder.svg';
+    if (!decoration) {
+      return '/assets/decorations/thumbnails/placeholder.svg';
+    }
+    const theme = this.appTheme.isLight() ? 'light' : 'dark';
+    return `/assets/decorations/thumbnails/${theme}/${decoration.id}.png`;
   }
 
   onAnchorOptionThumbnailError(event: Event, identifier: string): void {

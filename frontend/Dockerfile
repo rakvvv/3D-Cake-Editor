@@ -1,7 +1,11 @@
+# syntax=docker/dockerfile:1
+# BuildKit required for cache mount (set DOCKER_BUILDKIT=1 or use docker buildx)
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+# Cache npm store to reduce I/O; --no-audit --no-fund speeds up and reduces cleanup work
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
 COPY frontend/src ./src
 COPY frontend/public ./public
 COPY frontend/angular.json frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.spec.json ./

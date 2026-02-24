@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, EventEmitter, HostListener, Input, OnDest
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { DecorationInfo } from '../../../models/decorationInfo';
+import { AppThemeService } from '../../../services/app-theme.service';
 import { BrushSettings, SidebarPaintMode } from '../sidebar.types';
 import { DecorationsService } from '../../../services/decorations.service';
 import { AnchorPresetsService } from '../../../services/anchor-presets.service';
@@ -98,6 +99,7 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
     private readonly anchorPresetsService: AnchorPresetsService,
     private readonly paintService: PaintService,
     private readonly surfacePaintingService: SurfacePaintingService,
+    private readonly appTheme: AppThemeService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -134,6 +136,10 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
       }),
     );
 
+    this.subscriptions.add(
+      this.appTheme.theme$.subscribe(() => this.cdr.markForCheck()),
+    );
+
     this.brushSize = this.surfacePaintingService.brushSize;
     this.sprinkleDensity = this.surfacePaintingService.sprinkleDensity * 10;
     this.sprinkleRandomness = Math.round(this.surfacePaintingService.sprinkleRandomness * 100);
@@ -164,12 +170,14 @@ export class SidebarPaintPanelComponent implements OnInit, OnDestroy {
   }
 
   getDecorationThumbnail(decoration: DecorationInfo): string {
-    return decoration.thumbnailUrl ?? `/assets/decorations/thumbnails/${decoration.id}.png`;
+    const theme = this.appTheme.isLight() ? 'light' : 'dark';
+    return `/assets/decorations/thumbnails/${theme}/${decoration.id}.png`;
   }
 
   onDecorationThumbnailError(event: Event, decoration: DecorationInfo): void {
     const img = event.target as HTMLImageElement;
-    const generatedUrl = new URL(`/assets/decorations/thumbnails/${decoration.id}.png`, img.baseURI).toString();
+    const theme = this.appTheme.isLight() ? 'light' : 'dark';
+    const generatedUrl = new URL(`/assets/decorations/thumbnails/${theme}/${decoration.id}.png`, img.baseURI).toString();
 
     if (img.dataset['fallback'] !== 'generated' && img.src !== generatedUrl) {
       img.dataset['fallback'] = 'generated';

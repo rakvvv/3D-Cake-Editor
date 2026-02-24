@@ -5,6 +5,7 @@ import { ProjectsService } from '../services/projects.service';
 import { CakeProjectSummaryDto } from '../models/project.models';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../services/auth.service';
+import { AppThemeService } from '../services/app-theme.service';
 import { environment } from '../../environments/environment';
 
 @Component({
@@ -24,6 +25,14 @@ export class ProjectListComponent implements OnInit {
   userMenuOpen = false;
   defaultThumbnail = '/assets/projects/thumbnail-placeholder.svg';
   private readonly apiBaseUrl = environment.apiBaseUrl;
+
+  get isLightTheme(): boolean {
+    return this.appTheme.isLight();
+  }
+
+  get sceneBackground(): 'light' | 'dark' {
+    return this.appTheme.getSceneBackground();
+  }
 
   get filteredProjects(): CakeProjectSummaryDto[] {
     const term = this.searchQuery.trim().toLowerCase();
@@ -46,7 +55,16 @@ export class ProjectListComponent implements OnInit {
     private projectsService: ProjectsService,
     private router: Router,
     private auth: AuthService,
+    private appTheme: AppThemeService,
   ) {}
+
+  toggleTheme(): void {
+    this.appTheme.toggleTheme();
+  }
+
+  toggleSceneBackground(): void {
+    this.appTheme.toggleSceneBackground();
+  }
 
   ngOnInit(): void {
     this.loadProjects();

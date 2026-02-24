@@ -64,12 +64,13 @@
   window.__THUMB_OK__ = false;
   const params = new URLSearchParams(window.location.search);
   const modelUrl = params.get('model');
+  const theme = (params.get('theme') || 'light').toLowerCase() === 'dark' ? 'dark' : 'light';
   const container = document.getElementById('renderer-container');
   const errorEl = document.getElementById('error');
   const targetSize = 256;
+  const backgroundColor = theme === 'dark' ? 0x1b1b1f : 0xf0f0f0;
 
-
-  console.log('THUMB RENDERER VERSION', new Date().toISOString());
+  console.log('THUMB RENDERER theme=', theme, 'background=', backgroundColor);
 
   if (!modelUrl) {
     errorEl.textContent = 'Missing model query param';
@@ -82,7 +83,7 @@
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(targetSize, targetSize);
   renderer.setPixelRatio(1);
-  renderer.setClearColor(0x1b1b1f, 1);
+  renderer.setClearColor(backgroundColor, 1);
   container.appendChild(renderer.domElement);
 
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 2000);
