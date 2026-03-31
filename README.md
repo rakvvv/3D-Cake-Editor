@@ -38,7 +38,7 @@
 
 ## Demo
 
-> 🔗 **[Wypróbuj edytor na żywo →]([https://twoja-strona.com](https://rafalliszcz.pl/))**
+> 🔗 **[Wypróbuj edytor na żywo →](https://rafalliszcz.pl/)**
 
 ---
 
