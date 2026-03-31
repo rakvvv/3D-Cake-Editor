@@ -36,6 +36,12 @@
 
 ---
 
+## Demo
+
+> 🔗 **[Wypróbuj edytor na żywo →]([https://twoja-strona.com](https://rafalliszcz.pl/))**
+
+---
+
 ## Funkcjonalnosci
 
 ### Edytor 3D
@@ -154,12 +160,6 @@ Pierwsze uruchomienie moze potrwac kilka minut (pobieranie obrazow, budowanie fr
 ```
 http://localhost:8080
 ```
-
----
-
-## Demo
-
-> **Wkrotce** — planowane jest udostepnienie wersji demo online (bez rejestracji i zapisu projektow), umozliwiajacej przetestowanie edytora 3D bezposrednio w przegladarce.
 
 ---
 
